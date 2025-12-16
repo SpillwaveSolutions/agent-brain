@@ -1,0 +1,268 @@
+"""Chroma vector store manager with thread-safe operations."""
+
+import asyncio
+import logging
+from pathlib import Path
+from typing import List, Optional, Dict, Any
+from dataclasses import dataclass
+
+import chromadb
+from chromadb.config import Settings as ChromaSettings
+
+from ..config import settings
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class SearchResult:
+    """Result from a similarity search."""
+
+    text: str
+    metadata: Dict[str, Any]
+    score: float
+    chunk_id: str
+
+
+class VectorStoreManager:
+    """
+    Manages Chroma vector store operations with thread-safe access.
+
+    This class provides a high-level interface for storing and retrieving
+    document embeddings using Chroma as the backend.
+    """
+
+    def __init__(
+        self,
+        persist_dir: Optional[str] = None,
+        collection_name: Optional[str] = None,
+    ):
+        """
+        Initialize the vector store manager.
+
+        Args:
+            persist_dir: Directory for persistent storage. Defaults to config value.
+            collection_name: Name of the collection. Defaults to config value.
+        """
+        self.persist_dir = persist_dir or settings.CHROMA_PERSIST_DIR
+        self.collection_name = collection_name or settings.COLLECTION_NAME
+        self._client: Optional[chromadb.PersistentClient] = None
+        self._collection: Optional[chromadb.Collection] = None
+        self._lock = asyncio.Lock()
+        self._initialized = False
+
+    @property
+    def is_initialized(self) -> bool:
+        """Check if the vector store is initialized."""
+        return self._initialized and self._collection is not None
+
+    async def initialize(self) -> None:
+        """
+        Initialize the Chroma client and collection.
+
+        Creates the persistence directory if it doesn't exist and
+        initializes or loads the existing collection.
+        """
+        async with self._lock:
+            if self._initialized:
+                return
+
+            # Ensure persistence directory exists
+            persist_path = Path(self.persist_dir)
+            persist_path.mkdir(parents=True, exist_ok=True)
+
+            # Initialize Chroma client
+            self._client = chromadb.PersistentClient(
+                path=str(persist_path),
+                settings=ChromaSettings(
+                    anonymized_telemetry=False,
+                    allow_reset=True,
+                ),
+            )
+
+            # Get or create collection
+            self._collection = self._client.get_or_create_collection(
+                name=self.collection_name,
+                metadata={"hnsw:space": "cosine"},
+            )
+
+            self._initialized = True
+            logger.info(
+                f"Vector store initialized: {self.collection_name} "
+                f"({self._collection.count()} existing documents)"
+            )
+
+    async def add_documents(
+        self,
+        ids: List[str],
+        embeddings: List[List[float]],
+        documents: List[str],
+        metadatas: Optional[List[Dict[str, Any]]] = None,
+    ) -> int:
+        """
+        Add documents with embeddings to the vector store.
+
+        Args:
+            ids: Unique identifiers for each document.
+            embeddings: Embedding vectors for each document.
+            documents: Text content of each document.
+            metadatas: Optional metadata for each document.
+
+        Returns:
+            Number of documents added.
+
+        Raises:
+            RuntimeError: If the store is not initialized.
+            ValueError: If input lengths don't match.
+        """
+        if not self.is_initialized:
+            raise RuntimeError("Vector store not initialized. Call initialize() first.")
+
+        if not (len(ids) == len(embeddings) == len(documents)):
+            raise ValueError("ids, embeddings, and documents must have the same length")
+
+        if metadatas and len(metadatas) != len(ids):
+            raise ValueError("metadatas must have the same length as ids")
+
+        async with self._lock:
+            self._collection.add(
+                ids=ids,
+                embeddings=embeddings,
+                documents=documents,
+                metadatas=metadatas or [{}] * len(ids),
+            )
+
+        logger.debug(f"Added {len(ids)} documents to vector store")
+        return len(ids)
+
+    async def similarity_search(
+        self,
+        query_embedding: List[float],
+        top_k: int = 5,
+        similarity_threshold: float = 0.0,
+        where: Optional[Dict[str, Any]] = None,
+    ) -> List[SearchResult]:
+        """
+        Perform similarity search on the vector store.
+
+        Args:
+            query_embedding: Embedding vector to search for.
+            top_k: Maximum number of results to return.
+            similarity_threshold: Minimum similarity score (0-1).
+            where: Optional metadata filter.
+
+        Returns:
+            List of SearchResult objects sorted by score descending.
+
+        Raises:
+            RuntimeError: If the store is not initialized.
+        """
+        if not self.is_initialized:
+            raise RuntimeError("Vector store not initialized. Call initialize() first.")
+
+        async with self._lock:
+            results = self._collection.query(
+                query_embeddings=[query_embedding],
+                n_results=top_k,
+                where=where,
+                include=["documents", "metadatas", "distances"],
+            )
+
+        # Convert Chroma results to SearchResult objects
+        search_results: List[SearchResult] = []
+
+        if results["ids"] and results["ids"][0]:
+            for idx, chunk_id in enumerate(results["ids"][0]):
+                # Chroma returns distances, convert to similarity (cosine)
+                distance = results["distances"][0][idx]
+                similarity = 1 - distance  # Cosine distance to similarity
+
+                if similarity >= similarity_threshold:
+                    search_results.append(
+                        SearchResult(
+                            text=results["documents"][0][idx],
+                            metadata=results["metadatas"][0][idx] or {},
+                            score=similarity,
+                            chunk_id=chunk_id,
+                        )
+                    )
+
+        # Sort by score descending
+        search_results.sort(key=lambda x: x.score, reverse=True)
+
+        logger.debug(
+            f"Similarity search returned {len(search_results)} results "
+            f"(threshold: {similarity_threshold})"
+        )
+        return search_results
+
+    async def get_count(self) -> int:
+        """
+        Get the total number of documents in the collection.
+
+        Returns:
+            Number of documents stored.
+        """
+        if not self.is_initialized:
+            return 0
+
+        async with self._lock:
+            return self._collection.count()
+
+    async def delete_collection(self) -> None:
+        """
+        Delete the entire collection.
+
+        Warning: This permanently removes all stored documents and embeddings.
+        """
+        if not self._client:
+            return
+
+        async with self._lock:
+            try:
+                self._client.delete_collection(self.collection_name)
+                self._collection = None
+                self._initialized = False
+                logger.warning(f"Deleted collection: {self.collection_name}")
+            except Exception as e:
+                logger.error(f"Failed to delete collection: {e}")
+                raise
+
+    async def reset(self) -> None:
+        """
+        Reset the vector store by deleting and recreating the collection.
+        """
+        await self.delete_collection()
+        self._initialized = False
+        await self.initialize()
+
+    async def close(self) -> None:
+        """
+        Close the vector store connection.
+
+        Should be called during application shutdown.
+        """
+        async with self._lock:
+            self._collection = None
+            self._client = None
+            self._initialized = False
+            logger.info("Vector store connection closed")
+
+
+# Global singleton instance
+_vector_store: Optional[VectorStoreManager] = None
+
+
+def get_vector_store() -> VectorStoreManager:
+    """Get the global vector store instance."""
+    global _vector_store
+    if _vector_store is None:
+        _vector_store = VectorStoreManager()
+    return _vector_store
+
+
+async def initialize_vector_store() -> VectorStoreManager:
+    """Initialize and return the global vector store instance."""
+    store = get_vector_store()
+    await store.initialize()
+    return store

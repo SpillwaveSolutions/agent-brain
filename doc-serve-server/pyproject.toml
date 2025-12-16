@@ -1,0 +1,55 @@
+[tool.poetry]
+name = "doc-serve-server"
+version = "1.0.0"
+description = "RAG-based document indexing and query REST API service"
+authors = ["Spillwave Team"]
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+fastapi = "^0.115.0"
+uvicorn = {extras = ["standard"], version = "^0.32.0"}
+llama-index-core = "^0.12.0"
+llama-index-readers-file = "^0.4.0"
+llama-index-embeddings-openai = "^0.3.0"
+chromadb = "^0.5.0"
+openai = "^1.57.0"
+anthropic = "^0.40.0"
+tiktoken = "^0.8.0"
+pydantic = "^2.10.0"
+pydantic-settings = "^2.6.0"
+python-dotenv = "^1.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.0"
+pytest-asyncio = "^0.24.0"
+pytest-cov = "^6.0.0"
+httpx = "^0.28.0"
+black = "^24.10.0"
+ruff = "^0.8.0"
+mypy = "^1.13.0"
+
+[tool.poetry.scripts]
+doc-serve = "src.api.main:run"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
