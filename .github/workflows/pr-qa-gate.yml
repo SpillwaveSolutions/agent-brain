@@ -64,27 +64,16 @@ jobs:
         run: task typecheck
 
       - name: Run tests with coverage (Server)
-        working-directory: doc-serve-server
-        run: |
-          poetry run pytest tests/ \
-            --cov=doc_serve_server \
-            --cov-report=term-missing \
-            --cov-report=xml:coverage-server.xml \
-            --cov-fail-under=50
+        run: task server:pr-qa-gate
 
       - name: Run tests with coverage (CLI)
-        working-directory: doc-svr-ctl
-        run: |
-          poetry run pytest tests/ \
-            --cov=doc_svr_ctl \
-            --cov-report=term-missing \
-            --cov-report=xml:coverage-cli.xml \
-            --cov-fail-under=50
+        run: task cli:pr-qa-gate
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v4
         if: always()
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: doc-serve-server/coverage-server.xml,doc-svr-ctl/coverage-cli.xml
           fail_ci_if_error: false
           verbose: true

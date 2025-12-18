@@ -106,7 +106,7 @@ doc-serve/
 ├── Taskfile.yml          # Root task runner
 ├── doc-serve-server/     # FastAPI server
 │   ├── Taskfile.yml
-│   └── src/
+│   └── doc_serve_server/
 │       ├── api/          # REST endpoints
 │       ├── config/       # Settings management
 │       ├── indexing/     # Document processing
@@ -115,7 +115,7 @@ doc-serve/
 │       └── storage/      # Vector store
 ├── doc-svr-ctl/          # CLI tool
 │   ├── Taskfile.yml
-│   └── src/
+│   └── doc_svr_ctl/
 │       ├── client/       # API client
 │       └── commands/     # CLI commands
 ├── doc-serve-skill/      # Claude skill

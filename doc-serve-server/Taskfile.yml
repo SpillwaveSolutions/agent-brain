@@ -166,4 +166,4 @@ tasks:
   pr-qa-gate:
     desc: PR quality gate with 50% coverage minimum
     cmds:
-      - poetry run pytest {{.TEST_DIR}} --cov={{.SRC_DIR}} --cov-report=term-missing --cov-fail-under=50
+      - poetry run pytest {{.TEST_DIR}} --cov={{.SRC_DIR}} --cov-report=term-missing --cov-report=xml:coverage-server.xml --cov-fail-under=50

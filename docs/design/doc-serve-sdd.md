@@ -285,7 +285,7 @@ doc-serve/
 │   ├── design/                    # Design documents
 │   └── requirements/              # Requirements
 ├── doc-serve-server/              # FastAPI server component
-│   ├── src/
+│   ├── doc_serve_server/
 │   │   ├── api/                   # REST API endpoints
 │   │   ├── services/              # Business logic
 │   │   ├── models/                # Data models
@@ -295,7 +295,7 @@ doc-serve/
 │   ├── pyproject.toml             # Poetry dependencies
 │   └── README.md
 ├── doc-svr-ctl/                   # CLI component
-│   ├── src/
+│   ├── doc_serve_server/
 │   │   ├── commands/              # CLI commands
 │   │   └── client/                # HTTP client
 │   ├── tests/
