@@ -1,0 +1,90 @@
+# PR Quality Assurance Gate
+# Runs on all pull requests to ensure code quality and test coverage
+#
+# Security: This workflow does not use any untrusted inputs in shell commands.
+# All dynamic values (runner.os, hashFiles) are safe GitHub context values.
+
+name: PR QA Gate
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+jobs:
+  qa-gate:
+    name: Quality Assurance Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.7.1
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Cache Poetry dependencies (server)
+        uses: actions/cache@v4
+        with:
+          path: doc-serve-server/.venv
+          key: server-venv-${{ runner.os }}-${{ hashFiles('doc-serve-server/poetry.lock') }}
+          restore-keys: |
+            server-venv-${{ runner.os }}-
+
+      - name: Cache Poetry dependencies (cli)
+        uses: actions/cache@v4
+        with:
+          path: doc-svr-ctl/.venv
+          key: cli-venv-${{ runner.os }}-${{ hashFiles('doc-svr-ctl/poetry.lock') }}
+          restore-keys: |
+            cli-venv-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: task install
+
+      - name: Run linting
+        run: task lint
+
+      - name: Run type checking
+        run: task typecheck
+
+      - name: Run tests with coverage (Server)
+        working-directory: doc-serve-server
+        run: |
+          poetry run pytest tests/ \
+            --cov=src \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage-server.xml \
+            --cov-fail-under=50
+
+      - name: Run tests with coverage (CLI)
+        working-directory: doc-svr-ctl
+        run: |
+          poetry run pytest tests/ \
+            --cov=src \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage-cli.xml \
+            --cov-fail-under=50
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: doc-serve-server/coverage-server.xml,doc-svr-ctl/coverage-cli.xml
+          fail_ci_if_error: false
+          verbose: true

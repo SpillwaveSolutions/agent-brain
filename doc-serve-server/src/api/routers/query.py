@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException, status
 
 from ...models import QueryRequest, QueryResponse
-from ...services import get_query_service, get_indexing_service
+from ...services import get_indexing_service, get_query_service
 
 router = APIRouter()
 
@@ -65,7 +65,7 @@ async def query_documents(request: QueryRequest) -> QueryResponse:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Query failed: {str(e)}",
-        )
+        ) from e
 
     return response
 
@@ -75,7 +75,7 @@ async def query_documents(request: QueryRequest) -> QueryResponse:
     summary="Document Count",
     description="Get the total number of indexed document chunks.",
 )
-async def get_document_count() -> dict:
+async def get_document_count() -> dict[str, int | bool]:
     """
     Get the total number of indexed document chunks.
 

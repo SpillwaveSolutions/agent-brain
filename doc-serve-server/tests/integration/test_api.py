@@ -1,13 +1,13 @@
 """Integration tests for API endpoints."""
 
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 from dataclasses import dataclass
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 @dataclass
 class MockSearchResult:
     """Mock search result for testing."""
+
     text: str
     metadata: dict
     score: float
@@ -63,8 +63,11 @@ class TestIndexEndpoints:
         """Test successful document indexing request."""
         mock_vector_store.is_initialized = True
 
-        with patch("src.services.indexing_service.IndexingService.start_indexing",
-                   new_callable=AsyncMock, return_value="job_test123"):
+        with patch(
+            "src.services.indexing_service.IndexingService.start_indexing",
+            new_callable=AsyncMock,
+            return_value="job_test123",
+        ):
             response = client.post(
                 "/index/",
                 json={
@@ -91,8 +94,10 @@ class TestIndexEndpoints:
 
     def test_index_documents_conflict_when_indexing(self, client, temp_docs_dir):
         """Test indexing conflict when already in progress."""
-        with patch("src.services.indexing_service.IndexingService.is_indexing",
-                   new_callable=lambda: property(lambda self: True)):
+        with patch(
+            "src.services.indexing_service.IndexingService.is_indexing",
+            new_callable=lambda: property(lambda self: True),
+        ):
             with patch("src.services.get_indexing_service") as mock_get_service:
                 mock_service = MagicMock()
                 mock_service.is_indexing = True
@@ -110,8 +115,11 @@ class TestIndexEndpoints:
         """Test adding documents to existing index."""
         mock_vector_store.is_initialized = True
 
-        with patch("src.services.indexing_service.IndexingService.start_indexing",
-                   new_callable=AsyncMock, return_value="job_add123"):
+        with patch(
+            "src.services.indexing_service.IndexingService.start_indexing",
+            new_callable=AsyncMock,
+            return_value="job_add123",
+        ):
             with patch("src.services.get_indexing_service") as mock_get_service:
                 mock_service = MagicMock()
                 mock_service.is_indexing = False
@@ -158,7 +166,9 @@ class TestIndexEndpoints:
 class TestQueryEndpoints:
     """Tests for query endpoints."""
 
-    def test_query_documents_success(self, client, mock_vector_store, mock_embedding_generator):
+    def test_query_documents_success(
+        self, client, mock_vector_store, mock_embedding_generator
+    ):
         """Test successful document query."""
         mock_vector_store.is_initialized = True
 
@@ -170,21 +180,27 @@ class TestQueryEndpoints:
         )
         mock_vector_store.similarity_search = AsyncMock(return_value=[mock_result])
 
-        with patch("src.services.get_query_service") as mock_get_service, \
-             patch("src.services.get_indexing_service") as mock_get_idx:
+        with (
+            patch("src.services.get_query_service") as mock_get_service,
+            patch("src.services.get_indexing_service") as mock_get_idx,
+        ):
             mock_service = MagicMock()
             mock_service.is_ready.return_value = True
-            mock_service.execute_query = AsyncMock(return_value=MagicMock(
-                results=[MagicMock(
-                    text="Sample result",
-                    source="docs/test.md",
-                    score=0.92,
-                    chunk_id="chunk_abc",
-                    metadata={},
-                )],
-                query_time_ms=50.0,
-                total_results=1,
-            ))
+            mock_service.execute_query = AsyncMock(
+                return_value=MagicMock(
+                    results=[
+                        MagicMock(
+                            text="Sample result",
+                            source="docs/test.md",
+                            score=0.92,
+                            chunk_id="chunk_abc",
+                            metadata={},
+                        )
+                    ],
+                    query_time_ms=50.0,
+                    total_results=1,
+                )
+            )
             mock_get_service.return_value = mock_service
 
             mock_idx_service = MagicMock()
@@ -222,15 +238,19 @@ class TestQueryEndpoints:
         # This test verifies the endpoint accepts valid requests.
         mock_vector_store.is_initialized = True
 
-        with patch("src.services.get_query_service") as mock_get_service, \
-             patch("src.services.get_indexing_service") as mock_get_idx:
+        with (
+            patch("src.services.get_query_service") as mock_get_service,
+            patch("src.services.get_indexing_service") as mock_get_idx,
+        ):
             mock_service = MagicMock()
             mock_service.is_ready.return_value = True
-            mock_service.execute_query = AsyncMock(return_value=MagicMock(
-                results=[],
-                query_time_ms=10.0,
-                total_results=0,
-            ))
+            mock_service.execute_query = AsyncMock(
+                return_value=MagicMock(
+                    results=[],
+                    query_time_ms=10.0,
+                    total_results=0,
+                )
+            )
             mock_get_service.return_value = mock_service
 
             mock_idx_service = MagicMock()
@@ -248,15 +268,19 @@ class TestQueryEndpoints:
         """Test query returns empty results when no documents match."""
         mock_vector_store.is_initialized = True
 
-        with patch("src.services.get_query_service") as mock_get_service, \
-             patch("src.services.get_indexing_service") as mock_get_idx:
+        with (
+            patch("src.services.get_query_service") as mock_get_service,
+            patch("src.services.get_indexing_service") as mock_get_idx,
+        ):
             mock_service = MagicMock()
             mock_service.is_ready.return_value = True
-            mock_service.execute_query = AsyncMock(return_value=MagicMock(
-                results=[],
-                query_time_ms=5.0,
-                total_results=0,
-            ))
+            mock_service.execute_query = AsyncMock(
+                return_value=MagicMock(
+                    results=[],
+                    query_time_ms=5.0,
+                    total_results=0,
+                )
+            )
             mock_get_service.return_value = mock_service
 
             mock_idx_service = MagicMock()

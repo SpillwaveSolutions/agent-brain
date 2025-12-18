@@ -1,0 +1,235 @@
+# Doc-Serve Monorepo Task Runner
+# https://taskfile.dev
+#
+# Usage:
+#   task --list          # List all available tasks
+#   task install         # Install all packages
+#   task build           # Build all packages
+#   task test            # Run all tests
+#   task before-push     # Run before pushing/PR
+
+version: '3'
+
+dotenv:
+  - doc-serve-server/.env
+  - doc-serve-server/.env.local
+
+vars:
+  SERVER_DIR: doc-serve-server
+  CLI_DIR: doc-svr-ctl
+
+includes:
+  server:
+    taskfile: ./doc-serve-server/Taskfile.yml
+    dir: ./doc-serve-server
+  cli:
+    taskfile: ./doc-svr-ctl/Taskfile.yml
+    dir: ./doc-svr-ctl
+
+tasks:
+  default:
+    desc: List all available tasks
+    cmds:
+      - task --list
+
+  # ===================
+  # Setup & Installation
+  # ===================
+
+  install:
+    desc: Install all package dependencies
+    cmds:
+      - task: server:install
+      - task: cli:install
+
+  install:server:
+    desc: Install server dependencies only
+    cmds:
+      - task: server:install
+
+  install:cli:
+    desc: Install CLI dependencies only
+    cmds:
+      - task: cli:install
+
+  # ===================
+  # Development
+  # ===================
+
+  dev:
+    desc: Start development server with hot reload
+    cmds:
+      - task: server:dev
+
+  run:
+    desc: Start production server
+    cmds:
+      - task: server:run
+
+  # ===================
+  # Build & Package
+  # ===================
+
+  build:
+    desc: Build all packages
+    cmds:
+      - task: server:build
+      - task: cli:build
+
+  package:
+    desc: Create distributable packages
+    cmds:
+      - task: server:package
+      - task: cli:package
+
+  clean:
+    desc: Clean all build artifacts
+    cmds:
+      - task: server:clean
+      - task: cli:clean
+      - rm -rf .pytest_cache .mypy_cache .ruff_cache
+
+  # ===================
+  # Testing
+  # ===================
+
+  test:
+    desc: Run all tests
+    cmds:
+      - task: server:test
+      - task: cli:test
+
+  test:server:
+    desc: Run server tests only
+    cmds:
+      - task: server:test
+
+  test:cli:
+    desc: Run CLI tests only
+    cmds:
+      - task: cli:test
+
+  test:cov:
+    desc: Run tests with coverage report
+    aliases: [coverage]
+    cmds:
+      - task: server:test:cov
+      - task: cli:test:cov
+
+  # ===================
+  # Code Quality
+  # ===================
+
+  format:
+    desc: Format all code with Black
+    cmds:
+      - task: server:format
+      - task: cli:format
+
+  lint:
+    desc: Lint all code with Ruff
+    cmds:
+      - task: server:lint
+      - task: cli:lint
+
+  lint:fix:
+    desc: Lint and auto-fix issues
+    cmds:
+      - task: server:lint:fix
+      - task: cli:lint:fix
+
+  typecheck:
+    desc: Type check all code with mypy
+    aliases: [mypy]
+    cmds:
+      - task: server:typecheck
+      - task: cli:typecheck
+
+  vet:
+    desc: Perform all static analysis
+    cmds:
+      - task: lint
+      - task: typecheck
+
+  check:
+    desc: Quick check (lint + typecheck, no tests)
+    cmds:
+      - task: lint
+      - task: typecheck
+
+  # ===================
+  # Pre-Push Workflow
+  # ===================
+
+  before-push:
+    desc: Run all checks before pushing (format, lint, typecheck, test)
+    cmds:
+      - echo "--- Formatting code ---"
+      - task: format
+      - echo "--- Linting code ---"
+      - task: lint
+      - echo "--- Type checking ---"
+      - task: typecheck
+      - echo "--- Running tests with coverage ---"
+      - task: test:cov
+      - echo "--- All checks passed - Ready to push ---"
+
+  ci:
+    desc: Simulate full CI pipeline locally
+    cmds:
+      - task: clean
+      - task: install
+      - task: lint
+      - task: typecheck
+      - task: test:cov
+      - task: build
+
+  pr-qa-gate:
+    desc: PR quality gate - lint, typecheck, test with 50% coverage minimum
+    cmds:
+      - echo "--- Running PR QA Gate ---"
+      - task: lint
+      - task: typecheck
+      - task: server:pr-qa-gate
+      - task: cli:pr-qa-gate
+      - echo "--- PR QA Gate Passed ---"
+
+  # ===================
+  # Documentation
+  # ===================
+
+  docs:
+    desc: Open API documentation in browser
+    cmds:
+      - open http://127.0.0.1:8000/docs || xdg-open http://127.0.0.1:8000/docs
+
+  # ===================
+  # CLI Commands (convenience wrappers)
+  # ===================
+
+  status:
+    desc: Check server status via CLI (usage - task status -- --json)
+    dir: ./{{.CLI_DIR}}
+    cmds:
+      - poetry run doc-svr-ctl status {{.CLI_ARGS}}
+
+  query:
+    desc: Query documents (usage - task query -- "your query")
+    dir: ./{{.CLI_DIR}}
+    cmds:
+      - poetry run doc-svr-ctl query {{.CLI_ARGS}}
+
+  index:
+    desc: Index documents (usage - task index -- ./path/to/docs)
+    vars:
+      ABS_PATH:
+        sh: 'echo "{{.CLI_ARGS}}" | head -1 | xargs -I{} realpath "{}" 2>/dev/null || echo "{{.CLI_ARGS}}"'
+    dir: ./{{.CLI_DIR}}
+    cmds:
+      - poetry run doc-svr-ctl index {{.ABS_PATH}}
+
+  reset:
+    desc: Reset the index (usage - task reset -- --yes)
+    dir: ./{{.CLI_DIR}}
+    cmds:
+      - poetry run doc-svr-ctl reset {{.CLI_ARGS}}

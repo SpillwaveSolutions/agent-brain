@@ -2,10 +2,10 @@
 
 import logging
 import time
-from typing import Optional, List
+from typing import Optional
 
-from ..models import QueryRequest, QueryResponse, QueryResult
 from ..indexing import EmbeddingGenerator, get_embedding_generator
+from ..models import QueryRequest, QueryResponse, QueryResult
 from ..storage import VectorStoreManager, get_vector_store
 
 logger = logging.getLogger(__name__)
@@ -58,8 +58,7 @@ class QueryService:
         """
         if not self.is_ready():
             raise RuntimeError(
-                "Query service not ready. "
-                "Please wait for indexing to complete."
+                "Query service not ready. " "Please wait for indexing to complete."
             )
 
         start_time = time.time()
@@ -75,14 +74,17 @@ class QueryService:
         )
 
         # Convert to response format
-        results: List[QueryResult] = [
+        results: list[QueryResult] = [
             QueryResult(
                 text=result.text,
-                source=result.metadata.get("source", result.metadata.get("file_path", "unknown")),
+                source=result.metadata.get(
+                    "source", result.metadata.get("file_path", "unknown")
+                ),
                 score=result.score,
                 chunk_id=result.chunk_id,
                 metadata={
-                    k: v for k, v in result.metadata.items()
+                    k: v
+                    for k, v in result.metadata.items()
                     if k not in ("source", "file_path")
                 },
             )

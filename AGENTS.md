@@ -122,12 +122,15 @@ doc-serve/
 
 ### Server (doc-serve-server/.env)
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `OPENAI_API_KEY` | Yes | OpenAI API key |
-| `API_HOST` | No | Server host (default: 127.0.0.1) |
-| `API_PORT` | No | Server port (default: 8000) |
-| `DEBUG` | No | Debug mode (default: false) |
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `OPENAI_API_KEY` | Yes | - | OpenAI API key for embeddings |
+| `ANTHROPIC_API_KEY` | Yes | - | Anthropic API key for summarization |
+| `EMBEDDING_MODEL` | No | `text-embedding-3-large` | OpenAI embedding model |
+| `CLAUDE_MODEL` | No | `claude-3-5-haiku-20241022` | Claude summarization model |
+| `API_HOST` | No | `127.0.0.1` | Server host |
+| `API_PORT` | No | `8000` | Server port |
+| `DEBUG` | No | `false` | Debug mode |
 
 ### CLI
 
@@ -151,17 +154,38 @@ doc-serve/
 
 ## Quality Assurance
 
-After making code changes:
-1. Run tests: `poetry run pytest`
-2. Check types: `poetry run mypy src`
-3. Lint: `poetry run ruff check src`
-4. Format: `poetry run black src`
+After making code changes, run:
+
+```bash
+task before-push
+```
+
+This runs format, lint, typecheck, and tests with coverage.
+
+**MANDATORY**: You MUST run `task pr-qa-gate` before checking in or pushing any changes. You should also run `task pr-qa-gate` whenever checking project status or SDD status.
 
 ## Git Workflow
 
 - Use conventional commits: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`
 - Create feature branches from main
-- Run all quality checks before committing
+- **MANDATORY**: Run `task before-push` before pushing to any branch
+- PRs will fail CI if code coverage is below 50%
+
+## Pre-Push Requirement
+
+**IMPORTANT**: Before pushing any changes to a branch, you MUST run:
+
+```bash
+task before-push
+```
+
+This is a mandatory step that ensures:
+1. Code is properly formatted (Black)
+2. No linting errors (Ruff)
+3. Type checking passes (mypy)
+4. All tests pass with coverage report
+
+Do NOT push code that fails `task before-push`.
 
 ## Agent-Specific Notes
 
@@ -173,7 +197,7 @@ After making code changes:
 ### Testing Requirements
 - All new code must have corresponding tests
 - Run the full test suite before committing
-- Maintain or improve code coverage
+- Maintain or improve code coverage (minimum 50%)
 
 ### Key Files to Understand
 - `doc-serve-server/src/api/main.py` - Server entry point

@@ -1,15 +1,19 @@
 """FastAPI application entry point."""
 
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Optional
 
+import click
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import health_router, index_router, query_router
+from .. import __version__
 from ..config import settings
 from ..storage import initialize_vector_store
+from .routers import health_router, index_router, query_router
 
 # Configure logging
 logging.basicConfig(
@@ -20,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """
     Application lifespan manager.
 
@@ -71,7 +75,7 @@ app.include_router(query_router, prefix="/query", tags=["Querying"])
 
 
 @app.get("/", include_in_schema=False)
-async def root():
+async def root() -> dict[str, str]:
     """Root endpoint redirects to docs."""
     return {
         "name": "Doc-Serve API",
@@ -81,15 +85,66 @@ async def root():
     }
 
 
-def run():
-    """Run the server using uvicorn."""
+def run(
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+    reload: Optional[bool] = None,
+) -> None:
+    """Run the server using uvicorn.
+
+    Args:
+        host: Host to bind to (default: from settings)
+        port: Port to bind to (default: from settings)
+        reload: Enable auto-reload (default: from DEBUG setting)
+    """
     uvicorn.run(
         "src.api.main:app",
-        host=settings.API_HOST,
-        port=settings.API_PORT,
-        reload=settings.DEBUG,
+        host=host or settings.API_HOST,
+        port=port or settings.API_PORT,
+        reload=reload if reload is not None else settings.DEBUG,
     )
 
 
+@click.command()
+@click.version_option(version=__version__, prog_name="doc-serve")
+@click.option(
+    "--host",
+    "-h",
+    default=None,
+    help=f"Host to bind to (default: {settings.API_HOST})",
+)
+@click.option(
+    "--port",
+    "-p",
+    type=int,
+    default=None,
+    help=f"Port to bind to (default: {settings.API_PORT})",
+)
+@click.option(
+    "--reload/--no-reload",
+    default=None,
+    help=f"Enable auto-reload (default: {'enabled' if settings.DEBUG else 'disabled'})",
+)
+def cli(host: Optional[str], port: Optional[int], reload: Optional[bool]) -> None:
+    """Doc-Serve Server - RAG-based document indexing and semantic search API.
+
+    Start the FastAPI server for document indexing and querying.
+
+    \b
+    Examples:
+      doc-serve                      # Start with default settings
+      doc-serve --port 8080          # Start on port 8080
+      doc-serve --host 0.0.0.0       # Bind to all interfaces
+      doc-serve --reload             # Enable auto-reload
+
+    \b
+    Environment Variables:
+      API_HOST    Server host (default: 127.0.0.1)
+      API_PORT    Server port (default: 8000)
+      DEBUG       Enable debug mode (default: false)
+    """
+    run(host=host, port=port, reload=reload)
+
+
 if __name__ == "__main__":
-    run()
+    cli()

@@ -143,3 +143,39 @@ N/A - No API contracts for entry point configuration. The entry points invoke ex
 ## Next Steps
 
 Run `/speckit.tasks` to generate implementation tasks from this plan.
+
+---
+
+## V2 Update: Self-Documenting CLI (2025-12-16)
+
+### Problem Statement
+
+The `doc-serve` command does not support `--help` or `--version` flags. Running `doc-serve --help` starts the server instead of showing help. Both CLI tools should be self-documenting.
+
+### Implementation Approach
+
+1. **Create Click CLI for doc-serve**: Replace direct `run()` function call with Click-based CLI
+   - Add `--help` support (Click provides automatically)
+   - Add `--version` support
+   - Add configurable `--host`, `--port`, `--reload` options
+   - Default behavior (no args) starts the server as before
+
+2. **Update Entry Point**: Change `pyproject.toml` entry point from `src.api.main:run` to new CLI function
+
+3. **Add Tests**: Test `--help` and `--version` flags work correctly
+
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| `doc-serve-server/src/api/main.py` | Add Click CLI wrapper around `run()` |
+| `doc-serve-server/pyproject.toml` | Update entry point to new CLI function |
+| `doc-serve-server/tests/test_server_install.py` | Add tests for --help and --version |
+
+### Design Decision
+
+Use Click (same as doc-svr-ctl) for consistency across both CLI tools. This provides:
+- Automatic `--help` generation
+- `--version` decorator
+- Option parsing with type validation
+- Consistent UX across both tools

@@ -1,0 +1,164 @@
+# Doc-Serve Server Task Runner
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  PROJECT_NAME: doc-serve-server
+  SRC_DIR: src
+  TEST_DIR: tests
+
+env:
+  PYTHONPATH: './src:./tests'
+
+tasks:
+  default:
+    desc: List all available tasks
+    cmds:
+      - task --list
+
+  # ===================
+  # Setup
+  # ===================
+
+  install:
+    desc: Install project dependencies
+    cmds:
+      - poetry install
+
+  # ===================
+  # Development
+  # ===================
+
+  dev:
+    desc: Run server in development mode with hot reload
+    deps: [install]
+    env:
+      DEBUG: "true"
+    cmds:
+      - poetry run doc-serve
+
+  run:
+    desc: Run server in production mode
+    deps: [install]
+    env:
+      DEBUG: "false"
+    cmds:
+      - poetry run doc-serve
+
+  # ===================
+  # Build & Package
+  # ===================
+
+  clean:
+    desc: Remove build artifacts and temporary files
+    cmds:
+      - rm -rf dist build *.egg-info
+      - rm -rf .pytest_cache .mypy_cache .ruff_cache
+      - rm -rf htmlcov .coverage coverage.xml
+      - find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+
+  build:
+    desc: Build the package
+    deps: [clean]
+    cmds:
+      - poetry build
+
+  package:
+    desc: Create distributable package
+    deps: [build, test]
+    cmds:
+      - poetry build
+
+  # ===================
+  # Testing
+  # ===================
+
+  test:
+    desc: Run unit tests
+    deps: [install]
+    cmds:
+      - poetry run pytest {{.TEST_DIR}} -v
+
+  test:cov:
+    desc: Run tests with coverage report
+    aliases: [coverage]
+    deps: [install]
+    cmds:
+      - poetry run pytest {{.TEST_DIR}} --cov={{.SRC_DIR}} --cov-report=term-missing --cov-report=html
+
+  test:watch:
+    desc: Run tests in watch mode
+    deps: [install]
+    cmds:
+      - poetry run pytest-watch
+
+  # ===================
+  # Code Quality
+  # ===================
+
+  format:
+    desc: Auto-format code with Black
+    cmds:
+      - poetry run black {{.SRC_DIR}} {{.TEST_DIR}}
+
+  format:check:
+    desc: Check code formatting without changes
+    cmds:
+      - poetry run black --check {{.SRC_DIR}} {{.TEST_DIR}}
+
+  lint:
+    desc: Check code for style violations with Ruff
+    cmds:
+      - poetry run ruff check {{.SRC_DIR}} {{.TEST_DIR}}
+
+  lint:fix:
+    desc: Lint and auto-fix issues
+    cmds:
+      - poetry run ruff check --fix {{.SRC_DIR}} {{.TEST_DIR}}
+
+  typecheck:
+    desc: Type check with mypy
+    aliases: [mypy]
+    cmds:
+      - poetry run mypy {{.SRC_DIR}}
+
+  vet:
+    desc: Perform all static analysis (lint + typecheck)
+    cmds:
+      - task: lint
+      - task: typecheck
+
+  # ===================
+  # Combined Tasks
+  # ===================
+
+  check:
+    desc: Run all quality checks without tests
+    cmds:
+      - task: format:check
+      - task: lint
+      - task: typecheck
+
+  all:
+    desc: Format, lint, typecheck, and test
+    cmds:
+      - task: format
+      - task: lint
+      - task: typecheck
+      - task: test
+
+  ci:
+    desc: Simulate full CI pipeline locally
+    cmds:
+      - task: clean
+      - task: install
+      - task: lint
+      - task: typecheck
+      - task: test:cov
+      - task: build
+
+  pr-qa-gate:
+    desc: PR quality gate with 50% coverage minimum
+    cmds:
+      - poetry run pytest {{.TEST_DIR}} --cov={{.SRC_DIR}} --cov-report=term-missing --cov-fail-under=50

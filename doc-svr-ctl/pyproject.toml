@@ -4,7 +4,7 @@ version = "1.0.0"
 description = "Command-line interface for managing Doc-Serve server"
 authors = ["Spillwave Team"]
 readme = "README.md"
-packages = [{include = "src"}]
+packages = [{include = "doc_svr_ctl"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -15,12 +15,13 @@ rich = "^13.9.0"
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"
 pytest-asyncio = "^0.24.0"
+pytest-cov = "^6.0.0"
 black = "^24.10.0"
 ruff = "^0.8.0"
 mypy = "^1.13.0"
 
 [tool.poetry.scripts]
-doc-svr-ctl = "src.cli:cli"
+doc-svr-ctl = "doc_svr_ctl.cli:cli"
 
 [build-system]
 requires = ["poetry-core"]
@@ -38,3 +39,6 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "C4"]
 python_version = "3.10"
 strict = true
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

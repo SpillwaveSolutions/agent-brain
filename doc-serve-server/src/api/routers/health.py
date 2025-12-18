@@ -1,6 +1,7 @@
 """Health check endpoints."""
 
 from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter
 
@@ -32,6 +33,7 @@ async def health_check() -> HealthStatus:
     vector_store = get_vector_store()
 
     # Determine status
+    status: Literal["healthy", "indexing", "degraded", "unhealthy"]
     if indexing_service.is_indexing:
         status = "indexing"
         message = f"Indexing in progress: {indexing_service.state.folder_path}"
@@ -80,6 +82,10 @@ async def indexing_status() -> IndexingStatus:
         indexing_in_progress=status["is_indexing"],
         current_job_id=status["current_job_id"],
         progress_percent=status["progress_percent"],
-        last_indexed_at=datetime.fromisoformat(status["completed_at"]) if status["completed_at"] else None,
+        last_indexed_at=(
+            datetime.fromisoformat(status["completed_at"])
+            if status["completed_at"]
+            else None
+        ),
         indexed_folders=status["indexed_folders"],
     )

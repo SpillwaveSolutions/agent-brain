@@ -1,11 +1,11 @@
 """Document loading from various file formats using LlamaIndex."""
 
 import logging
-from pathlib import Path
-from typing import List, Set, Optional
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Optional
 
-from llama_index.core import SimpleDirectoryReader, Document
+from llama_index.core import Document, SimpleDirectoryReader
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class LoadedDocument:
     file_name: str
     file_path: str
     file_size: int
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class DocumentLoader:
@@ -29,11 +29,11 @@ class DocumentLoader:
     Supported formats: .txt, .md, .pdf, .docx, .html
     """
 
-    SUPPORTED_EXTENSIONS: Set[str] = {".txt", ".md", ".pdf", ".docx", ".html", ".rst"}
+    SUPPORTED_EXTENSIONS: set[str] = {".txt", ".md", ".pdf", ".docx", ".html", ".rst"}
 
     def __init__(
         self,
-        supported_extensions: Optional[Set[str]] = None,
+        supported_extensions: Optional[set[str]] = None,
     ):
         """
         Initialize the document loader.
@@ -48,7 +48,7 @@ class DocumentLoader:
         self,
         folder_path: str,
         recursive: bool = True,
-    ) -> List[LoadedDocument]:
+    ) -> list[LoadedDocument]:
         """
         Load all supported documents from a folder.
 
@@ -81,17 +81,19 @@ class DocumentLoader:
                 required_exts=list(self.extensions),
                 filename_as_id=True,
             )
-            llama_documents: List[Document] = reader.load_data()
+            llama_documents: list[Document] = reader.load_data()
         except Exception as e:
             logger.error(f"Failed to load documents: {e}")
             raise
 
         # Convert to our LoadedDocument format
-        loaded_docs: List[LoadedDocument] = []
+        loaded_docs: list[LoadedDocument] = []
 
         for doc in llama_documents:
             file_path = doc.metadata.get("file_path", "")
-            file_name = doc.metadata.get("file_name", Path(file_path).name if file_path else "unknown")
+            file_name = doc.metadata.get(
+                "file_name", Path(file_path).name if file_path else "unknown"
+            )
 
             # Get file size
             try:
@@ -166,7 +168,7 @@ class DocumentLoader:
         self,
         folder_path: str,
         recursive: bool = True,
-    ) -> List[Path]:
+    ) -> list[Path]:
         """
         Get list of supported files in a folder without loading them.
 
@@ -187,7 +189,4 @@ class DocumentLoader:
         else:
             files = list(path.glob("*"))
 
-        return [
-            f for f in files
-            if f.is_file() and f.suffix.lower() in self.extensions
-        ]
+        return [f for f in files if f.is_file() and f.suffix.lower() in self.extensions]

@@ -26,8 +26,10 @@ Doc-Serve is a monorepo containing three packages:
 ### Prerequisites
 
 - Python 3.10+
-- Poetry (dependency management)
+- [Poetry](https://python-poetry.org/docs/#installation) (dependency management)
+- [Task](https://taskfile.dev/installation/) (task runner)
 - OpenAI API key
+- Anthropic API key
 
 ### Installation
 
@@ -36,31 +38,35 @@ Doc-Serve is a monorepo containing three packages:
 git clone https://github.com/spillwave/doc-serve.git
 cd doc-serve
 
-# Install the server
-cd doc-serve-server
-poetry install
+# Install all dependencies
+task install
 
-# Install the CLI (optional, in another terminal)
-cd ../doc-svr-ctl
-poetry install
+# List available commands
+task --list
 ```
 
 ### Configuration
 
-Create a `.env` file in `doc-serve-server/`:
-
 ```bash
-OPENAI_API_KEY=your-openai-api-key
-API_HOST=127.0.0.1
-API_PORT=8000
-DEBUG=false
+# Copy the example environment file
+cp doc-serve-server/.env.example doc-serve-server/.env
+
+# Edit and add your API keys
+# OPENAI_API_KEY=sk-your-openai-key
+# ANTHROPIC_API_KEY=sk-ant-your-anthropic-key
 ```
 
-### Running the Server
+### Running
 
 ```bash
-cd doc-serve-server
-poetry run doc-serve
+# Start development server
+task dev
+
+# Check server status
+task status
+
+# Open API docs in browser
+task docs
 ```
 
 The server starts at `http://127.0.0.1:8000` with interactive docs at `/docs`.
@@ -69,23 +75,37 @@ The server starts at `http://127.0.0.1:8000` with interactive docs at `/docs`.
 
 ```bash
 # Check server status
-doc-svr-ctl status
+task status
 
 # Index documents
-doc-svr-ctl index /path/to/documents
+task index -- /path/to/documents
 
 # Query the index
-doc-svr-ctl query "how to configure authentication"
+task query -- "how to configure authentication"
 
 # Reset the index
-doc-svr-ctl reset --yes
+task reset
 ```
+
+## Task Commands
+
+All operations use [Task](https://taskfile.dev). Run `task --list` to see all available commands.
+
+| Command | Description |
+|---------|-------------|
+| `task install` | Install all dependencies |
+| `task dev` | Start development server |
+| `task test` | Run all tests |
+| `task before-push` | Run all checks before pushing |
+| `task build` | Build all packages |
 
 ## Architecture
 
 ```
 doc-serve/
+├── Taskfile.yml          # Root task runner
 ├── doc-serve-server/     # FastAPI server
+│   ├── Taskfile.yml
 │   └── src/
 │       ├── api/          # REST endpoints
 │       ├── config/       # Settings management
@@ -94,6 +114,7 @@ doc-serve/
 │       ├── services/     # Business logic
 │       └── storage/      # Vector store
 ├── doc-svr-ctl/          # CLI tool
+│   ├── Taskfile.yml
 │   └── src/
 │       ├── client/       # API client
 │       └── commands/     # CLI commands
@@ -124,17 +145,25 @@ doc-serve/
 
 ## Technology Stack
 
+- **Task Runner**: [Task](https://taskfile.dev)
 - **Server**: FastAPI + Uvicorn
 - **Vector Store**: ChromaDB
 - **Embeddings**: OpenAI text-embedding-3-large
+- **Summarization**: Claude Haiku
 - **Indexing**: LlamaIndex
 - **CLI**: Click + Rich
 - **Build System**: Poetry
 
+## Contributing
+
+See the [Developer Guide](docs/DEVELOPERS_GUIDE.md) for setup instructions.
+
+**Before pushing changes**, always run:
+
+```bash
+task before-push
+```
+
 ## License
 
 MIT License - see LICENSE file for details.
-
-## Contributing
-
-See the [Developer Guide](docs/DEVELOPERS_GUIDE.md) for setup instructions and contribution guidelines.

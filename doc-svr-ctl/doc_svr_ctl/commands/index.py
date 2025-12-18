@@ -1,11 +1,11 @@
 """Index command for triggering document indexing."""
 
-import click
 from pathlib import Path
+
+import click
 from rich.console import Console
 
-from ..client import DocServeClient, ConnectionError, ServerError
-
+from ..client import ConnectionError, DocServeClient, ServerError
 
 console = Console()
 
@@ -43,7 +43,7 @@ def index_command(
     chunk_overlap: int,
     no_recursive: bool,
     json_output: bool,
-):
+) -> None:
     """Index documents from a folder.
 
     FOLDER_PATH: Path to the folder containing documents to index.
@@ -62,6 +62,7 @@ def index_command(
 
             if json_output:
                 import json
+
                 output = {
                     "job_id": response.job_id,
                     "status": response.status,
@@ -71,28 +72,28 @@ def index_command(
                 click.echo(json.dumps(output, indent=2))
                 return
 
-            console.print(f"\n[green]Indexing started![/]\n")
+            console.print("\n[green]Indexing started![/]\n")
             console.print(f"[bold]Job ID:[/] {response.job_id}")
             console.print(f"[bold]Folder:[/] {folder}")
             console.print(f"[bold]Status:[/] {response.status}")
             if response.message:
                 console.print(f"[bold]Message:[/] {response.message}")
 
-            console.print(
-                f"\n[dim]Use 'doc-svr-ctl status' to monitor progress.[/]"
-            )
+            console.print("\n[dim]Use 'doc-svr-ctl status' to monitor progress.[/]")
 
     except ConnectionError as e:
         if json_output:
             import json
+
             click.echo(json.dumps({"error": str(e)}))
         else:
             console.print(f"[red]Connection Error:[/] {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
 
     except ServerError as e:
         if json_output:
             import json
+
             click.echo(json.dumps({"error": str(e), "detail": e.detail}))
         else:
             console.print(f"[red]Server Error ({e.status_code}):[/] {e.detail}")
@@ -101,4 +102,4 @@ def index_command(
                     "\n[dim]Indexing is already in progress. "
                     "Wait for it to complete or reset the index.[/]"
                 )
-        raise SystemExit(1)
+        raise SystemExit(1) from e

@@ -1,10 +1,11 @@
 """Tests for the API client."""
 
-import pytest
 from unittest.mock import MagicMock, patch
-import httpx
 
-from src.client import DocServeClient, ConnectionError, ServerError
+import httpx
+import pytest
+
+from doc_svr_ctl.client import ConnectionError, DocServeClient, ServerError
 
 
 class TestDocServeClient:

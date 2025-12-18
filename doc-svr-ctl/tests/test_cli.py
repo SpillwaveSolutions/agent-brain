@@ -1,11 +1,12 @@
 """Tests for CLI commands."""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 from click.testing import CliRunner
-from unittest.mock import patch, MagicMock
 
-from src.cli import cli
-from src.client import ConnectionError, ServerError
+from doc_svr_ctl.cli import cli
+from doc_svr_ctl.client import ConnectionError
 
 
 @pytest.fixture
@@ -35,7 +36,7 @@ class TestCLIHelp:
 class TestStatusCommand:
     """Tests for status command."""
 
-    @patch("src.commands.status.DocServeClient")
+    @patch("doc_svr_ctl.commands.status.DocServeClient")
     def test_status_healthy(self, mock_client_class, runner):
         """Test status command when server is healthy."""
         mock_client = MagicMock()
@@ -65,7 +66,7 @@ class TestStatusCommand:
         assert result.exit_code == 0
         assert "HEALTHY" in result.output or "healthy" in result.output.lower()
 
-    @patch("src.commands.status.DocServeClient")
+    @patch("doc_svr_ctl.commands.status.DocServeClient")
     def test_status_json_output(self, mock_client_class, runner):
         """Test status command with JSON output."""
         mock_client = MagicMock()
@@ -92,11 +93,12 @@ class TestStatusCommand:
 
         assert result.exit_code == 0
         import json
+
         output = json.loads(result.output)
         assert output["health"]["status"] == "healthy"
         assert output["indexing"]["total_documents"] == 50
 
-    @patch("src.commands.status.DocServeClient")
+    @patch("doc_svr_ctl.commands.status.DocServeClient")
     def test_status_connection_error(self, mock_client_class, runner):
         """Test status command when server unreachable."""
         mock_client = MagicMock()
@@ -114,7 +116,7 @@ class TestStatusCommand:
 class TestQueryCommand:
     """Tests for query command."""
 
-    @patch("src.commands.query.DocServeClient")
+    @patch("doc_svr_ctl.commands.query.DocServeClient")
     def test_query_with_results(self, mock_client_class, runner):
         """Test query command with results."""
         mock_client = MagicMock()
@@ -142,7 +144,7 @@ class TestQueryCommand:
         assert "Found 1 results" in result.output
         assert "docs/test.md" in result.output
 
-    @patch("src.commands.query.DocServeClient")
+    @patch("doc_svr_ctl.commands.query.DocServeClient")
     def test_query_no_results(self, mock_client_class, runner):
         """Test query command with no results."""
         mock_client = MagicMock()
@@ -162,7 +164,7 @@ class TestQueryCommand:
         assert result.exit_code == 0
         assert "No matching documents" in result.output
 
-    @patch("src.commands.query.DocServeClient")
+    @patch("doc_svr_ctl.commands.query.DocServeClient")
     def test_query_json_output(self, mock_client_class, runner):
         """Test query command with JSON output."""
         mock_client = MagicMock()
@@ -187,6 +189,7 @@ class TestQueryCommand:
 
         assert result.exit_code == 0
         import json
+
         output = json.loads(result.output)
         assert output["query"] == "test"
         assert output["total_results"] == 1
@@ -195,7 +198,7 @@ class TestQueryCommand:
 class TestIndexCommand:
     """Tests for index command."""
 
-    @patch("src.commands.index.DocServeClient")
+    @patch("doc_svr_ctl.commands.index.DocServeClient")
     def test_index_success(self, mock_client_class, runner, tmp_path):
         """Test index command success."""
         mock_client = MagicMock()
@@ -231,7 +234,7 @@ class TestIndexCommand:
 class TestResetCommand:
     """Tests for reset command."""
 
-    @patch("src.commands.reset.DocServeClient")
+    @patch("doc_svr_ctl.commands.reset.DocServeClient")
     def test_reset_with_yes_flag(self, mock_client_class, runner):
         """Test reset command with --yes flag."""
         mock_client = MagicMock()

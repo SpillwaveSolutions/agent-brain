@@ -1,28 +1,19 @@
 """Pytest configuration and fixtures for doc-serve-server tests."""
 
-import asyncio
 import os
 import tempfile
+from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
-from typing import AsyncGenerator, Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 # Set test environment variables before importing app
 os.environ["OPENAI_API_KEY"] = "test-key"
 os.environ["ANTHROPIC_API_KEY"] = "test-key"
 os.environ["DEBUG"] = "true"
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create event loop for async tests."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
 
 
 @pytest.fixture
@@ -87,11 +78,20 @@ def mock_vector_store():
 @pytest.fixture
 def app_with_mocks(mock_vector_store, mock_embedding_generator):
     """Create FastAPI app with mocked dependencies."""
-    with patch("src.storage.get_vector_store", return_value=mock_vector_store), \
-         patch("src.storage.initialize_vector_store", new_callable=AsyncMock, return_value=mock_vector_store), \
-         patch("src.indexing.get_embedding_generator", return_value=mock_embedding_generator):
-
+    with (
+        patch("src.storage.get_vector_store", return_value=mock_vector_store),
+        patch(
+            "src.storage.initialize_vector_store",
+            new_callable=AsyncMock,
+            return_value=mock_vector_store,
+        ),
+        patch(
+            "src.indexing.get_embedding_generator",
+            return_value=mock_embedding_generator,
+        ),
+    ):
         from src.api.main import app
+
         yield app
 
 

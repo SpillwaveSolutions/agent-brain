@@ -2,7 +2,7 @@
 
 **Feature Branch**: `003-cli-entrypoints`
 **Created**: 2025-12-16
-**Status**: Draft
+**Status**: In Progress (v2 - Self-documenting CLI)
 **Input**: User description: "Create CLI entry points for doc-svr-ctl and doc-serve-server Python packages so they can be invoked directly from the command line after installation (pip install -e . or pip install). doc-svr-ctl should invoke the CLI defined in cli.py, and doc-serve-server should start the FastAPI server."
 
 ## User Scenarios & Testing *(mandatory)*
@@ -36,6 +36,8 @@ A developer wants to install the doc-serve-server package and start the FastAPI 
 1. **Given** a developer has cloned the repository, **When** they run `pip install -e ./doc-serve-server` from the project root, **Then** the `doc-serve` command becomes available in their terminal.
 2. **Given** doc-serve-server is installed, **When** the user runs `doc-serve`, **Then** the FastAPI server starts and listens on the configured host/port.
 3. **Given** doc-serve is running, **When** the user navigates to `http://localhost:8000/docs`, **Then** they see the Swagger UI documentation.
+4. **Given** doc-serve-server is installed, **When** the user runs `doc-serve --help`, **Then** usage information is displayed showing available options.
+5. **Given** doc-serve-server is installed, **When** the user runs `doc-serve --version`, **Then** the version number is displayed.
 
 ---
 
@@ -73,6 +75,9 @@ A developer using Poetry wants to install the packages using Poetry's workflow i
 - **FR-006**: Both commands MUST support Poetry installation method (`poetry install`).
 - **FR-007**: The `doc-svr-ctl` command MUST display version information when run with `--version` flag.
 - **FR-008**: The `doc-svr-ctl` command MUST display help information when run with `--help` flag.
+- **FR-009**: The `doc-serve` command MUST display help information when run with `--help` flag, showing available options (host, port, reload).
+- **FR-010**: The `doc-serve` command MUST display version information when run with `--version` flag.
+- **FR-011**: Both CLI tools MUST be self-documenting, providing clear usage information without requiring external documentation.
 
 ### Key Entities
 
@@ -89,6 +94,7 @@ A developer using Poetry wants to install the packages using Poetry's workflow i
 - **SC-003**: Both installation methods (pip and poetry) successfully register the commands on the system PATH.
 - **SC-004**: Users can install both packages in the same environment without conflicts.
 - **SC-005**: Commands remain functional across terminal sessions after installation (no re-activation required beyond standard virtualenv activation).
+- **SC-006**: After installation, `doc-serve --help` displays usage information within 1 second without starting the server.
 
 ## Assumptions
 

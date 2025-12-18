@@ -2,14 +2,15 @@
 
 import logging
 import uuid
-from typing import List, Optional
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from typing import Any, Optional
 
 import tiktoken
 from llama_index.core.node_parser import SentenceSplitter
 
-from .document_loader import LoadedDocument
 from ..config import settings
+from .document_loader import LoadedDocument
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ class TextChunk:
     chunk_index: int
     total_chunks: int
     token_count: int
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class ContextAwareChunker:
@@ -41,8 +42,8 @@ class ContextAwareChunker:
 
     def __init__(
         self,
-        chunk_size: int = None,
-        chunk_overlap: int = None,
+        chunk_size: Optional[int] = None,
+        chunk_overlap: Optional[int] = None,
         tokenizer_name: str = "cl100k_base",
     ):
         """
@@ -73,9 +74,9 @@ class ContextAwareChunker:
 
     async def chunk_documents(
         self,
-        documents: List[LoadedDocument],
-        progress_callback: Optional[callable] = None,
-    ) -> List[TextChunk]:
+        documents: list[LoadedDocument],
+        progress_callback: Optional[Callable[[int, int], Awaitable[None]]] = None,
+    ) -> list[TextChunk]:
         """
         Chunk multiple documents into smaller pieces.
 
@@ -86,7 +87,7 @@ class ContextAwareChunker:
         Returns:
             List of TextChunk objects with metadata.
         """
-        all_chunks: List[TextChunk] = []
+        all_chunks: list[TextChunk] = []
 
         for idx, doc in enumerate(documents):
             doc_chunks = await self.chunk_single_document(doc)
@@ -104,7 +105,7 @@ class ContextAwareChunker:
     async def chunk_single_document(
         self,
         document: LoadedDocument,
-    ) -> List[TextChunk]:
+    ) -> list[TextChunk]:
         """
         Chunk a single document.
 
@@ -122,7 +123,7 @@ class ContextAwareChunker:
         text_chunks = self.splitter.split_text(document.text)
 
         # Convert to our TextChunk format with metadata
-        chunks: List[TextChunk] = []
+        chunks: list[TextChunk] = []
         total_chunks = len(text_chunks)
 
         for idx, chunk_text in enumerate(text_chunks):
@@ -147,10 +148,10 @@ class ContextAwareChunker:
 
     async def rechunk_with_config(
         self,
-        documents: List[LoadedDocument],
+        documents: list[LoadedDocument],
         chunk_size: int,
         chunk_overlap: int,
-    ) -> List[TextChunk]:
+    ) -> list[TextChunk]:
         """
         Rechunk documents with different configuration.
 
@@ -169,7 +170,7 @@ class ContextAwareChunker:
         )
         return await chunker.chunk_documents(documents)
 
-    def get_chunk_stats(self, chunks: List[TextChunk]) -> dict:
+    def get_chunk_stats(self, chunks: list[TextChunk]) -> dict[str, Any]:
         """
         Get statistics about a list of chunks.
 
@@ -196,5 +197,5 @@ class ContextAwareChunker:
             "min_tokens": min(token_counts),
             "max_tokens": max(token_counts),
             "total_tokens": sum(token_counts),
-            "unique_sources": len(set(c.source for c in chunks)),
+            "unique_sources": len({c.source for c in chunks}),
         }

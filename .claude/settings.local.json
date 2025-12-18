@@ -8,7 +8,13 @@
       "Bash(.specify/scripts/bash/create-new-feature.sh:*)",
       "Bash(.specify/scripts/bash/setup-plan.sh:*)",
       "Bash(.specify/scripts/bash/update-agent-context.sh:*)",
-      "Bash(.specify/scripts/bash/check-prerequisites.sh:*)"
+      "Bash(.specify/scripts/bash/check-prerequisites.sh:*)",
+      "Bash(doc-svr-ctl:*)",
+      "Skill(taskfile)",
+      "Bash(doc-serve:*)",
+      "Bash(/Users/richardhightower/.pyenv/versions/3.11.9/bin/python3.11:*)",
+      "Bash(kill:*)",
+      "Bash(/Users/richardhightower/.pyenv/versions/3.11.9/bin/python -c \"from src.cli import cli; print(''OK'')\")"
     ]
   },
   "sandbox": {

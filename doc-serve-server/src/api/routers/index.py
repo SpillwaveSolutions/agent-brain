@@ -80,7 +80,7 @@ async def index_documents(request: IndexRequest) -> IndexResponse:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to start indexing: {str(e)}",
-        )
+        ) from e
 
     return IndexResponse(
         job_id=job_id,
@@ -144,7 +144,7 @@ async def add_documents(request: IndexRequest) -> IndexResponse:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to add documents: {str(e)}",
-        )
+        ) from e
 
     return IndexResponse(
         job_id=job_id,
@@ -185,7 +185,7 @@ async def reset_index() -> IndexResponse:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to reset index: {str(e)}",
-        )
+        ) from e
 
     return IndexResponse(
         job_id="reset",

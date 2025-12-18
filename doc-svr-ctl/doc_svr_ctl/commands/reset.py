@@ -4,8 +4,7 @@ import click
 from rich.console import Console
 from rich.prompt import Confirm
 
-from ..client import DocServeClient, ConnectionError, ServerError
-
+from ..client import ConnectionError, DocServeClient, ServerError
 
 console = Console()
 
@@ -18,12 +17,13 @@ console = Console()
     help="Doc-Serve server URL",
 )
 @click.option(
-    "--yes", "-y",
+    "--yes",
+    "-y",
     is_flag=True,
     help="Skip confirmation prompt",
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
-def reset_command(url: str, yes: bool, json_output: bool):
+def reset_command(url: str, yes: bool, json_output: bool) -> None:
     """Reset the index by deleting all indexed documents.
 
     WARNING: This permanently removes all indexed content.
@@ -43,6 +43,7 @@ def reset_command(url: str, yes: bool, json_output: bool):
 
             if json_output:
                 import json
+
                 output = {
                     "job_id": response.job_id,
                     "status": response.status,
@@ -51,21 +52,23 @@ def reset_command(url: str, yes: bool, json_output: bool):
                 click.echo(json.dumps(output, indent=2))
                 return
 
-            console.print(f"\n[green]Index reset successfully![/]")
+            console.print("\n[green]Index reset successfully![/]")
             if response.message:
                 console.print(f"[bold]Message:[/] {response.message}")
 
     except ConnectionError as e:
         if json_output:
             import json
+
             click.echo(json.dumps({"error": str(e)}))
         else:
             console.print(f"[red]Connection Error:[/] {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
 
     except ServerError as e:
         if json_output:
             import json
+
             click.echo(json.dumps({"error": str(e), "detail": e.detail}))
         else:
             console.print(f"[red]Server Error ({e.status_code}):[/] {e.detail}")
@@ -74,4 +77,4 @@ def reset_command(url: str, yes: bool, json_output: bool):
                     "\n[dim]Cannot reset while indexing is in progress. "
                     "Wait for indexing to complete first.[/]"
                 )
-        raise SystemExit(1)
+        raise SystemExit(1) from e

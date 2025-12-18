@@ -2,11 +2,10 @@
 
 import click
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
+from rich.table import Table
 
-from ..client import DocServeClient, ConnectionError, ServerError
-
+from ..client import ConnectionError, DocServeClient, ServerError
 
 console = Console()
 
@@ -19,7 +18,7 @@ console = Console()
     help="Doc-Serve server URL",
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
-def status_command(url: str, json_output: bool):
+def status_command(url: str, json_output: bool) -> None:
     """Check Doc-Serve server status and health."""
     try:
         with DocServeClient(base_url=url) as client:
@@ -28,6 +27,7 @@ def status_command(url: str, json_output: bool):
 
             if json_output:
                 import json
+
                 output = {
                     "health": {
                         "status": health.status,
@@ -58,7 +58,9 @@ def status_command(url: str, json_output: bool):
             if health.message:
                 status_text += f"\n{health.message}"
 
-            console.print(Panel(status_text, title="Server Status", border_style=status_color))
+            console.print(
+                Panel(status_text, title="Server Status", border_style=status_color)
+            )
 
             # Create info table
             table = Table(show_header=True, header_style="bold cyan")
@@ -71,8 +73,7 @@ def status_command(url: str, json_output: bool):
 
             if indexing.indexing_in_progress:
                 table.add_row(
-                    "Indexing Progress",
-                    f"[yellow]{indexing.progress_percent:.1f}%[/]"
+                    "Indexing Progress", f"[yellow]{indexing.progress_percent:.1f}%[/]"
                 )
                 if indexing.current_job_id:
                     table.add_row("Current Job", indexing.current_job_id)
@@ -83,8 +84,11 @@ def status_command(url: str, json_output: bool):
                 table.add_row(
                     "Indexed Folders",
                     "\n".join(indexing.indexed_folders[:5])
-                    + (f"\n... and {len(indexing.indexed_folders) - 5} more"
-                       if len(indexing.indexed_folders) > 5 else "")
+                    + (
+                        f"\n... and {len(indexing.indexed_folders) - 5} more"
+                        if len(indexing.indexed_folders) > 5
+                        else ""
+                    ),
                 )
 
             if indexing.last_indexed_at:
@@ -95,15 +99,17 @@ def status_command(url: str, json_output: bool):
     except ConnectionError as e:
         if json_output:
             import json
+
             click.echo(json.dumps({"error": str(e)}))
         else:
             console.print(f"[red]Connection Error:[/] {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
 
     except ServerError as e:
         if json_output:
             import json
+
             click.echo(json.dumps({"error": str(e), "detail": e.detail}))
         else:
             console.print(f"[red]Server Error ({e.status_code}):[/] {e.detail}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e

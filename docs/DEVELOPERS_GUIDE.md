@@ -1,97 +1,221 @@
 # Doc-Serve Developer Guide
 
-This guide covers setting up a development environment, running tests, and contributing to Doc-Serve.
+This guide covers setting up a development environment, understanding the architecture, and contributing to Doc-Serve.
 
 ## Table of Contents
 
-- [Development Setup](#development-setup)
+- [Architecture Overview](#architecture-overview)
+- [Quick Start](#quick-start)
+- [Task Commands](#task-commands)
 - [Project Structure](#project-structure)
-- [Building and Testing](#building-and-testing)
+- [Development Workflow](#development-workflow)
+- [Testing](#testing)
 - [Code Style](#code-style)
-- [Adding Features](#adding-features)
-- [Testing Guidelines](#testing-guidelines)
 - [Contributing](#contributing)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
-## Development Setup
+## Architecture Overview
+
+Doc-Serve is a RAG (Retrieval-Augmented Generation) system for semantic document search.
+
+```mermaid
+flowchart TB
+    subgraph Clients["Client Layer"]
+        CLI["doc-svr-ctl<br/>(Click CLI)"]
+        Skill["Claude Skill<br/>(REST Client)"]
+        API_Client["External Apps<br/>(HTTP/REST)"]
+    end
+
+    subgraph Server["doc-serve-server"]
+        subgraph API["REST API Layer"]
+            FastAPI["FastAPI<br/>/health, /query, /index"]
+        end
+
+        subgraph Services["Service Layer"]
+            IndexService["Indexing Service"]
+            QueryService["Query Service"]
+        end
+
+        subgraph Indexing["Document Processing"]
+            Loader["Document Loader<br/>(LlamaIndex)"]
+            Chunker["Context-Aware Chunking<br/>(RecursiveCharacterTextSplitter)"]
+            Embedder["Embedding Generator"]
+        end
+
+        subgraph AI["AI Models"]
+            OpenAI["OpenAI Embeddings<br/>(text-embedding-3-large)"]
+            Claude["Claude Haiku<br/>(Summarization)"]
+        end
+
+        subgraph Storage["Vector Storage"]
+            ChromaDB["ChromaDB<br/>(Vector Store)"]
+        end
+    end
+
+    subgraph Documents["Document Sources"]
+        MD["Markdown Files"]
+        TXT["Text Files"]
+        RST["RST Files"]
+    end
+
+    CLI -->|HTTP| FastAPI
+    Skill -->|HTTP| FastAPI
+    API_Client -->|HTTP| FastAPI
+
+    FastAPI --> IndexService
+    FastAPI --> QueryService
+
+    IndexService --> Loader
+    Loader --> Documents
+    Loader --> Chunker
+    Chunker --> Claude
+    Chunker --> Embedder
+    Embedder --> OpenAI
+    Embedder --> ChromaDB
+
+    QueryService --> Embedder
+    QueryService --> ChromaDB
+```
+
+### Component Responsibilities
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **FastAPI** | FastAPI + Uvicorn | REST API server with OpenAPI docs |
+| **Document Loader** | LlamaIndex | Load and parse document files |
+| **Chunker** | RecursiveCharacterTextSplitter | Split documents into semantic chunks |
+| **Embedder** | OpenAI API | Generate vector embeddings |
+| **Vector Store** | ChromaDB | Store and query embeddings |
+| **Summarizer** | Claude Haiku | Context-aware chunk summaries |
+| **CLI** | Click + Rich | Command-line interface |
+| **Skill** | HTTP Client | Claude Code integration |
+
+---
+
+## Quick Start
 
 ### Prerequisites
 
-- **Python 3.10+**: Required for type hints and modern features
-- **Poetry**: Dependency management (`pip install poetry`)
-- **Git**: Version control
-- **OpenAI API key**: For running integration tests
+- **Python 3.10+**
+- **Poetry** - `pip install poetry`
+- **Task** - [Install Task](https://taskfile.dev/installation/)
+- **OpenAI API key**
+- **Anthropic API key**
 
-### Clone and Setup
+### Installation
 
 ```bash
 # Clone the repository
 git clone https://github.com/spillwave/doc-serve.git
 cd doc-serve
 
-# Install server dependencies
-cd doc-serve-server
-poetry install
+# Install all dependencies
+task install
 
-# Install CLI dependencies
-cd ../doc-svr-ctl
-poetry install
-
-# Return to root
-cd ..
+# Verify installation
+task --list
 ```
 
-### Environment Configuration
-
-Create environment files for each package:
-
-#### doc-serve-server/.env
+### Configuration
 
 ```bash
-# Required
-OPENAI_API_KEY=sk-your-key-here
+# Copy the example environment file
+cp doc-serve-server/.env.example doc-serve-server/.env
 
-# Development settings
-API_HOST=127.0.0.1
-API_PORT=8000
-DEBUG=true
-
-# Indexing
-CHUNK_SIZE=512
-CHUNK_OVERLAP=50
-EMBEDDING_MODEL=text-embedding-3-large
+# Edit and add your API keys
+# OPENAI_API_KEY=sk-your-key
+# ANTHROPIC_API_KEY=sk-ant-your-key
 ```
 
-**Security Note**: Never commit `.env` files. They are excluded in `.gitignore`.
+### Running
 
-### IDE Setup
+```bash
+# Start development server
+task dev
 
-#### VS Code
+# Check server status
+task status
 
-Recommended extensions:
-- Python
-- Pylance
-- Ruff
-- Black Formatter
-
-`.vscode/settings.json`:
-```json
-{
-  "python.defaultInterpreterPath": ".venv/bin/python",
-  "python.formatting.provider": "black",
-  "editor.formatOnSave": true,
-  "[python]": {
-    "editor.defaultFormatter": "ms-python.black-formatter"
-  }
-}
+# Run all tests
+task test
 ```
 
-#### PyCharm
+---
 
-1. Set Python interpreter to Poetry environment
-2. Enable Black formatter
-3. Configure Ruff as external tool
+## Task Commands
+
+All development operations use [Task](https://taskfile.dev). Run `task --list` to see all available commands.
+
+### Essential Commands
+
+| Command | Description |
+|---------|-------------|
+| `task install` | Install all dependencies |
+| `task dev` | Start server in development mode |
+| `task test` | Run all tests |
+| `task before-push` | Run all checks before pushing |
+
+### Setup & Installation
+
+| Command | Description |
+|---------|-------------|
+| `task install` | Install all package dependencies |
+| `task install:server` | Install server dependencies only |
+| `task install:cli` | Install CLI dependencies only |
+
+### Development
+
+| Command | Description |
+|---------|-------------|
+| `task dev` | Start server with hot reload |
+| `task run` | Start production server |
+| `task status` | Check server status via CLI |
+
+### Building
+
+| Command | Description |
+|---------|-------------|
+| `task build` | Build all packages |
+| `task package` | Create distributable packages |
+| `task clean` | Remove all build artifacts |
+
+### Testing
+
+| Command | Description |
+|---------|-------------|
+| `task test` | Run all tests |
+| `task test:server` | Run server tests only |
+| `task test:cli` | Run CLI tests only |
+| `task test:cov` | Run tests with coverage report |
+
+### Code Quality
+
+| Command | Description |
+|---------|-------------|
+| `task format` | Auto-format code with Black |
+| `task lint` | Check code with Ruff |
+| `task lint:fix` | Fix linting issues automatically |
+| `task typecheck` | Type check with mypy |
+| `task check` | Quick check (lint + typecheck) |
+| `task vet` | Run all static analysis |
+
+### Pre-Push Workflow
+
+| Command | Description |
+|---------|-------------|
+| `task before-push` | Format, lint, typecheck, and test |
+| `task ci` | Simulate full CI pipeline |
+
+### CLI Operations
+
+| Command | Description |
+|---------|-------------|
+| `task status` | Check server status |
+| `task query -- "text"` | Search documents |
+| `task index -- /path` | Index documents |
+| `task reset` | Clear the index |
 
 ---
 
@@ -99,315 +223,169 @@ Recommended extensions:
 
 ```
 doc-serve/
-├── doc-serve-server/           # FastAPI REST server
-│   ├── src/
-│   │   ├── api/                # REST endpoints
-│   │   │   ├── main.py         # FastAPI app entry
-│   │   │   └── routers/        # Route handlers
-│   │   │       ├── health.py   # Health endpoints
-│   │   │       ├── index.py    # Indexing endpoints
-│   │   │       └── query.py    # Query endpoints
-│   │   ├── config/             # Configuration
-│   │   │   └── settings.py     # Pydantic settings
-│   │   ├── indexing/           # Document processing
-│   │   │   ├── chunking.py     # Text chunking
-│   │   │   ├── document_loader.py  # File loading
-│   │   │   └── embedding.py    # Embedding generation
-│   │   ├── models/             # Pydantic models
-│   │   │   ├── health.py       # Health response models
-│   │   │   ├── index.py        # Index request/response
-│   │   │   └── query.py        # Query request/response
-│   │   ├── services/           # Business logic
-│   │   │   ├── indexing_service.py
-│   │   │   └── query_service.py
-│   │   └── storage/            # Vector store
-│   │       └── vector_store.py # ChromaDB integration
-│   ├── tests/                  # Server tests
-│   └── pyproject.toml
+├── Taskfile.yml              # Root task runner (monorepo orchestration)
+├── CLAUDE.md                 # Claude Code instructions
+├── AGENTS.md                 # AI agent instructions
+├── README.md                 # Project overview
 │
-├── doc-svr-ctl/                # CLI tool
-│   ├── src/
-│   │   ├── cli.py              # Main CLI entry
-│   │   ├── client/             # API client
-│   │   │   └── api_client.py
-│   │   └── commands/           # CLI commands
-│   │       ├── index.py
-│   │       ├── query.py
-│   │       ├── reset.py
-│   │       └── status.py
-│   ├── tests/                  # CLI tests
-│   └── pyproject.toml
+├── doc-serve-server/         # FastAPI REST server
+│   ├── Taskfile.yml          # Server tasks
+│   ├── pyproject.toml        # Poetry config
+│   ├── .env.example          # Environment template
+│   └── src/
+│       ├── api/              # REST endpoints
+│       │   ├── main.py       # FastAPI app
+│       │   └── routers/      # Route handlers
+│       ├── config/           # Pydantic settings
+│       ├── indexing/         # Document processing
+│       │   ├── chunking.py   # Text chunking
+│       │   ├── document_loader.py
+│       │   └── embedding.py  # Vector generation
+│       ├── models/           # Request/response models
+│       ├── services/         # Business logic
+│       └── storage/          # ChromaDB integration
 │
-├── doc-serve-skill/            # Claude Code skill
+├── doc-svr-ctl/              # CLI tool
+│   ├── Taskfile.yml          # CLI tasks
+│   ├── pyproject.toml
+│   └── src/
+│       ├── cli.py            # Entry point
+│       ├── client/           # API client
+│       └── commands/         # CLI commands
+│
+├── doc-serve-skill/          # Claude Code skill
 │   └── doc-serve/
-│       ├── SKILL.md            # Skill definition
-│       └── references/
-│           └── api_reference.md
+│       ├── SKILL.md          # Skill definition
+│       └── references/       # API reference docs
 │
-├── docs/                       # Documentation
-│   ├── USER_GUIDE.md
-│   ├── DEVELOPERS_GUIDE.md
-│   ├── ORIGINAL_SPEC.md
-│   └── design/
-│
-├── .gitignore
-├── CLAUDE.md                   # Claude Code instructions
-├── AGENTS.md                   # Agent definitions
-└── README.md
+└── docs/                     # Documentation
+    ├── USER_GUIDE.md
+    ├── DEVELOPERS_GUIDE.md
+    └── ORIGINAL_SPEC.md
 ```
 
 ---
 
-## Building and Testing
+## Development Workflow
 
-### Server (doc-serve-server)
-
-```bash
-cd doc-serve-server
-
-# Install dependencies
-poetry install
-
-# Run the server (development)
-poetry run doc-serve
-
-# Run tests
-poetry run pytest
-
-# Run tests with coverage
-poetry run pytest --cov=src --cov-report=html
-
-# Type checking
-poetry run mypy src
-
-# Linting
-poetry run ruff check src
-
-# Formatting
-poetry run black src
-```
-
-### CLI (doc-svr-ctl)
+### Daily Development
 
 ```bash
-cd doc-svr-ctl
+# 1. Start the server
+task dev
 
-# Install dependencies
-poetry install
+# 2. Make changes to code
 
-# Run CLI commands
-poetry run doc-svr-ctl --help
+# 3. Run tests for your changes
+task test:server   # or task test:cli
 
-# Run tests
-poetry run pytest
-
-# Type checking
-poetry run mypy src
-
-# Linting
-poetry run ruff check src
-
-# Formatting
-poetry run black src
+# 4. Check code quality
+task check
 ```
 
-### Quick Test Commands
+### Before Committing
 
 ```bash
-# Run all tests across packages
-cd doc-serve-server && poetry run pytest && cd ../doc-svr-ctl && poetry run pytest
-
-# Full quality check
-cd doc-serve-server && poetry run ruff check . && poetry run mypy src && poetry run pytest
+# Run the full pre-push workflow
+task before-push
 ```
+
+This runs:
+1. `format` - Auto-format with Black
+2. `lint` - Check with Ruff
+3. `typecheck` - Verify types with mypy
+4. `test:cov` - Run tests with coverage
+
+### Git Workflow
+
+1. Create a feature branch
+2. Make changes with tests
+3. Run `task before-push`
+4. Commit with conventional commit message
+5. Push and create PR
 
 ---
 
-## Code Style
+## Testing
 
-### Python Standards
-
-- **Python Version**: 3.10+
-- **Formatter**: Black (line length 88)
-- **Linter**: Ruff
-- **Type Checker**: mypy (strict mode)
-
-### Style Rules
-
-1. **Type Hints**: Required for all function signatures
-   ```python
-   def process_document(path: str, recursive: bool = True) -> list[Document]:
-       ...
-   ```
-
-2. **Docstrings**: Google style
-   ```python
-   def query_documents(query: str, top_k: int = 5) -> QueryResponse:
-       """Execute semantic search on indexed documents.
-
-       Args:
-           query: The search query text.
-           top_k: Maximum number of results to return.
-
-       Returns:
-           QueryResponse containing matching document chunks.
-
-       Raises:
-           ValueError: If query is empty.
-           ServiceUnavailableError: If indexing is in progress.
-       """
-   ```
-
-3. **Imports**: Sorted by Ruff/isort
-   ```python
-   # Standard library
-   import logging
-   from pathlib import Path
-
-   # Third-party
-   from fastapi import FastAPI
-   from pydantic import BaseModel
-
-   # Local
-   from .models import QueryRequest
-   ```
-
-### Pre-commit Checks
-
-Before committing, run:
+### Running Tests
 
 ```bash
-# Format
-poetry run black src tests
+# All tests
+task test
 
-# Lint
-poetry run ruff check src tests --fix
+# With coverage
+task test:cov
 
-# Type check
-poetry run mypy src
+# Server only
+task test:server
 
-# Test
-poetry run pytest
+# CLI only
+task test:cli
 ```
-
----
-
-## Adding Features
-
-### Adding a New API Endpoint
-
-1. **Create the router** in `src/api/routers/`:
-   ```python
-   # src/api/routers/new_feature.py
-   from fastapi import APIRouter
-
-   router = APIRouter()
-
-   @router.get("/")
-   async def get_feature():
-       return {"feature": "data"}
-   ```
-
-2. **Register in main.py**:
-   ```python
-   from .routers.new_feature import router as new_feature_router
-
-   app.include_router(new_feature_router, prefix="/new-feature", tags=["New Feature"])
-   ```
-
-3. **Add models** in `src/models/`
-
-4. **Add tests** in `tests/`
-
-### Adding a CLI Command
-
-1. **Create command** in `src/commands/`:
-   ```python
-   # src/commands/new_command.py
-   import click
-
-   @click.command()
-   @click.option("--option", help="Description")
-   def new_command(option: str):
-       """Command description."""
-       click.echo(f"Running with {option}")
-   ```
-
-2. **Register in cli.py**:
-   ```python
-   from .commands.new_command import new_command
-
-   cli.add_command(new_command, name="new-command")
-   ```
-
-3. **Add tests** in `tests/`
-
----
-
-## Testing Guidelines
 
 ### Test Structure
 
 ```
 tests/
 ├── conftest.py           # Shared fixtures
-├── test_api/             # API tests
-│   ├── test_health.py
-│   ├── test_index.py
-│   └── test_query.py
-├── test_services/        # Service tests
-│   ├── test_indexing.py
-│   └── test_query.py
+├── test_api/             # API endpoint tests
+├── test_services/        # Service layer tests
 └── test_integration/     # Integration tests
-    └── test_full_flow.py
 ```
 
 ### Writing Tests
 
 ```python
-# tests/test_api/test_health.py
 import pytest
 from httpx import AsyncClient
-
 from src.api.main import app
-
 
 @pytest.fixture
 async def client():
     async with AsyncClient(app=app, base_url="http://test") as ac:
         yield ac
 
-
 @pytest.mark.asyncio
 async def test_health_endpoint(client):
     response = await client.get("/health")
     assert response.status_code == 200
-    data = response.json()
-    assert data["status"] in ["healthy", "indexing", "degraded", "unhealthy"]
 ```
 
-### Test Categories
+---
 
-| Category | Description | Marker |
-|----------|-------------|--------|
-| Unit | Test individual functions | `@pytest.mark.unit` |
-| Integration | Test component interactions | `@pytest.mark.integration` |
-| E2E | Full workflow tests | `@pytest.mark.e2e` |
+## Code Style
 
-### Running Specific Tests
+### Standards
 
-```bash
-# Run only unit tests
-poetry run pytest -m unit
+- **Python**: 3.10+
+- **Formatter**: Black (line length 88)
+- **Linter**: Ruff
+- **Type Checker**: mypy (strict mode)
 
-# Run specific test file
-poetry run pytest tests/test_api/test_health.py
+### Guidelines
 
-# Run with verbose output
-poetry run pytest -v
+1. **Type hints required** on all functions
+2. **Google-style docstrings**
+3. **Imports sorted** by Ruff/isort
 
-# Run with print statements visible
-poetry run pytest -s
+### Example
+
+```python
+def process_document(path: str, recursive: bool = True) -> list[Document]:
+    """Process documents from a directory.
+
+    Args:
+        path: Path to the document directory.
+        recursive: Whether to process subdirectories.
+
+    Returns:
+        List of processed Document objects.
+
+    Raises:
+        FileNotFoundError: If path does not exist.
+    """
+    ...
 ```
 
 ---
@@ -417,54 +395,132 @@ poetry run pytest -s
 ### Workflow
 
 1. **Fork** the repository
-2. **Create a branch**: `git checkout -b feature/my-feature`
+2. **Create branch**: `git checkout -b feature/my-feature`
 3. **Make changes** with tests
-4. **Run quality checks**:
-   ```bash
-   poetry run black src tests
-   poetry run ruff check src tests
-   poetry run mypy src
-   poetry run pytest
-   ```
-5. **Commit**: Use conventional commits
-   - `feat: Add new query filter`
-   - `fix: Handle empty document folders`
-   - `docs: Update API reference`
-6. **Push** and create a Pull Request
+4. **Run checks**: `task before-push`
+5. **Commit** using conventional commits
+6. **Push** and create PR
 
-### Commit Message Format
+### Commit Messages
 
 ```
 type(scope): description
 
-[optional body]
-
-[optional footer]
+feat: Add new query filter
+fix: Handle empty folders
+docs: Update API reference
+test: Add chunking tests
+refactor: Simplify embedding logic
 ```
 
-Types:
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation
-- `style`: Formatting
-- `refactor`: Code restructuring
-- `test`: Adding tests
-- `chore`: Maintenance
+### PR Checklist
 
-### Pull Request Checklist
-
-- [ ] Tests pass locally
-- [ ] New tests added for changes
-- [ ] Code formatted with Black
-- [ ] No Ruff warnings
-- [ ] mypy passes
+- [ ] `task before-push` passes
+- [ ] Tests added for changes
 - [ ] Documentation updated
-- [ ] Commit messages follow convention
+- [ ] Conventional commit messages
 
-### Code Review
+---
 
-PRs require review before merging. Reviewers check:
-- Code quality and style
-- Test coverage
-- Documentation
-- Security considerations
+## Troubleshooting
+
+### Port Already in Use
+
+**Error:**
+```
+ERROR:    [Errno 48] Address already in use
+task: Failed to run task "dev": exit status 1
+```
+
+**Cause:** A previous server instance is still running on port 8000.
+
+**Solution:**
+
+1. Find the process using the port:
+   ```bash
+   lsof -i :8000
+   ```
+
+2. Verify it's the doc-serve server:
+   ```bash
+   ps -ef | grep <PID>
+   ```
+   Look for `/doc-serve-server/.venv/bin/python` in the output.
+
+3. Kill the old process:
+   ```bash
+   kill <PID>
+   ```
+
+4. Restart the server:
+   ```bash
+   task dev
+   ```
+
+**Quick one-liner** (use with caution):
+```bash
+lsof -ti :8000 | xargs kill -9 && task dev
+```
+
+### Poetry Lock File Out of Sync
+
+**Error:**
+```
+pyproject.toml changed significantly since poetry.lock was last generated.
+Run `poetry lock` to fix the lock file.
+```
+
+**Solution:**
+```bash
+cd doc-serve-server  # or doc-svr-ctl
+poetry lock
+poetry install
+```
+
+### Import Errors with CLI Tools
+
+**Error:**
+```
+ModuleNotFoundError: No module named 'src'
+```
+
+**Cause:** Package not installed in editable mode.
+
+**Solution:**
+```bash
+cd doc-serve-server  # or doc-svr-ctl
+pip install -e .
+```
+
+### ChromaDB Permission Issues
+
+**Error:**
+```
+PermissionError: [Errno 13] Permission denied: './chroma_db'
+```
+
+**Solution:**
+```bash
+# Remove and recreate the chroma_db directory
+rm -rf chroma_db
+mkdir chroma_db
+task dev
+```
+
+### API Key Not Configured
+
+**Error:**
+```
+openai.AuthenticationError: No API key provided
+```
+
+**Solution:**
+1. Copy the example env file:
+   ```bash
+   cp doc-serve-server/.env.example doc-serve-server/.env
+   ```
+2. Edit `.env` and add your API keys:
+   ```
+   OPENAI_API_KEY=sk-your-key
+   ANTHROPIC_API_KEY=sk-ant-your-key
+   ```

@@ -1,7 +1,8 @@
 """Application configuration using Pydantic settings."""
 
-from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -39,10 +40,11 @@ class Settings(BaseSettings):
     # Rate Limiting
     EMBEDDING_BATCH_SIZE: int = 100
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+    )
 
 
 @lru_cache

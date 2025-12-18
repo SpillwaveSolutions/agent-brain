@@ -1,17 +1,21 @@
 """HTTP client for Doc-Serve API communication."""
 
-import httpx
-from typing import Optional, Any
 from dataclasses import dataclass
+from types import TracebackType
+from typing import Any, Optional
+
+import httpx
 
 
 class DocServeError(Exception):
     """Base exception for Doc-Serve client errors."""
+
     pass
 
 
 class ConnectionError(DocServeError):
     """Raised when unable to connect to the server."""
+
     pass
 
 
@@ -27,6 +31,7 @@ class ServerError(DocServeError):
 @dataclass
 class HealthStatus:
     """Server health status."""
+
     status: str
     message: Optional[str]
     version: str
@@ -36,6 +41,7 @@ class HealthStatus:
 @dataclass
 class IndexingStatus:
     """Detailed indexing status."""
+
     total_documents: int
     total_chunks: int
     indexing_in_progress: bool
@@ -48,16 +54,18 @@ class IndexingStatus:
 @dataclass
 class QueryResult:
     """Single query result."""
+
     text: str
     source: str
     score: float
     chunk_id: str
-    metadata: dict
+    metadata: dict[str, Any]
 
 
 @dataclass
 class QueryResponse:
     """Query response with results."""
+
     results: list[QueryResult]
     query_time_ms: float
     total_results: int
@@ -66,6 +74,7 @@ class QueryResponse:
 @dataclass
 class IndexResponse:
     """Indexing operation response."""
+
     job_id: str
     status: str
     message: Optional[str]
@@ -90,13 +99,18 @@ class DocServeClient:
         self.timeout = timeout
         self._client = httpx.Client(timeout=timeout)
 
-    def __enter__(self):
+    def __enter__(self) -> "DocServeClient":
         return self
 
-    def __exit__(self, *args):
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
         self.close()
 
-    def close(self):
+    def close(self) -> None:
         """Close the HTTP client."""
         self._client.close()
 
@@ -104,7 +118,7 @@ class DocServeClient:
         self,
         method: str,
         path: str,
-        json: Optional[dict] = None,
+        json: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """
         Make an HTTP request to the server.
@@ -129,12 +143,12 @@ class DocServeClient:
             raise ConnectionError(
                 f"Unable to connect to server at {self.base_url}. "
                 f"Is the server running? Error: {e}"
-            )
-        except httpx.TimeoutException:
+            ) from e
+        except httpx.TimeoutException as e:
             raise ConnectionError(
                 f"Request timed out after {self.timeout}s. "
                 "The server may be overloaded or unresponsive."
-            )
+            ) from e
 
         if response.status_code >= 400:
             detail = None
@@ -150,7 +164,8 @@ class DocServeClient:
                 detail=detail,
             )
 
-        return response.json()
+        result: dict[str, Any] = response.json()
+        return result
 
     def health(self) -> HealthStatus:
         """

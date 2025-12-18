@@ -3,11 +3,12 @@
 import asyncio
 import logging
 import uuid
+from collections.abc import Awaitable
 from datetime import datetime
-from typing import Optional, Callable, Awaitable
+from typing import Any, Callable, Optional
 
-from ..models import IndexRequest, IndexingState, IndexingStatusEnum
-from ..indexing import DocumentLoader, ContextAwareChunker, EmbeddingGenerator
+from ..indexing import ContextAwareChunker, DocumentLoader, EmbeddingGenerator
+from ..models import IndexingState, IndexingStatusEnum, IndexRequest
 from ..storage import VectorStoreManager, get_vector_store
 
 logger = logging.getLogger(__name__)
@@ -215,14 +216,18 @@ class IndexingService:
         finally:
             self._state.is_indexing = False
 
-    async def get_status(self) -> dict:
+    async def get_status(self) -> dict[str, Any]:
         """
         Get current indexing status.
 
         Returns:
             Dictionary with status information.
         """
-        count = await self.vector_store.get_count() if self.vector_store.is_initialized else 0
+        count = (
+            await self.vector_store.get_count()
+            if self.vector_store.is_initialized
+            else 0
+        )
 
         return {
             "status": self._state.status.value,
@@ -233,8 +238,14 @@ class IndexingService:
             "processed_documents": self._state.processed_documents,
             "total_chunks": count,
             "progress_percent": self._state.progress_percent,
-            "started_at": self._state.started_at.isoformat() if self._state.started_at else None,
-            "completed_at": self._state.completed_at.isoformat() if self._state.completed_at else None,
+            "started_at": (
+                self._state.started_at.isoformat() if self._state.started_at else None
+            ),
+            "completed_at": (
+                self._state.completed_at.isoformat()
+                if self._state.completed_at
+                else None
+            ),
             "error": self._state.error,
             "indexed_folders": self._indexed_folders.copy(),
         }

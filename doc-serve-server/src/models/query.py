@@ -1,7 +1,8 @@
 """Query request and response models."""
 
+from typing import Any
+
 from pydantic import BaseModel, Field
-from typing import List
 
 
 class QueryRequest(BaseModel):
@@ -46,13 +47,15 @@ class QueryResult(BaseModel):
     source: str = Field(..., description="Source file path")
     score: float = Field(..., ge=0.0, le=1.0, description="Similarity score (0-1)")
     chunk_id: str = Field(..., description="Unique chunk identifier")
-    metadata: dict = Field(default_factory=dict, description="Additional metadata")
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Additional metadata"
+    )
 
 
 class QueryResponse(BaseModel):
     """Response model for document queries."""
 
-    results: List[QueryResult] = Field(
+    results: list[QueryResult] = Field(
         default_factory=list,
         description="List of matching document chunks",
     )

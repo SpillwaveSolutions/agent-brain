@@ -3,12 +3,12 @@
 import click
 
 from . import __version__
-from .commands import status_command, query_command, index_command, reset_command
+from .commands import index_command, query_command, reset_command, status_command
 
 
 @click.group()
 @click.version_option(version=__version__, prog_name="doc-svr-ctl")
-def cli():
+def cli() -> None:
     """Doc-Serve CLI - Manage and query the Doc-Serve server.
 
     A command-line interface for interacting with the Doc-Serve document

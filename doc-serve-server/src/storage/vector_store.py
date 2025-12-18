@@ -2,9 +2,9 @@
 
 import asyncio
 import logging
-from pathlib import Path
-from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Optional
 
 import chromadb
 from chromadb.config import Settings as ChromaSettings
@@ -19,7 +19,7 @@ class SearchResult:
     """Result from a similarity search."""
 
     text: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
     score: float
     chunk_id: str
 
@@ -46,7 +46,7 @@ class VectorStoreManager:
         """
         self.persist_dir = persist_dir or settings.CHROMA_PERSIST_DIR
         self.collection_name = collection_name or settings.COLLECTION_NAME
-        self._client: Optional[chromadb.PersistentClient] = None
+        self._client: Optional[chromadb.PersistentClient] = None  # type: ignore[valid-type]
         self._collection: Optional[chromadb.Collection] = None
         self._lock = asyncio.Lock()
         self._initialized = False
@@ -94,10 +94,10 @@ class VectorStoreManager:
 
     async def add_documents(
         self,
-        ids: List[str],
-        embeddings: List[List[float]],
-        documents: List[str],
-        metadatas: Optional[List[Dict[str, Any]]] = None,
+        ids: list[str],
+        embeddings: list[list[float]],
+        documents: list[str],
+        metadatas: Optional[list[dict[str, Any]]] = None,
     ) -> int:
         """
         Add documents with embeddings to the vector store.
@@ -125,11 +125,12 @@ class VectorStoreManager:
             raise ValueError("metadatas must have the same length as ids")
 
         async with self._lock:
+            assert self._collection is not None
             self._collection.add(
                 ids=ids,
-                embeddings=embeddings,
+                embeddings=embeddings,  # type: ignore[arg-type]
                 documents=documents,
-                metadatas=metadatas or [{}] * len(ids),
+                metadatas=metadatas or [{}] * len(ids),  # type: ignore[arg-type]
             )
 
         logger.debug(f"Added {len(ids)} documents to vector store")
@@ -137,11 +138,11 @@ class VectorStoreManager:
 
     async def similarity_search(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         top_k: int = 5,
         similarity_threshold: float = 0.0,
-        where: Optional[Dict[str, Any]] = None,
-    ) -> List[SearchResult]:
+        where: Optional[dict[str, Any]] = None,
+    ) -> list[SearchResult]:
         """
         Perform similarity search on the vector store.
 
@@ -161,27 +162,35 @@ class VectorStoreManager:
             raise RuntimeError("Vector store not initialized. Call initialize() first.")
 
         async with self._lock:
+            assert self._collection is not None
             results = self._collection.query(
-                query_embeddings=[query_embedding],
+                query_embeddings=[query_embedding],  # type: ignore[arg-type]
                 n_results=top_k,
                 where=where,
-                include=["documents", "metadatas", "distances"],
+                include=["documents", "metadatas", "distances"],  # type: ignore[list-item]
             )
 
         # Convert Chroma results to SearchResult objects
-        search_results: List[SearchResult] = []
+        search_results: list[SearchResult] = []
 
         if results["ids"] and results["ids"][0]:
             for idx, chunk_id in enumerate(results["ids"][0]):
                 # Chroma returns distances, convert to similarity (cosine)
-                distance = results["distances"][0][idx]
+                distances = results["distances"]
+                distance = distances[0][idx] if distances else 0.0
                 similarity = 1 - distance  # Cosine distance to similarity
 
                 if similarity >= similarity_threshold:
+                    documents = results["documents"]
+                    metadatas = results["metadatas"]
+                    text_val = documents[0][idx] if documents else ""
+                    meta_val: dict[str, Any] = {}
+                    if metadatas and metadatas[0][idx]:
+                        meta_val = dict(metadatas[0][idx])
                     search_results.append(
                         SearchResult(
-                            text=results["documents"][0][idx],
-                            metadata=results["metadatas"][0][idx] or {},
+                            text=text_val,
+                            metadata=meta_val,
                             score=similarity,
                             chunk_id=chunk_id,
                         )
@@ -207,6 +216,7 @@ class VectorStoreManager:
             return 0
 
         async with self._lock:
+            assert self._collection is not None
             return self._collection.count()
 
     async def delete_collection(self) -> None:
@@ -220,6 +230,7 @@ class VectorStoreManager:
 
         async with self._lock:
             try:
+                assert self._client is not None
                 self._client.delete_collection(self.collection_name)
                 self._collection = None
                 self._initialized = False

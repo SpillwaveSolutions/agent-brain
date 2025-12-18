@@ -224,3 +224,27 @@ Since pyproject.toml files **already have entry points configured**, most "imple
 - Both pip and Poetry installation methods must be verified
 - User Stories 1 and 2 are both P1 priority and can run in parallel
 - Commit after each verification step to track progress
+
+---
+
+## Phase 7: V2 - Self-Documenting CLI (2025-12-16)
+
+**Purpose**: Make doc-serve command self-documenting with --help and --version support
+
+### Tasks
+
+- [ ] T038 Add Click dependency to doc-serve-server/pyproject.toml
+- [ ] T039 Create Click CLI wrapper in doc-serve-server/src/api/main.py with cli() function
+- [ ] T040 Add --host option to CLI (default: from settings)
+- [ ] T041 Add --port option to CLI (default: from settings)
+- [ ] T042 Add --reload option to CLI (default: from DEBUG setting)
+- [ ] T043 Add --version decorator to CLI
+- [ ] T044 Update entry point in pyproject.toml from run to cli
+- [ ] T045 Add test for doc-serve --help in tests/test_server_install.py
+- [ ] T046 Add test for doc-serve --version in tests/test_server_install.py
+- [ ] T047 Reinstall doc-serve-server package
+- [ ] T048 Verify doc-serve --help shows usage
+- [ ] T049 Verify doc-serve --version shows version
+- [ ] T050 Run all tests to confirm no regressions
+
+**Checkpoint**: Both CLI tools are self-documenting

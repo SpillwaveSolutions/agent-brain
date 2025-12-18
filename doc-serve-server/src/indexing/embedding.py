@@ -1,13 +1,13 @@
 """Embedding generation using OpenAI's text-embedding models."""
 
 import logging
-import asyncio
-from typing import List, Optional
+from collections.abc import Awaitable, Callable
+from typing import Optional
 
 from openai import AsyncOpenAI
 
-from .chunking import TextChunk
 from ..config import settings
+from .chunking import TextChunk
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class EmbeddingGenerator:
         self,
         api_key: Optional[str] = None,
         model: Optional[str] = None,
-        batch_size: int = None,
+        batch_size: Optional[int] = None,
     ):
         """
         Initialize the embedding generator.
@@ -42,7 +42,7 @@ class EmbeddingGenerator:
             api_key=api_key or settings.OPENAI_API_KEY,
         )
 
-    async def embed_text(self, text: str) -> List[float]:
+    async def embed_text(self, text: str) -> list[float]:
         """
         Generate embedding for a single text.
 
@@ -60,9 +60,9 @@ class EmbeddingGenerator:
 
     async def embed_texts(
         self,
-        texts: List[str],
-        progress_callback: Optional[callable] = None,
-    ) -> List[List[float]]:
+        texts: list[str],
+        progress_callback: Optional[Callable[[int, int], Awaitable[None]]] = None,
+    ) -> list[list[float]]:
         """
         Generate embeddings for multiple texts.
 
@@ -76,11 +76,11 @@ class EmbeddingGenerator:
         if not texts:
             return []
 
-        all_embeddings: List[List[float]] = []
+        all_embeddings: list[list[float]] = []
 
         # Process in batches to respect API limits
         for i in range(0, len(texts), self.batch_size):
-            batch = texts[i:i + self.batch_size]
+            batch = texts[i : i + self.batch_size]
 
             try:
                 response = await self.client.embeddings.create(
@@ -111,9 +111,9 @@ class EmbeddingGenerator:
 
     async def embed_chunks(
         self,
-        chunks: List[TextChunk],
-        progress_callback: Optional[callable] = None,
-    ) -> List[List[float]]:
+        chunks: list[TextChunk],
+        progress_callback: Optional[Callable[[int, int], Awaitable[None]]] = None,
+    ) -> list[list[float]]:
         """
         Generate embeddings for a list of text chunks.
 
@@ -127,7 +127,7 @@ class EmbeddingGenerator:
         texts = [chunk.text for chunk in chunks]
         return await self.embed_texts(texts, progress_callback)
 
-    async def embed_query(self, query: str) -> List[float]:
+    async def embed_query(self, query: str) -> list[float]:
         """
         Generate embedding for a search query.
 

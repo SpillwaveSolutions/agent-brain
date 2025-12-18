@@ -2,13 +2,10 @@
 
 import click
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
-from rich.markdown import Markdown
 
-from ..client import DocServeClient, ConnectionError, ServerError
-
+from ..client import ConnectionError, DocServeClient, ServerError
 
 console = Console()
 
@@ -22,13 +19,15 @@ console = Console()
     help="Doc-Serve server URL",
 )
 @click.option(
-    "-k", "--top-k",
+    "-k",
+    "--top-k",
     default=5,
     type=int,
     help="Number of results to return (default: 5)",
 )
 @click.option(
-    "-t", "--threshold",
+    "-t",
+    "--threshold",
     default=0.7,
     type=float,
     help="Minimum similarity threshold 0-1 (default: 0.7)",
@@ -42,7 +41,7 @@ def query_command(
     threshold: float,
     json_output: bool,
     full: bool,
-):
+) -> None:
     """Search indexed documents with natural language query."""
     try:
         with DocServeClient(base_url=url) as client:
@@ -54,6 +53,7 @@ def query_command(
 
             if json_output:
                 import json
+
                 output = {
                     "query": query_text,
                     "total_results": response.total_results,
@@ -74,7 +74,8 @@ def query_command(
             # Display header
             console.print(
                 f"\n[bold]Query:[/] {query_text}\n"
-                f"[dim]Found {response.total_results} results in {response.query_time_ms:.1f}ms[/]\n"
+                f"[dim]Found {response.total_results} results "
+                f"in {response.query_time_ms:.1f}ms[/]\n"
             )
 
             if not response.results:
@@ -106,27 +107,31 @@ def query_command(
                 header = Text()
                 header.append(f"[{i}] ", style="bold cyan")
                 header.append(result.source, style="bold")
-                header.append(f"  Score: ", style="dim")
+                header.append("  Score: ", style="dim")
                 header.append(f"{result.score:.2%}", style=f"bold {score_color}")
 
-                console.print(Panel(
-                    text,
-                    title=header,
-                    border_style="dim",
-                    padding=(0, 1),
-                ))
+                console.print(
+                    Panel(
+                        text,
+                        title=header,
+                        border_style="dim",
+                        padding=(0, 1),
+                    )
+                )
 
     except ConnectionError as e:
         if json_output:
             import json
+
             click.echo(json.dumps({"error": str(e)}))
         else:
             console.print(f"[red]Connection Error:[/] {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
 
     except ServerError as e:
         if json_output:
             import json
+
             click.echo(json.dumps({"error": str(e), "detail": e.detail}))
         else:
             console.print(f"[red]Server Error ({e.status_code}):[/] {e.detail}")
@@ -135,4 +140,4 @@ def query_command(
                     "\n[dim]The server is not ready. "
                     "Use 'status' to check, or 'index' to index documents.[/]"
                 )
-        raise SystemExit(1)
+        raise SystemExit(1) from e

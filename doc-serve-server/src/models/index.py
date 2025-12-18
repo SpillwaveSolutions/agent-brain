@@ -1,9 +1,10 @@
 """Indexing request, response, and state models."""
 
-from pydantic import BaseModel, Field
-from typing import Optional
 from datetime import datetime
 from enum import Enum
+from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
 class IndexingStatusEnum(str, Enum):
@@ -88,7 +89,9 @@ class IndexingState(BaseModel):
     processed_documents: int = Field(default=0, description="Documents processed")
     total_chunks: int = Field(default=0, description="Total chunks created")
     started_at: Optional[datetime] = Field(None, description="When indexing started")
-    completed_at: Optional[datetime] = Field(None, description="When indexing completed")
+    completed_at: Optional[datetime] = Field(
+        None, description="When indexing completed"
+    )
     error: Optional[str] = Field(None, description="Error message if failed")
 
     @property
