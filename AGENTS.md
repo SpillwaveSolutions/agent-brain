@@ -31,10 +31,10 @@ cd doc-serve-server
 poetry install                    # Install dependencies
 poetry run doc-serve              # Run server
 poetry run pytest                 # Run tests
-poetry run pytest --cov=src       # Tests with coverage
-poetry run mypy src               # Type checking
-poetry run ruff check src         # Linting
-poetry run black src              # Format code
+poetry run pytest --cov=doc_serve_server       # Tests with coverage
+poetry run mypy doc_serve_server               # Type checking
+poetry run ruff check doc_serve_server         # Linting
+poetry run black doc_serve_server              # Format code
 ```
 
 ### doc-svr-ctl
@@ -44,16 +44,16 @@ cd doc-svr-ctl
 poetry install                    # Install dependencies
 poetry run doc-svr-ctl --help     # Show CLI help
 poetry run pytest                 # Run tests
-poetry run mypy src               # Type checking
-poetry run ruff check src         # Linting
-poetry run black src              # Format code
+poetry run mypy doc_serve_server               # Type checking
+poetry run ruff check doc_serve_server         # Linting
+poetry run black doc_serve_server              # Format code
 ```
 
 ### Full Quality Check
 
 ```bash
 # Run from package directory
-poetry run black src tests && poetry run ruff check src tests && poetry run mypy src && poetry run pytest
+poetry run black doc_serve_server tests && poetry run ruff check doc_serve_server tests && poetry run mypy doc_serve_server && poetry run pytest
 ```
 
 ## Project Structure
@@ -61,7 +61,7 @@ poetry run black src tests && poetry run ruff check src tests && poetry run mypy
 ```
 doc-serve/
 ├── doc-serve-server/           # FastAPI server
-│   ├── src/
+│   ├── doc_serve_server/           # FastAPI server
 │   │   ├── api/                # REST endpoints
 │   │   │   ├── main.py         # App entry point
 │   │   │   └── routers/        # Route handlers
@@ -72,7 +72,7 @@ doc-serve/
 │   │   └── storage/            # ChromaDB integration
 │   └── tests/
 ├── doc-svr-ctl/                # CLI tool
-│   ├── src/
+│   ├── doc_serve_server/           # FastAPI server
 │   │   ├── cli.py              # Main entry point
 │   │   ├── client/             # API client
 │   │   └── commands/           # CLI commands
@@ -200,7 +200,7 @@ Do NOT push code that fails `task before-push`.
 - Maintain or improve code coverage (minimum 50%)
 
 ### Key Files to Understand
-- `doc-serve-server/src/api/main.py` - Server entry point
-- `doc-serve-server/src/config/settings.py` - Configuration
-- `doc-svr-ctl/src/cli.py` - CLI entry point
+- `doc-serve-server/doc_serve_server/api/main.py` - Server entry point
+- `doc-serve-server/doc_serve_server/config/settings.py` - Configuration
+- `doc-svr-ctl/doc_svr_ctl/cli.py` - CLI entry point
 - `doc-serve-skill/doc-serve/SKILL.md` - Skill definition

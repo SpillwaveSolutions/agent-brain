@@ -42,7 +42,7 @@ Required environment variables:
 
 ```bash
 # Development mode
-poetry run uvicorn src.api.main:app --reload
+poetry run uvicorn doc_serve_server.api.main:app --reload
 
 # Or use the entry point
 poetry run doc-serve
@@ -96,7 +96,7 @@ curl -X POST http://localhost:8000/query \
 ## Architecture
 
 ```
-src/
+doc_serve_server/
 ├── api/
 │   ├── main.py           # FastAPI application
 │   └── routers/          # Endpoint handlers
@@ -125,14 +125,14 @@ poetry run pytest
 ### Code Formatting
 
 ```bash
-poetry run black src/
-poetry run ruff check src/
+poetry run black doc_serve_server/
+poetry run ruff check doc_serve_server/
 ```
 
 ### Type Checking
 
 ```bash
-poetry run mypy src/
+poetry run mypy doc_serve_server/
 ```
 
 ## License

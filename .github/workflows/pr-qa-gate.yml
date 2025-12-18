@@ -67,7 +67,7 @@ jobs:
         working-directory: doc-serve-server
         run: |
           poetry run pytest tests/ \
-            --cov=src \
+            --cov=doc_serve_server \
             --cov-report=term-missing \
             --cov-report=xml:coverage-server.xml \
             --cov-fail-under=50
@@ -76,7 +76,7 @@ jobs:
         working-directory: doc-svr-ctl
         run: |
           poetry run pytest tests/ \
-            --cov=src \
+            --cov=doc_svr_ctl \
             --cov-report=term-missing \
             --cov-report=xml:coverage-cli.xml \
             --cov-fail-under=50

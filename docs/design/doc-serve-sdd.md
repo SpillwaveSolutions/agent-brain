@@ -404,7 +404,7 @@ flowchart TD
 
 **Key Modules**:
 
-#### 4.1.1 API Layer (`src/api/`)
+#### 4.1.1 API Layer (`doc_serve_server/api/`)
 
 **`main.py`**: FastAPI application entry point
 ```python
@@ -552,7 +552,7 @@ async def query_documents(request: QueryRequest):
     return await query_service.execute_query(request)
 ```
 
-#### 4.1.2 Service Layer (`src/services/`)
+#### 4.1.2 Service Layer (`doc_serve_server/services/`)
 
 **`indexing_service.py`**: Business logic for indexing
 ```python
@@ -665,7 +665,7 @@ class QueryService:
         )
 ```
 
-#### 4.1.3 Indexing Layer (`src/indexing/`)
+#### 4.1.3 Indexing Layer (`doc_serve_server/indexing/`)
 
 **`document_loader.py`**: Document loading and parsing
 ```python
@@ -813,7 +813,7 @@ class EmbeddingGenerator:
                 await progress_callback(i + len(batch), len(nodes))
 ```
 
-#### 4.1.4 Storage Layer (`src/storage/`)
+#### 4.1.4 Storage Layer (`doc_serve_server/storage/`)
 
 **`vector_store.py`**: Chroma vector store management
 ```python
@@ -896,7 +896,7 @@ class VectorStoreManager:
         return filtered_results
 ```
 
-#### 4.1.5 Models Layer (`src/models/`)
+#### 4.1.5 Models Layer (`doc_serve_server/models/`)
 
 **`query.py`**: Query request/response models
 ```python
@@ -959,7 +959,7 @@ class IndexResponse(BaseModel):
     message: Optional[str] = None
 ```
 
-#### 4.1.6 Configuration (`src/config/`)
+#### 4.1.6 Configuration (`doc_serve_server/config/`)
 
 **`settings.py`**: Application configuration
 ```python
@@ -1012,7 +1012,7 @@ settings = Settings()
 **CLI Structure**:
 
 ```python
-# src/cli.py
+# doc_svr_ctl/cli.py
 import click
 from .commands import server, index, query, status
 
@@ -1784,7 +1784,7 @@ cp .env.example .env
 # Edit .env with API keys
 
 # Run server
-poetry run uvicorn src.api.main:app --reload
+poetry run uvicorn doc_serve_server.api.main:app --reload
 ```
 
 **Production** (Local Deployment):
