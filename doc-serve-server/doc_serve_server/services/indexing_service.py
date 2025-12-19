@@ -246,14 +246,16 @@ class IndexingService:
                             generate_summaries=request.generate_summaries
                         )
 
-                        # Create progress callback with current total_code_processed
-                        current_total_code = total_code_processed
-                        async def code_chunk_progress(
+                        # Calculate progress offset for this language batch
+                        progress_offset = len(doc_documents) + total_code_processed
+
+                        async def code_chunk_progress(  # noqa: B023
                             processed: int,
                             total: int,
                         ) -> None:
-                            # Calculate total processed: docs + all code docs so far + current batch
-                            total_processed = len(doc_documents) + current_total_code + processed
+                            # processed is relative to current language batch
+                            # Convert to total documents processed across all languages
+                            total_processed = progress_offset + processed
                             self._state.processed_documents = total_processed
                             if progress_callback:
                                 pct = 35 + int(
@@ -262,7 +264,8 @@ class IndexingService:
                                 await progress_callback(
                                     pct,
                                     100,
-                                    f"Chunking {lang}: {processed}/{len(lang_docs)}",
+                                    f"Chunking code: {total_processed}/"
+                                    f"{total_to_process}",
                                 )
 
                         for doc in lang_docs:
