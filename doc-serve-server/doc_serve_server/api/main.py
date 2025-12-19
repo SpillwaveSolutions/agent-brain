@@ -34,6 +34,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """
     # Startup
     logger.info("Starting Doc-Serve server...")
+
+    # Set environment variable for LlamaIndex components
+    import os
+    if settings.OPENAI_API_KEY:
+        os.environ["OPENAI_API_KEY"] = settings.OPENAI_API_KEY
+
     try:
         await initialize_vector_store()
         logger.info("Vector store initialized")

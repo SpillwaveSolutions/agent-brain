@@ -1,0 +1,49 @@
+# Doc-Serve Wiki Mapping
+# Maps local markdown files to GitHub Wiki pages for synchronization
+
+# Main documentation files (✅ Imported to Wiki)
+docs:
+  USER_GUIDE.md: "User-Guide"
+  DEVELOPERS_GUIDE.md: "Developer-Guide"
+  QUICK_START.md: "Quick-Start"
+  ORIGINAL_SPEC.md: "Original-Specification"
+
+# Roadmap and planning documents
+roadmaps:
+  docs/roadmaps/product-roadmap.md: "Product-Roadmap"
+  docs/roadmaps/spec-mapping.md: "Specification-Mapping"
+
+# Plans
+plans:
+  docs/plans/e2e_testing_plan.md: "E2E-Testing-Plan"
+
+# Specifications (SDD documents) - ✅ Imported to Wiki
+specs:
+  specs/100-bm25-hybrid-retrieval/spec.md: "BM25-Hybrid-Retrieval-Spec"
+  specs/100-bm25-hybrid-retrieval/plan.md: "BM25-Hybrid-Retrieval-Plan"
+  specs/100-bm25-hybrid-retrieval/tasks.md: "BM25-Hybrid-Retrieval-Tasks"
+  specs/100-bm25-hybrid-retrieval/quickstart.md: "BM25-Hybrid-Retrieval-Quickstart"
+  specs/100-bm25-hybrid-retrieval/research.md: "BM25-Hybrid-Retrieval-Research"
+  specs/100-bm25-hybrid-retrieval/data-model.md: "BM25-Hybrid-Retrieval-Data-Model"
+  specs/101-code-ingestion/spec.md: "Code-Ingestion-Spec"
+  specs/102-uds-claude-plugin/spec.md: "UDS-Claude-Plugin-Spec"
+  specs/103-pluggable-providers/spec.md: "Pluggable-Providers-Spec"
+  specs/104-postgresql-backend/spec.md: "PostgreSQL-Backend-Spec"
+  specs/105-aws-bedrock/spec.md: "AWS-Bedrock-Spec"
+  specs/106-vertex-ai/spec.md: "Vertex-AI-Spec"
+
+# Skill documentation - ✅ Imported to Wiki
+skill:
+  doc-serve-skill/doc-serve/SKILL.md: "Claude-Skill-Definition"
+  doc-serve-skill/doc-serve/references/api_reference.md: "API-Reference"
+
+# Wiki Pages Created (✅ Successfully Imported)
+wiki_pages_created:
+  - Home: "Enhanced with BM25 hybrid features, search modes, and CLI examples"
+  - User-Guide: "Complete usage guide with all search modes and alpha weighting"
+  - Developer-Guide: "Architecture overview and development setup"
+  - Quick-Start: "Updated with search mode examples and command reference"
+  - BM25-Hybrid-Retrieval-Spec: "Complete SDD specification with all acceptance criteria"
+  - BM25-Hybrid-Retrieval-Tasks: "All 28 tasks with GitHub issue links and completion status"
+  - API-Reference: "Comprehensive endpoint documentation with examples"
+  - Claude-Skill-Definition: "Updated skill capabilities and usage examples"

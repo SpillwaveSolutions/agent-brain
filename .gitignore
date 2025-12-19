@@ -54,8 +54,9 @@ dmypy.json
 # Ruff
 .ruff_cache/
 
-# Chroma vector database
+# Vector and index databases
 chroma_db/
+bm25_index/
 *.chroma/
 
 # Logs
@@ -122,4 +123,4 @@ test_output/
 !AGENTS.md
 !.claude/
 !.opencode/
-
+.env

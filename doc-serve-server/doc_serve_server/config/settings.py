@@ -1,6 +1,7 @@
 """Application configuration using Pydantic settings."""
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -42,7 +43,11 @@ class Settings(BaseSettings):
     EMBEDDING_BATCH_SIZE: int = 100
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=[
+            ".env",  # Current directory
+            Path(__file__).parent.parent.parent / ".env",  # Project root
+            Path(__file__).parent.parent / ".env",  # doc-serve-server directory
+        ],
         env_file_encoding="utf-8",
         case_sensitive=True,
     )
