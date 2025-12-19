@@ -149,6 +149,32 @@ This ensures:
 - `doc-svr-ctl/tests/`: CLI-specific tests.
 - `e2e/`: Full workflow integration tests.
 
+### End-to-End Validation Script
+
+Before releasing any version or merging major features, you MUST run the end-to-end validation script:
+
+```bash
+./scripts/quick_start_guide.sh
+```
+
+This script validates the complete Doc-Serve workflow by:
+1. Starting a real server instance
+2. Indexing the project codebase with `--include-code`
+3. Running semantic, BM25, and hybrid search queries
+4. Testing summarization features
+5. Verifying proper error handling and cleanup
+
+**Requirements:**
+- `OPENAI_API_KEY` environment variable set
+- Poetry and lsof installed
+- Server and CLI dependencies installed
+
+**Exit Codes:**
+- `0`: All tests passed
+- Non-zero: Test failures or setup issues
+
+The script serves as both a release validation tool and a comprehensive demonstration of Doc-Serve's capabilities.
+
 ---
 
 ## Troubleshooting
@@ -167,7 +193,7 @@ This usually means you are running the tool without installing it or the `PYTHON
 
 ## Code Ingestion & Language Support
 
-Doc-Serve supports AST-aware code chunking for 10+ programming languages using tree-sitter. The current implementation includes: **Python, TypeScript, JavaScript, Java, Kotlin, C, C++, Go, Rust, Swift**.
+Doc-Serve supports AST-aware code chunking for 8+ programming languages using tree-sitter. The current implementation includes: **Python, TypeScript, JavaScript, Java, Go, Rust, C, C++**.
 
 Adding support for new programming languages is straightforward:
 

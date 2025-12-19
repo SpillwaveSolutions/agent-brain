@@ -111,17 +111,17 @@
 ---
 
 ## Phase 7: User Story 5 - AST-Aware Chunking (Priority: P3)
-
+|
 **Goal**: Ensure code is chunked at logical boundaries using AST parsing
-
+|
 **Independent Test**: Index code and verify chunks align with function/class boundaries
-
+|
 ### Implementation for User Story 5
-
-- [ ] T026 [US5] Implement AST boundary detection in CodeChunker using tree-sitter in doc-serve-server/doc_serve_server/indexing/chunking.py
-- [ ] T027 [US5] Add symbol name extraction from AST in CodeChunker in doc-serve-server/doc_serve_server/indexing/chunking.py
-- [ ] T028 [US5] Add line number tracking for code chunks in CodeChunker in doc-serve-server/doc_serve_server/indexing/chunking.py
-- [ ] T029 [US5] Update chunking tests to verify AST boundary preservation in doc-serve-server/tests/unit/test_chunking.py
+|
+- [x] T026 [US5] Implement AST boundary detection in CodeChunker using tree-sitter in doc-serve-server/doc_serve_server/indexing/chunking.py
+- [x] T027 [US5] Add symbol name extraction from AST in CodeChunker in doc-serve-server/doc_serve_server/indexing/chunking.py
+- [x] T028 [US5] Add line number tracking for code chunks in CodeChunker in doc-serve-server/doc_serve_server/indexing/chunking.py
+- [x] T029 [US5] Update chunking tests to verify AST boundary preservation in doc-serve-server/tests/unit/test_chunking.py
 
 **Checkpoint**: User Story 5 is functional - code chunking respects AST boundaries.
 

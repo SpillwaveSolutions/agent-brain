@@ -5,9 +5,11 @@ import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import tiktoken
+import tree_sitter
+import tree_sitter_language_pack as tslp
 from llama_index.core.node_parser import CodeSplitter, SentenceSplitter
 
 from doc_serve_server.config import settings
@@ -427,13 +429,144 @@ class CodeChunker:
             max_chars=self.max_chars,
         )
 
+        # Initialize tree-sitter parser
+        self._setup_language()
+
         # Initialize embedding generator for summaries (only if needed)
         if self.generate_summaries:
             from .embedding import get_embedding_generator
+
             self.embedding_generator = get_embedding_generator()
 
         # Initialize tokenizer for token counting
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
+
+    def _setup_language(self) -> None:
+        """Set up the tree-sitter language and parser."""
+        try:
+            # Map common names to tree-sitter identifiers
+            lang_map = {
+                "python": "python",
+                "typescript": "typescript",
+                "tsx": "tsx",
+                "javascript": "javascript",
+                "go": "go",
+                "rust": "rust",
+                "java": "java",
+                "cpp": "cpp",
+                "c": "c",
+            }
+
+            lang_id = lang_map.get(self.language)
+            if not lang_id:
+                logger.warning(
+                    f"AST metadata extraction not supported for {self.language}"
+                )
+                self.ts_language = None
+                return
+
+            self.ts_language = tslp.get_language(cast(tslp.SupportedLanguage, lang_id))
+            self.parser = tree_sitter.Parser(self.ts_language)
+
+        except Exception as e:
+            logger.warning(f"Failed to load tree-sitter language {self.language}: {e}")
+            self.ts_language = None
+
+    def _get_symbols(self, text: str) -> list[dict[str, Any]]:
+        """Extract symbols (functions, classes) and their line ranges from text."""
+        if not hasattr(self, "ts_language") or not self.ts_language:
+            return []
+
+        try:
+            tree = self.parser.parse(text.encode("utf-8"))
+            root = tree.root_node
+        except Exception as e:
+            logger.error(f"Failed to parse AST: {e}")
+            return []
+
+        symbols = []
+
+        # Define queries for common languages
+        query_str = ""
+        if self.language == "python":
+            query_str = """
+                (function_definition
+                  name: (identifier) @name) @symbol
+                (class_definition
+                  name: (identifier) @name) @symbol
+            """
+        elif self.language in ["typescript", "tsx", "javascript"]:
+            # Use separate patterns instead of alternation to avoid QueryError
+            # in some versions
+            class_name_type = (
+                "type_identifier"
+                if self.language in ["typescript", "tsx"]
+                else "identifier"
+            )
+            query_str = f"""
+                (function_declaration
+                  name: (identifier) @name) @symbol
+                (method_definition
+                  name: (property_identifier) @name) @symbol
+                (class_declaration
+                  name: ({class_name_type}) @name) @symbol
+                (variable_declarator
+                  name: (identifier) @name
+                  value: (arrow_function)) @symbol
+                (variable_declarator
+                  name: (identifier) @name
+                  value: (function_expression)) @symbol
+            """
+        elif self.language == "java":
+            query_str = """
+                (method_declaration
+                  name: (identifier) @name) @symbol
+                (class_declaration
+                  name: (identifier) @name) @symbol
+            """
+        elif self.language == "go":
+            query_str = """
+                (function_declaration
+                  name: (identifier) @name) @symbol
+                (method_declaration
+                  name: (field_identifier) @name) @symbol
+                (type_declaration
+                  (type_spec
+                    name: (type_identifier) @name)) @symbol
+            """
+
+        if not query_str:
+            return []
+
+        try:
+            query = tree_sitter.Query(self.ts_language, query_str)
+            cursor = tree_sitter.QueryCursor(query)
+            matches = cursor.matches(root)
+
+            for _, captures in matches:
+                # In 0.22+, captures is a dict mapping capture name to list of nodes
+                symbol_nodes = captures.get("symbol", [])
+                name_nodes = captures.get("name", [])
+
+                if symbol_nodes and name_nodes:
+                    node = symbol_nodes[0]
+                    name_node = name_nodes[0]
+                    name_text = ""
+                    if hasattr(name_node, "text") and name_node.text:
+                        name_text = name_node.text.decode("utf-8")
+
+                    symbols.append(
+                        {
+                            "name": name_text,
+                            "kind": node.type,
+                            "start_line": node.start_point[0] + 1,
+                            "end_line": node.end_point[0] + 1,
+                        }
+                    )
+        except Exception as e:
+            logger.error(f"Error querying AST for {self.language}: {e}")
+
+        return symbols
 
     def count_tokens(self, text: str) -> int:
         """Count the number of tokens in a text string."""
@@ -469,6 +602,9 @@ class CodeChunker:
             logger.warning(f"Empty code document: {document.source}")
             return []
 
+        # Extract symbols for metadata enrichment
+        symbols = self._get_symbols(document.text)
+
         try:
             # Use LlamaIndex CodeSplitter to get AST-aware chunks
             code_chunks = self.code_splitter.split_text(document.text)
@@ -486,10 +622,64 @@ class CodeChunker:
         chunks: list[CodeChunk] = []
         total_chunks = len(code_chunks)
 
+        # Track line numbers by matching chunk text back to original document
+        current_pos = 0
+        original_text = document.text
+
         for idx, chunk_text in enumerate(code_chunks):
             # Generate stable chunk ID
             id_seed = f"{document.source}_{idx}"
             stable_id = hashlib.md5(id_seed.encode()).hexdigest()
+
+            # Determine line numbers for this chunk
+            start_line = None
+            end_line = None
+            start_idx = original_text.find(chunk_text, current_pos)
+            if start_idx != -1:
+                start_line = original_text.count("\n", 0, start_idx) + 1
+                end_line = start_line + chunk_text.count("\n")
+                current_pos = start_idx + len(chunk_text)
+
+            # Find dominant symbol for this chunk
+            symbol_name = None
+            symbol_kind = None
+            if start_line is not None and end_line is not None:
+                # Find symbols that overlap with this chunk
+                overlapping_symbols = [
+                    s
+                    for s in symbols
+                    if not (s["end_line"] < start_line or s["start_line"] > end_line)
+                ]
+
+                if overlapping_symbols:
+                    # Strategy:
+                    # 1. Prefer symbols that START within the chunk
+                    # 2. If multiple start in chunk, pick the first one
+                    # 3. If none start in chunk, pick the most "nested" one
+                    #    that overlaps (the one that starts latest)
+
+                    in_chunk_symbols = [
+                        s
+                        for s in overlapping_symbols
+                        if start_line <= s["start_line"] <= end_line
+                    ]
+
+                    if in_chunk_symbols:
+                        # Pick the most "specific" one starting in the chunk
+                        # (latest start line)
+                        in_chunk_symbols.sort(
+                            key=lambda x: x["start_line"], reverse=True
+                        )
+                        symbol_name = in_chunk_symbols[0]["name"]
+                        symbol_kind = in_chunk_symbols[0]["kind"]
+                    else:
+                        # None start in chunk, pick the one that starts latest
+                        # (most specific parent)
+                        overlapping_symbols.sort(
+                            key=lambda x: x["start_line"], reverse=True
+                        )
+                        symbol_name = overlapping_symbols[0]["name"]
+                        symbol_kind = overlapping_symbols[0]["kind"]
 
             # Generate summary if enabled
             section_summary = None
@@ -513,8 +703,11 @@ class CodeChunker:
                 chunk_index=idx,
                 total_chunks=total_chunks,
                 token_count=self.count_tokens(chunk_text),
+                symbol_name=symbol_name,
+                symbol_kind=symbol_kind,
+                start_line=start_line,
+                end_line=end_line,
                 section_summary=section_summary,
-                # AST metadata will be populated by post-processing if available
                 extra=document.metadata.copy(),
             )
             chunks.append(chunk)

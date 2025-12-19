@@ -123,7 +123,13 @@ doc-svr-ctl query "data validation" --source-types code --languages javascript
 ```
 
 #### Supported Languages
-Doc-Serve supports AST-aware chunking for: **Python, TypeScript, JavaScript, Java, Kotlin, C, C++, Go, Rust, Swift**
+Doc-Serve supports AST-aware chunking for: **Python, TypeScript, JavaScript, Java, Go, Rust, C, C++**.
+
+#### AST Metadata
+When using AST-aware chunking, search results include:
+- `symbol_name`: The name of the function or class.
+- `symbol_kind`: The type of symbol (e.g., `function_definition`, `class_declaration`).
+- `start_line` / `end_line`: Precise line numbers in the source file.
 
 ### Programmatic Output
 Use the `--json` flag to get raw data for piping into other tools like `jq`:

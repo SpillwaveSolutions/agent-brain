@@ -210,12 +210,7 @@ class EmbeddingGenerator:
                 model=settings.CLAUDE_MODEL,
                 max_tokens=300,
                 temperature=0.1,  # Low temperature for consistent summaries
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ]
+                messages=[{"role": "user", "content": prompt}],
             )
 
             # Extract text from Claude response
@@ -253,16 +248,16 @@ class EmbeddingGenerator:
 
         # Try to find function/class comments
         comment_match = re.search(
-            r'#.*(?:function|class|method|def)', code_text, re.IGNORECASE
+            r"#.*(?:function|class|method|def)", code_text, re.IGNORECASE
         )
         if comment_match:
-            return comment_match.group(0).strip('#').strip()
+            return comment_match.group(0).strip("#").strip()
 
         # Last resort: first line if it looks like a comment
-        lines = code_text.strip().split('\n')
+        lines = code_text.strip().split("\n")
         first_line = lines[0].strip()
-        if first_line.startswith(('#', '//', '/*')):
-            return first_line.lstrip('#/*').strip()
+        if first_line.startswith(("#", "//", "/*")):
+            return first_line.lstrip("#/*").strip()
 
         return ""  # No summary available
 

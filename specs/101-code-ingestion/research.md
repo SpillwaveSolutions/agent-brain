@@ -222,8 +222,13 @@ pip install tree-sitter tree-sitter-python tree-sitter-javascript
 ```python
 from tree_sitter import Language, Parser
 import tree_sitter_python as tspython
+import tree_sitter_typescript as tstypescript
 
+# Initialize languages
 PY_LANGUAGE = Language(tspython.language())
+TS_LANGUAGE = Language(tstypescript.language_typescript())
+TSX_LANGUAGE = Language(tstypescript.language_tsx())
+
 parser = Parser(PY_LANGUAGE)
 
 code = b"""
@@ -242,23 +247,45 @@ for child in root.children:
 
 ### AST Queries for Metadata Extraction
 
+**Python Query:**
 ```python
 from tree_sitter import Query
 
-# Find all function definitions
-query = Query(
+# Find all function and class definitions
+py_query = Query(
     PY_LANGUAGE,
     """
     (function_definition
-      name: (identifier) @func_name
+      name: (identifier) @symbol_name
       parameters: (parameters) @params
-      return_type: (type)? @return_type)
+      return_type: (type)? @return_type) @symbol_node
+
+    (class_definition
+      name: (identifier) @symbol_name) @symbol_node
     """
 )
+```
 
-captures = query.captures(root)
-for node, capture_name in captures:
-    print(f"{capture_name}: {node.text.decode('utf8')}")
+**TypeScript/JavaScript Query:**
+```python
+# Find all function, class, and method definitions
+ts_query = Query(
+    TS_LANGUAGE,
+    """
+    (function_declaration
+      name: (identifier) @symbol_name) @symbol_node
+
+    (class_declaration
+      name: (type_identifier) @symbol_name) @symbol_node
+
+    (method_definition
+      name: (property_identifier) @symbol_name) @symbol_node
+      
+    (arrow_function
+      (variable_declarator
+        name: (identifier) @symbol_name)) @symbol_node
+    """
+)
 ```
 
 ### Extractable Metadata via AST
@@ -406,29 +433,28 @@ def load_code_files(
 
 **Current class:** `ContextAwareChunker` (text-based splitting)
 
-**New class needed:**
-```python
-class CodeChunker:
-    """AST-aware code chunking using LlamaIndex CodeSplitter."""
+**New class needed:** `CodeChunker`
 
-    def __init__(
-        self,
-        chunk_lines: int = 50,
-        chunk_overlap: int = 20,
-        max_chars: int = 2000,
-        generate_summaries: bool = True,
-    ):
-        self.splitters: dict[str, CodeSplitter] = {}
-        self._init_splitters()
+**AST Boundary Detection Strategy (US5):**
+1.  **Parse**: Parse the entire file using `tree-sitter` for the detected language.
+2.  **Traverse**: Traverse the AST to identify "top-level" nodes (functions, classes, imports).
+3.  **Map**: Create a mapping of line ranges to symbol metadata (name, kind, docstring).
+4.  **Split**: Use `CodeSplitter` to get text chunks.
+5.  **Enrich**: For each chunk:
+    - Determine its `start_line` and `end_line` in the original file.
+    - Intersect these lines with the AST symbol mapping.
+    - Assign `symbol_name` and `symbol_kind` to the chunk metadata.
+    - If a chunk contains multiple symbols, use the "dominant" one or the first significant one.
+    - If a chunk is part of a large symbol (e.g., a method in a large class), assign the parent class name to `symbol_name`.
 
-    def chunk_code_file(
-        self,
-        document: LoadedDocument,
-        language: str,
-    ) -> list[CodeChunk]:
-        """Chunk a code file using language-specific AST splitting."""
-        ...
-```
+**Symbol Name Extraction (US5):**
+- **Python**: `identifier` node under `function_definition` or `class_definition`.
+- **TypeScript**: `identifier` under `function_declaration`, `type_identifier` under `class_declaration`, or `property_identifier` under `method_definition`.
+- **Hierarchical names**: For methods, combine class and method name (e.g., `UserService.get_user`).
+
+**Line Number Tracking (US5):**
+- Use `node.start_point[0]` and `node.end_point[0]` from `tree-sitter` nodes (0-indexed, convert to 1-indexed for metadata).
+- For `CodeSplitter` output, calculate line numbers by counting `\n` in the original text up to the chunk's content.
 
 ### IndexingService Extension
 
