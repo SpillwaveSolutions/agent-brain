@@ -65,7 +65,7 @@ class QueryRequest(BaseModel):
         examples=[["docs/*.md"], ["src/**/*.py"]],
     )
 
-    @field_validator('languages')
+    @field_validator("languages")
     @classmethod
     def validate_languages(cls, v: Optional[list[str]]) -> Optional[list[str]]:
         """Validate that provided languages are supported."""

@@ -103,7 +103,7 @@ doc-svr-ctl query "coffee temperature" --top-k 10 --threshold 0.3
 
 ### Code-Aware Search (with Code Ingestion)
 
-When code is indexed, you can perform cross-reference searches:
+When code is indexed, you can perform cross-reference searches with AST-aware metadata:
 
 ```bash
 # Search across both documentation and code
@@ -118,10 +118,13 @@ doc-svr-ctl query "database connection" --languages python,typescript
 
 # Combine filters for precise results
 doc-svr-ctl query "error handling" --source-types code --languages go
+
+# Search by specific function or class name (BM25 recommended for identifiers)
+doc-svr-ctl query "authenticate_user" --mode bm25 --source-types code
 ```
 
 ### Supported Languages
-Doc-Serve supports code ingestion for: **Python, TypeScript, JavaScript, Java, Kotlin, C, C++, Go, Rust, Swift**
+Doc-Serve supports AST-aware code ingestion for: **Python, TypeScript, JavaScript, Java, Go, Rust, C, C++**. Other languages are supported via intelligent text-based chunking.
 
 ## Common Commands Summary
 

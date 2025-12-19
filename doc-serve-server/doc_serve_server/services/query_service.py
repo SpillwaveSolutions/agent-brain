@@ -224,30 +224,33 @@ class QueryService:
         # Convert BM25 results to same format as vector results
         bm25_query_results = []
         for node in bm25_results:
-            bm25_query_results.append(QueryResult(
-                text=node.node.get_content(),
-                source=node.node.metadata.get(
-                    "source", node.node.metadata.get("file_path", "unknown")
-                ),
-                score=node.score or 0.0,
-                bm25_score=node.score,
-                chunk_id=node.node.node_id,
-                source_type=node.node.metadata.get("source_type", "doc"),
-                language=node.node.metadata.get("language"),
-                metadata={
-                    k: v for k, v in node.node.metadata.items()
-                    if k not in ("source", "file_path", "source_type", "language")
-                },
-            ))
+            bm25_query_results.append(
+                QueryResult(
+                    text=node.node.get_content(),
+                    source=node.node.metadata.get(
+                        "source", node.node.metadata.get("file_path", "unknown")
+                    ),
+                    score=node.score or 0.0,
+                    bm25_score=node.score,
+                    chunk_id=node.node.node_id,
+                    source_type=node.node.metadata.get("source_type", "doc"),
+                    language=node.node.metadata.get("language"),
+                    metadata={
+                        k: v
+                        for k, v in node.node.metadata.items()
+                        if k not in ("source", "file_path", "source_type", "language")
+                    },
+                )
+            )
 
         # 3. Simple hybrid fusion for small corpora
         # Combine vector and BM25 results manually to avoid retriever complexity
 
         # Score normalization: bring both to 0-1 range
         max_vector_score = max((r.score for r in vector_results), default=1.0) or 1.0
-        max_bm25_score = max(
-            (r.bm25_score or 0.0 for r in bm25_query_results), default=1.0
-        ) or 1.0
+        max_bm25_score = (
+            max((r.bm25_score or 0.0 for r in bm25_query_results), default=1.0) or 1.0
+        )
 
         # Create combined results map
         combined_results: dict[str, dict[str, Any]] = {}
@@ -265,7 +268,8 @@ class QueryService:
                 source_type=res.metadata.get("source_type", "doc"),
                 language=res.metadata.get("language"),
                 metadata={
-                    k: v for k, v in res.metadata.items()
+                    k: v
+                    for k, v in res.metadata.items()
                     if k not in ("source", "file_path", "source_type", "language")
                 },
             )
@@ -305,7 +309,7 @@ class QueryService:
 
         # Sort by combined score and take top_k
         fused_nodes.sort(key=lambda x: x.score, reverse=True)
-        fused_nodes = fused_nodes[:request.top_k]
+        fused_nodes = fused_nodes[: request.top_k]
 
         return fused_nodes
 
@@ -364,9 +368,7 @@ class QueryService:
         return filtered_results
 
     def _build_where_clause(
-        self,
-        source_types: list[str] | None,
-        languages: list[str] | None
+        self, source_types: list[str] | None, languages: list[str] | None
     ) -> dict[str, Any] | None:
         """
         Build ChromaDB where clause from filter parameters.

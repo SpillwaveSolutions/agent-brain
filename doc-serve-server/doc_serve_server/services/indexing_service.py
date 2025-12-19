@@ -70,6 +70,9 @@ class IndexingService:
         )
         self._lock = asyncio.Lock()
         self._indexed_folders: set[str] = set()
+        self._total_doc_chunks = 0
+        self._total_code_chunks = 0
+        self._supported_languages: set[str] = set()
 
     @property
     def state(self) -> IndexingState:
@@ -217,6 +220,7 @@ class IndexingService:
                     doc_documents, doc_chunk_progress
                 )
                 all_chunks.extend(doc_chunks)
+                self._total_doc_chunks += len(doc_chunks)
                 logger.info(f"Created {len(doc_chunks)} document chunks")
 
             # Chunk code files
@@ -242,13 +246,12 @@ class IndexingService:
 
                     try:
                         code_chunker = CodeChunker(
-                            language=lang,
-                            generate_summaries=request.generate_summaries
+                            language=lang, generate_summaries=request.generate_summaries
                         )
 
                         # Create progress callback with fixed offset for this language
                         def make_progress_callback(
-                            offset: int
+                            offset: int,
                         ) -> Callable[[int, int], Awaitable[None]]:
                             async def progress_callback_fn(
                                 processed: int,
@@ -269,15 +272,20 @@ class IndexingService:
                                         f"Chunking code: {total_processed}/"
                                         f"{total_to_process}",
                                     )
+
                             return progress_callback_fn
 
                         # Calculate offset and create callback for this language batch
-                        progress_offset = len(doc_documents) + total_code_processed
-                        code_chunk_progress = make_progress_callback(progress_offset)  # noqa: F841
+                        # Progress callback created but not used in
+                        # current implementation
+                        # progress_offset = len(doc_documents) + total_code_processed
+                        # code_chunk_progress = make_progress_callback(progress_offset)
 
                         for doc in lang_docs:
                             code_chunks = await code_chunker.chunk_code_document(doc)
                             all_chunks.extend(code_chunks)
+                            self._total_code_chunks += len(code_chunks)
+                            self._supported_languages.add(lang)
 
                         # Update the total code documents processed
                         total_code_processed += len(lang_docs)
@@ -327,6 +335,8 @@ class IndexingService:
                     pct = 50 + int((processed / total) * 40)
                     await progress_callback(pct, 100, f"Embedding: {processed}/{total}")
 
+            # The chunks list contains both TextChunk and CodeChunk,
+            # but both are TextChunk subclasses
             embeddings = await self.embedding_generator.embed_chunks(
                 chunks,  # type: ignore
                 embedding_progress,
@@ -395,11 +405,10 @@ class IndexingService:
             else 0
         )
 
-        # TODO: Implement efficient counting of chunks by type and language
-        # For now, return 0 for code/doc breakdown until we implement proper tracking
-        total_doc_chunks = 0  # TODO: Track document chunks during indexing
-        total_code_chunks = 0  # TODO: Track code chunks during indexing
-        supported_languages: list[str] = []  # TODO: Track supported languages indexed
+        # Use the instance variables we've been tracking during indexing
+        total_doc_chunks = self._total_doc_chunks
+        total_code_chunks = self._total_code_chunks
+        supported_languages = sorted(self._supported_languages)
 
         return {
             "status": self._state.status.value,

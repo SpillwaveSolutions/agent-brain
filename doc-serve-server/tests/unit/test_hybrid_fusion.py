@@ -28,34 +28,37 @@ class TestHybridRetrieval:
 
         # Mock vector search results (SearchResult objects)
         from doc_serve_server.storage.vector_store import SearchResult
+
         mock_vector_store.similarity_search.return_value = [
             SearchResult(
                 text="Vector Result",
                 metadata={
                     "source": "v.md",
                     "source_type": "doc",
-                    "language": "markdown"
+                    "language": "markdown",
                 },
                 score=0.8,
-                chunk_id="v1"
+                chunk_id="v1",
             )
         ]
 
         # Mock BM25 search_with_filters method
-        mock_bm25_manager.search_with_filters = AsyncMock(return_value=[
-            MagicMock(
-                node=MagicMock(
-                    get_content=MagicMock(return_value="BM25 Result"),
-                    metadata={
-                        "source": "b.md",
-                        "source_type": "doc",
-                        "language": "markdown"
-                    },
-                    node_id="b1"
-                ),
-                score=0.9
-            )
-        ])
+        mock_bm25_manager.search_with_filters = AsyncMock(
+            return_value=[
+                MagicMock(
+                    node=MagicMock(
+                        get_content=MagicMock(return_value="BM25 Result"),
+                        metadata={
+                            "source": "b.md",
+                            "source_type": "doc",
+                            "language": "markdown",
+                        },
+                        node_id="b1",
+                    ),
+                    score=0.9,
+                )
+            ]
+        )
 
         # Mock get_count for corpus size
         mock_vector_store.get_count.return_value = 10

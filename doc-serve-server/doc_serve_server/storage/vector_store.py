@@ -236,9 +236,12 @@ class VectorStoreManager:
         )
         return search_results
 
-    async def get_count(self) -> int:
+    async def get_count(self, where: Optional[dict[str, Any]] = None) -> int:
         """
-        Get the total number of documents in the collection.
+        Get the number of documents in the collection, optionally filtered.
+
+        Args:
+            where: Optional metadata filter.
 
         Returns:
             Number of documents stored.
@@ -248,6 +251,13 @@ class VectorStoreManager:
 
         async with self._lock:
             assert self._collection is not None
+            if where:
+                # get() is the only way to filter for counts in some Chroma versions
+                # include=[] to minimize data transfer
+                results = self._collection.get(where=where, include=[])
+                if results and "ids" in results:
+                    return len(results["ids"])
+                return 0
             return self._collection.count()
 
     async def delete_collection(self) -> None:
