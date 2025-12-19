@@ -275,6 +275,7 @@ class DocServeClient:
         code_chunk_strategy: str = "ast_aware",
         include_patterns: Optional[list[str]] = None,
         exclude_patterns: Optional[list[str]] = None,
+        generate_summaries: bool = False,
     ) -> IndexResponse:
         """
         Start indexing documents and optionally code from a folder.
@@ -289,6 +290,7 @@ class DocServeClient:
             code_chunk_strategy: Strategy for code chunking.
             include_patterns: Additional include patterns.
             exclude_patterns: Additional exclude patterns.
+            generate_summaries: Generate LLM summaries for code chunks.
 
         Returns:
             IndexResponse with job ID.
@@ -306,6 +308,7 @@ class DocServeClient:
                 "code_chunk_strategy": code_chunk_strategy,
                 "include_patterns": include_patterns,
                 "exclude_patterns": exclude_patterns,
+                "generate_summaries": generate_summaries,
             },
         )
 
