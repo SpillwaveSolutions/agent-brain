@@ -734,6 +734,8 @@ tree-sitter-swift = "^0.21"
 - [Python Grammar](https://github.com/tree-sitter/tree-sitter-python)
 - [JavaScript Grammar](https://github.com/tree-sitter/tree-sitter-javascript)
 - [TypeScript Grammar](https://github.com/tree-sitter/tree-sitter-typescript)
+- [tree-sitter-language-pack](https://pypi.org/project/tree-sitter-language-pack/) - 160+ bundled grammars
+- [tree-sitter-languages](https://pypi.org/project/tree-sitter-languages/) - 40+ bundled grammars
 
 ### ChromaDB
 - [Metadata Filtering](https://docs.trychroma.com/docs/querying-collections/metadata-filtering)
@@ -743,6 +745,7 @@ tree-sitter-swift = "^0.21"
 - [Product Roadmap](../../docs/roadmaps/product-roadmap.md) - Phase 3 requirements
 - [Spec Mapping](../../docs/roadmaps/spec-mapping.md) - Spec workflow
 - [Feature Spec](./spec.md) - Detailed user stories and requirements
+- [Developer Guide: Adding Languages](../../docs/DEVELOPERS_GUIDE.md#adding-support-for-new-languages) - How to add new language support
 
 ---
 

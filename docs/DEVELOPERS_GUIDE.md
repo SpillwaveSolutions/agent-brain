@@ -13,6 +13,7 @@ This guide covers setting up a development environment, understanding the archit
 - [Code Style](#code-style)
 - [Contributing](#contributing)
 - [Troubleshooting](#troubleshooting)
+- [Adding Support for New Languages](#adding-support-for-new-languages)
 
 ---
 
@@ -160,3 +161,144 @@ This usually means you are running the tool without installing it or the `PYTHON
 
 ### Duplicated Results in Query
 **Solution**: The system uses stable IDs based on file path and chunk index. If you see duplicates, run `doc-svr-ctl reset --yes` to clear the old index and re-index.
+
+---
+
+## Adding Support for New Languages
+
+Doc-Serve's code ingestion (Phase 3) uses tree-sitter for AST-aware code chunking. Adding support for new programming languages is straightforward.
+
+### Recommended Package: tree-sitter-language-pack
+
+Use [`tree-sitter-language-pack`](https://pypi.org/project/tree-sitter-language-pack/) - a maintained fork with 160+ pre-built language grammars.
+
+**Advantages:**
+- Pre-compiled binaries (no C compiler needed)
+- 160+ languages in a single dependency
+- Permissive licensing (no GPL dependencies)
+- Aligned with tree-sitter 0.25.x
+
+**Installation:**
+```bash
+pip install tree-sitter-language-pack
+```
+
+### Simple API
+
+```python
+from tree_sitter_language_pack import get_language, get_parser
+
+# Get parser for any supported language
+parser = get_parser('rust')
+language = get_language('rust')
+
+# Parse code
+tree = parser.parse(b"fn main() { println!(\"Hello\"); }")
+```
+
+### Step-by-Step: Adding a New Language
+
+**Step 1: Verify language support**
+```python
+from tree_sitter_language_pack import get_language
+
+try:
+    lang = get_language('ruby')
+    print("Ruby is supported!")
+except Exception:
+    print("Ruby not available")
+```
+
+**Step 2: Update extension mapping**
+
+In `doc_serve_server/indexing/document_loader.py`:
+
+```python
+# Add to CODE_EXTENSIONS
+CODE_EXTENSIONS: set[str] = {
+    ".py", ".ts", ".tsx", ".js", ".jsx",
+    ".rb",  # NEW: Ruby
+}
+
+# Add to EXTENSION_TO_LANGUAGE
+EXTENSION_TO_LANGUAGE = {
+    # ... existing mappings ...
+    ".rb": "ruby",
+}
+```
+
+**Step 3: Register with CodeChunker**
+
+In `doc_serve_server/indexing/code_chunker.py`:
+
+```python
+class CodeChunker:
+    SUPPORTED_LANGUAGES = [
+        "python", "typescript", "javascript",
+        "ruby",  # NEW
+    ]
+```
+
+**Step 4: Add language-specific config (optional)**
+
+```python
+LANGUAGE_CHUNK_CONFIG = {
+    "python": {"chunk_lines": 50, "overlap": 20},
+    "ruby": {"chunk_lines": 50, "overlap": 20},  # NEW
+    "java": {"chunk_lines": 80, "overlap": 30},  # Verbose
+    "c": {"chunk_lines": 40, "overlap": 15},
+}
+```
+
+### Available Languages (160+)
+
+| Category | Languages |
+|----------|-----------|
+| Systems | C, C++, Rust, Go, Zig |
+| JVM | Java, Kotlin, Scala, Groovy |
+| Scripting | Python, Ruby, Perl, Lua, PHP |
+| Web | JavaScript, TypeScript, HTML, CSS |
+| Functional | Haskell, OCaml, Elixir, Erlang, Clojure |
+| Data | SQL, JSON, YAML, TOML, XML |
+| Config | Dockerfile, Terraform (HCL), Nix |
+| Shell | Bash, Fish, PowerShell |
+| Scientific | R, Julia, Fortran |
+| Mobile | Swift, Objective-C |
+
+### Alternative: Individual Packages
+
+For minimal dependencies, use individual tree-sitter packages:
+
+```bash
+pip install tree-sitter-python tree-sitter-javascript
+```
+
+```python
+import tree_sitter_python as tspython
+from tree_sitter import Language, Parser
+
+PY_LANGUAGE = Language(tspython.language())
+parser = Parser(PY_LANGUAGE)
+```
+
+### Alternative: tree-sitter-languages
+
+The original [`tree-sitter-languages`](https://pypi.org/project/tree-sitter-languages/) package (40+ languages):
+
+```bash
+pip install tree-sitter-languages
+```
+
+```python
+from tree_sitter_languages import get_language, get_parser
+
+language = get_language('python')
+parser = get_parser('python')
+```
+
+### References
+
+- [tree-sitter-language-pack on PyPI](https://pypi.org/project/tree-sitter-language-pack/)
+- [tree-sitter-languages on PyPI](https://pypi.org/project/tree-sitter-languages/)
+- [tree-sitter-languages GitHub](https://github.com/grantjenks/py-tree-sitter-languages)
+- [Tree-sitter Documentation](https://tree-sitter.github.io)

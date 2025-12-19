@@ -20,16 +20,16 @@ Doc-Serve is a local-first RAG (Retrieval-Augmented Generation) service that ind
 
 ## Phase Summary
 
-| Phase | Name | Spec ID | Status | Priority | Transport |
-|-------|------|---------|--------|----------|-----------|
-| 1 | Core Document RAG | 001-005 | COMPLETED | - | HTTP |
-| 2 | BM25 & Hybrid Retrieval | 100 | NEXT | P1 | HTTP |
-| 3 | Source Code Ingestion | 101 | Planned | P2 | HTTP |
-| 4 | UDS & Claude Plugin Evolution | 102 | Future | P3 | HTTP + UDS |
-| 5 | Pluggable Model Providers | 103 | Future | P3 | HTTP + UDS |
-| 6 | PostgreSQL/AlloyDB Backend | 104 | Future | P4 | HTTP + UDS |
-| 7 | AWS Bedrock Provider | 105 | Future | P4 | HTTP + UDS |
-| 8 | Google Vertex AI Provider | 106 | Future | P4 | HTTP + UDS |
+| Phase | Name | Spec ID | Status      | Priority | Transport |
+|-------|------|---------|-------------|----------|-----------|
+| 1 | Core Document RAG | 001-005 | COMPLETED   | - | HTTP |
+| 2 | BM25 & Hybrid Retrieval | 100 | COMPLETED   | P1 | HTTP |
+| 3 | Source Code Ingestion | 101 | IN-PROGRESS | P2 | HTTP |
+| 4 | UDS & Claude Plugin Evolution | 102 | Future      | P3 | HTTP + UDS |
+| 5 | Pluggable Model Providers | 103 | Next        | P3 | HTTP + UDS |
+| 6 | PostgreSQL/AlloyDB Backend | 104 | Future      | P4 | HTTP + UDS |
+| 7 | AWS Bedrock Provider | 105 | Future      | P4 | HTTP + UDS |
+| 8 | Google Vertex AI Provider | 106 | Future      | P4 | HTTP + UDS |
 
 ---
 

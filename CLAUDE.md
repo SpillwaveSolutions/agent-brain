@@ -198,6 +198,8 @@ Do NOT push code that fails `task before-push`.
 ## Active Technologies
 - Python 3.10+ + FastAPI, LlamaIndex, ChromaDB, OpenAI, rank-bm25 (100-bm25-hybrid-retrieval)
 - ChromaDB (Vector Store), Local Persistent BM25 Index (LlamaIndex) (100-bm25-hybrid-retrieval)
+- Python 3.10+ + LlamaIndex (CodeSplitter, SummaryExtractor), tree-sitter parsers, ChromaDB (101-code-ingestion)
+- ChromaDB (unified vector store), Disk-based BM25 index (101-code-ingestion)
 
 ## Recent Changes
 - 100-bm25-hybrid-retrieval: Added Python 3.10+ + FastAPI, LlamaIndex, ChromaDB, OpenAI, rank-bm25
