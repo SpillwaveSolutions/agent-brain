@@ -241,7 +241,10 @@ class IndexingService:
                         code_chunker = CodeChunker(language=lang)
 
                         async def code_chunk_progress(
-                            processed: int, total: int, lang: str = lang, lang_docs: list[Any] = lang_docs
+                            processed: int,
+                            total: int,
+                            lang: str = lang,
+                            lang_docs: list[Any] = lang_docs
                         ) -> None:
                             # Offset by documents already processed
                             total_processed = len(doc_documents) + processed

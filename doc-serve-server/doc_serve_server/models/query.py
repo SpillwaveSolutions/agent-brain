@@ -1,7 +1,7 @@
 """Query request and response models."""
 
 from enum import Enum
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -67,7 +67,7 @@ class QueryRequest(BaseModel):
 
     @field_validator('languages')
     @classmethod
-    def validate_languages(cls, v):
+    def validate_languages(cls, v: Optional[list[str]]) -> Optional[list[str]]:
         """Validate that provided languages are supported."""
         if v is None:
             return v

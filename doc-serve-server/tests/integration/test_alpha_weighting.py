@@ -54,7 +54,11 @@ class TestAlphaWeighting:
         mock_vector_store.similarity_search.return_value = [
             SearchResult(
                 text="Vector result",
-                metadata={"source": "v.md", "source_type": "doc", "language": "markdown"},
+                metadata={
+                    "source": "v.md",
+                    "source_type": "doc",
+                    "language": "markdown"
+                },
                 score=0.8,
                 chunk_id="v1"
             )
@@ -65,7 +69,11 @@ class TestAlphaWeighting:
             MagicMock(
                 node=MagicMock(
                     get_content=MagicMock(return_value="BM25 result"),
-                    metadata={"source": "b.md", "source_type": "doc", "language": "markdown"},
+                    metadata={
+                        "source": "b.md",
+                        "source_type": "doc",
+                        "language": "markdown"
+                    },
                     node_id="b1"
                 ),
                 score=0.9
