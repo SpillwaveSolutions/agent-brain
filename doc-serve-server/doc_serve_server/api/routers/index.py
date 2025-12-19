@@ -79,6 +79,7 @@ async def index_documents(request: IndexRequest) -> IndexResponse:
             code_chunk_strategy=request.code_chunk_strategy,
             include_patterns=request.include_patterns,
             exclude_patterns=request.exclude_patterns,
+            generate_summaries=request.generate_summaries,
         )
         job_id = await indexing_service.start_indexing(resolved_request)
     except Exception as e:

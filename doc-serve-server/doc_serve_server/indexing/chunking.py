@@ -401,6 +401,7 @@ class CodeChunker:
         chunk_lines: Optional[int] = None,
         chunk_lines_overlap: Optional[int] = None,
         max_chars: Optional[int] = None,
+        generate_summaries: bool = False,
     ):
         """
         Initialize the code chunker.
@@ -410,11 +411,13 @@ class CodeChunker:
             chunk_lines: Target chunk size in lines. Defaults to 40.
             chunk_lines_overlap: Line overlap between chunks. Defaults to 15.
             max_chars: Maximum characters per chunk. Defaults to 1500.
+            generate_summaries: Whether to generate LLM summaries for chunks.
         """
         self.language = language
         self.chunk_lines = chunk_lines or 40
         self.chunk_lines_overlap = chunk_lines_overlap or 15
         self.max_chars = max_chars or 1500
+        self.generate_summaries = generate_summaries
 
         # Initialize LlamaIndex CodeSplitter for AST-aware chunking
         self.code_splitter = CodeSplitter(
@@ -423,6 +426,11 @@ class CodeChunker:
             chunk_lines_overlap=self.chunk_lines_overlap,
             max_chars=self.max_chars,
         )
+
+        # Initialize embedding generator for summaries (only if needed)
+        if self.generate_summaries:
+            from .embedding import get_embedding_generator
+            self.embedding_generator = get_embedding_generator()
 
         # Initialize tokenizer for token counting
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
@@ -483,6 +491,16 @@ class CodeChunker:
             id_seed = f"{document.source}_{idx}"
             stable_id = hashlib.md5(id_seed.encode()).hexdigest()
 
+            # Generate summary if enabled
+            section_summary = None
+            if self.generate_summaries and chunk_text.strip():
+                try:
+                    section_summary = await self.embedding_generator.generate_summary(chunk_text)
+                    logger.debug(f"Generated summary for chunk {idx}: {section_summary[:50]}...")
+                except Exception as e:
+                    logger.warning(f"Failed to generate summary for chunk {idx}: {e}")
+                    section_summary = ""
+
             chunk = CodeChunk.create(
                 chunk_id=f"chunk_{stable_id[:16]}",
                 text=chunk_text,
@@ -491,6 +509,7 @@ class CodeChunker:
                 chunk_index=idx,
                 total_chunks=total_chunks,
                 token_count=self.count_tokens(chunk_text),
+                section_summary=section_summary,
                 # AST metadata will be populated by post-processing if available
                 extra=document.metadata.copy(),
             )

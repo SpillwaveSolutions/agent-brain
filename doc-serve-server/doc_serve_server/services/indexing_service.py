@@ -238,7 +238,10 @@ class IndexingService:
                         continue
 
                     try:
-                        code_chunker = CodeChunker(language=lang)
+                        code_chunker = CodeChunker(
+                            language=lang,
+                            generate_summaries=request.generate_summaries
+                        )
 
                         async def code_chunk_progress(
                             processed: int,

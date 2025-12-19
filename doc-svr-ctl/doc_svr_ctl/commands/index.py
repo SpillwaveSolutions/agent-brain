@@ -59,6 +59,11 @@ console = Console()
     "--exclude-patterns",
     help="Comma-separated additional exclude patterns (wildcards supported)",
 )
+@click.option(
+    "--generate-summaries",
+    is_flag=True,
+    help="Generate LLM summaries for code chunks to improve semantic search",
+)
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
 def index_command(
     folder_path: str,
@@ -71,6 +76,7 @@ def index_command(
     code_strategy: str,
     include_patterns: Optional[str],
     exclude_patterns: Optional[str],
+    generate_summaries: bool,
     json_output: bool,
 ) -> None:
     """Index documents from a folder.
@@ -107,6 +113,7 @@ def index_command(
                 code_chunk_strategy=code_strategy,
                 include_patterns=include_patterns_list,
                 exclude_patterns=exclude_patterns_list,
+                generate_summaries=generate_summaries,
             )
 
             if json_output:
