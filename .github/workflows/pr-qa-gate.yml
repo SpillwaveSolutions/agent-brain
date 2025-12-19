@@ -29,7 +29,7 @@ jobs:
       - name: Install Task
         uses: arduino/setup-task@v2
         with:
-          version: 3.x
+          version: 3.43.3
 
       - name: Install Poetry
         uses: snok/install-poetry@v1

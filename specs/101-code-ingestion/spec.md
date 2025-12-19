@@ -25,7 +25,7 @@ A developer wants to index their project's source code alongside documentation t
 
 ---
 
-### User Story 2 - Cross-Reference Search (Priority: P1)
+### User Story 2 - Cross-Reference Search (Priority: P1) ✅ IMPLEMENTED
 
 A user wants to search and find related code and documentation together from a unified corpus.
 
@@ -38,7 +38,9 @@ A user wants to search and find related code and documentation together from a u
 1. **Given** docs and code indexed, **When** I query "authentication handler", **Then** results include both doc sections and code implementing authentication
 2. **Given** unified corpus, **When** I query for a function name, **Then** I see the function definition AND documentation about it
 3. **Given** hybrid search enabled, **When** I query for exact code patterns, **Then** BM25 finds exact matches while vector finds conceptually related code
-4. **Given** code-only query, **When** I POST with `source_type=code`, **Then** only code results are returned
+4. **Given** code-only query, **When** I POST with `source_types=['code']`, **Then** only code results are returned
+5. **Given** language-specific query, **When** I POST with `languages=['python']`, **Then** only Python code results are returned
+6. **Given** combined filters, **When** I POST with `source_types=['code']` and `languages=['python']`, **Then** only Python code is searched
 
 ---
 
@@ -90,6 +92,24 @@ Code is chunked at logical boundaries (functions, classes, modules) rather than 
 2. **Given** a large function exceeding chunk limit, **When** indexed, **Then** it is split at logical points (try/except blocks, loops)
 3. **Given** a class definition, **When** indexed, **Then** class docstring and method signatures are preserved together
 4. **Given** import statements, **When** indexed, **Then** they are attached to the first relevant code chunk
+
+---
+
+### User Story 7 - Config-Driven Language Support (Priority: P3 - Future Enhancement)
+
+A developer wants to add support for new programming languages without modifying code - just configuration changes.
+
+**Why this priority**: Enables support for 160+ languages via tree-sitter-language-pack without code changes.
+
+**Independent Test**: Edit languages.yaml config and verify new language is automatically supported.
+
+**Acceptance Scenarios**:
+
+1. **Given** languages.yaml config, **When** I add a new language entry, **Then** it's automatically supported without code changes
+2. **Given** language presets, **When** I select "comprehensive" preset, **Then** programming + web + infrastructure languages are enabled
+3. **Given** per-language excludes, **When** I configure test file patterns, **Then** test files are automatically excluded
+4. **Given** environment overrides, **When** I set ENABLED_LANGUAGES=ruby, **Then** Ruby support is enabled
+5. **Given** user custom config, **When** I provide custom languages.yaml, **Then** it overrides defaults
 
 ---
 

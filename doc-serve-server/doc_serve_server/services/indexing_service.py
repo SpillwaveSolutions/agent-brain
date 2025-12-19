@@ -6,7 +6,7 @@ import os
 import uuid
 from collections.abc import Awaitable
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Union
 
 from llama_index.core.schema import TextNode
 
@@ -17,6 +17,7 @@ from doc_serve_server.indexing import (
     EmbeddingGenerator,
     get_bm25_manager,
 )
+from doc_serve_server.indexing.chunking import CodeChunk, CodeChunker, TextChunk
 from doc_serve_server.models import IndexingState, IndexingStatusEnum, IndexRequest
 from doc_serve_server.storage import VectorStoreManager, get_vector_store
 
@@ -160,9 +161,10 @@ class IndexingService:
                 f"Normalizing indexing path: {request.folder_path} -> {abs_folder_path}"
             )
 
-            documents = await self.document_loader.load_from_folder(
+            documents = await self.document_loader.load_files(
                 abs_folder_path,
                 recursive=request.recursive,
+                include_code=request.include_code,
             )
 
             self._state.total_documents = len(documents)
@@ -175,25 +177,146 @@ class IndexingService:
                 self._state.completed_at = datetime.now(timezone.utc)
                 return
 
-            # Step 2: Chunk documents
+            # Step 2: Chunk documents and code files
             if progress_callback:
                 await progress_callback(20, 100, "Chunking documents...")
 
-            # Create chunker with request configuration
-            chunker = ContextAwareChunker(
-                chunk_size=request.chunk_size,
-                chunk_overlap=request.chunk_overlap,
+            # Separate documents by type
+            doc_documents = [
+                d for d in documents if d.metadata.get("source_type") == "doc"
+            ]
+            code_documents = [
+                d for d in documents if d.metadata.get("source_type") == "code"
+            ]
+
+            logger.info(
+                f"Processing {len(doc_documents)} documents and "
+                f"{len(code_documents)} code files"
             )
 
-            async def chunk_progress(processed: int, total: int) -> None:
-                self._state.processed_documents = processed
-                if progress_callback:
-                    pct = 20 + int((processed / total) * 30)
-                    await progress_callback(pct, 100, f"Chunking: {processed}/{total}")
+            all_chunks: list[Union[TextChunk, CodeChunk]] = []
+            total_to_process = len(documents)
 
-            chunks = await chunker.chunk_documents(documents, chunk_progress)
+            # Chunk documents
+            doc_chunker = None
+            if doc_documents:
+                doc_chunker = ContextAwareChunker(
+                    chunk_size=request.chunk_size,
+                    chunk_overlap=request.chunk_overlap,
+                )
+
+                async def doc_chunk_progress(processed: int, total: int) -> None:
+                    self._state.processed_documents = processed
+                    if progress_callback:
+                        pct = 20 + int((processed / total_to_process) * 15)
+                        await progress_callback(
+                            pct, 100, f"Chunking docs: {processed}/{total}"
+                        )
+
+                doc_chunks = await doc_chunker.chunk_documents(
+                    doc_documents, doc_chunk_progress
+                )
+                all_chunks.extend(doc_chunks)
+                logger.info(f"Created {len(doc_chunks)} document chunks")
+
+            # Chunk code files
+            if code_documents:
+                # Group code documents by language for efficient chunking
+                code_by_language: dict[str, list[Any]] = {}
+                for doc in code_documents:
+                    lang = doc.metadata.get("language", "unknown")
+                    if lang not in code_by_language:
+                        code_by_language[lang] = []
+                    code_by_language[lang].append(doc)
+
+                # Track total code documents processed across all languages
+                total_code_processed = 0
+
+                for lang, lang_docs in code_by_language.items():
+                    if lang == "unknown":
+                        logger.warning(
+                            f"Skipping {len(lang_docs)} code files with unknown "
+                            "language"
+                        )
+                        continue
+
+                    try:
+                        code_chunker = CodeChunker(
+                            language=lang,
+                            generate_summaries=request.generate_summaries
+                        )
+
+                        # Create progress callback with fixed offset for this language
+                        def make_progress_callback(
+                            offset: int
+                        ) -> Callable[[int, int], Awaitable[None]]:
+                            async def progress_callback_fn(
+                                processed: int,
+                                total: int,
+                            ) -> None:
+                                # processed is relative to current language batch
+                                # Convert to total documents processed across
+                                # all languages
+                                total_processed = offset + processed
+                                self._state.processed_documents = total_processed
+                                if progress_callback:
+                                    pct = 35 + int(
+                                        (total_processed / total_to_process) * 15
+                                    )
+                                    await progress_callback(
+                                        pct,
+                                        100,
+                                        f"Chunking code: {total_processed}/"
+                                        f"{total_to_process}",
+                                    )
+                            return progress_callback_fn
+
+                        # Calculate offset and create callback for this language batch
+                        progress_offset = len(doc_documents) + total_code_processed
+                        code_chunk_progress = make_progress_callback(progress_offset)  # noqa: F841
+
+                        for doc in lang_docs:
+                            code_chunks = await code_chunker.chunk_code_document(doc)
+                            all_chunks.extend(code_chunks)
+
+                        # Update the total code documents processed
+                        total_code_processed += len(lang_docs)
+
+                        chunk_count = sum(
+                            1 for c in all_chunks if c.metadata.language == lang
+                        )
+                        logger.info(f"Created {chunk_count} {lang} chunks")
+
+                    except Exception as e:
+                        logger.error(f"Failed to chunk {lang} files: {e}")
+                        # Fallback: treat as documents
+                        if doc_chunker is not None:  # Reuse doc chunker if available
+                            fallback_chunks = await doc_chunker.chunk_documents(
+                                lang_docs
+                            )
+                            all_chunks.extend(fallback_chunks)
+                            logger.info(
+                                f"Fell back to document chunking for "
+                                f"{len(fallback_chunks)} {lang} files"
+                            )
+                        else:
+                            # Create a temporary chunker for fallback
+                            fallback_chunker = ContextAwareChunker(
+                                chunk_size=request.chunk_size,
+                                chunk_overlap=request.chunk_overlap,
+                            )
+                            fallback_chunks = await fallback_chunker.chunk_documents(
+                                lang_docs
+                            )
+                            all_chunks.extend(fallback_chunks)
+                            logger.info(
+                                f"Fell back to document chunking for "
+                                f"{len(fallback_chunks)} {lang} files"
+                            )
+
+            chunks = all_chunks
             self._state.total_chunks = len(chunks)
-            logger.info(f"Created {len(chunks)} chunks")
+            logger.info(f"Created {len(chunks)} total chunks")
 
             # Step 3: Generate embeddings
             if progress_callback:
@@ -205,7 +328,7 @@ class IndexingService:
                     await progress_callback(pct, 100, f"Embedding: {processed}/{total}")
 
             embeddings = await self.embedding_generator.embed_chunks(
-                chunks,
+                chunks,  # type: ignore
                 embedding_progress,
             )
             logger.info(f"Generated {len(embeddings)} embeddings")
@@ -218,7 +341,7 @@ class IndexingService:
                 ids=[chunk.chunk_id for chunk in chunks],
                 embeddings=embeddings,
                 documents=[chunk.text for chunk in chunks],
-                metadatas=[chunk.metadata for chunk in chunks],
+                metadatas=[chunk.metadata.to_dict() for chunk in chunks],
             )
 
             # Step 5: Build BM25 index
@@ -229,7 +352,7 @@ class IndexingService:
                 TextNode(
                     text=chunk.text,
                     id_=chunk.chunk_id,
-                    metadata=chunk.metadata,
+                    metadata=chunk.metadata.to_dict(),
                 )
                 for chunk in chunks
             ]
@@ -266,11 +389,17 @@ class IndexingService:
         Returns:
             Dictionary with status information.
         """
-        count = (
+        total_chunks = (
             await self.vector_store.get_count()
             if self.vector_store.is_initialized
             else 0
         )
+
+        # TODO: Implement efficient counting of chunks by type and language
+        # For now, return 0 for code/doc breakdown until we implement proper tracking
+        total_doc_chunks = 0  # TODO: Track document chunks during indexing
+        total_code_chunks = 0  # TODO: Track code chunks during indexing
+        supported_languages: list[str] = []  # TODO: Track supported languages indexed
 
         return {
             "status": self._state.status.value,
@@ -279,7 +408,10 @@ class IndexingService:
             "folder_path": self._state.folder_path,
             "total_documents": self._state.total_documents,
             "processed_documents": self._state.processed_documents,
-            "total_chunks": count,
+            "total_chunks": total_chunks,
+            "total_doc_chunks": total_doc_chunks,
+            "total_code_chunks": total_code_chunks,
+            "supported_languages": supported_languages,
             "progress_percent": self._state.progress_percent,
             "started_at": (
                 self._state.started_at.isoformat() if self._state.started_at else None

@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Optional
 
-from llama_index.core.schema import BaseNode
+from llama_index.core.schema import BaseNode, NodeWithScore
 from llama_index.retrievers.bm25 import BM25Retriever
 
 from doc_serve_server.config import settings
@@ -92,6 +92,56 @@ class BM25IndexManager:
         # BM25Retriever similarity_top_k is usually set during initialization.
         self._retriever.similarity_top_k = top_k
         return self._retriever
+
+    async def search_with_filters(
+        self,
+        query: str,
+        top_k: int = 5,
+        source_types: Optional[list[str]] = None,
+        languages: Optional[list[str]] = None,
+        max_results: Optional[int] = None,
+    ) -> list[NodeWithScore]:
+        """
+        Search the BM25 index with metadata filtering.
+
+        Args:
+            query: Search query string.
+            top_k: Number of results to return.
+            source_types: Filter by source types (doc, code, test).
+            languages: Filter by programming languages.
+
+        Returns:
+            List of NodeWithScore objects, filtered by metadata.
+        """
+        if not self._retriever:
+            raise RuntimeError("BM25 index not initialized")
+
+        # Get results for filtering
+        retriever_top_k = max_results if max_results is not None else (top_k * 3)
+        retriever = self.get_retriever(top_k=retriever_top_k)
+        nodes = await retriever.aretrieve(query)
+
+        # Apply metadata filtering
+        filtered_nodes = []
+        for node in nodes:
+            metadata = node.node.metadata
+
+            # Check source type filter
+            if source_types:
+                source_type = metadata.get("source_type", "doc")
+                if source_type not in source_types:
+                    continue
+
+            # Check language filter
+            if languages:
+                language = metadata.get("language")
+                if not language or language not in languages:
+                    continue
+
+            filtered_nodes.append(node)
+
+        # Return top_k results after filtering
+        return filtered_nodes[:top_k]
 
     def reset(self) -> None:
         """Reset the BM25 index by deleting persistent files."""

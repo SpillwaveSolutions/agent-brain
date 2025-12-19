@@ -9,16 +9,16 @@ Maps product roadmap phases to specification directories for traceability.
 
 ## Phase to Spec Directory Mapping
 
-| Phase | Roadmap Section | Spec Directory | Status | Priority |
-|-------|-----------------|----------------|--------|----------|
-| 1 | Core Document RAG | `specs/001-005/` | COMPLETED | - |
-| 2 | BM25 & Hybrid Retrieval | `specs/100-bm25-hybrid-retrieval/` | NEXT | P1 |
-| 3 | Source Code Ingestion | `specs/101-code-ingestion/` | Planned | P2 |
-| 4 | UDS & Claude Plugin | `specs/102-uds-claude-plugin/` | Future | P3 |
-| 5 | Pluggable Providers | `specs/103-pluggable-providers/` | Future | P3 |
-| 6 | PostgreSQL/AlloyDB | `specs/104-postgresql-backend/` | Future | P4 |
-| 7 | AWS Bedrock | `specs/105-aws-bedrock/` | Future | P4 |
-| 8 | Google Vertex AI | `specs/106-vertex-ai/` | Future | P4 |
+| Phase | Roadmap Section | Spec Directory | Status      | Priority |
+|-------|-----------------|----------------|-------------|----------|
+| 1 | Core Document RAG | `specs/001-005/` | COMPLETED   | - |
+| 2 | BM25 & Hybrid Retrieval | `specs/100-bm25-hybrid-retrieval/` | DONE        | P1 |
+| 3 | Source Code Ingestion | `specs/101-code-ingestion/` | IN-PROGRESS | P2 |
+| 4 | UDS & Claude Plugin | `specs/102-uds-claude-plugin/` | Future      | P3 |
+| 5 | Pluggable Providers | `specs/103-pluggable-providers/` | NEXT        | P3 |
+| 6 | PostgreSQL/AlloyDB | `specs/104-postgresql-backend/` | Future      | P4 |
+| 7 | AWS Bedrock | `specs/105-aws-bedrock/` | Future      | P4 |
+| 8 | Google Vertex AI | `specs/106-vertex-ai/` | Future      | P4 |
 
 ---
 

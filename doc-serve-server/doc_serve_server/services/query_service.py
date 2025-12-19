@@ -2,10 +2,9 @@
 
 import logging
 import time
-from typing import Optional
+from typing import Any, Optional
 
-from llama_index.core.retrievers import BaseRetriever, QueryFusionRetriever
-from llama_index.core.retrievers.fusion_retriever import FUSION_MODES
+from llama_index.core.retrievers import BaseRetriever
 from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
 
 from doc_serve_server.indexing import EmbeddingGenerator, get_embedding_generator
@@ -114,6 +113,10 @@ class QueryService:
         else:  # HYBRID
             results = await self._execute_hybrid_query(request)
 
+        # Apply content filters if specified
+        if any([request.source_types, request.languages, request.file_paths]):
+            results = self._filter_results(results, request)
+
         query_time_ms = (time.time() - start_time) * 1000
 
         logger.debug(
@@ -130,10 +133,12 @@ class QueryService:
     async def _execute_vector_query(self, request: QueryRequest) -> list[QueryResult]:
         """Execute pure semantic search."""
         query_embedding = await self.embedding_generator.embed_query(request.query)
+        where_clause = self._build_where_clause(request.source_types, request.languages)
         search_results = await self.vector_store.similarity_search(
             query_embedding=query_embedding,
             top_k=request.top_k,
             similarity_threshold=request.similarity_threshold,
+            where=where_clause,
         )
 
         return [
@@ -145,10 +150,12 @@ class QueryService:
                 score=res.score,
                 vector_score=res.score,
                 chunk_id=res.chunk_id,
+                source_type=res.metadata.get("source_type", "doc"),
+                language=res.metadata.get("language"),
                 metadata={
                     k: v
                     for k, v in res.metadata.items()
-                    if k not in ("source", "file_path")
+                    if k not in ("source", "file_path", "source_type", "language")
                 },
             )
             for res in search_results
@@ -171,10 +178,12 @@ class QueryService:
                 score=node.score or 0.0,
                 bm25_score=node.score,
                 chunk_id=node.node.node_id,
+                source_type=node.node.metadata.get("source_type", "doc"),
+                language=node.node.metadata.get("language"),
                 metadata={
                     k: v
                     for k, v in node.node.metadata.items()
-                    if k not in ("source", "file_path")
+                    if k not in ("source", "file_path", "source_type", "language")
                 },
             )
             for node in nodes
@@ -185,62 +194,120 @@ class QueryService:
         # For US5, we want to provide individual scores.
         # We'll perform the individual searches first to get the scores.
 
+        # Get corpus size to avoid requesting more than available
+        corpus_size = await self.vector_store.get_count()
+        effective_top_k = min(request.top_k, corpus_size)
+
+        # Build ChromaDB where clause for filtering
+        where_clause = self._build_where_clause(request.source_types, request.languages)
+
         # 1. Vector Search
         query_embedding = await self.embedding_generator.embed_query(request.query)
         vector_results = await self.vector_store.similarity_search(
             query_embedding=query_embedding,
-            top_k=request.top_k * 2,  # Get more to ensure overlap
+            top_k=effective_top_k,
             similarity_threshold=request.similarity_threshold,
+            where=where_clause,
         )
-        vector_scores = {res.chunk_id: res.score for res in vector_results}
 
         # 2. BM25 Search
         bm25_results = []
         if self.bm25_manager.is_initialized:
-            bm25_retriever = self.bm25_manager.get_retriever(top_k=request.top_k * 2)
-            bm25_nodes = await bm25_retriever.aretrieve(request.query)
-            bm25_results = bm25_nodes
-        bm25_scores = {node.node.node_id: node.score for node in bm25_results}
-
-        # 3. Perform fusion using QueryFusionRetriever (still best for logic)
-        # But we'll use our pre-fetched results if possible, or just let it run.
-        # Given we need the fused ranking, we'll let it run but then enrich.
-
-        vector_retriever = VectorManagerRetriever(
-            self, top_k=request.top_k, threshold=request.similarity_threshold
-        )
-
-        bm25_retriever = self.bm25_manager.get_retriever(top_k=request.top_k)
-
-        fusion_retriever = QueryFusionRetriever(
-            [vector_retriever, bm25_retriever],
-            similarity_top_k=request.top_k,
-            num_queries=1,
-            mode=FUSION_MODES.RELATIVE_SCORE,
-            retriever_weights=[request.alpha, 1.0 - request.alpha],
-            use_async=True,
-        )
-
-        fused_nodes = await fusion_retriever.aretrieve(request.query)
-
-        return [
-            QueryResult(
+            # Use the new filtered search method
+            bm25_results = await self.bm25_manager.search_with_filters(
+                query=request.query,
+                top_k=effective_top_k,
+                source_types=request.source_types,
+                languages=request.languages,
+                max_results=corpus_size,
+            )
+        # Convert BM25 results to same format as vector results
+        bm25_query_results = []
+        for node in bm25_results:
+            bm25_query_results.append(QueryResult(
                 text=node.node.get_content(),
                 source=node.node.metadata.get(
                     "source", node.node.metadata.get("file_path", "unknown")
                 ),
                 score=node.score or 0.0,
-                vector_score=vector_scores.get(node.node.node_id),
-                bm25_score=bm25_scores.get(node.node.node_id),
+                bm25_score=node.score,
                 chunk_id=node.node.node_id,
+                source_type=node.node.metadata.get("source_type", "doc"),
+                language=node.node.metadata.get("language"),
                 metadata={
-                    k: v
-                    for k, v in node.node.metadata.items()
-                    if k not in ("source", "file_path")
+                    k: v for k, v in node.node.metadata.items()
+                    if k not in ("source", "file_path", "source_type", "language")
+                },
+            ))
+
+        # 3. Simple hybrid fusion for small corpora
+        # Combine vector and BM25 results manually to avoid retriever complexity
+
+        # Score normalization: bring both to 0-1 range
+        max_vector_score = max((r.score for r in vector_results), default=1.0) or 1.0
+        max_bm25_score = max(
+            (r.bm25_score or 0.0 for r in bm25_query_results), default=1.0
+        ) or 1.0
+
+        # Create combined results map
+        combined_results: dict[str, dict[str, Any]] = {}
+
+        # Add vector results (convert SearchResult to QueryResult)
+        for res in vector_results:
+            query_result = QueryResult(
+                text=res.text,
+                source=res.metadata.get(
+                    "source", res.metadata.get("file_path", "unknown")
+                ),
+                score=res.score,
+                vector_score=res.score,
+                chunk_id=res.chunk_id,
+                source_type=res.metadata.get("source_type", "doc"),
+                language=res.metadata.get("language"),
+                metadata={
+                    k: v for k, v in res.metadata.items()
+                    if k not in ("source", "file_path", "source_type", "language")
                 },
             )
-            for node in fused_nodes
-        ]
+            combined_results[res.chunk_id] = {
+                "result": query_result,
+                "vector_score": res.score / max_vector_score,
+                "bm25_score": 0.0,
+                "total_score": request.alpha * (res.score / max_vector_score),
+            }
+
+        # Add/merge BM25 results
+        for bm25_res in bm25_query_results:
+            chunk_id = bm25_res.chunk_id
+            bm25_normalized = (bm25_res.bm25_score or 0.0) / max_bm25_score
+            bm25_weighted = (1.0 - request.alpha) * bm25_normalized
+
+            if chunk_id in combined_results:
+                combined_results[chunk_id]["bm25_score"] = bm25_normalized
+                combined_results[chunk_id]["total_score"] += bm25_weighted
+                # Update BM25 score on existing result
+                combined_results[chunk_id]["result"].bm25_score = bm25_res.bm25_score
+            else:
+                combined_results[chunk_id] = {
+                    "result": bm25_res,
+                    "vector_score": 0.0,
+                    "bm25_score": bm25_normalized,
+                    "total_score": bm25_weighted,
+                }
+
+        # Convert to final results
+        fused_nodes = []
+        for _chunk_id, data in combined_results.items():
+            result = data["result"]
+            # Update score with combined score
+            result.score = data["total_score"]
+            fused_nodes.append(result)
+
+        # Sort by combined score and take top_k
+        fused_nodes.sort(key=lambda x: x.score, reverse=True)
+        fused_nodes = fused_nodes[:request.top_k]
+
+        return fused_nodes
 
     async def get_document_count(self) -> int:
         """
@@ -252,6 +319,85 @@ class QueryService:
         if not self.is_ready():
             return 0
         return await self.vector_store.get_count()
+
+    def _filter_results(
+        self, results: list[QueryResult], request: QueryRequest
+    ) -> list[QueryResult]:
+        """
+        Filter query results based on request parameters.
+
+        Args:
+            results: List of query results to filter.
+            request: Query request with filter parameters.
+
+        Returns:
+            Filtered list of results.
+        """
+        filtered_results = results
+
+        # Filter by source types
+        if request.source_types:
+            filtered_results = [
+                r for r in filtered_results if r.source_type in request.source_types
+            ]
+
+        # Filter by languages
+        if request.languages:
+            filtered_results = [
+                r
+                for r in filtered_results
+                if r.language and r.language in request.languages
+            ]
+
+        # Filter by file paths (with wildcard support)
+        if request.file_paths:
+            import fnmatch
+
+            filtered_results = [
+                r
+                for r in filtered_results
+                if any(
+                    fnmatch.fnmatch(r.source, pattern) for pattern in request.file_paths
+                )
+            ]
+
+        return filtered_results
+
+    def _build_where_clause(
+        self,
+        source_types: list[str] | None,
+        languages: list[str] | None
+    ) -> dict[str, Any] | None:
+        """
+        Build ChromaDB where clause from filter parameters.
+
+        Args:
+            source_types: List of source types to filter by.
+            languages: List of languages to filter by.
+
+        Returns:
+            ChromaDB where clause dict or None.
+        """
+        conditions: list[dict[str, Any]] = []
+
+        if source_types:
+            if len(source_types) == 1:
+                conditions.append({"source_type": source_types[0]})
+            else:
+                conditions.append({"source_type": {"$in": source_types}})
+
+        if languages:
+            if len(languages) == 1:
+                conditions.append({"language": languages[0]})
+            else:
+                conditions.append({"language": {"$in": languages}})
+
+        if not conditions:
+            return None
+        elif len(conditions) == 1:
+            return conditions[0]
+        else:
+            return {"$and": conditions}
 
 
 # Singleton instance

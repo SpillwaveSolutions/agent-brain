@@ -1,6 +1,6 @@
 """Integration tests for Hybrid retrieval mode."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 
 class TestHybridQueryEndpoint:
@@ -20,32 +20,49 @@ class TestHybridQueryEndpoint:
         mock_vector_store.is_initialized = True
         mock_bm25_manager.is_initialized = True
 
-        # Mock QueryFusionRetriever
-        with patch(
-            "doc_serve_server.services.query_service.QueryFusionRetriever"
-        ) as mock_fusion_cls:
-            mock_fusion = AsyncMock()
-            node_mock = MagicMock()
-            node_mock.node.get_content.return_value = "Hybrid result"
-            node_mock.node.metadata = {"source": "docs/hybrid.md"}
-            node_mock.node.node_id = "chunk_hybrid"
-            node_mock.score = 0.9
-            mock_fusion.aretrieve = AsyncMock(return_value=[node_mock])
-            mock_fusion_cls.return_value = mock_fusion
-
-            response = client.post(
-                "/query/",
-                json={
-                    "query": "hybrid query",
-                    "mode": "hybrid",
-                    "alpha": 0.3,
+        # Mock vector search results (SearchResult objects)
+        from doc_serve_server.storage.vector_store import SearchResult
+        mock_vector_store.similarity_search.return_value = [
+            SearchResult(
+                text="Vector result",
+                metadata={
+                    "source": "docs/vector.md",
+                    "source_type": "doc",
+                    "language": "markdown"
                 },
+                score=0.8,
+                chunk_id="v1"
             )
+        ]
+
+        # Mock BM25 results (NodeWithScore-like objects)
+        mock_bm25_manager.search_with_filters = AsyncMock(return_value=[
+            MagicMock(
+                node=MagicMock(
+                    get_content=MagicMock(return_value="BM25 result"),
+                    metadata={
+                        "source": "docs/bm25.md",
+                        "source_type": "doc",
+                        "language": "markdown"
+                    },
+                    node_id="b1"
+                ),
+                score=0.9
+            )
+        ])
+
+        response = client.post(
+            "/query/",
+            json={
+                "query": "hybrid query",
+                "mode": "hybrid",
+                "alpha": 0.3,
+            },
+        )
 
         assert response.status_code == 200, f"Error: {response.json()}"
         data = response.json()
-        assert data["total_results"] == 1
-        assert data["results"][0]["text"] == "Hybrid result"
-        # Check that alpha was passed to QueryFusionRetriever via retriever_weights
-        args, kwargs = mock_fusion_cls.call_args
-        assert kwargs["retriever_weights"] == [0.3, 0.7]
+        assert data["total_results"] == 2  # Both vector and BM25 results
+        # Check that both search methods were called
+        mock_vector_store.similarity_search.assert_called_once()
+        mock_bm25_manager.search_with_filters.assert_called_once()

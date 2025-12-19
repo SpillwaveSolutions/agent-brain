@@ -24,6 +24,7 @@ pydantic-settings = "^2.6.0"
 python-dotenv = "^1.0.0"
 click = "^8.1.0"
 llama-index-llms-openai = "^0.6.12"
+tree-sitter-language-pack = "^0.7.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"

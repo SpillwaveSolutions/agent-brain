@@ -7,6 +7,13 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
+class CodeChunkStrategy(str, Enum):
+    """Strategy for chunking code files."""
+
+    AST_AWARE = "ast_aware"  # Use LlamaIndex CodeSplitter for AST boundaries
+    TEXT_BASED = "text_based"  # Use regular text chunking
+
+
 class IndexingStatusEnum(str, Enum):
     """Enumeration of indexing status values."""
 
@@ -41,6 +48,37 @@ class IndexRequest(BaseModel):
         description="Whether to scan folder recursively",
     )
 
+    # Code indexing options
+    include_code: bool = Field(
+        default=False,
+        description="Whether to index source code files alongside documents",
+    )
+    supported_languages: Optional[list[str]] = Field(
+        default=None,
+        description="Programming languages to index (defaults to all supported)",
+        examples=[["python", "typescript"], ["java", "kotlin"]],
+    )
+    code_chunk_strategy: CodeChunkStrategy = Field(
+        default=CodeChunkStrategy.AST_AWARE,
+        description="Strategy for chunking code files",
+    )
+    generate_summaries: bool = Field(
+        default=False,
+        description="Generate LLM summaries for code chunks to improve semantic search",
+    )
+
+    # File filtering options
+    include_patterns: Optional[list[str]] = Field(
+        default=None,
+        description="Additional file patterns to include (supports wildcards)",
+        examples=[["*.md", "*.py"], ["docs/**/*.md", "src/**/*.py"]],
+    )
+    exclude_patterns: Optional[list[str]] = Field(
+        default=None,
+        description="Additional file patterns to exclude (supports wildcards)",
+        examples=[["*.log", "__pycache__/**"], ["node_modules/**", "*.tmp"]],
+    )
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -49,7 +87,24 @@ class IndexRequest(BaseModel):
                     "chunk_size": 512,
                     "chunk_overlap": 50,
                     "recursive": True,
-                }
+                },
+                {
+                    "folder_path": "/path/to/project",
+                    "chunk_size": 512,
+                    "chunk_overlap": 50,
+                    "recursive": True,
+                    "include_code": True,
+                    "supported_languages": ["python", "typescript", "javascript"],
+                    "code_chunk_strategy": "ast_aware",
+                    "include_patterns": ["docs/**/*.md", "src/**/*.py", "src/**/*.ts"],
+                    "exclude_patterns": ["node_modules/**", "__pycache__/**", "*.log"],
+                },
+                {
+                    "folder_path": "/path/to/codebase",
+                    "include_code": True,
+                    "supported_languages": ["java", "kotlin"],
+                    "code_chunk_strategy": "ast_aware",
+                },
             ]
         }
     }

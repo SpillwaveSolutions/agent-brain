@@ -1,6 +1,6 @@
 """Unit tests for Hybrid retrieval functionality."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -26,49 +26,46 @@ class TestHybridRetrieval:
         mock_vector_store.is_initialized = True
         mock_bm25_manager.is_initialized = True
 
-        # Mock vector search results
+        # Mock vector search results (SearchResult objects)
+        from doc_serve_server.storage.vector_store import SearchResult
         mock_vector_store.similarity_search.return_value = [
-            MagicMock(
+            SearchResult(
                 text="Vector Result",
-                chunk_id="v1",
-                metadata={"source": "v.md"},
+                metadata={
+                    "source": "v.md",
+                    "source_type": "doc",
+                    "language": "markdown"
+                },
                 score=0.8,
+                chunk_id="v1"
             )
         ]
 
-        # Mock BM25 results
-        bm25_retriever_mock = AsyncMock()
-        node_mock = MagicMock()
-        node_mock.node.get_content.return_value = "BM25 Result"
-        node_mock.node.metadata = {"source": "b.md"}
-        node_mock.node.node_id = "b1"
-        node_mock.score = 0.9
-        bm25_retriever_mock.aretrieve.return_value = [node_mock]
-        mock_bm25_manager.get_retriever.return_value = bm25_retriever_mock
+        # Mock BM25 search_with_filters method
+        mock_bm25_manager.search_with_filters = AsyncMock(return_value=[
+            MagicMock(
+                node=MagicMock(
+                    get_content=MagicMock(return_value="BM25 Result"),
+                    metadata={
+                        "source": "b.md",
+                        "source_type": "doc",
+                        "language": "markdown"
+                    },
+                    node_id="b1"
+                ),
+                score=0.9
+            )
+        ])
+
+        # Mock get_count for corpus size
+        mock_vector_store.get_count.return_value = 10
 
         request = QueryRequest(query="test query", mode=QueryMode.HYBRID, alpha=0.5)
 
-        # We need to mock QueryFusionRetriever.aretrieve because it's hard to unit test
-        # the internal fusion without heavy LlamaIndex dependencies setup
-        with patch(
-            "doc_serve_server.services.query_service.QueryFusionRetriever"
-        ) as mock_fusion_cls:
-            mock_fusion = AsyncMock()
-            fusion_node = MagicMock()
-            fusion_node.node.get_content.return_value = "Fused Result"
-            fusion_node.node.metadata = {"source": "f.md"}
-            fusion_node.node.node_id = "f1"
-            fusion_node.score = 0.85
-            mock_fusion.aretrieve.return_value = [fusion_node]
-            mock_fusion_cls.return_value = mock_fusion
+        response = await service.execute_query(request)
 
-            response = await service.execute_query(request)
-
-            assert response.total_results == 1
-            assert response.results[0].text == "Fused Result"
-            mock_fusion_cls.assert_called_once()
-
-            # Verify alpha was passed correctly to retriever_weights
-            args, kwargs = mock_fusion_cls.call_args
-            assert kwargs["retriever_weights"] == [0.5, 0.5]
-            assert kwargs["mode"].value == "relative_score"
+        assert response.total_results == 2  # Both vector and BM25 results
+        assert len(response.results) == 2
+        # Check that manual fusion was used (both search methods called)
+        mock_vector_store.similarity_search.assert_called_once()
+        mock_bm25_manager.search_with_filters.assert_called_once()

@@ -209,6 +209,9 @@ class DocServeClient:
         similarity_threshold: float = 0.7,
         mode: str = "hybrid",
         alpha: float = 0.5,
+        source_types: Optional[list[str]] = None,
+        languages: Optional[list[str]] = None,
+        file_paths: Optional[list[str]] = None,
     ) -> QueryResponse:
         """
         Query indexed documents.
@@ -219,21 +222,28 @@ class DocServeClient:
             similarity_threshold: Minimum similarity score.
             mode: Retrieval mode (vector, bm25, hybrid).
             alpha: Hybrid search weighting (1.0=vector, 0.0=bm25).
+            source_types: Filter by source types (doc, code, test).
+            languages: Filter by programming languages.
+            file_paths: Filter by file path patterns.
 
         Returns:
             QueryResponse with matching results.
         """
-        data = self._request(
-            "POST",
-            "/query/",
-            json={
-                "query": query_text,
-                "top_k": top_k,
-                "similarity_threshold": similarity_threshold,
-                "mode": mode,
-                "alpha": alpha,
-            },
-        )
+        request_data = {
+            "query": query_text,
+            "top_k": top_k,
+            "similarity_threshold": similarity_threshold,
+            "mode": mode,
+            "alpha": alpha,
+        }
+        if source_types is not None:
+            request_data["source_types"] = source_types
+        if languages is not None:
+            request_data["languages"] = languages
+        if file_paths is not None:
+            request_data["file_paths"] = file_paths
+
+        data = self._request("POST", "/query/", json=request_data)
 
         results = [
             QueryResult(
@@ -260,15 +270,27 @@ class DocServeClient:
         chunk_size: int = 512,
         chunk_overlap: int = 50,
         recursive: bool = True,
+        include_code: bool = False,
+        supported_languages: Optional[list[str]] = None,
+        code_chunk_strategy: str = "ast_aware",
+        include_patterns: Optional[list[str]] = None,
+        exclude_patterns: Optional[list[str]] = None,
+        generate_summaries: bool = False,
     ) -> IndexResponse:
         """
-        Start indexing documents from a folder.
+        Start indexing documents and optionally code from a folder.
 
         Args:
             folder_path: Path to folder with documents.
             chunk_size: Target chunk size in tokens.
             chunk_overlap: Overlap between chunks.
             recursive: Whether to scan recursively.
+            include_code: Whether to index source code files.
+            supported_languages: Languages to index (defaults to all).
+            code_chunk_strategy: Strategy for code chunking.
+            include_patterns: Additional include patterns.
+            exclude_patterns: Additional exclude patterns.
+            generate_summaries: Generate LLM summaries for code chunks.
 
         Returns:
             IndexResponse with job ID.
@@ -281,6 +303,12 @@ class DocServeClient:
                 "chunk_size": chunk_size,
                 "chunk_overlap": chunk_overlap,
                 "recursive": recursive,
+                "include_code": include_code,
+                "supported_languages": supported_languages,
+                "code_chunk_strategy": code_chunk_strategy,
+                "include_patterns": include_patterns,
+                "exclude_patterns": exclude_patterns,
+                "generate_summaries": generate_summaries,
             },
         )
 

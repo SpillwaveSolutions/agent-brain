@@ -37,6 +37,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Set environment variable for LlamaIndex components
     import os
+
     if settings.OPENAI_API_KEY:
         os.environ["OPENAI_API_KEY"] = settings.OPENAI_API_KEY
 

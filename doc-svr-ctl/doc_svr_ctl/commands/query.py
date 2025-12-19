@@ -1,5 +1,7 @@
 """Query command for searching documents."""
 
+from typing import Optional
+
 import click
 from rich.console import Console
 from rich.panel import Panel
@@ -49,6 +51,18 @@ console = Console()
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
 @click.option("--full", is_flag=True, help="Show full text content")
 @click.option("--scores", is_flag=True, help="Show individual vector/BM25 scores")
+@click.option(
+    "--source-types",
+    help="Comma-separated source types to filter by (doc,code,test)",
+)
+@click.option(
+    "--languages",
+    help="Comma-separated programming languages to filter by",
+)
+@click.option(
+    "--file-paths",
+    help="Comma-separated file path patterns to filter by (wildcards supported)",
+)
 def query_command(
     query_text: str,
     url: str,
@@ -59,8 +73,22 @@ def query_command(
     json_output: bool,
     full: bool,
     scores: bool,
+    source_types: Optional[str],
+    languages: Optional[str],
+    file_paths: Optional[str],
 ) -> None:
     """Search indexed documents with natural language or keyword query."""
+    # Parse comma-separated lists
+    source_types_list = (
+        [st.strip() for st in source_types.split(",")] if source_types else None
+    )
+    languages_list = (
+        [lang.strip() for lang in languages.split(",")] if languages else None
+    )
+    file_paths_list = (
+        [fp.strip() for fp in file_paths.split(",")] if file_paths else None
+    )
+
     try:
         with DocServeClient(base_url=url) as client:
             response = client.query(
@@ -69,6 +97,9 @@ def query_command(
                 similarity_threshold=threshold,
                 mode=mode.lower(),
                 alpha=alpha,
+                source_types=source_types_list,
+                languages=languages_list,
+                file_paths=file_paths_list,
             )
 
             if json_output:

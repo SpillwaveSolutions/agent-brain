@@ -209,6 +209,8 @@ class TestQueryEndpoints:
                             source="docs/test.md",
                             score=0.92,
                             chunk_id="chunk_abc",
+                            source_type="doc",
+                            language="markdown",
                             metadata={},
                         )
                     ],

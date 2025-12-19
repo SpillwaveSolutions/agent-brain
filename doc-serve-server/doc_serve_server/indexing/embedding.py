@@ -4,6 +4,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Optional
 
+from anthropic import AsyncAnthropic
 from openai import AsyncOpenAI
 
 from doc_serve_server.config import settings
@@ -41,6 +42,22 @@ class EmbeddingGenerator:
         # Initialize OpenAI async client
         self.client = AsyncOpenAI(
             api_key=api_key or settings.OPENAI_API_KEY,
+        )
+
+        # Initialize Anthropic client for summarization
+        self.anthropic_client = AsyncAnthropic(
+            api_key=settings.ANTHROPIC_API_KEY,
+        )
+
+        # Initialize prompt template
+        self.summary_prompt_template = (
+            "You are an expert software engineer analyzing source code. "
+            "Provide a concise 1-2 sentence summary of what this code does. "
+            "Focus on the functionality, purpose, and behavior. "
+            "Be specific about inputs, outputs, and side effects. "
+            "Ignore implementation details and focus on what the code accomplishes.\n\n"
+            "Code to summarize:\n{context_str}\n\n"
+            "Summary:"
         )
 
     async def embed_text(self, text: str) -> list[float]:
@@ -156,6 +173,98 @@ class EmbeddingGenerator:
             "text-embedding-ada-002": 1536,
         }
         return model_dimensions.get(self.model, settings.EMBEDDING_DIMENSIONS)
+
+    def _get_summary_prompt_template(self) -> str:
+        """
+        Get the prompt template for code summarization.
+
+        Returns:
+            Prompt template string.
+        """
+        template = (
+            "You are an expert software engineer analyzing source code. "
+            "Provide a concise 1-2 sentence summary of what this code does. "
+            "Focus on the functionality, purpose, and behavior. "
+            "Be specific about inputs, outputs, and side effects. "
+            "Ignore implementation details and focus on what the code accomplishes.\n\n"
+            "Code to summarize:\n{context_str}\n\n"
+            "Summary:"
+        )
+        return template
+
+    async def generate_summary(self, code_text: str) -> str:
+        """
+        Generate a natural language summary of code using Claude.
+
+        Args:
+            code_text: The source code to summarize.
+
+        Returns:
+            Natural language summary of the code's functionality.
+        """
+        try:
+            # Use Claude directly with custom prompt
+            prompt = self.summary_prompt_template.format(context_str=code_text)
+
+            response = await self.anthropic_client.messages.create(
+                model=settings.CLAUDE_MODEL,
+                max_tokens=300,
+                temperature=0.1,  # Low temperature for consistent summaries
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ]
+            )
+
+            # Extract text from Claude response
+            summary = response.content[0].text  # type: ignore
+
+            if summary and len(summary) > 10:  # Ensure we got a meaningful summary
+                return summary
+            else:
+                logger.warning("Claude returned empty or too short summary")
+                return self._extract_fallback_summary(code_text)
+
+        except Exception as e:
+            logger.error(f"Failed to generate code summary: {e}")
+            # Fallback: try to extract from docstrings/comments
+            return self._extract_fallback_summary(code_text)
+
+    def _extract_fallback_summary(self, code_text: str) -> str:
+        """
+        Extract summary from docstrings or comments as fallback.
+
+        Args:
+            code_text: Source code to analyze.
+
+        Returns:
+            Extracted summary or empty string.
+        """
+        import re
+
+        # Try to find Python docstrings
+        docstring_match = re.search(r'""".*?"""', code_text, re.DOTALL)
+        if docstring_match:
+            docstring = docstring_match.group(0)[3:-3]  # Remove leading/trailing """
+            if len(docstring) > 10:  # Only use if substantial
+                return docstring[:200] + "..." if len(docstring) > 200 else docstring
+
+        # Try to find function/class comments
+        comment_match = re.search(
+            r'#.*(?:function|class|method|def)', code_text, re.IGNORECASE
+        )
+        if comment_match:
+            return comment_match.group(0).strip('#').strip()
+
+        # Last resort: first line if it looks like a comment
+        lines = code_text.strip().split('\n')
+        first_line = lines[0].strip()
+        if first_line.startswith(('#', '//', '/*')):
+            return first_line.lstrip('#/*').strip()
+
+        return ""  # No summary available
 
 
 # Singleton instance

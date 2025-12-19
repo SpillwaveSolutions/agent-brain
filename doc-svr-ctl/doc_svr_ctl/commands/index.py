@@ -1,6 +1,7 @@
 """Index command for triggering document indexing."""
 
 from pathlib import Path
+from typing import Optional
 
 import click
 from rich.console import Console
@@ -35,6 +36,34 @@ console = Console()
     is_flag=True,
     help="Don't scan folder recursively",
 )
+@click.option(
+    "--include-code",
+    is_flag=True,
+    help="Index source code files alongside documents",
+)
+@click.option(
+    "--languages",
+    help="Comma-separated list of programming languages to index",
+)
+@click.option(
+    "--code-strategy",
+    default="ast_aware",
+    type=click.Choice(["ast_aware", "text_based"]),
+    help="Strategy for chunking code files (default: ast_aware)",
+)
+@click.option(
+    "--include-patterns",
+    help="Comma-separated additional include patterns (wildcards supported)",
+)
+@click.option(
+    "--exclude-patterns",
+    help="Comma-separated additional exclude patterns (wildcards supported)",
+)
+@click.option(
+    "--generate-summaries",
+    is_flag=True,
+    help="Generate LLM summaries for code chunks to improve semantic search",
+)
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
 def index_command(
     folder_path: str,
@@ -42,6 +71,12 @@ def index_command(
     chunk_size: int,
     chunk_overlap: int,
     no_recursive: bool,
+    include_code: bool,
+    languages: Optional[str],
+    code_strategy: str,
+    include_patterns: Optional[str],
+    exclude_patterns: Optional[str],
+    generate_summaries: bool,
     json_output: bool,
 ) -> None:
     """Index documents from a folder.
@@ -51,6 +86,21 @@ def index_command(
     # Resolve to absolute path
     folder = Path(folder_path).resolve()
 
+    # Parse comma-separated lists
+    languages_list = (
+        [lang.strip() for lang in languages.split(",")] if languages else None
+    )
+    include_patterns_list = (
+        [pat.strip() for pat in include_patterns.split(",")]
+        if include_patterns
+        else None
+    )
+    exclude_patterns_list = (
+        [pat.strip() for pat in exclude_patterns.split(",")]
+        if exclude_patterns
+        else None
+    )
+
     try:
         with DocServeClient(base_url=url) as client:
             response = client.index(
@@ -58,6 +108,12 @@ def index_command(
                 chunk_size=chunk_size,
                 chunk_overlap=chunk_overlap,
                 recursive=not no_recursive,
+                include_code=include_code,
+                supported_languages=languages_list,
+                code_chunk_strategy=code_strategy,
+                include_patterns=include_patterns_list,
+                exclude_patterns=exclude_patterns_list,
+                generate_summaries=generate_summaries,
             )
 
             if json_output:

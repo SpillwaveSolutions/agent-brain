@@ -79,6 +79,8 @@ async def indexing_status() -> IndexingStatus:
     return IndexingStatus(
         total_documents=status["total_documents"],
         total_chunks=status["total_chunks"],
+        total_doc_chunks=status.get("total_doc_chunks", 0),
+        total_code_chunks=status.get("total_code_chunks", 0),
         indexing_in_progress=status["is_indexing"],
         current_job_id=status["current_job_id"],
         progress_percent=status["progress_percent"],
@@ -88,4 +90,5 @@ async def indexing_status() -> IndexingStatus:
             else None
         ),
         indexed_folders=status["indexed_folders"],
+        supported_languages=status.get("supported_languages", []),
     )

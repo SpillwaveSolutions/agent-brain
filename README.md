@@ -12,13 +12,41 @@ Doc-Serve is a monorepo containing three packages:
 | **doc-svr-ctl** | Command-line interface for managing the server |
 | **doc-serve-skill** | Claude Code skill for AI-powered documentation queries |
 
+## Code Ingestion & Search
+
+Doc-Serve now supports unified search across documentation and source code:
+
+- **10 Programming Languages**: Python, TypeScript, JavaScript, Java, Kotlin, C, C++, Go, Rust, Swift
+- **AST-Aware Chunking**: Intelligent code parsing and chunking using tree-sitter
+- **Cross-Reference Queries**: Search across docs and code simultaneously
+- **Language Filtering**: Filter results by programming language
+- **Source Type Filtering**: Separate results by documentation vs. source code
+- **LLM Code Summaries**: AI-generated summaries improve semantic search quality
+
+### Example: Code-Aware Search
+```bash
+# Index both docs and code
+doc-svr-ctl index ./my-project --include-code
+
+# Search across everything
+doc-svr-ctl query "authentication implementation"
+
+# Filter by code only
+doc-svr-ctl query "API endpoints" --source-types code --languages python
+```
+
 ## Features
 
+- **Code Ingestion**: Index and search across documentation AND source code
+- **Cross-Reference Search**: Unified queries across docs and code with intelligent filtering
+- **Language-Aware Processing**: AST-based chunking for 10+ programming languages
 - **Hybrid Search**: Combines semantic meaning (Vector) with exact keyword matching (BM25)
 - **Semantic Search**: Natural language queries using OpenAI embeddings
 - **Keyword Search**: Precise term matching for technical documentation
+- **Advanced Filtering**: Filter by source type (doc/code) and programming language
 - **Vector Store**: ChromaDB for efficient similarity search
-- **Context-Aware Chunking**: Intelligent document splitting with overlap
+- **Context-Aware Chunking**: Intelligent document and code splitting with overlap
+- **LLM Summaries**: AI-generated summaries for code chunks improve semantic search
 - **REST API**: Full OpenAPI-documented REST interface
 - **CLI Tool**: Comprehensive command-line management
 - **Claude Integration**: Native Claude Code skill for AI workflows
@@ -155,6 +183,7 @@ doc-serve/
 - **Embeddings**: OpenAI text-embedding-3-large
 - **Summarization**: Claude Haiku
 - **Indexing**: LlamaIndex
+- **Code Parsing**: Tree-sitter (AST-aware chunking)
 - **CLI**: Click + Rich
 - **Build System**: Poetry
 

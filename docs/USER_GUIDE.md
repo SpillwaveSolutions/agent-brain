@@ -15,10 +15,10 @@ This guide covers how to use Doc-Serve for document indexing and semantic search
 
 ## Core Concepts
 
-Doc-Serve is a RAG (Retrieval-Augmented Generation) system. It works in three phases:
-1. **Indexing**: It reads your documents, splits them into semantic chunks, and generates vector embeddings.
-2. **Storage**: Chunks and embeddings are stored in a ChromaDB vector database.
-3. **Retrieval**: When you query, it finds the most similar chunks based on semantic meaning, not just keyword matches.
+Doc-Serve is a RAG (Retrieval-Augmented Generation) system that can index and search across both documentation and source code. It works in three phases:
+1. **Indexing**: It reads your documents and/or source code, splits them into semantic chunks using context-aware algorithms, and generates vector embeddings.
+2. **Storage**: Chunks and embeddings are stored in a ChromaDB vector database with metadata for filtering.
+3. **Retrieval**: When you query, it finds the most similar chunks based on semantic meaning, with support for cross-reference searches across docs and code.
 
 ## Server Management
 
@@ -39,19 +39,31 @@ Use the management tool to check if the server is responsive:
 doc-svr-ctl status
 ```
 
-## Indexing Documents
+## Indexing Documents and Code
 
-Before you can query, you must index one or more folders containing your documentation.
+Doc-Serve can index both documentation and source code for unified search capabilities.
 
-### Basic Indexing
+### Index Documentation Only (Default)
 ```bash
 doc-svr-ctl index /path/to/your/docs
 ```
 
+### Index Code + Documentation
+```bash
+doc-svr-ctl index /path/to/your/project --include-code
+```
+
 ### Advanced Indexing Options
+**General Options:**
 - `--recursive` / `--no-recursive`: Whether to scan subdirectories (default: true).
 - `--chunk-size`: Size of text chunks in tokens (default: 512).
 - `--overlap`: Overlap between chunks (default: 50).
+
+**Code-Specific Options:**
+- `--include-code`: Include source code files alongside documentation.
+- `--languages`: Comma-separated list of programming languages to index (e.g., `python,typescript`).
+- `--code-strategy`: Chunking strategy for code (`ast_aware` or `text_based`, default: `ast_aware`).
+- `--generate-summaries`: Generate LLM summaries for code chunks to improve semantic search.
 
 ### Resetting the Index
 If you want to start over and clear all indexed data:
@@ -81,6 +93,37 @@ doc-svr-ctl query "how do I configure the system?"
 - `--threshold F`: Minimum similarity score between 0.0 and 1.0 (default: 0.7).
 - `--alpha F`: In hybrid mode, weight between vector and bm25. `1.0` is pure vector, `0.0` is pure bm25 (default: 0.5).
 - `--scores`: Display individual vector and BM25 scores for each result.
+
+### Code-Aware Search (with Code Ingestion)
+
+When code is indexed alongside documentation, you can perform powerful cross-reference searches:
+
+#### Filtering by Source Type
+```bash
+# Search documentation only
+doc-svr-ctl query "API usage examples" --source-types doc
+
+# Search code only
+doc-svr-ctl query "database connection" --source-types code
+
+# Search both (default)
+doc-svr-ctl query "authentication implementation"
+```
+
+#### Filtering by Programming Language
+```bash
+# Search Python code only
+doc-svr-ctl query "error handling" --languages python
+
+# Search multiple languages
+doc-svr-ctl query "API endpoints" --languages python,typescript
+
+# Combine filters
+doc-svr-ctl query "data validation" --source-types code --languages javascript
+```
+
+#### Supported Languages
+Doc-Serve supports AST-aware chunking for: **Python, TypeScript, JavaScript, Java, Kotlin, C, C++, Go, Rust, Swift**
 
 ### Programmatic Output
 Use the `--json` flag to get raw data for piping into other tools like `jq`:

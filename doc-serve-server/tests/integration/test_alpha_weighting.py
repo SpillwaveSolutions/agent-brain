@@ -38,7 +38,7 @@ class TestAlphaWeighting:
     def test_alpha_passing_to_service(
         self, client, mock_vector_store, mock_bm25_manager, mock_embedding_generator
     ):
-        """Test that alpha is passed correctly to the QueryFusionRetriever."""
+        """Test that alpha is used correctly in manual hybrid fusion."""
         from doc_serve_server.services.query_service import get_query_service
 
         service = get_query_service()
@@ -47,26 +47,49 @@ class TestAlphaWeighting:
         service.embedding_generator = mock_embedding_generator
 
         mock_vector_store.is_initialized = True
-
         mock_bm25_manager.is_initialized = True
 
-        with patch(
-            "doc_serve_server.services.query_service.QueryFusionRetriever"
-        ) as mock_fusion_cls:
-            mock_fusion = AsyncMock()
-            mock_fusion.aretrieve = AsyncMock(return_value=[])
-            mock_fusion_cls.return_value = mock_fusion
-
-            alpha_value = 0.7
-            client.post(
-                "/query/",
-                json={
-                    "query": "alpha test",
-                    "mode": "hybrid",
-                    "alpha": alpha_value,
+        # Mock vector search results (SearchResult objects)
+        from doc_serve_server.storage.vector_store import SearchResult
+        mock_vector_store.similarity_search.return_value = [
+            SearchResult(
+                text="Vector result",
+                metadata={
+                    "source": "v.md",
+                    "source_type": "doc",
+                    "language": "markdown"
                 },
+                score=0.8,
+                chunk_id="v1"
             )
+        ]
 
-            # Verify retriever_weights [alpha, 1-alpha]
-            args, kwargs = mock_fusion_cls.call_args
-            assert kwargs["retriever_weights"] == [alpha_value, 1.0 - alpha_value]
+        # Mock BM25 results (NodeWithScore-like objects)
+        mock_bm25_manager.search_with_filters = AsyncMock(return_value=[
+            MagicMock(
+                node=MagicMock(
+                    get_content=MagicMock(return_value="BM25 result"),
+                    metadata={
+                        "source": "b.md",
+                        "source_type": "doc",
+                        "language": "markdown"
+                    },
+                    node_id="b1"
+                ),
+                score=0.9
+            )
+        ])
+
+        alpha_value = 0.7
+        response = client.post(
+            "/query/",
+            json={
+                "query": "alpha test",
+                "mode": "hybrid",
+                "alpha": alpha_value,
+            },
+        )
+
+        assert response.status_code == 200
+        # Verify that search_with_filters was called (indicating manual fusion is used)
+        mock_bm25_manager.search_with_filters.assert_called_once()

@@ -162,7 +162,9 @@ task before-push
 
 This runs format, lint, typecheck, and tests with coverage.
 
-**MANDATORY**: You MUST run `task pr-qa-gate` before checking in or pushing any changes. You should also run `task pr-qa-gate` whenever checking project status or SDD status.
+**IMPORTANT**: You MUST run `task pr-qa-gate` before checking in or pushing any changes. You should also run `task pr-qa-gate` whenever checking project status or SDD status.
+
+**MANDATORY**: Any feature or task is not considered done unless `task pr-qa-gate` passes successfully.
 
 ## Git Workflow
 
