@@ -1,8 +1,8 @@
 """Integration tests for unified search functionality across docs and code."""
 
-import pytest
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from doc_serve_server.models.query import QueryMode, QueryRequest
 from doc_serve_server.services.query_service import QueryService
@@ -38,7 +38,10 @@ class TestUnifiedSearch:
         # Mock vector results (from documentation)
         mock_vector_store.similarity_search.return_value = [
             type('SearchResult', (), {
-                'text': "S3 bucket with versioning can be created using the Bucket construct with versioned=True parameter.",
+                'text': (
+                    "S3 bucket with versioning can be created using the Bucket "
+                    "construct with versioned=True parameter."
+                ),
                 'metadata': {
                     'source': 'docs/aws-cdk/s3.md',
                     'source_type': 'doc',
@@ -54,7 +57,12 @@ class TestUnifiedSearch:
         mock_bm25_manager.search_with_filters = AsyncMock(return_value=[
             type('NodeWithScore', (), {
                 'node': type('TextNode', (), {
-                    'get_content': MagicMock(return_value="const bucket = new s3.Bucket(this, 'MyBucket', { versioned: true });"),
+                    'get_content': MagicMock(
+                        return_value=(
+                            "const bucket = new s3.Bucket(this, "
+                            "'MyBucket', { versioned: true });"
+                        )
+                    ),
                     'metadata': {
                         'source': 'src/aws-cdk-lib/aws-s3/lib/bucket.ts',
                         'source_type': 'code',
@@ -164,7 +172,10 @@ class TestUnifiedSearch:
         # Mock tutorial-relevant content
         mock_vector_store.similarity_search.return_value = [
             type('SearchResult', (), {
-                'text': "# Getting Started with Authentication\n\nFirst, import the auth module and create a service instance.",
+                'text': (
+                    "# Getting Started with Authentication\n\n"
+                    "First, import the auth module and create a service instance."
+                ),
                 'metadata': {
                     'source': 'docs/tutorials/auth-getting-started.md',
                     'source_type': 'doc',
@@ -175,7 +186,10 @@ class TestUnifiedSearch:
                 'chunk_id': 'tutorial_doc'
             })(),
             type('SearchResult', (), {
-                'text': "from auth_sdk import AuthenticationService\nservice = AuthenticationService()",
+                'text': (
+                    "from auth_sdk import AuthenticationService\n"
+                    "service = AuthenticationService()"
+                ),
                 'metadata': {
                     'source': 'examples/python/auth_quickstart.py',
                     'source_type': 'code',
@@ -205,3 +219,4 @@ class TestUnifiedSearch:
 
         assert 'tutorial' in doc_result.metadata.get('content_type', '')
         assert code_result.language == 'python'
+

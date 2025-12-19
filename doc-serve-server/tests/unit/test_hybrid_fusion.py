@@ -1,6 +1,6 @@
 """Unit tests for Hybrid retrieval functionality."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -31,7 +31,11 @@ class TestHybridRetrieval:
         mock_vector_store.similarity_search.return_value = [
             SearchResult(
                 text="Vector Result",
-                metadata={"source": "v.md", "source_type": "doc", "language": "markdown"},
+                metadata={
+                    "source": "v.md",
+                    "source_type": "doc",
+                    "language": "markdown"
+                },
                 score=0.8,
                 chunk_id="v1"
             )
@@ -42,7 +46,11 @@ class TestHybridRetrieval:
             MagicMock(
                 node=MagicMock(
                     get_content=MagicMock(return_value="BM25 Result"),
-                    metadata={"source": "b.md", "source_type": "doc", "language": "markdown"},
+                    metadata={
+                        "source": "b.md",
+                        "source_type": "doc",
+                        "language": "markdown"
+                    },
                     node_id="b1"
                 ),
                 score=0.9

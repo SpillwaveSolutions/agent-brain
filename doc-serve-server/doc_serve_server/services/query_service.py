@@ -4,8 +4,7 @@ import logging
 import time
 from typing import Any, Optional
 
-from llama_index.core.retrievers import BaseRetriever, QueryFusionRetriever
-from llama_index.core.retrievers.fusion_retriever import FUSION_MODES
+from llama_index.core.retrievers import BaseRetriever
 from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
 
 from doc_serve_server.indexing import EmbeddingGenerator, get_embedding_generator
@@ -210,7 +209,7 @@ class QueryService:
             similarity_threshold=request.similarity_threshold,
             where=where_clause,
         )
-        vector_scores = {res.chunk_id: res.score for res in vector_results}
+
 
         # 2. BM25 Search
         bm25_results = []
@@ -228,7 +227,9 @@ class QueryService:
         for node in bm25_results:
             bm25_query_results.append(QueryResult(
                 text=node.node.get_content(),
-                source=node.node.metadata.get("source", node.node.metadata.get("file_path", "unknown")),
+                source=node.node.metadata.get(
+                    "source", node.node.metadata.get("file_path", "unknown")
+                ),
                 score=node.score or 0.0,
                 bm25_score=node.score,
                 chunk_id=node.node.node_id,
@@ -239,14 +240,16 @@ class QueryService:
                     if k not in ("source", "file_path", "source_type", "language")
                 },
             ))
-        bm25_scores = {res.chunk_id: res.bm25_score or 0.0 for res in bm25_query_results}
+
 
         # 3. Simple hybrid fusion for small corpora
         # Combine vector and BM25 results manually to avoid retriever complexity
 
         # Score normalization: bring both to 0-1 range
         max_vector_score = max((r.score for r in vector_results), default=1.0) or 1.0
-        max_bm25_score = max((r.bm25_score or 0.0 for r in bm25_query_results), default=1.0) or 1.0
+        max_bm25_score = max(
+            (r.bm25_score or 0.0 for r in bm25_query_results), default=1.0
+        ) or 1.0
 
         # Create combined results map
         combined_results = {}
@@ -255,7 +258,9 @@ class QueryService:
         for res in vector_results:
             query_result = QueryResult(
                 text=res.text,
-                source=res.metadata.get("source", res.metadata.get("file_path", "unknown")),
+                source=res.metadata.get(
+                    "source", res.metadata.get("file_path", "unknown")
+                ),
                 score=res.score,
                 vector_score=res.score,
                 chunk_id=res.chunk_id,
@@ -294,7 +299,7 @@ class QueryService:
 
         # Convert to final results
         fused_nodes = []
-        for chunk_id, data in combined_results.items():
+        for _chunk_id, data in combined_results.items():
             result = data["result"]
             # Update score with combined score
             result.score = data["total_score"]
