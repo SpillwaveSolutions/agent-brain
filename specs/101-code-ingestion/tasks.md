@@ -17,9 +17,9 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Add tree-sitter dependencies for all supported languages to doc-serve-server/pyproject.toml
-- [ ] T002 [P] Update doc-serve-server dependencies by running `poetry install` in doc-serve-server/
-- [ ] T003 Verify tree-sitter parsers work with test code snippets
+- [x] T001 Add tree-sitter dependencies for all supported languages to doc-serve-server/pyproject.toml
+- [x] T002 [P] Update doc-serve-server dependencies by running `poetry install` in doc-serve-server/
+- [x] T003 Verify tree-sitter parsers work with test code snippets
 
 ---
 
