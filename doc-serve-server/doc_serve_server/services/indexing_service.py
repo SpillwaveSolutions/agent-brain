@@ -347,12 +347,24 @@ class IndexingService:
             if progress_callback:
                 await progress_callback(90, 100, "Storing in vector database...")
 
-            await self.vector_store.upsert_documents(
-                ids=[chunk.chunk_id for chunk in chunks],
-                embeddings=embeddings,
-                documents=[chunk.text for chunk in chunks],
-                metadatas=[chunk.metadata.to_dict() for chunk in chunks],
-            )
+            # ChromaDB has a max batch size of 41666, so we need to batch our upserts
+            # Use a safe batch size of 40000 to leave some margin
+            CHROMA_BATCH_SIZE = 40000
+            
+            for batch_start in range(0, len(chunks), CHROMA_BATCH_SIZE):
+                batch_end = min(batch_start + CHROMA_BATCH_SIZE, len(chunks))
+                batch_chunks = chunks[batch_start:batch_end]
+                batch_embeddings = embeddings[batch_start:batch_end]
+                
+                await self.vector_store.upsert_documents(
+                    ids=[chunk.chunk_id for chunk in batch_chunks],
+                    embeddings=batch_embeddings,
+                    documents=[chunk.text for chunk in batch_chunks],
+                    metadatas=[chunk.metadata.to_dict() for chunk in batch_chunks],
+                )
+                
+                logger.info(f"Stored batch {batch_start // CHROMA_BATCH_SIZE + 1} "
+                           f"({len(batch_chunks)} chunks) in vector database")
 
             # Step 5: Build BM25 index
             if progress_callback:
