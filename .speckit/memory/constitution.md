@@ -10,9 +10,9 @@ Added sections:
   - Governance
 Removed sections: N/A
 Templates requiring updates:
-  - .specify/templates/plan-template.md: ✅ compatible (Constitution Check section exists)
-  - .specify/templates/spec-template.md: ✅ compatible (requirements structure aligns)
-  - .specify/templates/tasks-template.md: ✅ compatible (phase structure supports modularity)
+  - .speckit/templates/plan-template.md: ✅ compatible (Constitution Check section exists)
+  - .speckit/templates/spec-template.md: ✅ compatible (requirements structure aligns)
+  - .speckit/templates/tasks-template.md: ✅ compatible (phase structure supports modularity)
 Follow-up TODOs: None
 -->
 
