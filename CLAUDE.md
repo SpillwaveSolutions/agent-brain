@@ -202,6 +202,8 @@ Do NOT push code that fails `task before-push`.
 - ChromaDB (unified vector store), Disk-based BM25 index (101-code-ingestion)
 - Python 3.10+ + LlamaIndex (CodeSplitter, SummaryExtractor), tree-sitter (AST parsing), OpenAI/Anthropic (embeddings/summaries) (101-code-ingestion)
 - ChromaDB vector store (existing) (101-code-ingestion)
+- Python 3.10+ + FastAPI, uvicorn, Pydantic, Click, ChromaDB, LlamaIndex (109-multi-instance-architecture)
+- ChromaDB (vector), disk-based BM25 index, LlamaIndex persistence (109-multi-instance-architecture)
 
 ## Recent Changes
 - 100-bm25-hybrid-retrieval: Added Python 3.10+ + FastAPI, LlamaIndex, ChromaDB, OpenAI, rank-bm25

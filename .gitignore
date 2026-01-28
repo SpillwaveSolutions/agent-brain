@@ -19,6 +19,8 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.pmarkdownc 
+project_struct*.md 
 
 # Virtual environments
 .venv/
@@ -112,8 +114,6 @@ poetry.lock
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Specify feature system (internal)
-.speckit/features/*/
 
 # Local development data
 data/

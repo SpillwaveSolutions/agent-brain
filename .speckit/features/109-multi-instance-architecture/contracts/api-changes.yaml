@@ -1,0 +1,176 @@
+# API Changes for Multi-Instance Architecture
+# These changes extend the existing OpenAPI spec for doc-serve-server
+
+# --- MODIFIED ENDPOINTS ---
+
+# GET /health - Modified response to include mode info (FR-013)
+health_response_v2:
+  type: object
+  required: [status, message, mode]
+  properties:
+    status:
+      type: string
+      enum: [healthy, unhealthy, degraded]
+    message:
+      type: string
+    mode:
+      type: string
+      enum: [project, shared]
+      description: "Deployment mode of this instance"
+    instance_id:
+      type: string
+      description: "Unique instance ID (project mode only)"
+    project_id:
+      type: string
+      description: "Current project ID (project mode only)"
+    active_projects:
+      type: integer
+      description: "Number of active projects (shared mode only)"
+
+# GET /health/status - Modified to include runtime metadata
+indexing_status_v2:
+  type: object
+  properties:
+    # ... existing fields preserved ...
+    total_documents:
+      type: integer
+    total_chunks:
+      type: integer
+    indexing_in_progress:
+      type: boolean
+    # New fields:
+    mode:
+      type: string
+      enum: [project, shared]
+    state_dir:
+      type: string
+      description: "Path to state directory"
+    project_root:
+      type: string
+      description: "Resolved project root path"
+
+# --- NEW ENDPOINTS (Shared Mode Only) ---
+
+# GET /projects/{project_id}/status
+project_status:
+  path: /projects/{project_id}/status
+  method: GET
+  description: "Get indexing status for a specific project (shared mode)"
+  parameters:
+    project_id:
+      type: string
+      in: path
+      required: true
+  response:
+    type: object
+    properties:
+      project_id:
+        type: string
+      project_root:
+        type: string
+      total_chunks:
+        type: integer
+      last_indexed_at:
+        type: string
+        format: date-time
+
+# --- MODIFIED REQUEST BODIES (Shared Mode) ---
+
+# POST /index - Optional project_id field
+index_request_v2:
+  type: object
+  required: [folder_path]
+  properties:
+    folder_path:
+      type: string
+    project_id:
+      type: string
+      description: "Required in shared mode, ignored in project mode"
+    # ... existing fields preserved ...
+
+# POST /query - Optional project_id field
+query_request_v2:
+  type: object
+  required: [query]
+  properties:
+    query:
+      type: string
+    project_id:
+      type: string
+      description: "Required in shared mode, ignored in project mode"
+    # ... existing fields preserved ...
+
+# --- RUNTIME FILE SCHEMAS ---
+
+runtime_json_project:
+  description: "runtime.json for per-project mode"
+  type: object
+  required: [schema_version, mode, project_root, instance_id, base_url, bind_host, port, pid, started_at]
+  properties:
+    schema_version:
+      type: integer
+      const: 1
+    mode:
+      type: string
+      const: project
+    project_root:
+      type: string
+    instance_id:
+      type: string
+    base_url:
+      type: string
+      format: uri
+    bind_host:
+      type: string
+    port:
+      type: integer
+    pid:
+      type: integer
+    started_at:
+      type: string
+      format: date-time
+
+runtime_json_shared:
+  description: "runtime.json for shared mode pointer"
+  type: object
+  required: [schema_version, mode, project_root, project_id, base_url]
+  properties:
+    schema_version:
+      type: integer
+      const: 1
+    mode:
+      type: string
+      const: shared
+    project_root:
+      type: string
+    project_id:
+      type: string
+    base_url:
+      type: string
+      format: uri
+
+config_json:
+  description: "Per-project config.json"
+  type: object
+  properties:
+    mode:
+      type: string
+      enum: [project, shared]
+      default: project
+    bind_host:
+      type: string
+      default: "127.0.0.1"
+    port:
+      type: integer
+      default: 0
+    data_dir:
+      type: string
+      default: data
+    log_dir:
+      type: string
+      default: logs
+    shared_server_url:
+      type: string
+      format: uri
+      nullable: true
+      default: null
