@@ -16,7 +16,7 @@ Doc-Serve is a monorepo containing three packages:
 
 Doc-Serve now supports unified search across documentation and source code:
 
-- **10 Programming Languages**: Python, TypeScript, JavaScript, Java, Kotlin, C, C++, Go, Rust, Swift
+- **10 Programming Languages**: Python, TypeScript, JavaScript, Java, Kotlin, C, C++, C#, Go, Rust, and Swift
 - **AST-Aware Chunking**: Intelligent code parsing and chunking using tree-sitter
 - **Cross-Reference Queries**: Search across docs and code simultaneously
 - **Language Filtering**: Filter results by programming language
