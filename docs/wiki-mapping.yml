@@ -34,8 +34,36 @@ specs:
 
 # Skill documentation - ✅ Imported to Wiki
 skill:
-  doc-serve-skill/doc-serve/SKILL.md: "Claude-Skill-Definition"
-  doc-serve-skill/doc-serve/references/api_reference.md: "API-Reference"
+  doc-serve-skill/doc-serve/SKILL.md: "Agent-Skill-Definition"
+  doc-serve-skill/doc-serve/references/api_reference.md: "Agent-Skill-API-Reference"
+  doc-serve-skill/doc-serve/references/bm25-search-guide.md: "Agent-Skill-BM25-Search-Guide"
+  doc-serve-skill/doc-serve/references/vector-search-guide.md: "Agent-Skill-Vector-Search-Guide"
+  doc-serve-skill/doc-serve/references/hybrid-search-guide.md: "Agent-Skill-Hybrid-Search-Guide"
+  doc-serve-skill/doc-serve/references/server-discovery.md: "Agent-Skill-Server-Discovery-Guide"
+  doc-serve-skill/doc-serve/references/integration-guide.md: "Agent-Skill-Integration-Guide"
+  doc-serve-skill/doc-serve/references/troubleshooting-guide.md: "Agent-Skill-Troubleshooting-Guide"
+
+# Feature 109 - Multi-Instance Architecture (MAJOR FEATURE)
+feature-109:
+  .speckit/features/109-multi-instance-architecture/spec.md: "Multi-Instance-Architecture-Spec"
+  .speckit/features/109-multi-instance-architecture/plan.md: "Multi-Instance-Architecture-Plan"
+  .speckit/features/109-multi-instance-architecture/tasks.md: "Multi-Instance-Architecture-Tasks"
+  .speckit/features/109-multi-instance-architecture/quickstart.md: "Multi-Instance-Architecture-Quickstart"
+  .speckit/features/109-multi-instance-architecture/data-model.md: "Multi-Instance-Architecture-Data-Model"
+  .speckit/features/109-multi-instance-architecture/research.md: "Multi-Instance-Architecture-Research"
+
+# Feature 110 - C# Language Support (minor feature)
+feature-110:
+  .speckit/features/110-csharp-code-indexing/spec.md: "CSharp-Language-Support-Spec"
+  .speckit/features/110-csharp-code-indexing/plan.md: "CSharp-Language-Support-Plan"
+  .speckit/features/110-csharp-code-indexing/tasks.md: "CSharp-Language-Support-Tasks"
+  .speckit/features/110-csharp-code-indexing/quickstart.md: "CSharp-Language-Support-Quickstart"
+  .speckit/features/110-csharp-code-indexing/research.md: "CSharp-Language-Support-Research"
+
+# Feature 111 - Skill Auto-Discovery
+feature-111:
+  .speckit/features/111-skill-instance-discovery/spec.md: "Skill-Auto-Discovery-Spec"
+  .speckit/features/111-skill-instance-discovery/tasks.md: "Skill-Auto-Discovery-Tasks"
 
 # Wiki Pages Created (✅ Successfully Imported)
 wiki_pages_created:
@@ -46,4 +74,26 @@ wiki_pages_created:
   - BM25-Hybrid-Retrieval-Spec: "Complete SDD specification with all acceptance criteria"
   - BM25-Hybrid-Retrieval-Tasks: "All 28 tasks with GitHub issue links and completion status"
   - API-Reference: "Comprehensive endpoint documentation with examples"
-  - Claude-Skill-Definition: "Updated skill capabilities and usage examples"
+  - Agent-Skill-Definition: "Updated skill capabilities and usage examples"
+  # New pages for features 109, 110, 111
+  - Multi-Instance-Architecture-Spec: "Feature 109 specification"
+  - Multi-Instance-Architecture-Plan: "Feature 109 implementation plan"
+  - Multi-Instance-Architecture-Tasks: "Feature 109 task breakdown"
+  - Multi-Instance-Architecture-Quickstart: "Feature 109 quickstart guide"
+  - Multi-Instance-Architecture-Data-Model: "Feature 109 data model"
+  - Multi-Instance-Architecture-Research: "Feature 109 research notes"
+  - CSharp-Language-Support-Spec: "Feature 110 specification"
+  - CSharp-Language-Support-Plan: "Feature 110 implementation plan"
+  - CSharp-Language-Support-Tasks: "Feature 110 task breakdown"
+  - CSharp-Language-Support-Quickstart: "Feature 110 quickstart guide"
+  - CSharp-Language-Support-Research: "Feature 110 research notes"
+  - Skill-Auto-Discovery-Spec: "Feature 111 specification"
+  - Skill-Auto-Discovery-Tasks: "Feature 111 task breakdown"
+  # Agent Skill reference pages
+  - Agent-Skill-BM25-Search-Guide: "BM25 search usage guide"
+  - Agent-Skill-Vector-Search-Guide: "Vector search usage guide"
+  - Agent-Skill-Hybrid-Search-Guide: "Hybrid search usage guide"
+  - Agent-Skill-Server-Discovery-Guide: "Server discovery documentation"
+  - Agent-Skill-Integration-Guide: "Integration guide for agents"
+  - Agent-Skill-Troubleshooting-Guide: "Troubleshooting guide"
+  - Agent-Skill-API-Reference: "API reference documentation"

@@ -191,9 +191,89 @@ This usually means you are running the tool without installing it or the `PYTHON
 
 ---
 
+## Multi-Instance Architecture
+
+Doc-Serve supports running multiple concurrent instances with per-project isolation. This enables developers to work on multiple projects simultaneously without port conflicts or index cross-contamination.
+
+### State Directory Structure
+
+Each project stores its state in `.claude/doc-serve/`:
+
+```
+<project-root>/
+└── .claude/
+    └── doc-serve/
+        ├── config.json      # Project configuration (optional, can be committed)
+        ├── runtime.json     # Runtime state (DO NOT commit - add to .gitignore)
+        ├── doc-serve.lock   # Lock file for preventing double-start
+        ├── doc-serve.pid    # Process ID file
+        ├── data/            # ChromaDB and index data
+        └── logs/            # Server logs
+```
+
+### Runtime State Format
+
+The `runtime.json` file contains:
+
+```json
+{
+  "mode": "project",
+  "port": 49321,
+  "base_url": "http://127.0.0.1:49321",
+  "pid": 12345,
+  "instance_id": "abc123def456",
+  "project_id": "my-project",
+  "started_at": "2026-01-27T10:30:00Z"
+}
+```
+
+### Lock File Protocol
+
+The lock file prevents concurrent startup:
+
+1. Server attempts exclusive lock on `doc-serve.lock`
+2. If lock fails, another instance is starting/running
+3. Lock released on graceful shutdown
+4. Stale locks detected via PID validation
+
+### Project Root Resolution
+
+Project root is determined in this order:
+
+1. **Git repository root**: `git rev-parse --show-toplevel`
+2. **Marker files**: Directory containing `.claude/`, `pyproject.toml`, `package.json`, `Cargo.toml`, etc.
+3. **Current directory**: Fallback if no markers found
+
+Symlinks are resolved to canonical paths to ensure consistent state directories.
+
+### Configuration Precedence
+
+Settings are resolved in order (first wins):
+
+1. Command-line flags (`--port 8080`)
+2. Environment variables (`DOC_SERVE_STATE_DIR`, `DOC_SERVE_MODE`)
+3. Project config (`.claude/doc-serve/config.json`)
+4. Global config (`~/.doc-serve/config.json`)
+5. Built-in defaults
+
+### Health Endpoint Enhancement
+
+The `/health` endpoint now includes mode information:
+
+```json
+{
+  "status": "healthy",
+  "mode": "project",
+  "instance_id": "abc123def456",
+  "project_id": "my-project"
+}
+```
+
+---
+
 ## Code Ingestion & Language Support
 
-Doc-Serve supports AST-aware code chunking for 8+ programming languages using tree-sitter. The current implementation includes: **Python, TypeScript, JavaScript, Java, Go, Rust, C, C++**.
+Doc-Serve supports AST-aware code chunking for 9+ programming languages using tree-sitter. The current implementation includes: **Python, TypeScript, JavaScript, Java, Go, Rust, C, C++, C#**.
 
 Adding support for new programming languages is straightforward:
 
@@ -279,12 +359,39 @@ LANGUAGE_CHUNK_CONFIG = {
 }
 ```
 
+### C# Language Support
+
+C# is fully supported with AST-aware parsing:
+
+**File Extensions:**
+- `.cs` - C# source files
+- `.csx` - C# script files
+
+**Extracted Symbols:**
+- Classes, interfaces, structs, records, enums
+- Methods, properties, fields
+- Parameters and return types
+- Namespaces
+
+**XML Documentation:**
+Doc-Serve extracts XML doc comments (`/// <summary>`, `/// <param>`, `/// <returns>`) and stores them as metadata on chunks.
+
+**Tree-sitter Grammar:**
+Uses the `c_sharp` grammar from `tree-sitter-language-pack`.
+
+**Content Detection Patterns:**
+- `using System;`
+- `namespace` declarations
+- Property accessors `{ get; set; }`
+- Attributes `[AttributeName]`
+
 ### Available Languages (160+)
 
 | Category | Languages |
 |----------|-----------|
 | Systems | C, C++, Rust, Go, Zig |
 | JVM | Java, Kotlin, Scala, Groovy |
+| .NET | C#, F# |
 | Scripting | Python, Ruby, Perl, Lua, PHP |
 | Web | JavaScript, TypeScript, HTML, CSS |
 | Functional | Haskell, OCaml, Elixir, Erlang, Clojure |

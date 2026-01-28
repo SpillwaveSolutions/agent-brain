@@ -1,7 +1,7 @@
 # Doc-Serve Spec Mapping
 
-**Version:** 1.0.0
-**Last Updated:** 2025-12-18
+**Version:** 1.1.0
+**Last Updated:** 2026-01-28
 
 Maps product roadmap phases to specification directories for traceability.
 
@@ -12,8 +12,11 @@ Maps product roadmap phases to specification directories for traceability.
 | Phase | Roadmap Section | Spec Directory | Status      | Priority |
 |-------|-----------------|----------------|-------------|----------|
 | 1 | Core Document RAG | `specs/001-005/` | COMPLETED   | - |
-| 2 | BM25 & Hybrid Retrieval | `specs/100-bm25-hybrid-retrieval/` | DONE        | P1 |
-| 3 | Source Code Ingestion | `specs/101-code-ingestion/` | IN-PROGRESS | P2 |
+| 2 | BM25 & Hybrid Retrieval | `specs/100-bm25-hybrid-retrieval/` | COMPLETED   | P1 |
+| 3 | Source Code Ingestion | `specs/101-code-ingestion/` | COMPLETED   | P2 |
+| 3.1 | Multi-Instance Architecture | `.speckit/features/109-multi-instance-architecture/` | COMPLETED | P1 |
+| 3.2 | C# Code Indexing | `.speckit/features/110-csharp-code-indexing/` | COMPLETED | P2 |
+| 3.3 | Skill Instance Discovery | `.speckit/features/111-skill-instance-discovery/` | DRAFT | P2 |
 | 4 | UDS & Claude Plugin | `specs/102-uds-claude-plugin/` | Future      | P3 |
 | 5 | Pluggable Providers | `specs/103-pluggable-providers/` | NEXT        | P3 |
 | 6 | PostgreSQL/AlloyDB | `specs/104-postgresql-backend/` | Future      | P4 |
@@ -42,13 +45,25 @@ These specs represent upcoming phases from the product roadmap:
 
 | Spec ID | Phase | Name | Artifacts |
 |---------|-------|------|-----------|
-| 100 | 2 | BM25 & Hybrid Retrieval | spec.md, plan.md (pending), tasks.md (pending) |
-| 101 | 3 | Source Code Ingestion | spec.md, plan.md (pending), tasks.md (pending) |
+| 100 | 2 | BM25 & Hybrid Retrieval | spec.md, plan.md, tasks.md, quickstart.md, research.md, data-model.md |
+| 101 | 3 | Source Code Ingestion | spec.md, plan.md, tasks.md |
 | 102 | 4 | UDS & Claude Plugin | spec.md, plan.md (pending), tasks.md (pending) |
 | 103 | 5 | Pluggable Providers | spec.md, plan.md (pending), tasks.md (pending) |
 | 104 | 6 | PostgreSQL/AlloyDB Backend | spec.md, plan.md (pending), tasks.md (pending) |
 | 105 | 7 | AWS Bedrock Provider | spec.md, plan.md (pending), tasks.md (pending) |
 | 106 | 8 | Vertex AI Provider | spec.md, plan.md (pending), tasks.md (pending) |
+
+---
+
+## Feature Specs (109-Series)
+
+These specs represent features implemented via Spec-Driven Development:
+
+| Spec ID | Phase | Name | Status | Artifacts |
+|---------|-------|------|--------|-----------|
+| 109 | 3.1 | Multi-Instance Architecture | COMPLETED | spec.md, plan.md, tasks.md, quickstart.md, research.md, data-model.md |
+| 110 | 3.2 | C# Code Indexing | COMPLETED | spec.md, plan.md, tasks.md, quickstart.md, research.md |
+| 111 | 3.3 | Skill Instance Discovery | DRAFT | spec.md, tasks.md |
 
 ---
 

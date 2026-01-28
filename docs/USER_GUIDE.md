@@ -24,7 +24,7 @@ Doc-Serve is a RAG (Retrieval-Augmented Generation) system that can index and se
 
 The Doc-Serve server must be running to handle indexing and query requests.
 
-### Starting the Server
+### Starting the Server (Legacy Mode)
 ```bash
 doc-serve
 ```
@@ -38,6 +38,106 @@ Use the management tool to check if the server is responsive:
 ```bash
 doc-svr-ctl status
 ```
+
+---
+
+## Multi-Instance Mode
+
+Multi-instance mode allows running separate doc-serve instances for different projects with fully isolated indexes and automatic port allocation. This is the recommended approach for working on multiple projects.
+
+### Initializing a Project
+
+Before using multi-instance mode, initialize the project:
+
+```bash
+cd /path/to/my-project
+doc-svr-ctl init
+```
+
+This creates a `.claude/doc-serve/` directory with a `config.json` file. The state directory stores all project-specific data including indexes, logs, and runtime state.
+
+### Starting the Server (Multi-Instance)
+
+Start a project-specific server with automatic port allocation:
+
+```bash
+doc-svr-ctl start --daemon
+```
+
+The server starts on an automatically assigned port (no conflicts with other projects). The actual port is written to `.claude/doc-serve/runtime.json`.
+
+### Stopping the Server
+
+```bash
+doc-svr-ctl stop
+```
+
+This gracefully shuts down the server and cleans up runtime artifacts.
+
+### Listing Running Instances
+
+To see all running doc-serve instances across all projects:
+
+```bash
+doc-svr-ctl list
+```
+
+Example output:
+```
+project-a: http://127.0.0.1:49321 (project mode)
+project-b: http://127.0.0.1:49322 (project mode)
+```
+
+### Runtime Discovery
+
+The runtime state is stored in `.claude/doc-serve/runtime.json`:
+
+```json
+{
+  "mode": "project",
+  "port": 49321,
+  "base_url": "http://127.0.0.1:49321",
+  "pid": 12345,
+  "instance_id": "abc123",
+  "project_id": "my-project",
+  "started_at": "2026-01-27T10:30:00Z"
+}
+```
+
+Agents and skills can read this file to discover the running server for the current project.
+
+### Working from Subdirectories
+
+Doc-serve automatically resolves the project root from any subdirectory:
+
+```bash
+cd /path/to/my-project/src/deep/nested
+doc-svr-ctl status
+# → Finds server for /path/to/my-project
+```
+
+### Multiple Projects Simultaneously
+
+Each project gets its own isolated server:
+
+```bash
+# Terminal 1
+cd /path/to/project-a && doc-svr-ctl start --daemon
+# → Started on port 49321
+
+# Terminal 2
+cd /path/to/project-b && doc-svr-ctl start --daemon
+# → Started on port 49322 (no conflict)
+```
+
+### Configuration Precedence
+
+Settings are resolved in this order (first wins):
+1. Command-line flags
+2. Environment variables (e.g., `DOC_SERVE_STATE_DIR`)
+3. Project config (`.claude/doc-serve/config.json`)
+4. Global config (`~/.doc-serve/config.json`)
+5. Built-in defaults
 
 ## Indexing Documents and Code
 
@@ -123,7 +223,13 @@ doc-svr-ctl query "data validation" --source-types code --languages javascript
 ```
 
 #### Supported Languages
-Doc-Serve supports AST-aware chunking for: **Python, TypeScript, JavaScript, Java, Go, Rust, C, C++**.
+Doc-Serve supports AST-aware chunking for: **Python, TypeScript, JavaScript, Java, Go, Rust, C, C++, C#**.
+
+**C# Support Details:**
+- File extensions: `.cs`, `.csx` (C# scripts)
+- AST-aware parsing at class, method, interface, and property boundaries
+- Extracts XML documentation comments (`/// <summary>`)
+- Filter queries with `--languages csharp`
 
 #### AST Metadata
 When using AST-aware chunking, search results include:

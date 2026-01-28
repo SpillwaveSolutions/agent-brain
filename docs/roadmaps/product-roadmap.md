@@ -1,7 +1,7 @@
 # Doc-Serve Product Roadmap
 
-**Version:** 1.0.0
-**Last Updated:** 2025-12-18
+**Version:** 1.1.0
+**Last Updated:** 2026-01-28
 **Status:** Active
 
 ---
@@ -24,7 +24,10 @@ Doc-Serve is a local-first RAG (Retrieval-Augmented Generation) service that ind
 |-------|------|---------|-------------|----------|-----------|
 | 1 | Core Document RAG | 001-005 | COMPLETED   | - | HTTP |
 | 2 | BM25 & Hybrid Retrieval | 100 | COMPLETED   | P1 | HTTP |
-| 3 | Source Code Ingestion | 101 | IN-PROGRESS | P2 | HTTP |
+| 3 | Source Code Ingestion | 101 | COMPLETED   | P2 | HTTP |
+| 3.1 | Multi-Instance Architecture | 109 | COMPLETED   | P1 | HTTP |
+| 3.2 | C# Code Indexing | 110 | COMPLETED   | P2 | HTTP |
+| 3.3 | Skill Instance Discovery | 111 | IN-PROGRESS | P2 | HTTP |
 | 4 | UDS & Claude Plugin Evolution | 102 | Future      | P3 | HTTP + UDS |
 | 5 | Pluggable Model Providers | 103 | Next        | P3 | HTTP + UDS |
 | 6 | PostgreSQL/AlloyDB Backend | 104 | Future      | P4 | HTTP + UDS |
@@ -138,6 +141,94 @@ POST /query
 - Single search across documentation and implementation
 - Code context improves answer quality for technical queries
 - Enables corpus-based book/tutorial generation
+
+---
+
+## Phase 3.1: Multi-Instance Architecture
+
+**Status:** COMPLETED
+**Spec Directory:** `.speckit/features/109-multi-instance-architecture/`
+**Transport:** HTTP
+
+### Scope
+
+Enable running multiple concurrent doc-serve instances with per-project isolation, automatic port allocation, and runtime discovery for agent integration.
+
+### Key Features
+
+- **Per-Project Isolation:** Each project gets its own server instance with isolated indexes
+- **Auto-Port Allocation:** OS-assigned ports prevent conflicts between projects
+- **State Directory:** Project state stored in `.claude/doc-serve/`
+- **Runtime Discovery:** `runtime.json` enables agents and skills to find running instances
+- **Lock File Protocol:** Prevents double-start of instances
+- **Project Root Resolution:** Consistent detection via git or marker files
+
+### New CLI Commands
+
+```bash
+doc-svr-ctl init              # Initialize project for doc-serve
+doc-svr-ctl start --daemon    # Start server with auto-port
+doc-svr-ctl stop              # Stop the server
+doc-svr-ctl list              # List all running instances
+```
+
+### Benefits
+
+- Work on multiple projects simultaneously
+- No port conflicts between projects
+- State travels with the project (can be version-controlled)
+- Agents can automatically discover running servers
+
+---
+
+## Phase 3.2: C# Code Indexing
+
+**Status:** COMPLETED
+**Spec Directory:** `.speckit/features/110-csharp-code-indexing/`
+**Transport:** HTTP
+
+### Scope
+
+Add C# language support to the code ingestion pipeline with AST-aware parsing.
+
+### Key Features
+
+- **File Extensions:** `.cs` and `.csx` (C# scripts)
+- **AST-Aware Chunking:** Classes, methods, interfaces, properties, enums
+- **XML Documentation:** Extracts `/// <summary>` comments as metadata
+- **Language Filter:** Query with `--languages csharp`
+
+### Benefits
+
+- Full .NET ecosystem support
+- Semantic search across C# codebases
+- Rich metadata extraction for better search quality
+
+---
+
+## Phase 3.3: Skill Instance Discovery
+
+**Status:** IN-PROGRESS
+**Spec Directory:** `.speckit/features/111-skill-instance-discovery/`
+**Transport:** HTTP
+
+### Scope
+
+Update the doc-serve Claude Code skill to leverage multi-instance architecture for automatic server discovery and lifecycle management.
+
+### Key Features
+
+- **Auto-Initialization:** Skill automatically runs `doc-svr-ctl init` when needed
+- **Server Discovery:** Reads `runtime.json` to find running instances
+- **Auto-Start:** Starts server automatically if no instance is running
+- **Status Reporting:** Reports port, mode, instance ID, document count
+- **Cross-Agent Sharing:** Multiple agents share the same server instance
+
+### Benefits
+
+- Zero-configuration skill usage
+- No manual server management required
+- Seamless multi-agent workflows
 
 ---
 

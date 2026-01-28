@@ -29,10 +29,23 @@ cp .env.example .env
 
 ## 3. Launch the Server
 
-Start the Doc-Serve API server:
+### Option A: Multi-Instance Mode (Recommended)
+
+Initialize and start a project-specific server with auto-port allocation:
 
 ```bash
-# From any directory
+cd /path/to/your/project
+doc-svr-ctl init      # Creates .claude/doc-serve/ directory
+doc-svr-ctl start --daemon   # Starts server with auto-assigned port
+```
+
+The server runs in the background with isolated indexes for this project.
+
+### Option B: Legacy Single-Instance Mode
+
+Start the Doc-Serve API server directly:
+
+```bash
 doc-serve
 ```
 *Keep this terminal open or run in the background with `doc-serve &`.*
@@ -124,19 +137,31 @@ doc-svr-ctl query "authenticate_user" --mode bm25 --source-types code
 ```
 
 ### Supported Languages
-Doc-Serve supports AST-aware code ingestion for: **Python, TypeScript, JavaScript, Java, Go, Rust, C, C++**. Other languages are supported via intelligent text-based chunking.
+Doc-Serve supports AST-aware code ingestion for: **Python, TypeScript, JavaScript, Java, Go, Rust, C, C++, C#**. Other languages are supported via intelligent text-based chunking.
+
+**C# Support:** Files with `.cs` and `.csx` extensions are parsed with AST-aware chunking, extracting classes, methods, interfaces, and XML documentation comments.
 
 ## Common Commands Summary
 
+### Multi-Instance Commands (Recommended)
+
 | Task | Command |
 |------|---------|
-| **Start Server** | `doc-serve` |
+| **Initialize Project** | `doc-svr-ctl init` |
+| **Start Server** | `doc-svr-ctl start --daemon` |
+| **Stop Server** | `doc-svr-ctl stop` |
+| **List All Instances** | `doc-svr-ctl list` |
 | **Check Status** | `doc-svr-ctl status` |
+
+### Data Commands
+
+| Task | Command |
+|------|---------|
 | **Index Docs Only** | `doc-svr-ctl index /path/to/docs` |
 | **Index Code + Docs** | `doc-svr-ctl index /path --include-code` |
 | **Semantic Search** | `doc-svr-ctl query "your question"` |
 | **Keyword Search** | `doc-svr-ctl query "keyword" --mode bm25` |
 | **Hybrid Search** | `doc-svr-ctl query "question" --mode hybrid --alpha 0.5` |
 | **Filter by Source** | `doc-svr-ctl query "term" --source-types code` |
-| **Filter by Language** | `doc-svr-ctl query "term" --languages python` |
+| **Filter by Language** | `doc-svr-ctl query "term" --languages python,csharp` |
 | **Reset Index** | `doc-svr-ctl reset --yes` |
