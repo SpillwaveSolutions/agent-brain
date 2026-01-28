@@ -6,6 +6,8 @@ handoffs:
     prompt: Create a plan for the spec. I am building with...
 ---
 
+> **Spec directory**: All SDD artifacts live under `.speckit/` (features, templates, scripts, memory).
+
 ## User Input
 
 ```text
@@ -22,7 +24,7 @@ Note: This clarification workflow is expected to run (and be completed) BEFORE i
 
 Execution steps:
 
-1. Run `.specify/scripts/bash/check-prerequisites.sh --json --paths-only` from repo root **once** (combined `--json --paths-only` mode / `-Json -PathsOnly`). Parse minimal JSON payload fields:
+1. Run `.speckit/scripts/bash/check-prerequisites.sh --json --paths-only` from repo root **once** (combined `--json --paths-only` mode / `-Json -PathsOnly`). Parse minimal JSON payload fields:
    - `FEATURE_DIR`
    - `FEATURE_SPEC`
    - (Optionally capture `IMPL_PLAN`, `TASKS` for future chained flows.)
