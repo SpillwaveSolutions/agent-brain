@@ -18,7 +18,7 @@ This guide covers common issues and their solutions when using Doc-Serve for doc
 **Module Import Errors:**
 ```bash
 # Reinstall global CLI tools
-pip install doc-serve doc-serve-cli
+pip install agent-brain-rag agent-brain-cli
 
 # Or run locally
 cd doc-serve-server && poetry run doc-serve
@@ -400,7 +400,7 @@ doc-svr-ctl query "test" --json | jq .
 
 **Update CLI version:**
 ```bash
-pip install doc-serve doc-serve-cli
+pip install agent-brain-rag agent-brain-cli
 ```
 
 ### 12. File Permission Issues

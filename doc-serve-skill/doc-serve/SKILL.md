@@ -143,7 +143,7 @@ export ANTHROPIC_API_KEY="sk-ant-..."  # Optional for summarization
 ### Installation
 
 ```bash
-pip install doc-serve doc-serve-cli
+pip install agent-brain-rag agent-brain-cli
 ```
 
 ---

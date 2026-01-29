@@ -5,7 +5,7 @@ Command-line interface for managing the Doc-Serve document indexing and search s
 ## Installation
 
 ```bash
-pip install doc-serve-cli
+pip install agent-brain-cli
 ```
 
 ## Quick Start

@@ -5,7 +5,7 @@ RAG-based document indexing and semantic search REST API service.
 ## Installation
 
 ```bash
-pip install doc-serve
+pip install agent-brain-rag
 ```
 
 ## Quick Start
