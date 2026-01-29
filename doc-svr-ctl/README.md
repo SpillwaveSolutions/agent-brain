@@ -5,6 +5,21 @@ Command-line interface for managing the Doc-Serve document indexing and search s
 ## Installation
 
 ```bash
+pip install doc-serve-cli
+```
+
+## Quick Start
+
+```bash
+doc-svr-ctl init          # Initialize project
+doc-svr-ctl start         # Start server
+doc-svr-ctl index ./docs  # Index documents
+doc-svr-ctl query "search term"
+```
+
+## Development Installation
+
+```bash
 cd doc-svr-ctl
 poetry install
 ```

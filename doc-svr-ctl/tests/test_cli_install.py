@@ -21,7 +21,7 @@ class TestCLIEntryPoint:
         """Verify __version__ can be imported."""
         assert __version__ is not None
         assert isinstance(__version__, str)
-        assert __version__ == "1.0.0"
+        assert __version__ == "1.1.0"
 
 
 class TestCLIHelpFlag:
@@ -68,8 +68,8 @@ class TestCLIVersionFlag:
             result.exit_code == 0
         ), f"--version should exit with 0, got {result.exit_code}"
         assert (
-            "1.0.0" in result.output
-        ), f"Should show version 1.0.0, got: {result.output}"
+            "1.1.0" in result.output
+        ), f"Should show version 1.1.0, got: {result.output}"
 
 
 class TestCLISubcommands:

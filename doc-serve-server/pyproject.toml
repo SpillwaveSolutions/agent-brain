@@ -1,9 +1,24 @@
 [tool.poetry]
-name = "doc-serve-server"
-version = "1.0.0"
-description = "RAG-based document indexing and query REST API service"
-authors = ["Spillwave Team"]
+name = "doc-serve"
+version = "1.1.0"
+description = "RAG-based document indexing and semantic search server"
+authors = ["Spillwave Solutions"]
 readme = "README.md"
+license = "MIT"
+homepage = "https://github.com/SpillwaveSolutions/doc-serve"
+repository = "https://github.com/SpillwaveSolutions/doc-serve"
+documentation = "https://github.com/SpillwaveSolutions/doc-serve#readme"
+keywords = ["rag", "semantic-search", "documentation", "indexing", "llama-index", "chromadb"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Text Processing :: Indexing",
+]
 packages = [{include = "doc_serve_server"}]
 
 [tool.poetry.dependencies]
@@ -37,7 +52,6 @@ mypy = "^1.13.0"
 
 [tool.poetry.scripts]
 doc-serve = "doc_serve_server.api.main:cli"
-doc-serve-server = "doc_serve_server.api.main:cli"
 
 [build-system]
 requires = ["poetry-core"]

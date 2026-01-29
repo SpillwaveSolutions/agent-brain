@@ -2,6 +2,27 @@
 
 RAG-based document indexing and semantic search REST API service.
 
+## Installation
+
+```bash
+pip install doc-serve
+```
+
+## Quick Start
+
+1. Set environment variables:
+   ```bash
+   export OPENAI_API_KEY=your-key
+   export ANTHROPIC_API_KEY=your-key
+   ```
+
+2. Start the server:
+   ```bash
+   doc-serve
+   ```
+
+The server will start at `http://127.0.0.1:8000`.
+
 ## Features
 
 - **Document Indexing**: Load and index documents from folders (PDF, Markdown, TXT, DOCX, HTML)

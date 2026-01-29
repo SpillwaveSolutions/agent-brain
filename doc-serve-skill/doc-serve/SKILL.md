@@ -143,7 +143,7 @@ export ANTHROPIC_API_KEY="sk-ant-..."  # Optional for summarization
 ### Installation
 
 ```bash
-task install:global  # Install CLI tools
+pip install doc-serve doc-serve-cli
 ```
 
 ---

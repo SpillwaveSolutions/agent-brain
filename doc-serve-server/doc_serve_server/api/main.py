@@ -154,7 +154,7 @@ app = FastAPI(
         "RAG-based document indexing and semantic search API. "
         "Index documents from folders and query them using natural language."
     ),
-    version="1.0.0",
+    version="1.1.0",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
@@ -181,7 +181,7 @@ async def root() -> dict[str, str]:
     """Root endpoint redirects to docs."""
     return {
         "name": "Doc-Serve API",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "docs": "/docs",
         "health": "/health",
     }

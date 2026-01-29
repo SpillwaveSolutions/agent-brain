@@ -37,7 +37,7 @@ class TestDocServeClient:
         mock_response.json.return_value = {
             "status": "healthy",
             "message": "Server ready",
-            "version": "1.0.0",
+            "version": "1.1.0",
             "timestamp": "2024-12-15T10:00:00Z",
         }
         mock_request.return_value = mock_response
@@ -47,7 +47,7 @@ class TestDocServeClient:
 
         assert health.status == "healthy"
         assert health.message == "Server ready"
-        assert health.version == "1.0.0"
+        assert health.version == "1.1.0"
 
     @patch("httpx.Client.request")
     def test_status_success(self, mock_request):

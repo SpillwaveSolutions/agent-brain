@@ -30,7 +30,7 @@ class TestCLIHelp:
         """Test --version flag."""
         result = runner.invoke(cli, ["--version"])
         assert result.exit_code == 0
-        assert "1.0.0" in result.output
+        assert "1.1.0" in result.output
 
 
 class TestStatusCommand:
@@ -46,7 +46,7 @@ class TestStatusCommand:
         mock_health = MagicMock()
         mock_health.status = "healthy"
         mock_health.message = "Server ready"
-        mock_health.version = "1.0.0"
+        mock_health.version = "1.1.0"
 
         mock_status = MagicMock()
         mock_status.total_documents = 100
@@ -76,7 +76,7 @@ class TestStatusCommand:
         mock_health = MagicMock()
         mock_health.status = "healthy"
         mock_health.message = "Ready"
-        mock_health.version = "1.0.0"
+        mock_health.version = "1.1.0"
 
         mock_status = MagicMock()
         mock_status.total_documents = 50
