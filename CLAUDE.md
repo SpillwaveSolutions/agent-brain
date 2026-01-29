@@ -217,6 +217,8 @@ Do NOT push code that fails `task before-push`.
 - ChromaDB vector store (existing) (101-code-ingestion)
 - Python 3.10+ + FastAPI, uvicorn, Pydantic, Click, ChromaDB, LlamaIndex (109-multi-instance-architecture)
 - ChromaDB (vector), disk-based BM25 index, LlamaIndex persistence (109-multi-instance-architecture)
+- Python 3.10+ + Poetry (packaging), Click (CLI), FastAPI (server) (112-agent-brain-naming)
+- N/A (naming changes only) (112-agent-brain-naming)
 
 ## Recent Changes
 - 100-bm25-hybrid-retrieval: Added Python 3.10+ + FastAPI, LlamaIndex, ChromaDB, OpenAI, rank-bm25

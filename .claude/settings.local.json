@@ -19,7 +19,8 @@
       "Bash(poetry run ruff check:*)",
       "Bash(poetry run mypy:*)",
       "Bash(poetry run doc-svr-ctl:*)",
-      "Skill(improving-skills)"
+      "Skill(improving-skills)",
+      "mcp__github__create_issue"
     ]
   },
   "sandbox": {
