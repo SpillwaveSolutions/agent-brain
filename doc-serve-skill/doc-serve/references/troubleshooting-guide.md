@@ -18,7 +18,7 @@ This guide covers common issues and their solutions when using Doc-Serve for doc
 **Module Import Errors:**
 ```bash
 # Reinstall global CLI tools
-task install:global
+pip install doc-serve doc-serve-cli
 
 # Or run locally
 cd doc-serve-server && poetry run doc-serve
@@ -400,7 +400,7 @@ doc-svr-ctl query "test" --json | jq .
 
 **Update CLI version:**
 ```bash
-task install:global
+pip install doc-serve doc-serve-cli
 ```
 
 ### 12. File Permission Issues

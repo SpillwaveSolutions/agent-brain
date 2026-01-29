@@ -57,8 +57,8 @@ class TestServerCLI:
             result.exit_code == 0
         ), f"--version should exit with 0, got {result.exit_code}"
         assert (
-            "1.0.0" in result.output
-        ), f"Should show version 1.0.0, got: {result.output}"
+            "1.1.0" in result.output
+        ), f"Should show version 1.1.0, got: {result.output}"
 
 
 class TestServerEntryPoint:
@@ -84,7 +84,7 @@ class TestServerEntryPoint:
 
         assert __version__ is not None
         assert isinstance(__version__, str)
-        assert __version__ == "1.0.0"
+        assert __version__ == "1.1.0"
 
 
 class TestServerApp:
@@ -100,7 +100,7 @@ class TestServerApp:
         """Verify app has version."""
         from doc_serve_server.api.main import app
 
-        assert app.version == "1.0.0"
+        assert app.version == "1.1.0"
 
     def test_app_has_docs_url(self):
         """Verify docs URL is configured."""

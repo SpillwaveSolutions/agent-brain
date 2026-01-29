@@ -54,7 +54,7 @@ async def health_check(request: Request) -> HealthStatus:
         status=status,
         message=message,
         timestamp=datetime.now(timezone.utc),
-        version="1.0.0",
+        version="1.1.0",
         mode=mode,
         instance_id=instance_id,
         project_id=project_id,
