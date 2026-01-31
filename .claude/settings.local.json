@@ -27,7 +27,14 @@
       "Bash(poetry run agent-brain-serve:*)",
       "Bash(task before-push)",
       "Bash(git add:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "mcp__context7__resolve-library-id",
+      "WebSearch",
+      "mcp__context7__query-docs",
+      "mcp__perplexity-ask__perplexity_ask",
+      "Bash(git fetch:*)",
+      "Bash(ls:*)",
+      "Bash(git branch:*)"
     ]
   },
   "sandbox": {
