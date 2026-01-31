@@ -219,6 +219,8 @@ Do NOT push code that fails `task before-push`.
 - ChromaDB (vector), disk-based BM25 index, LlamaIndex persistence (109-multi-instance-architecture)
 - Python 3.10+ + Poetry (packaging), Click (CLI), FastAPI (server) (112-agent-brain-naming)
 - N/A (naming changes only) (112-agent-brain-naming)
+- Python 3.10+ (existing: ^3.10 in pyproject.toml) + FastAPI, LlamaIndex (llama-index-core ^0.14.0), ChromaDB, langextract (new), llama-index-graph-stores-kuzu (optional) (113-graphrag-integration)
+- ChromaDB (vector), disk-based BM25 index (existing), SimplePropertyGraphStore/Kuzu (new graph storage) (113-graphrag-integration)
 
 ## Recent Changes
 - 100-bm25-hybrid-retrieval: Added Python 3.10+ + FastAPI, LlamaIndex, ChromaDB, OpenAI, rank-bm25

@@ -1,0 +1,285 @@
+# OpenAPI Contract Additions for GraphRAG Integration
+# Feature: 113-graphrag-integration
+# Date: 2026-01-30
+#
+# This file defines the API contract changes for the GraphRAG feature.
+# These additions extend the existing doc-serve OpenAPI specification.
+
+openapi: 3.0.3
+info:
+  title: Doc-Serve GraphRAG Extensions
+  version: 1.1.0
+  description: |
+    GraphRAG extension to doc-serve API adding graph-based retrieval modes.
+
+components:
+  schemas:
+    # Extended QueryMode enum
+    QueryMode:
+      type: string
+      enum:
+        - vector
+        - bm25
+        - hybrid
+        - graph    # NEW
+        - multi    # NEW
+      description: |
+        Retrieval mode for queries:
+        - vector: Pure semantic similarity search
+        - bm25: Pure keyword matching search
+        - hybrid: Weighted combination of vector and BM25
+        - graph: Graph-only traversal based on entity relationships (requires GraphRAG enabled)
+        - multi: Triple fusion of vector, BM25, and graph using RRF (requires GraphRAG enabled)
+
+    # Extended QueryRequest
+    QueryRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: The search query text
+        top_k:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 5
+          description: Number of results to return
+        similarity_threshold:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+          default: 0.7
+          description: Minimum similarity score (0-1)
+        mode:
+          $ref: '#/components/schemas/QueryMode'
+          default: hybrid
+        alpha:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+          default: 0.5
+          description: Weight for hybrid search (1.0 = pure vector, 0.0 = pure bm25)
+        # NEW: Graph-specific parameters
+        traversal_depth:
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 2
+          description: Maximum hops from query entities for graph traversal (graph/multi modes)
+        include_relationships:
+          type: array
+          items:
+            type: string
+          description: Filter by specific relationship types (e.g., ["imports", "contains"])
+        source_types:
+          type: array
+          items:
+            type: string
+          description: Filter by source types ('doc', 'code', 'test')
+        languages:
+          type: array
+          items:
+            type: string
+          description: Filter by programming languages for code files
+
+    # Extended QueryResult
+    QueryResult:
+      type: object
+      required:
+        - text
+        - source
+        - score
+        - chunk_id
+      properties:
+        text:
+          type: string
+          description: The chunk text content
+        source:
+          type: string
+          description: Source file path
+        score:
+          type: number
+          description: Primary score (rank or similarity)
+        vector_score:
+          type: number
+          nullable: true
+          description: Score from vector search
+        bm25_score:
+          type: number
+          nullable: true
+          description: Score from BM25 search
+        # NEW: Graph-specific scores
+        graph_score:
+          type: number
+          nullable: true
+          description: Score from graph traversal
+        related_entities:
+          type: array
+          items:
+            type: string
+          description: Entity names connected to this result
+        relationship_path:
+          type: array
+          items:
+            type: string
+          description: Relationship path from query to result (for graph mode)
+        chunk_id:
+          type: string
+          description: Unique chunk identifier
+        source_type:
+          type: string
+          default: doc
+          description: Type of content ('doc', 'code', or 'test')
+        language:
+          type: string
+          nullable: true
+          description: Programming language for code files
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Additional metadata
+
+    # NEW: Graph index status
+    GraphIndexStatus:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Whether GraphRAG is enabled
+        initialized:
+          type: boolean
+          description: Whether graph store is ready
+        entity_count:
+          type: integer
+          minimum: 0
+          description: Number of entities in graph
+        relationship_count:
+          type: integer
+          minimum: 0
+          description: Number of relationships in graph
+        last_updated:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last index update timestamp
+        store_type:
+          type: string
+          enum: [simple, kuzu]
+          description: Graph storage backend type
+
+    # Extended HealthStatus
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy, degraded]
+        indexing_status:
+          type: string
+          enum: [idle, indexing, ready, error]
+        document_count:
+          type: integer
+        # NEW: Graph status
+        graph_index:
+          $ref: '#/components/schemas/GraphIndexStatus'
+
+  responses:
+    GraphRAGDisabledError:
+      description: GraphRAG feature is not enabled
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: "GraphRAG not enabled. Set ENABLE_GRAPH_INDEX=true"
+
+paths:
+  /query:
+    post:
+      summary: Execute semantic search query
+      description: |
+        Search indexed documents using the specified retrieval mode.
+
+        **Mode Availability:**
+        - vector, bm25, hybrid: Always available
+        - graph, multi: Requires ENABLE_GRAPH_INDEX=true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+            examples:
+              hybrid_search:
+                summary: Hybrid search (default)
+                value:
+                  query: "How do I configure authentication?"
+                  top_k: 5
+                  mode: hybrid
+              graph_search:
+                summary: Graph-based search
+                value:
+                  query: "authentication"
+                  top_k: 10
+                  mode: graph
+                  traversal_depth: 2
+              multi_search:
+                summary: Multi-mode fusion search
+                value:
+                  query: "user authentication flow"
+                  top_k: 5
+                  mode: multi
+                  include_relationships: ["imports", "references"]
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResponse'
+        '400':
+          $ref: '#/components/responses/GraphRAGDisabledError'
+
+  /index:
+    post:
+      summary: Start document indexing
+      description: |
+        Index documents from the specified path.
+        When GraphRAG is enabled, also builds the graph index.
+      parameters:
+        - name: rebuild_graph
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Force rebuild of graph index only (preserves vector and BM25)
+
+  /health/status:
+    get:
+      summary: Get detailed server status
+      description: |
+        Returns detailed status including indexing state and graph index information.
+      responses:
+        '200':
+          description: Server status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+              example:
+                status: healthy
+                indexing_status: ready
+                document_count: 1500
+                graph_index:
+                  enabled: true
+                  initialized: true
+                  entity_count: 3200
+                  relationship_count: 8500
+                  last_updated: "2026-01-30T14:30:00Z"
+                  store_type: simple

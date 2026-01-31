@@ -20,7 +20,14 @@
       "Bash(poetry run mypy:*)",
       "Bash(poetry run doc-svr-ctl:*)",
       "Skill(improving-skills)",
-      "mcp__github__create_issue"
+      "mcp__github__create_issue",
+      "mcp__context7__resolve-library-id",
+      "WebSearch",
+      "mcp__context7__query-docs",
+      "mcp__perplexity-ask__perplexity_ask",
+      "Bash(git fetch:*)",
+      "Bash(ls:*)",
+      "Bash(git branch:*)"
     ]
   },
   "sandbox": {
