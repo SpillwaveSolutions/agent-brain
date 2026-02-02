@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agent-brain-cli"
-version = "1.2.0"
+version = "2.0.0"
 description = "Agent Brain CLI - Command-line interface for managing AI agent memory and knowledge retrieval"
 authors = ["Spillwave Solutions"]
 readme = "README.md"
