@@ -1,7 +1,7 @@
 # Doc-Serve Spec Mapping
 
-**Version:** 1.1.0
-**Last Updated:** 2026-01-28
+**Version:** 1.2.0
+**Last Updated:** 2026-02-01
 
 Maps product roadmap phases to specification directories for traceability.
 
@@ -16,7 +16,10 @@ Maps product roadmap phases to specification directories for traceability.
 | 3 | Source Code Ingestion | `specs/101-code-ingestion/` | COMPLETED   | P2 |
 | 3.1 | Multi-Instance Architecture | `.speckit/features/109-multi-instance-architecture/` | COMPLETED | P1 |
 | 3.2 | C# Code Indexing | `.speckit/features/110-csharp-code-indexing/` | COMPLETED | P2 |
-| 3.3 | Skill Instance Discovery | `.speckit/features/111-skill-instance-discovery/` | DRAFT | P2 |
+| 3.3 | Skill Instance Discovery | `.speckit/features/111-skill-instance-discovery/` | COMPLETED | P2 |
+| 3.4 | Agent Brain Naming | `.speckit/features/112-agent-brain-naming/` | COMPLETED | P1 |
+| 3.5 | GraphRAG Integration | `.speckit/features/113-graphrag-integration/` | COMPLETED | P2 |
+| 3.6 | Agent Brain Plugin | `.speckit/features/114-agent-brain-plugin/` | COMPLETED | P2 |
 | 4 | UDS & Claude Plugin | `specs/102-uds-claude-plugin/` | Future      | P3 |
 | 5 | Pluggable Providers | `specs/103-pluggable-providers/` | NEXT        | P3 |
 | 6 | PostgreSQL/AlloyDB | `specs/104-postgresql-backend/` | Future      | P4 |
@@ -63,7 +66,10 @@ These specs represent features implemented via Spec-Driven Development:
 |---------|-------|------|--------|-----------|
 | 109 | 3.1 | Multi-Instance Architecture | COMPLETED | spec.md, plan.md, tasks.md, quickstart.md, research.md, data-model.md |
 | 110 | 3.2 | C# Code Indexing | COMPLETED | spec.md, plan.md, tasks.md, quickstart.md, research.md |
-| 111 | 3.3 | Skill Instance Discovery | DRAFT | spec.md, tasks.md |
+| 111 | 3.3 | Skill Instance Discovery | COMPLETED | spec.md, tasks.md |
+| 112 | 3.4 | Agent Brain Naming | COMPLETED | spec.md, plan.md, tasks.md |
+| 113 | 3.5 | GraphRAG Integration | COMPLETED | spec.md, plan.md, tasks.md, research.md, data-model.md |
+| 114 | 3.6 | Agent Brain Plugin | COMPLETED | spec.md, plan.md, tasks.md |
 
 ---
 

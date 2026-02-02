@@ -1,0 +1,67 @@
+# Agent Brain Provider Configuration
+# Copy this file to config.yaml and customize for your needs
+
+# Embedding Configuration
+# Providers: openai, ollama, cohere
+embedding:
+  provider: openai
+  model: text-embedding-3-large
+  api_key_env: OPENAI_API_KEY
+  # Optional parameters
+  # params:
+  #   batch_size: 100
+  #   dimensions: 1024  # Override default dimensions
+
+# Summarization Configuration
+# Providers: anthropic, openai, gemini, grok, ollama
+summarization:
+  provider: anthropic
+  model: claude-3-5-haiku-20241022
+  api_key_env: ANTHROPIC_API_KEY
+  # Optional parameters
+  # params:
+  #   max_tokens: 300
+  #   temperature: 0.1
+
+# Example: Fully Local (Ollama) Configuration
+# embedding:
+#   provider: ollama
+#   model: nomic-embed-text
+#   base_url: http://localhost:11434/v1
+#
+# summarization:
+#   provider: ollama
+#   model: llama3.2
+#   base_url: http://localhost:11434/v1
+#   params:
+#     max_tokens: 500
+
+# Example: Cohere Embeddings + GPT-4 Summarization
+# embedding:
+#   provider: cohere
+#   model: embed-english-v3.0
+#   api_key_env: COHERE_API_KEY
+#   params:
+#     input_type: search_document
+#
+# summarization:
+#   provider: openai
+#   model: gpt-4o
+#   api_key_env: OPENAI_API_KEY
+#   params:
+#     max_tokens: 500
+#     temperature: 0.2
+
+# Example: Grok Summarization
+# summarization:
+#   provider: grok
+#   model: grok-beta
+#   api_key_env: XAI_API_KEY
+
+# Example: Gemini Summarization
+# summarization:
+#   provider: gemini
+#   model: gemini-1.5-flash
+#   api_key_env: GOOGLE_API_KEY
+#   params:
+#     max_output_tokens: 300

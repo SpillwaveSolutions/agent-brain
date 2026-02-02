@@ -224,6 +224,7 @@ Do NOT push code that fails `task before-push`.
 - ChromaDB (vector), disk-based BM25 index (existing), SimplePropertyGraphStore/Kuzu (new graph storage) (113-graphrag-integration)
 - Markdown (Claude Code plugin format) + Claude Code plugin system, agent-brain-cli v1.2.0+, agent-brain-rag v1.2.0+ (114-agent-brain-plugin)
 - N/A (plugin is markdown files only) (114-agent-brain-plugin)
+- Python 3.10+ (existing: ^3.10 in pyproject.toml) + FastAPI, LlamaIndex, Pydantic, httpx (async HTTP), anthropic, openai, google-generativeai (new) (103-pluggable-providers)
 
 ## Recent Changes
 - 100-bm25-hybrid-retrieval: Added Python 3.10+ + FastAPI, LlamaIndex, ChromaDB, OpenAI, rank-bm25
