@@ -3,7 +3,7 @@ name: agent-brain-init
 description: Initialize Agent Brain for the current project
 parameters: []
 skills:
-  - agent-brain-setup
+  - configuring-agent-brain
 ---
 
 # Initialize Agent Brain Project

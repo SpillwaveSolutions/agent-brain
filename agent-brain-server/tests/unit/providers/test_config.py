@@ -74,7 +74,7 @@ class TestSummarizationConfig:
         """Test default configuration values."""
         config = SummarizationConfig()
         assert config.provider == SummarizationProviderType.ANTHROPIC
-        assert config.model == "claude-3-5-haiku-20241022"
+        assert config.model == "claude-haiku-4-5-20251001"
         assert config.api_key_env == "ANTHROPIC_API_KEY"
         assert config.base_url is None
         assert config.params == {}
@@ -132,13 +132,13 @@ class TestProviderSettings:
             },
             summarization={
                 "provider": "openai",
-                "model": "gpt-4o",
+                "model": "gpt-5",
             },
         )
         assert settings.embedding.provider == EmbeddingProviderType.OLLAMA
         assert settings.embedding.model == "nomic-embed-text"
         assert settings.summarization.provider == SummarizationProviderType.OPENAI
-        assert settings.summarization.model == "gpt-4o"
+        assert settings.summarization.model == "gpt-5"
 
 
 class TestValidateProviderConfig:

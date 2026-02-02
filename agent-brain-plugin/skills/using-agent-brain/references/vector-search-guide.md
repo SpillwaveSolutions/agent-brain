@@ -13,7 +13,7 @@ Vector search uses semantic similarity to find documents based on meaning rather
 - Working with conceptual documentation, tutorials, or explanatory content
 - The query involves synonyms, related concepts, or abstract ideas
 
-**Example vector queries:**
+**Examples of vector queries:**
 - `"How do I authenticate users?"` - Finds authentication-related content even with different terminology
 - `"troubleshooting connection issues"` - Finds related problems and solutions
 - `"best practices for error handling"` - Finds conceptual guidance on error management
@@ -24,8 +24,11 @@ Vector search uses semantic similarity to find documents based on meaning rather
 ### CLI Usage
 
 ```bash
-# Basic vector search
-agent-brain query "how does authentication work" --mode vector
+# Basic vector search (default mode)
+agent-brain query "how does authentication work"
+
+# Explicit vector mode
+agent-brain query "troubleshooting guide" --mode vector
 
 # With custom settings
 agent-brain query "error handling patterns" --mode vector --threshold 0.5 --top-k 10
@@ -49,17 +52,17 @@ curl -X POST http://localhost:8000/query/ \
 
 | Option | Default | Description | Use Case |
 |--------|---------|-------------|----------|
-| `--mode vector` | - | Uses semantic similarity | Conceptual queries |
+| `--mode vector` | Default | Uses semantic similarity | Conceptual queries |
 | `--threshold F` | 0.7 | Similarity cutoff (0.0-1.0) | Higher = more relevant, fewer results |
 | `--top-k N` | 5 | Maximum results | More results for exploration |
 
 ## Why Choose Vector Over Other Modes
 
 **Vector Advantages:**
-- **Semantic Understanding**: Finds meaning, not just keywords
-- **Flexible Matching**: Works with synonyms and related concepts
-- **Language Agnostic**: Works across languages and domains
-- **Conceptual Search**: Great for tutorials and explanations
+- 🧠 **Semantic Understanding**: Finds meaning, not just keywords
+- 🔄 **Flexible Matching**: Works with synonyms and related concepts
+- 🌍 **Language Agnostic**: Works across languages and domains
+- 🎯 **Conceptual Search**: Great for tutorials and explanations
 
 **When Vector is better than BM25:**
 - Natural language queries
@@ -70,12 +73,12 @@ curl -X POST http://localhost:8000/query/ \
 **When Vector is better than Hybrid:**
 - Pure semantic understanding needed
 - No exact technical terms to match
+- Performance-critical applications
 - When keyword matching could be misleading
 
 ## Vector Algorithm Details
 
 Vector search uses:
-
 1. **Text Embedding**: Converts text to high-dimensional vectors (3072 dimensions for text-embedding-3-large)
 2. **Cosine Similarity**: Measures angle between query and document vectors
 3. **Ranking**: Sorts by similarity score (higher = more similar)
@@ -84,11 +87,11 @@ Vector search uses:
 
 **Embedding Model**: OpenAI text-embedding-3-large (high quality, semantic understanding)
 
-## Example Results
+## Example Queries and Results
 
-### Example: Conceptual Query
+### Example 1: Conceptual Query
 
-**Query:** `agent-brain query "how does user authentication work" --mode vector`
+**Query:** `agent-brain query "how does user authentication work"`
 
 **Response:**
 ```json
@@ -100,17 +103,33 @@ Vector search uses:
       "score": 0.87,
       "vector_score": 0.87,
       "bm25_score": null,
-      "chunk_id": "chunk_123"
+      "chunk_id": "chunk_123",
+      "metadata": {
+        "file_name": "auth-overview.md",
+        "chunk_index": 0
+      }
+    },
+    {
+      "text": "OAuth 2.0 provides a secure way to authenticate users without sharing passwords. The flow involves: authorization request, user consent, token exchange...",
+      "source": "/docs/api/oauth-integration.md",
+      "score": 0.82,
+      "vector_score": 0.82,
+      "bm25_score": null,
+      "chunk_id": "chunk_456",
+      "metadata": {
+        "file_name": "oauth-integration.md",
+        "chunk_index": 1
+      }
     }
   ],
   "query_time_ms": 1240.5,
-  "total_results": 1
+  "total_results": 2
 }
 ```
 
-### Example: Troubleshooting Query
+### Example 2: Troubleshooting Query
 
-**Query:** `agent-brain query "connection problems and solutions" --mode vector`
+**Query:** `agent-brain query "connection problems and solutions"`
 
 **Response:**
 ```json
@@ -122,23 +141,37 @@ Vector search uses:
       "score": 0.91,
       "vector_score": 0.91,
       "bm25_score": null,
-      "chunk_id": "chunk_789"
+      "chunk_id": "chunk_789",
+      "metadata": {
+        "file_name": "network-issues.md",
+        "chunk_index": 0
+      }
+    },
+    {
+      "text": "Database connection pooling can prevent connection exhaustion. Configure minimum and maximum pool sizes based on your application load...",
+      "source": "/docs/database/connection-pooling.md",
+      "score": 0.78,
+      "vector_score": 0.78,
+      "bm25_score": null,
+      "chunk_id": "chunk_101",
+      "metadata": {
+        "file_name": "connection-pooling.md",
+        "chunk_index": 2
+      }
     }
   ],
   "query_time_ms": 1180.2,
-  "total_results": 1
+  "total_results": 2
 }
 ```
 
 ## Performance Characteristics
 
-| Metric | Value |
-|--------|-------|
-| Response Time | 800-1500ms (requires API calls) |
-| CPU Usage | Medium (similarity calculations) |
-| Memory Usage | High (document vectors loaded) |
-| API Costs | Requires OpenAI credits |
-| Scalability | Good (vectors pre-computed) |
+- **Response Time**: 800-1500ms (requires API calls to OpenAI)
+- **CPU Usage**: Medium (vector similarity calculations)
+- **Memory Usage**: High (loads all document vectors)
+- **API Costs**: Requires OpenAI API credits
+- **Scalability**: Good (vectors pre-computed, similarity calculated locally)
 
 ## Best Practices
 
@@ -149,12 +182,10 @@ Vector search uses:
 
 ## Common Issues
 
-| Problem | Solution |
-|---------|----------|
-| API key required | Set `OPENAI_API_KEY` environment variable |
-| Slow responses | Expected due to API calls (800-1500ms) |
-| Cost considerations | Each query consumes OpenAI credits |
-| No exact matches | Use BM25 mode for exact term matching |
+- **API key required**: Must have valid OpenAI API key
+- **Slow responses**: Expected due to API calls (800-1500ms typical)
+- **Cost considerations**: Each query consumes OpenAI credits
+- **No exact matches**: Won't find content that uses completely different terminology
 
 ## Integration Examples
 
@@ -165,7 +196,13 @@ Vector search uses:
 agent-brain query "fix $1 problem" --mode vector --json | jq '.results[0].text'
 ```
 
-### Python Integration
+### With Other Tools
+```bash
+# Find related documentation
+agent-brain query "best practices for $TOPIC" --mode vector --json | jq -r '.results[].source'
+```
+
+### API Integration
 ```python
 import requests
 

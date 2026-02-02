@@ -18,9 +18,8 @@ class GeminiSummarizationProvider(BaseSummarizationProvider):
     """Google Gemini summarization provider.
 
     Supports:
-    - gemini-1.5-flash (fast, cost-effective)
-    - gemini-1.5-pro (high quality)
-    - gemini-1.0-pro (standard)
+    - gemini-3-flash (fast, cost-effective)
+    - gemini-3-pro (highest quality)
     - And other Gemini models
     """
 

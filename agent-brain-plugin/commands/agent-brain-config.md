@@ -3,7 +3,7 @@ name: agent-brain-config
 description: Configure API keys for Agent Brain (OPENAI_API_KEY, ANTHROPIC_API_KEY)
 parameters: []
 skills:
-  - agent-brain-setup
+  - configuring-agent-brain
 ---
 
 # Configure Agent Brain API Keys

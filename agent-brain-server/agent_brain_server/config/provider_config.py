@@ -90,7 +90,7 @@ class SummarizationConfig(BaseModel):
         description="Summarization provider to use",
     )
     model: str = Field(
-        default="claude-3-5-haiku-20241022",
+        default="claude-haiku-4-5-20251001",
         description="Model name for summarization",
     )
     api_key_env: Optional[str] = Field(

@@ -13,7 +13,7 @@ Hybrid search combines the best of both vector semantic search and BM25 keyword 
 - You need high-quality results for critical applications
 - The query involves both natural language and technical jargon
 
-**Example hybrid queries:**
+**Examples of hybrid queries:**
 - `"how to implement OAuth2 authentication with JWT tokens"` - Combines concept + technical terms
 - `"troubleshooting HTTP 500 errors in production"` - Error codes + troubleshooting concepts
 - `"best practices for recursive text splitting algorithms"` - Methodology + specific algorithms
@@ -70,17 +70,34 @@ curl -X POST http://localhost:8000/query/ \
 | `--top-k N` | 5 | Maximum results | More comprehensive results |
 | `--scores` | Optional | Show individual vector/BM25 scores | Debugging and transparency |
 
+## Why Choose Hybrid Over Other Modes
+
+**Hybrid Advantages:**
+- 🎯 **Highest Quality**: Combines strengths of both approaches
+- ⚖️ **Balanced Results**: Semantic understanding + exact matching
+- 🎛️ **Tunable**: Alpha parameter for optimization
+- 📊 **Transparent**: Individual scores for debugging
+- 🏆 **Recommended Default**: Best overall performance for most queries
+
+**When Hybrid is better than Vector-only:**
+- Queries contain specific technical terms that vector search might miss
+- Need guaranteed exact matches alongside semantic understanding
+- Working with mixed technical/conceptual content
+
+**When Hybrid is better than BM25-only:**
+- Queries involve natural language or conceptual elements
+- Want to find related content beyond exact keyword matches
+- Technical terms might vary or use synonyms
+
 ## Alpha Weighting System
 
 The `alpha` parameter controls the balance between vector and BM25 search:
 
-| Alpha Value | Vector Weight | BM25 Weight | Best For |
-|-------------|---------------|-------------|----------|
-| `1.0` | 100% | 0% | Pure semantic search |
-| `0.8` | 80% | 20% | Conceptual guides |
-| `0.5` | 50% | 50% | Balanced (recommended) |
-| `0.3` | 30% | 70% | Technical documentation |
-| `0.0` | 0% | 100% | Pure keyword search |
+- **`alpha = 1.0`**: 100% vector search (pure semantic)
+- **`alpha = 0.8`**: 80% vector, 20% BM25 (mostly semantic, some keyword boost)
+- **`alpha = 0.5`**: 50% vector, 50% BM25 (balanced - **recommended default**)
+- **`alpha = 0.3`**: 20% vector, 80% BM25 (mostly keyword, some semantic boost)
+- **`alpha = 0.0`**: 100% BM25 search (pure keyword)
 
 **Choosing Alpha Values:**
 - **Technical documentation**: Try `alpha = 0.3-0.4` (favor BM25 for exact terms)
@@ -95,13 +112,19 @@ Hybrid search uses **Relative Score Fusion**:
 
 1. **Execute Both Searches**: Run vector and BM25 searches in parallel
 2. **Normalize Scores**: Convert both score ranges to 0.0-1.0 scale
-3. **Weighted Combination**: `final_score = alpha * vector_score + (1-alpha) * bm25_score`
+3. **Weighted Combination**: `final_score = alpha × vector_score + (1-alpha) × bm25_score`
 4. **Re-rank Results**: Sort by combined scores
 5. **Deduplication**: Remove duplicate results from overlapping matches
 
-## Example Results
+**Benefits**:
+- Maintains ranking quality from both algorithms
+- Allows fine-grained control via alpha parameter
+- Provides best-of-both-worlds results
+- Mathematically sound combination approach
 
-### Example: Technical Implementation Query
+## Example Queries and Results
+
+### Example 1: Technical Implementation Query
 
 **Query:** `agent-brain query "implement OAuth2 authentication with JWT tokens" --alpha 0.6 --scores`
 
@@ -115,23 +138,75 @@ Hybrid search uses **Relative Score Fusion**:
       "score": 0.89,
       "vector_score": 0.85,
       "bm25_score": 0.93,
-      "chunk_id": "chunk_123"
+      "chunk_id": "chunk_123",
+      "metadata": {
+        "file_name": "oauth-implementation.md",
+        "chunk_index": 0
+      }
+    },
+    {
+      "text": "JWT token structure: header.payload.signature - use HS256 for HMAC, RS256 for RSA signatures...",
+      "source": "/docs/security/jwt-guide.md",
+      "score": 0.82,
+      "vector_score": 0.78,
+      "bm25_score": 0.86,
+      "chunk_id": "chunk_456",
+      "metadata": {
+        "file_name": "jwt-guide.md",
+        "chunk_index": 1
+      }
     }
   ],
   "query_time_ms": 1450.8,
-  "total_results": 1
+  "total_results": 2
+}
+```
+
+### Example 2: Troubleshooting Query
+
+**Query:** `agent-brain query "fix HTTP 500 errors in production deployment"`
+
+**Response:**
+```json
+{
+  "results": [
+    {
+      "text": "HTTP 500 Internal Server Error typically indicates application crashes. Common causes: unhandled exceptions, database connection failures, resource exhaustion...",
+      "source": "/docs/troubleshooting/http-500-errors.md",
+      "score": 0.91,
+      "vector_score": 0.88,
+      "bm25_score": 0.94,
+      "chunk_id": "chunk_789",
+      "metadata": {
+        "file_name": "http-500-errors.md",
+        "chunk_index": 0
+      }
+    },
+    {
+      "text": "Production deployment checklist: 1) Environment variables set, 2) Database migrations run, 3) SSL certificates valid, 4) Monitoring configured...",
+      "source": "/docs/deployment/production-checklist.md",
+      "score": 0.79,
+      "vector_score": 0.82,
+      "bm25_score": 0.76,
+      "chunk_id": "chunk_101",
+      "metadata": {
+        "file_name": "production-checklist.md",
+        "chunk_index": 2
+      }
+    }
+  ],
+  "query_time_ms": 1320.3,
+  "total_results": 2
 }
 ```
 
 ## Performance Characteristics
 
-| Metric | Value |
-|--------|-------|
-| Response Time | 1000-1800ms |
-| CPU Usage | High (two algorithms + fusion) |
-| Memory Usage | High (both indexes loaded) |
-| API Costs | Requires OpenAI credits |
-| Scalability | Good (parallel execution) |
+- **Response Time**: 1000-1800ms (parallel vector + BM25 execution)
+- **CPU Usage**: High (two search algorithms + fusion)
+- **Memory Usage**: High (loads both vector and BM25 indexes)
+- **API Costs**: Requires OpenAI API credits (for vector component)
+- **Scalability**: Good (parallel execution, pre-computed indexes)
 
 ## Best Practices
 
@@ -140,13 +215,132 @@ Hybrid search uses **Relative Score Fusion**:
 3. **Use scores for debugging**: `--scores` flag helps understand result quality
 4. **Combine with domain knowledge**: Know whether your docs favor technical terms or explanations
 
-## Comparison with Other Modes
+## Advanced Usage Patterns
 
-| Aspect | BM25 | Vector | Hybrid |
-|--------|------|--------|--------|
-| **Accuracy** | High (exact) | High (semantic) | Highest (both) |
-| **Speed** | Fastest | Slow | Slow-Medium |
-| **API Required** | No | Yes | Yes |
-| **Best For** | Technical terms | Concepts | General use |
-| **Tuning** | Threshold only | Threshold only | Alpha + threshold |
-| **Cost** | Free | API credits | API credits |
+### Technical Documentation Focus
+```bash
+# Favor BM25 for technical docs
+agent-brain query "implement caching strategy" --alpha 0.3 --threshold 0.8
+```
+
+### Conceptual Documentation Focus
+```bash
+# Favor vector for conceptual docs
+agent-brain query "understand microservices architecture" --alpha 0.8 --threshold 0.6
+```
+
+### Balanced General Queries
+```bash
+# Default balanced approach
+agent-brain query "how to optimize database queries" --alpha 0.5 --top-k 10
+```
+
+## Common Issues
+
+- **API key required**: Must have valid OpenAI API key for vector component
+- **Slower than BM25**: Expected due to dual algorithm execution
+- **Cost considerations**: Consumes OpenAI credits for each query
+- **Alpha tuning needed**: May require experimentation for optimal results
+
+## Integration Examples
+
+### In Scripts
+```bash
+#!/bin/bash
+# Comprehensive search with balanced weighting
+agent-brain query "$1" --mode hybrid --alpha 0.5 --json | jq '.results[0]'
+```
+
+### With Other Tools
+```bash
+# Find comprehensive documentation
+agent-brain query "complete $TOPIC guide" --mode hybrid --alpha 0.6 --json | jq -r '.results[].source'
+```
+
+### API Integration
+```python
+import requests
+
+response = requests.post('http://localhost:8000/query/', json={
+    'query': 'implement authentication with error handling',
+    'mode': 'hybrid',
+    'alpha': 0.6,  # 60% semantic, 40% keyword
+    'threshold': 0.5,
+    'top_k': 8
+})
+results = response.json()['results']
+```
+
+## Multi-Mode Fusion (Graph + Hybrid)
+
+When GraphRAG is enabled, you can use `multi` mode to combine all four retrieval methods: Vector, BM25, Hybrid, and Graph. Multi-mode uses Reciprocal Rank Fusion (RRF) to merge results from all sources.
+
+### How Multi-Mode Works
+
+1. **Execute All Retrievers**: Run vector, BM25, and graph searches in parallel
+2. **Compute Hybrid Score**: Combine vector + BM25 using alpha weighting
+3. **Apply RRF**: Merge hybrid and graph results using Reciprocal Rank Fusion
+4. **Re-rank Results**: Sort by combined RRF scores
+5. **Deduplicate**: Remove duplicate chunks from overlapping matches
+
+### RRF Formula
+
+```
+RRF_score = sum(1 / (k + rank_i)) for each retriever i
+```
+
+Where `k` is a smoothing constant (default: 60) and `rank_i` is the result's rank in retriever `i`.
+
+### When to Use Multi-Mode
+
+**Choose multi mode when:**
+- Need the most comprehensive results possible
+- Want both content relevance AND relationship context
+- Investigating complex code paths
+- Uncertain which single mode would work best
+- Building knowledge exploration workflows
+
+### Multi-Mode Usage
+
+```bash
+# CLI: Multi-mode with relationship details
+agent-brain query "complete authentication implementation" --mode multi --include-relationships
+
+# CLI: Multi-mode with custom settings
+agent-brain query "payment processing flow" --mode multi --top-k 10 --traversal-depth 3
+```
+
+```python
+# API: Multi-mode request
+response = requests.post('http://localhost:8000/query/', json={
+    'query': 'authentication flow with all dependencies',
+    'mode': 'multi',
+    'alpha': 0.6,
+    'traversal_depth': 2,
+    'include_relationships': True,
+    'top_k': 10
+})
+```
+
+### Multi-Mode Performance
+
+- **Response Time**: 1500-2500ms (all retrievers + fusion)
+- **Memory Usage**: Highest (loads all indexes)
+- **Best Results**: Combines strengths of all retrieval methods
+
+See [Graph Search Guide](graph-search-guide.md) for detailed GraphRAG documentation.
+
+---
+
+## Comparison Matrix
+
+| Aspect | BM25 | Vector | Hybrid | Graph | Multi |
+|--------|------|--------|--------|-------|-------|
+| **Accuracy** | High (exact) | High (semantic) | Highest (both) | High (relationships) | Comprehensive |
+| **Speed** | Fastest | Slow | Slow-Medium | Medium | Slowest |
+| **API Required** | No | Yes | Yes | Yes | Yes |
+| **Best For** | Technical terms | Concepts | General use | Dependencies | Everything |
+| **Tuning** | Threshold only | Threshold only | Alpha + threshold | Depth + threshold | All options |
+| **Transparency** | Single score | Single score | Dual scores | Graph score | All scores |
+| **Cost** | Free | API credits | API credits | API credits | API credits |
+| **Relationships** | No | No | No | Yes | Yes |

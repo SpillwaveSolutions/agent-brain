@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(git -C /Users/richardhightower/clients/spillwave/src/doc-serve branch:*)"
-    ]
-  }
-}

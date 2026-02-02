@@ -18,9 +18,9 @@ class AnthropicSummarizationProvider(BaseSummarizationProvider):
     """Anthropic (Claude) summarization provider.
 
     Supports:
-    - claude-3-5-haiku-20241022 (fast, cost-effective)
-    - claude-3-5-sonnet-20241022 (balanced)
-    - claude-3-opus-20240229 (highest quality)
+    - claude-haiku-4-5-20251001 (fast, cost-effective)
+    - claude-sonnet-4-5-20250514 (balanced)
+    - claude-opus-4-5-20251101 (highest quality)
     - And other Claude models
     """
 

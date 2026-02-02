@@ -20,7 +20,7 @@ embedding:
 
 summarization:
   provider: anthropic       # anthropic | openai | gemini | grok | ollama
-  model: claude-3-5-haiku-20241022
+  model: claude-haiku-4-5-20251001
   api_key_env: ANTHROPIC_API_KEY
 ```
 
@@ -49,7 +49,7 @@ curl -fsSL https://ollama.com/install.sh | sh
 
 # Pull required models
 ollama pull nomic-embed-text
-ollama pull llama3.2
+ollama pull llama4:scout
 ```
 
 **config.yaml:**
@@ -61,7 +61,7 @@ embedding:
 
 summarization:
   provider: ollama
-  model: llama3.2
+  model: llama4:scout
   base_url: http://localhost:11434/v1
   params:
     max_tokens: 500
@@ -87,7 +87,7 @@ embedding:
 
 summarization:
   provider: openai
-  model: gpt-4o-mini
+  model: gpt-5-mini
   api_key_env: OPENAI_API_KEY
   params:
     max_tokens: 300
@@ -116,7 +116,7 @@ embedding:
 
 summarization:
   provider: anthropic
-  model: claude-3-5-haiku-20241022
+  model: claude-haiku-4-5-20251001
   api_key_env: ANTHROPIC_API_KEY
 ```
 
@@ -141,7 +141,7 @@ embedding:
 
 summarization:
   provider: gemini
-  model: gemini-1.5-flash
+  model: gemini-3-flash
   api_key_env: GOOGLE_API_KEY
   params:
     max_output_tokens: 300
@@ -169,8 +169,8 @@ embedding:
 
 summarization:
   provider: grok
-  model: grok-beta
-  api_key_env: GROK_API_KEY
+  model: grok-4
+  api_key_env: XAI_API_KEY
   base_url: https://api.x.ai/v1
 ```
 
@@ -196,11 +196,11 @@ export GROK_API_KEY=...
 
 | Provider | Models | Default Model |
 |----------|--------|---------------|
-| `anthropic` | claude-3-5-haiku-20241022, claude-3-5-sonnet-20241022 | claude-3-5-haiku-20241022 |
-| `openai` | gpt-4o, gpt-4o-mini, gpt-3.5-turbo | gpt-4o-mini |
-| `gemini` | gemini-1.5-flash, gemini-1.5-pro | gemini-1.5-flash |
-| `grok` | grok-beta, grok-2 | grok-beta |
-| `ollama` | llama3.2, mistral, qwen2 | llama3.2 |
+| `anthropic` | claude-haiku-4-5-20251001, claude-sonnet-4-5-20250514, claude-opus-4-5-20251101 | claude-haiku-4-5-20251001 |
+| `openai` | gpt-5, gpt-5-mini | gpt-5-mini |
+| `gemini` | gemini-3-flash, gemini-3-pro | gemini-3-flash |
+| `grok` | grok-4, grok-4-fast | grok-4 |
+| `ollama` | llama4:scout, mistral-small3.2, qwen3-coder, gemma3 | llama4:scout |
 
 ---
 
@@ -241,7 +241,7 @@ On startup, Agent Brain logs the active providers:
 
 ```
 INFO: Embedding provider: openai (text-embedding-3-large, 3072 dims)
-INFO: Summarization provider: anthropic (claude-3-5-haiku-20241022)
+INFO: Summarization provider: anthropic (claude-haiku-4-5-20251001)
 ```
 
 Check server status to verify:
@@ -255,7 +255,7 @@ Agent Brain Status
 ==================
 Server: Running (http://127.0.0.1:8000)
 Embedding Provider: openai (text-embedding-3-large)
-Summarization Provider: anthropic (claude-3-5-haiku-20241022)
+Summarization Provider: anthropic (claude-haiku-4-5-20251001)
 Documents Indexed: 42
 ```
 

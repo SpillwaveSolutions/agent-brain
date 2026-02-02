@@ -18,10 +18,8 @@ class OpenAISummarizationProvider(BaseSummarizationProvider):
     """OpenAI (GPT) summarization provider.
 
     Supports:
-    - gpt-4o (most capable)
-    - gpt-4o-mini (fast, cost-effective)
-    - gpt-4-turbo (high quality)
-    - gpt-3.5-turbo (fastest, lowest cost)
+    - gpt-5 (most capable)
+    - gpt-5-mini (fast, cost-effective)
     - And other OpenAI chat models
     """
 

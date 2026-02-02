@@ -122,7 +122,7 @@ class SummarizationConfig(BaseModel):
         description="Summarization provider to use"
     )
     model: str = Field(
-        default="claude-3-5-haiku-20241022",
+        default="claude-haiku-4-5-20251001",
         description="Model name for summarization"
     )
     api_key_env: Optional[str] = Field(
@@ -147,7 +147,7 @@ class SummarizationConfig(BaseModel):
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `provider` | SummarizationProviderType | `anthropic` | Which provider to use |
-| `model` | str | `claude-3-5-haiku-20241022` | Model identifier |
+| `model` | str | `claude-haiku-4-5-20251001` | Model identifier |
 | `api_key_env` | str? | `ANTHROPIC_API_KEY` | Env var name for API key |
 | `base_url` | str? | `None` | Override base URL |
 | `params` | dict | `{}` | Extra provider params (max_tokens, temperature) |
@@ -270,11 +270,11 @@ class IndexMetadata(BaseModel):
 
 | Provider | Default Model |
 |----------|---------------|
-| anthropic | claude-3-5-haiku-20241022 |
-| openai | gpt-4o-mini |
-| gemini | gemini-1.5-flash |
-| grok | grok-beta |
-| ollama | llama3.2 |
+| anthropic | claude-haiku-4-5-20251001 |
+| openai | gpt-5-mini |
+| gemini | gemini-3-flash |
+| grok | grok-4 |
+| ollama | llama4:scout |
 
 ---
 
@@ -291,7 +291,7 @@ embedding:
 
 summarization:
   provider: anthropic
-  model: claude-3-5-haiku-20241022
+  model: claude-haiku-4-5-20251001
   api_key_env: ANTHROPIC_API_KEY
 ```
 
@@ -306,7 +306,7 @@ embedding:
 
 summarization:
   provider: ollama
-  model: llama3.2
+  model: llama4:scout
   base_url: http://localhost:11434/v1
   params:
     max_tokens: 500
@@ -325,7 +325,7 @@ embedding:
 
 summarization:
   provider: openai
-  model: gpt-4o
+  model: gpt-5
   api_key_env: OPENAI_API_KEY
   params:
     max_tokens: 500

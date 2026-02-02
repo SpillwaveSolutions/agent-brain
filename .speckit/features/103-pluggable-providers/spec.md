@@ -129,11 +129,11 @@ API keys for providers are managed securely via environment variables referenced
 **Summarization/LLM:**
 | Provider | Models | Authentication |
 |----------|--------|----------------|
-| Anthropic | Claude Haiku, Sonnet, Opus | API key |
-| OpenAI | GPT-4o, GPT-4o-mini, GPT-3.5 | API key |
-| Gemini | gemini-1.5-flash, gemini-1.5-pro | API key |
-| Grok | grok-beta | API key (OpenAI-compatible) |
-| Ollama | llama3, mistral, qwen | None (local) |
+| Anthropic | Claude 4.5 Haiku, Sonnet 4.5, Opus 4.5 | API key |
+| OpenAI | GPT-5, GPT-5-mini | API key |
+| Gemini | gemini-3-flash, gemini-3-pro | API key |
+| Grok | grok-4, grok-4-fast | API key (OpenAI-compatible) |
+| Ollama | llama4:scout, mistral-small3.2, qwen3-coder, gemma3 | None (local) |
 
 ### Key Entities
 

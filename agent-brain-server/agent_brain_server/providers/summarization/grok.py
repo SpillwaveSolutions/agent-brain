@@ -20,9 +20,10 @@ class GrokSummarizationProvider(BaseSummarizationProvider):
     Uses OpenAI-compatible API at https://api.x.ai/v1
 
     Supports:
-    - grok-beta (current beta model)
-    - grok-2 (when available)
-    - And other Grok models as they become available
+    - grok-4 (most capable, with reasoning)
+    - grok-4-fast (fast variant)
+    - grok-3 (previous generation)
+    - And other Grok models
     """
 
     def __init__(self, config: "SummarizationConfig") -> None:

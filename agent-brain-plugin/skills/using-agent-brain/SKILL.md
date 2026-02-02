@@ -1,144 +1,234 @@
 ---
 name: using-agent-brain
 description: |
-  Agent Brain document search with BM25 keyword, semantic vector, and hybrid retrieval modes.
+  Expert Agent Brain skill for document search with BM25 keyword, semantic vector, hybrid, graph, and multi retrieval modes.
   Use when asked to "search documentation", "query domain", "find in docs",
-  "bm25 search", "hybrid search", "semantic search", "agent-brain query",
+  "bm25 search", "hybrid search", "semantic search", "graph search", "multi search",
+  "find dependencies", "code relationships", "searching knowledge base",
+  "querying indexed documents", "finding code references", "exploring codebase",
+  "what calls this function", "find imports", "trace dependencies",
   "brain search", "brain query", or "knowledge base search".
   Supports multi-instance architecture with automatic server discovery.
+  GraphRAG mode enables relationship-aware queries for code dependencies and entity connections.
+  Pluggable providers for embeddings (OpenAI, Cohere, Ollama) and summarization (Anthropic, OpenAI, Gemini, Grok, Ollama).
 license: MIT
+allowed-tools:
+  - Bash
+  - Read
 metadata:
-  version: 1.3.0
+  version: 2.0.0
   category: ai-tools
   author: Spillwave
 ---
 
-# Agent Brain Search Skill
+# Agent Brain Expert Skill
 
-Document search with three modes: BM25 (keyword), Vector (semantic), and Hybrid (fusion). Supports multi-instance architecture with per-project isolation and automatic server discovery.
+Expert-level skill for Agent Brain document search with five modes: BM25 (keyword), Vector (semantic), Hybrid (fusion), Graph (knowledge graph), and Multi (comprehensive fusion).
 
 ## Contents
 
-- [Quick Start](#quick-start)
 - [Search Modes](#search-modes)
-- [Server Discovery](#server-discovery)
+- [Mode Selection Guide](#mode-selection-guide)
+- [GraphRAG (Knowledge Graph)](#graphrag-knowledge-graph)
+- [Server Management](#server-management)
+- [When Not to Use](#when-not-to-use)
 - [Best Practices](#best-practices)
 - [Reference Documentation](#reference-documentation)
 
 ---
 
-## Quick Start
-
-```bash
-# 1. Check server is running
-agent-brain status
-
-# 2. Search with default hybrid mode
-agent-brain query "search term" --mode hybrid
-
-# 3. Search with specific mode
-agent-brain query "AuthenticationError" --mode bm25      # Technical terms
-agent-brain query "how does auth work" --mode vector     # Concepts
-```
-
-### Pre-Search Checklist
-
-Before querying, verify:
-- [ ] Server running: `agent-brain status` shows healthy
-- [ ] Documents indexed: status shows document count > 0
-- [ ] API key set: `OPENAI_API_KEY` for vector/hybrid modes
-
----
-
 ## Search Modes
 
-| Mode | Speed | Use For | Example |
-|------|-------|---------|---------|
+| Mode | Speed | Best For | Example Query |
+|------|-------|----------|---------------|
 | `bm25` | Fast (10-50ms) | Technical terms, function names, error codes | `"AuthenticationError"` |
-| `vector` | Slower (800-1500ms) | Concepts, explanations | `"how authentication works"` |
-| `hybrid` | Slower (1000-1800ms) | Comprehensive results | `"OAuth implementation guide"` |
+| `vector` | Slower (800-1500ms) | Concepts, explanations, natural language | `"how authentication works"` |
+| `hybrid` | Slower (1000-1800ms) | Comprehensive results combining both | `"OAuth implementation guide"` |
+| `graph` | Medium (500-1200ms) | Relationships, dependencies, call chains | `"what calls AuthService"` |
+| `multi` | Slowest (1500-2500ms) | Most comprehensive with entity context | `"complete auth flow with dependencies"` |
 
-### Mode Selection Guide
-
-```bash
-# Technical terms -> BM25
-agent-brain query "recursiveCharacterTextSplitter" --mode bm25
-
-# Concepts -> Vector
-agent-brain query "best practices for error handling" --mode vector
-
-# Comprehensive -> Hybrid (default)
-agent-brain query "complete OAuth implementation" --mode hybrid --alpha 0.6
-```
-
-### Parameters
+### Mode Parameters
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--mode` | hybrid | Search mode: bm25, vector, hybrid |
+| `--mode` | hybrid | Search mode: bm25, vector, hybrid, graph, multi |
 | `--threshold` | 0.7 | Minimum similarity (0.0-1.0) |
 | `--top-k` | 5 | Number of results |
 | `--alpha` | 0.5 | Hybrid balance (0=BM25, 1=Vector) |
-| `--scores` | false | Show individual BM25/vector scores |
-
-### Alpha Tuning (Hybrid Mode)
-
-The `--alpha` parameter controls the balance between vector and BM25 search:
-
-- `alpha = 1.0`: 100% vector (pure semantic)
-- `alpha = 0.8`: 80% vector, 20% BM25 (mostly semantic)
-- `alpha = 0.5`: 50% each (balanced - recommended default)
-- `alpha = 0.3`: 30% vector, 70% BM25 (mostly keyword)
-- `alpha = 0.0`: 100% BM25 (pure keyword)
-
-**Recommendations by content type:**
-- Technical docs: `alpha = 0.3-0.4` (favor exact terms)
-- Conceptual guides: `alpha = 0.7-0.8` (favor meaning)
-- Mixed content: `alpha = 0.5` (balanced)
+| `--traversal-depth` | 2 | Graph traversal depth for graph/multi modes |
 
 ---
 
-## Server Discovery
+## Mode Selection Guide
 
-Agent Brain uses per-project server instances. The server URL is discovered from:
+### Use BM25 When
 
-1. `.claude/agent-brain/runtime.json` (project-specific)
-2. `DOC_SERVE_URL` environment variable
-3. Default: `http://127.0.0.1:8000`
-
-### Runtime File Format
-
-```json
-{
-  "mode": "project",
-  "port": 49321,
-  "base_url": "http://127.0.0.1:49321",
-  "pid": 12345,
-  "project_id": "my-project",
-  "started_at": "2026-01-27T10:30:00Z"
-}
-```
-
-### Server Commands
+Searching for exact technical terms:
 
 ```bash
-agent-brain init           # Initialize project config
-agent-brain start --daemon # Start with auto-port
-agent-brain status         # Show port, mode, document count
-agent-brain list           # List all running instances
-agent-brain stop           # Graceful shutdown
+agent-brain query "recursiveCharacterTextSplitter" --mode bm25
+agent-brain query "ValueError: invalid token" --mode bm25
+agent-brain query "def process_payment" --mode bm25
 ```
+
+**Counter-example - Wrong mode choice**:
+```bash
+# BM25 is wrong for conceptual queries
+agent-brain query "how does error handling work" --mode bm25  # Wrong
+agent-brain query "how does error handling work" --mode vector  # Correct
+```
+
+### Use Vector When
+
+Searching for concepts or natural language:
+
+```bash
+agent-brain query "best practices for error handling" --mode vector
+agent-brain query "how to implement caching" --mode vector
+```
+
+**Counter-example - Wrong mode choice**:
+```bash
+# Vector is wrong for exact function names
+agent-brain query "getUserById" --mode vector  # Wrong - may miss exact match
+agent-brain query "getUserById" --mode bm25    # Correct - finds exact match
+```
+
+### Use Hybrid When
+
+Need comprehensive results (default mode):
+
+```bash
+agent-brain query "OAuth implementation" --mode hybrid --alpha 0.6
+agent-brain query "database connection pooling" --mode hybrid
+```
+
+**Alpha tuning**:
+- `--alpha 0.3` - More keyword weight (technical docs)
+- `--alpha 0.7` - More semantic weight (conceptual docs)
+
+### Use Graph When
+
+Exploring relationships and dependencies:
+
+```bash
+agent-brain query "what functions call process_payment" --mode graph
+agent-brain query "classes that inherit from BaseService" --mode graph --traversal-depth 3
+agent-brain query "modules that import authentication" --mode graph
+```
+
+**Prerequisite**: Requires `ENABLE_GRAPH_INDEX=true` during server startup.
+
+### Use Multi When
+
+Need the most comprehensive results:
+
+```bash
+agent-brain query "complete payment flow implementation" --mode multi --include-relationships
+```
+
+---
+
+## GraphRAG (Knowledge Graph)
+
+GraphRAG enables relationship-aware retrieval by building a knowledge graph from indexed documents.
+
+### Enabling GraphRAG
+
+```bash
+export ENABLE_GRAPH_INDEX=true
+agent-brain start --daemon
+```
+
+### Graph Query Types
+
+| Query Pattern | Example |
+|---------------|---------|
+| Function callers | `"what calls process_payment"` |
+| Class inheritance | `"classes extending BaseController"` |
+| Import dependencies | `"modules importing auth"` |
+| Data flow | `"where does user_id come from"` |
+
+See [Graph Search Guide](references/graph-search-guide.md) for detailed usage.
+
+---
+
+## Server Management
+
+### Quick Start
+
+```bash
+agent-brain init              # Initialize project (first time)
+agent-brain start --daemon    # Start server
+agent-brain index ./docs      # Index documents
+agent-brain query "search"    # Search
+agent-brain stop              # Stop when done
+```
+
+**Progress Checklist:**
+- [ ] `agent-brain init` succeeded
+- [ ] `agent-brain status` shows healthy
+- [ ] Document count > 0
+- [ ] Query returns results (or "no matches" - not error)
+
+### Lifecycle Commands
+
+| Command | Description |
+|---------|-------------|
+| `agent-brain init` | Initialize project config |
+| `agent-brain start --daemon` | Start with auto-port |
+| `agent-brain status` | Show port, mode, document count |
+| `agent-brain list` | List all running instances |
+| `agent-brain stop` | Graceful shutdown |
+
+### Pre-Query Validation
+
+Before querying, verify setup:
+
+```bash
+agent-brain status
+```
+
+Expected:
+- Status: healthy
+- Documents: > 0
+- Provider: configured
+
+**Counter-example - Querying without validation**:
+```bash
+# Wrong - querying without checking status
+agent-brain query "search term"  # May fail if server not running
+
+# Correct - validate first
+agent-brain status && agent-brain query "search term"
+```
+
+See [Server Discovery Guide](references/server-discovery.md) for multi-instance details.
+
+---
+
+## When Not to Use
+
+This skill focuses on **searching and querying**. Do NOT use for:
+
+- **Installation** - Use `configuring-agent-brain` skill
+- **API key configuration** - Use `configuring-agent-brain` skill
+- **Server setup issues** - Use `configuring-agent-brain` skill
+- **Provider configuration** - Use `configuring-agent-brain` skill
+
+**Scope boundary**: This skill assumes Agent Brain is already installed, configured, and the server is running with indexed documents.
 
 ---
 
 ## Best Practices
 
-1. **Mode Selection**: BM25 for exact terms, Vector for concepts, Hybrid for comprehensive
+1. **Mode Selection**: BM25 for exact terms, Vector for concepts, Hybrid for comprehensive, Graph for relationships
 2. **Threshold Tuning**: Start at 0.7, lower to 0.3-0.5 for more results
 3. **Server Discovery**: Use `runtime.json` rather than assuming port 8000
 4. **Resource Cleanup**: Run `agent-brain stop` when done
 5. **Source Citation**: Always reference source filenames in responses
-6. **Index First**: Ensure documents are indexed before searching
+6. **Graph Queries**: Use graph mode for "what calls X", "what imports Y" patterns
+7. **Traversal Depth**: Start with depth 2, increase to 3-4 for deeper chains
 
 ---
 
@@ -146,33 +236,23 @@ agent-brain stop           # Graceful shutdown
 
 | Guide | Description |
 |-------|-------------|
-| [Hybrid Search Guide](references/hybrid-search-guide.md) | Combined keyword and semantic search |
-| [BM25 Search Guide](references/bm25-search-guide.md) | Keyword matching for technical queries |
-| [Vector Search Guide](references/vector-search-guide.md) | Semantic similarity for concepts |
+| [BM25 Search](references/bm25-search-guide.md) | Keyword matching for technical queries |
+| [Vector Search](references/vector-search-guide.md) | Semantic similarity for concepts |
+| [Hybrid Search](references/hybrid-search-guide.md) | Combined keyword and semantic search |
+| [Graph Search](references/graph-search-guide.md) | Knowledge graph and relationship queries |
+| [Server Discovery](references/server-discovery.md) | Auto-discovery, multi-agent sharing |
+| [Provider Configuration](references/provider-configuration.md) | Environment variables and API keys |
+| [Integration Guide](references/integration-guide.md) | Scripts, Python API, CI/CD patterns |
 | [API Reference](references/api_reference.md) | REST endpoint documentation |
-
----
-
-## Configuration
-
-### Required Environment Variables
-
-```bash
-export OPENAI_API_KEY="sk-proj-..."    # Required for vector/hybrid
-export ANTHROPIC_API_KEY="sk-ant-..."  # Optional for summarization
-```
-
-### Installation
-
-```bash
-pip install agent-brain-rag agent-brain-cli
-```
+| [Troubleshooting](references/troubleshooting-guide.md) | Common issues and solutions |
 
 ---
 
 ## Limitations
 
-- Vector/hybrid modes require OpenAI API credits
-- Supports: Markdown, PDF, plain text, code files
-- Does not support: Word docs, images
-- Server requires ~500MB RAM for typical collections
+- Vector/hybrid/graph/multi modes require embedding provider configured
+- Graph mode requires additional memory (~500MB extra)
+- Supported formats: Markdown, PDF, plain text, code files (Python, JS, TS, Java, Go, Rust, C, C++)
+- Not supported: Word docs (.docx), images
+- Server requires ~500MB RAM for typical collections (~1GB with graph)
+- Ollama requires local installation and model download

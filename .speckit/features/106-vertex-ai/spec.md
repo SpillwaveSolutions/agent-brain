@@ -35,8 +35,8 @@ A user wants to use Vertex AI Gemini models for summarization.
 **Acceptance Scenarios**:
 
 1. **Given** config with `summarization.provider: vertex`, **When** indexing, **Then** Gemini generates summaries
-2. **Given** Vertex configured with Gemini 1.5 Flash, **When** I index code, **Then** fast summaries are generated
-3. **Given** Vertex configured with Gemini 1.5 Pro, **When** I index complex docs, **Then** higher quality summaries
+2. **Given** Vertex configured with Gemini 3 Flash, **When** I index code, **Then** fast summaries are generated
+3. **Given** Vertex configured with Gemini 3 Pro, **When** I index complex docs, **Then** higher quality summaries
 4. **Given** Vertex configured, **When** I index large documents, **Then** Gemini's 1M context handles them
 
 ---
@@ -108,7 +108,7 @@ Users can generate embeddings for images and other multimodal content via Vertex
 - **FR-002**: System MUST support textembedding-gecko models
 - **FR-003**: System MUST support multimodalembedding models (optional)
 - **FR-004**: System MUST support Google Vertex AI as summarization provider
-- **FR-005**: System MUST support Gemini 1.5 Flash and Pro models
+- **FR-005**: System MUST support Gemini 3 Flash and Pro models
 - **FR-006**: System MUST support Application Default Credentials (ADC)
 - **FR-007**: System MUST support explicit service account JSON configuration
 - **FR-008**: System MUST require project and location configuration
@@ -128,9 +128,9 @@ Users can generate embeddings for images and other multimodal content via Vertex
 **Summarization/LLM:**
 | Model ID | Context | Notes |
 |----------|---------|-------|
-| gemini-1.5-flash | 1M tokens | Fast, cost-effective |
-| gemini-1.5-pro | 2M tokens | Highest capability |
-| gemini-1.0-pro | 32K tokens | Stable, lower cost |
+| gemini-3-flash | 1M tokens | Fast, cost-effective |
+| gemini-3-pro | 2M tokens | Highest capability |
+| gemini-2-pro | 32K tokens | Stable, lower cost |
 
 ### Configuration Example
 
@@ -144,7 +144,7 @@ embedding:
 
 summarization:
   provider: vertex
-  model: gemini-1.5-flash
+  model: gemini-3-flash
   params:
     project: my-gcp-project
     location: us-central1

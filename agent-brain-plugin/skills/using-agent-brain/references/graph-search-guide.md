@@ -127,7 +127,7 @@ export GRAPH_STORE_TYPE=simple  # 'simple' (in-memory) or 'kuzu' (persistent)
 export GRAPH_TRAVERSAL_DEPTH=2
 
 # Optional: Entity extraction model
-export GRAPH_EXTRACTION_MODEL=gpt-4o-mini
+export GRAPH_EXTRACTION_MODEL=gpt-5-mini
 ```
 
 ### Configuration File (.env)
@@ -137,7 +137,7 @@ export GRAPH_EXTRACTION_MODEL=gpt-4o-mini
 ENABLE_GRAPH_INDEX=true
 GRAPH_STORE_TYPE=simple
 GRAPH_TRAVERSAL_DEPTH=2
-GRAPH_EXTRACTION_MODEL=gpt-4o-mini
+GRAPH_EXTRACTION_MODEL=gpt-5-mini
 ```
 
 ### Starting with Graph Enabled

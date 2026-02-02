@@ -167,7 +167,7 @@ Two integration approaches:
 Grok uses an OpenAI-compatible API:
 - Base URL: `https://api.x.ai/v1`
 - API Key: Required via `x-api-key` header
-- Models: `grok-beta`, `grok-2`
+- Models: `grok-4`, `grok-4-fast`
 
 **Decision**: Reuse OpenAI provider with custom base_url and header.
 **Rationale**: Minimal code, proven pattern.
@@ -185,7 +185,7 @@ Gemini SDK (`google-generativeai`):
 ```python
 import google.generativeai as genai
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-model = genai.GenerativeModel("gemini-1.5-flash")
+model = genai.GenerativeModel("gemini-3-flash")
 response = await model.generate_content_async("prompt")
 ```
 
@@ -219,7 +219,7 @@ embedding:
 
 summarization:
   provider: anthropic  # anthropic | openai | gemini | grok | ollama
-  model: claude-3-5-haiku-20241022
+  model: claude-haiku-4-5-20251001
   api_key_env: ANTHROPIC_API_KEY
   params:
     max_tokens: 300

@@ -11,7 +11,7 @@ triggers:
   - pattern: "OPENAI_API_KEY.*not set|missing.*api.*key"
     type: error_pattern
 skills:
-  - agent-brain-setup
+  - configuring-agent-brain
 ---
 
 # Setup Assistant Agent

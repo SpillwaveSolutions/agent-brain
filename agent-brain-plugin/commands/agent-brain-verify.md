@@ -3,7 +3,7 @@ name: agent-brain-verify
 description: Verify Agent Brain installation and configuration
 parameters: []
 skills:
-  - agent-brain-setup
+  - configuring-agent-brain
 ---
 
 # Verify Agent Brain Setup

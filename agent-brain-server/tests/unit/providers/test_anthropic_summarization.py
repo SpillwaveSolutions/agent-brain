@@ -19,12 +19,12 @@ class TestAnthropicSummarizationProvider:
         """Test provider initialization."""
         config = SummarizationConfig(
             provider="anthropic",
-            model="claude-3-5-haiku-20241022",
+            model="claude-haiku-4-5-20251001",
         )
         provider = AnthropicSummarizationProvider(config)
 
         assert provider.provider_name == "Anthropic"
-        assert provider.model_name == "claude-3-5-haiku-20241022"
+        assert provider.model_name == "claude-haiku-4-5-20251001"
 
     def test_initialization_missing_key(self) -> None:
         """Test error when API key is missing."""

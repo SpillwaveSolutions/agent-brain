@@ -76,7 +76,7 @@ def format_results(results: dict, query: str) -> str:
     output = []
 
     if "error" in results:
-        output.append(f"❌ Error: {results['error']}")
+        output.append(f"Error: {results['error']}")
         if "detail" in results:
             output.append(f"Detail: {results['detail']}")
         return "\n".join(output)
@@ -84,8 +84,8 @@ def format_results(results: dict, query: str) -> str:
     total = results.get("total_results", 0)
     query_time = results.get("query_time_ms", 0)
 
-    output.append(f"🔍 Query: {query}")
-    output.append(f"✅ Found {total} results in {query_time:.1f}ms")
+    output.append(f"Query: {query}")
+    output.append(f"Found {total} results in {query_time:.1f}ms")
     output.append("-" * 60)
 
     for i, result in enumerate(results.get("results", []), 1):

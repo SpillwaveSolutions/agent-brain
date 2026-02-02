@@ -16,7 +16,7 @@ embedding:
 # Providers: anthropic, openai, gemini, grok, ollama
 summarization:
   provider: anthropic
-  model: claude-3-5-haiku-20241022
+  model: claude-haiku-4-5-20251001
   api_key_env: ANTHROPIC_API_KEY
   # Optional parameters
   # params:
@@ -31,7 +31,7 @@ summarization:
 #
 # summarization:
 #   provider: ollama
-#   model: llama3.2
+#   model: llama4:scout
 #   base_url: http://localhost:11434/v1
 #   params:
 #     max_tokens: 500
@@ -46,7 +46,7 @@ summarization:
 #
 # summarization:
 #   provider: openai
-#   model: gpt-4o
+#   model: gpt-5
 #   api_key_env: OPENAI_API_KEY
 #   params:
 #     max_tokens: 500
@@ -55,13 +55,13 @@ summarization:
 # Example: Grok Summarization
 # summarization:
 #   provider: grok
-#   model: grok-beta
+#   model: grok-4
 #   api_key_env: XAI_API_KEY
 
 # Example: Gemini Summarization
 # summarization:
 #   provider: gemini
-#   model: gemini-1.5-flash
+#   model: gemini-3-flash
 #   api_key_env: GOOGLE_API_KEY
 #   params:
 #     max_output_tokens: 300

@@ -3,19 +3,19 @@
 
 # Main documentation files
 docs:
-  USER_GUIDE.md: "User-Guide"
-  DEVELOPERS_GUIDE.md: "Developer-Guide"
-  QUICK_START.md: "Quick-Start"
-  ORIGINAL_SPEC.md: "Original-Specification"
-  MIGRATION.md: "Migration-Guide"
+  docs/USER_GUIDE.md: "User-Guide"
+  docs/DEVELOPERS_GUIDE.md: "Developer-Guide"
+  docs/QUICK_START.md: "Quick-Start"
+  docs/ORIGINAL_SPEC.md: "Original-Specification"
+  docs/MIGRATION.md: "Migration-Guide"
   # New comprehensive documentation
-  ARCHITECTURE.md: "Architecture-Overview"
-  API_REFERENCE.md: "API-Reference"
-  CONFIGURATION.md: "Configuration-Reference"
-  DEPLOYMENT.md: "Deployment-Guide"
-  GRAPHRAG_GUIDE.md: "GraphRAG-Guide"
-  CODE_INDEXING.md: "Code-Indexing-Guide"
-  PLUGIN_GUIDE.md: "Plugin-Guide"
+  docs/ARCHITECTURE.md: "Architecture-Overview"
+  docs/API_REFERENCE.md: "API-Reference"
+  docs/CONFIGURATION.md: "Configuration-Reference"
+  docs/DEPLOYMENT.md: "Deployment-Guide"
+  docs/GRAPHRAG_GUIDE.md: "GraphRAG-Guide"
+  docs/CODE_INDEXING.md: "Code-Indexing-Guide"
+  docs/PLUGIN_GUIDE.md: "Plugin-Guide"
 
 # Design documentation (diagrams and architecture)
 design:
@@ -45,17 +45,30 @@ plans:
   docs/plans/e2e_testing_plan.md: "E2E-Testing-Plan"
   docs/plans/graphrag-integration-plan.md: "GraphRAG-Integration-Plan"
 
-# Skill documentation
-skill:
-  agent-brain-skill/using-agent-brain/SKILL.md: "Agent-Skill-Definition"
-  agent-brain-skill/using-agent-brain/references/api_reference.md: "Agent-Skill-API-Reference"
-  agent-brain-skill/using-agent-brain/references/bm25-search-guide.md: "Agent-Skill-BM25-Search-Guide"
-  agent-brain-skill/using-agent-brain/references/vector-search-guide.md: "Agent-Skill-Vector-Search-Guide"
-  agent-brain-skill/using-agent-brain/references/hybrid-search-guide.md: "Agent-Skill-Hybrid-Search-Guide"
-  agent-brain-skill/using-agent-brain/references/graph-search-guide.md: "Agent-Skill-Graph-Search-Guide"
-  agent-brain-skill/using-agent-brain/references/server-discovery.md: "Agent-Skill-Server-Discovery-Guide"
-  agent-brain-skill/using-agent-brain/references/integration-guide.md: "Agent-Skill-Integration-Guide"
-  agent-brain-skill/using-agent-brain/references/troubleshooting-guide.md: "Agent-Skill-Troubleshooting-Guide"
+# Plugin skill documentation (primary location - from agent-brain-plugin)
+plugin-skill:
+  agent-brain-plugin/skills/using-agent-brain/SKILL.md: "Agent-Skill-Definition"
+  agent-brain-plugin/skills/using-agent-brain/references/api_reference.md: "Agent-Skill-API-Reference"
+  agent-brain-plugin/skills/using-agent-brain/references/bm25-search-guide.md: "Agent-Skill-BM25-Search-Guide"
+  agent-brain-plugin/skills/using-agent-brain/references/vector-search-guide.md: "Agent-Skill-Vector-Search-Guide"
+  agent-brain-plugin/skills/using-agent-brain/references/hybrid-search-guide.md: "Agent-Skill-Hybrid-Search-Guide"
+  agent-brain-plugin/skills/using-agent-brain/references/graph-search-guide.md: "Agent-Skill-Graph-Search-Guide"
+  agent-brain-plugin/skills/using-agent-brain/references/server-discovery.md: "Agent-Skill-Server-Discovery-Guide"
+  agent-brain-plugin/skills/using-agent-brain/references/integration-guide.md: "Agent-Skill-Integration-Guide"
+  agent-brain-plugin/skills/using-agent-brain/references/troubleshooting-guide.md: "Agent-Skill-Troubleshooting-Guide"
+  agent-brain-plugin/skills/using-agent-brain/references/provider-configuration.md: "Agent-Skill-Provider-Configuration"
+  agent-brain-plugin/skills/using-agent-brain/references/installation-guide.md: "Agent-Skill-Installation-Guide"
+  agent-brain-plugin/skills/using-agent-brain/references/version-management.md: "Agent-Skill-Version-Management"
+  agent-brain-plugin/skills/using-agent-brain/references/interactive-setup.md: "Agent-Skill-Interactive-Setup"
+
+# Feature 103 - Pluggable Providers
+feature-103:
+  .speckit/features/103-pluggable-providers/spec.md: "Pluggable-Providers-Spec"
+  .speckit/features/103-pluggable-providers/plan.md: "Pluggable-Providers-Plan"
+  .speckit/features/103-pluggable-providers/tasks.md: "Pluggable-Providers-Tasks"
+  .speckit/features/103-pluggable-providers/quickstart.md: "Pluggable-Providers-Quickstart"
+  .speckit/features/103-pluggable-providers/research.md: "Pluggable-Providers-Research"
+  .speckit/features/103-pluggable-providers/data-model.md: "Pluggable-Providers-Data-Model"
 
 # Feature 109 - Multi-Instance Architecture
 feature-109:
@@ -87,3 +100,45 @@ feature-114:
 # Plugin documentation
 plugin:
   agent-brain-plugin/README.md: "Plugin-README"
+
+# Plugin commands - Search operations
+plugin-commands-search:
+  agent-brain-plugin/commands/agent-brain-search.md: "Command-Search"
+  agent-brain-plugin/commands/agent-brain-semantic.md: "Command-Semantic"
+  agent-brain-plugin/commands/agent-brain-keyword.md: "Command-Keyword"
+  agent-brain-plugin/commands/agent-brain-bm25.md: "Command-BM25"
+  agent-brain-plugin/commands/agent-brain-vector.md: "Command-Vector"
+  agent-brain-plugin/commands/agent-brain-hybrid.md: "Command-Hybrid"
+  agent-brain-plugin/commands/agent-brain-graph.md: "Command-Graph"
+  agent-brain-plugin/commands/agent-brain-multi.md: "Command-Multi"
+
+# Plugin commands - Server management
+plugin-commands-server:
+  agent-brain-plugin/commands/agent-brain-start.md: "Command-Start"
+  agent-brain-plugin/commands/agent-brain-stop.md: "Command-Stop"
+  agent-brain-plugin/commands/agent-brain-status.md: "Command-Status"
+  agent-brain-plugin/commands/agent-brain-list.md: "Command-List"
+  agent-brain-plugin/commands/agent-brain-index.md: "Command-Index"
+  agent-brain-plugin/commands/agent-brain-reset.md: "Command-Reset"
+
+# Plugin commands - Setup and configuration
+plugin-commands-setup:
+  agent-brain-plugin/commands/agent-brain-init.md: "Command-Init"
+  agent-brain-plugin/commands/agent-brain-install.md: "Command-Install"
+  agent-brain-plugin/commands/agent-brain-setup.md: "Command-Setup"
+  agent-brain-plugin/commands/agent-brain-config.md: "Command-Config"
+  agent-brain-plugin/commands/agent-brain-verify.md: "Command-Verify"
+  agent-brain-plugin/commands/agent-brain-help.md: "Command-Help"
+  agent-brain-plugin/commands/agent-brain-version.md: "Command-Version"
+
+# Plugin commands - Provider configuration
+plugin-commands-providers:
+  agent-brain-plugin/commands/agent-brain-providers.md: "Command-Providers"
+  agent-brain-plugin/commands/agent-brain-embeddings.md: "Command-Embeddings"
+  agent-brain-plugin/commands/agent-brain-summarizer.md: "Command-Summarizer"
+
+# Plugin agents
+plugin-agents:
+  agent-brain-plugin/agents/search-assistant.md: "Agent-Search-Assistant"
+  agent-brain-plugin/agents/setup-assistant.md: "Agent-Setup-Assistant"
+  agent-brain-plugin/agents/research-assistant.md: "Agent-Research-Assistant"

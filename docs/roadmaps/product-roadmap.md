@@ -536,7 +536,7 @@ embedding:
 
 summarization:
   provider: vertex
-  model: gemini-1.5-flash
+  model: gemini-3-flash
 ```
 
 ### Authentication

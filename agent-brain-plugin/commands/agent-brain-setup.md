@@ -3,7 +3,7 @@ name: agent-brain-setup
 description: Complete guided setup for Agent Brain (install, config, init, verify)
 parameters: []
 skills:
-  - agent-brain-setup
+  - configuring-agent-brain
 ---
 
 # Complete Agent Brain Setup

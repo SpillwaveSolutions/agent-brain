@@ -1,11 +1,11 @@
 """Summarization providers for Agent Brain.
 
 This module provides summarization/LLM implementations for:
-- Anthropic (Claude models)
-- OpenAI (GPT-4, GPT-4o, etc.)
-- Gemini (gemini-1.5-flash, gemini-1.5-pro, etc.)
-- Grok (grok-beta, etc.)
-- Ollama (llama3.2, mistral, etc.)
+- Anthropic (Claude 4.5 Haiku, Sonnet, Opus)
+- OpenAI (GPT-5, GPT-5 Mini)
+- Gemini (gemini-3-flash, gemini-3-pro)
+- Grok (grok-4, grok-4-fast)
+- Ollama (llama4:scout, mistral-small3.2, qwen3-coder, gemma3)
 """
 
 from agent_brain_server.providers.factory import ProviderRegistry

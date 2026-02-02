@@ -1,0 +1,12 @@
+{
+  "name": "agent-brain-marketplace",
+  "description": "Marketplace for Agent Brain document search plugins",
+  "version": "2.0.0",
+  "plugins": [
+    {
+      "name": "agent-brain-plugin",
+      "path": "agent-brain-plugin",
+      "description": "Document search with hybrid BM25/semantic retrieval, GraphRAG knowledge graphs, and pluggable providers"
+    }
+  ]
+}

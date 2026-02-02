@@ -13,7 +13,7 @@ BM25 (Best Matching 25) is a keyword-based search algorithm that finds exact ter
 - Working with code documentation, API references, or technical specifications
 - The query contains specific technical jargon or identifiers
 
-**Example BM25 queries:**
+**Examples of BM25 queries:**
 - `"AuthenticationError"` - Find exact error class references
 - `"HTTP 404"` - Find status code documentation
 - `"recursiveCharacterTextSplitter"` - Find specific function names
@@ -53,16 +53,16 @@ curl -X POST http://localhost:8000/query/ \
 | Option | Default | Description | Use Case |
 |--------|---------|-------------|----------|
 | `--mode bm25` | Required | Selects BM25 algorithm | All BM25 searches |
-| `--threshold F` | 0.7 | Minimum relevance score (0.0-1.0) | Lower for more results |
+| `--threshold F` | 0.7 | Minimum relevance score (0.0-1.0) | Lower for more results, higher for precision |
 | `--top-k N` | 5 | Maximum results to return | Increase for comprehensive results |
 
 ## Why Choose BM25 Over Other Modes
 
 **BM25 Advantages:**
-- **Fast**: ~10-20ms response time (no API calls)
-- **Precise**: Finds exact word matches
-- **Predictable**: Results based on term frequency and document length
-- **Lightweight**: No API keys required, no costs
+- ⚡ **Fast**: ~10-20ms response time
+- 🎯 **Precise**: Finds exact word matches
+- 🔍 **Predictable**: Results based on term frequency and document length
+- 💾 **Lightweight**: No API keys required
 
 **When BM25 is better than Hybrid:**
 - Searching for specific identifiers (function names, error codes)
@@ -79,25 +79,21 @@ curl -X POST http://localhost:8000/query/ \
 ## BM25 Algorithm Details
 
 BM25 scores documents based on:
-
 1. **Term Frequency (TF)**: How often the search term appears
 2. **Inverse Document Frequency (IDF)**: How rare the term is across documents
 3. **Document Length Normalization**: Shorter documents score higher for same term frequency
 
-**Formula:**
-```
-score = SUM IDF(q_i) * (TF(q_i,D) * (k1 + 1)) / (TF(q_i,D) + k1 * (1 - b + b * |D|/avgDL))
-```
+**Formula**: `score = Σ IDF(q_i) × (TF(q_i,D) × (k₁ + 1)) / (TF(q_i,D) + k₁ × (1 - b + b × |D|/avgDL))`
 
 Where:
 - `q_i`: Query terms
 - `D`: Document
-- `k1 = 1.5` (term frequency saturation)
+- `k₁ = 1.5` (term frequency saturation)
 - `b = 0.75` (length normalization factor)
 
-## Example Results
+## Example Queries and Results
 
-### Example: Function Name Search
+### Example 1: Function Name Search
 
 **Query:** `agent-brain query "recursiveCharacterTextSplitter" --mode bm25`
 
@@ -111,7 +107,11 @@ Where:
       "score": 0.85,
       "vector_score": null,
       "bm25_score": 0.85,
-      "chunk_id": "chunk_123"
+      "chunk_id": "chunk_123",
+      "metadata": {
+        "file_name": "text-splitters.md",
+        "chunk_index": 0
+      }
     }
   ],
   "query_time_ms": 12.5,
@@ -119,7 +119,7 @@ Where:
 }
 ```
 
-### Example: Error Code Search
+### Example 2: Error Code Search
 
 **Query:** `agent-brain query "HTTP 404" --mode bm25`
 
@@ -133,23 +133,36 @@ Where:
       "score": 0.92,
       "vector_score": null,
       "bm25_score": 0.92,
-      "chunk_id": "chunk_456"
+      "chunk_id": "chunk_456",
+      "metadata": {
+        "file_name": "http-status-codes.md",
+        "chunk_index": 2
+      }
+    },
+    {
+      "text": "404 errors commonly occur when:\n- URL is mistyped\n- Resource was deleted...",
+      "source": "/docs/troubleshooting/404-errors.md",
+      "score": 0.78,
+      "vector_score": null,
+      "bm25_score": 0.78,
+      "chunk_id": "chunk_789",
+      "metadata": {
+        "file_name": "404-errors.md",
+        "chunk_index": 0
+      }
     }
   ],
   "query_time_ms": 15.2,
-  "total_results": 1
+  "total_results": 2
 }
 ```
 
 ## Performance Characteristics
 
-| Metric | Value |
-|--------|-------|
-| Response Time | 10-50ms (fastest) |
-| CPU Usage | Low (pure algorithmic) |
-| Memory Usage | Minimal (pre-built index) |
-| API Costs | None |
-| Scalability | Excellent |
+- **Response Time**: 10-50ms (fastest of all modes)
+- **CPU Usage**: Low (pure algorithmic scoring)
+- **Memory Usage**: Minimal (uses pre-built BM25 index)
+- **Scalability**: Excellent (index built once, queried many times)
 
 ## Best Practices
 
@@ -160,11 +173,9 @@ Where:
 
 ## Common Issues
 
-| Problem | Solution |
-|---------|----------|
-| No results found | Lower threshold or use different terminology |
-| Too many results | Increase threshold or add more specific terms |
-| Index not ready | Run `agent-brain status` to verify indexing complete |
+- **No results found**: Try lowering the threshold or using different terminology
+- **Too many results**: Increase threshold or add more specific terms
+- **Index not ready**: Ensure documents are indexed before searching (`agent-brain status`)
 
 ## Integration Examples
 
@@ -175,7 +186,13 @@ Where:
 agent-brain query "$1" --mode bm25 --json | jq '.results[0].text'
 ```
 
-### Python Integration
+### With Other Tools
+```bash
+# Find all mentions of a function
+agent-brain query "myFunction" --mode bm25 --json | jq -r '.results[].source'
+```
+
+### API Integration
 ```python
 import requests
 

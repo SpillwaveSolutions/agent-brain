@@ -3,7 +3,7 @@ name: agent-brain-install
 description: Install Agent Brain packages (agent-brain-rag and agent-brain-cli)
 parameters: []
 skills:
-  - agent-brain-setup
+  - configuring-agent-brain
 ---
 
 # Install Agent Brain Packages
