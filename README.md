@@ -1,189 +1,248 @@
 # Agent Brain
 
-A RAG-based (Retrieval-Augmented Generation) document indexing and semantic search system. Agent Brain enables AI assistants and applications to query domain-specific documentation using natural language.
+A RAG-based (Retrieval-Augmented Generation) document indexing and semantic search system for AI agents and applications. Agent Brain enables intelligent querying of documentation and source code using natural language.
 
 ## Overview
 
-Agent Brain is a monorepo containing three packages:
+Agent Brain provides **AI-first** document and code search through a Claude Code plugin with skills, commands, and agents. Use slash commands to search, agents for complex research tasks, and skills for intelligent query optimization.
 
-| Package | Description |
-|---------|-------------|
-| **agent-brain-server** | FastAPI REST API for document indexing and semantic search |
-| **agent-brain-cli** | Command-line interface for managing the server |
-| **agent-brain-skill** | Claude Code skill for AI-powered documentation queries |
+| Component | Description |
+|-----------|-------------|
+| **Plugin** | 24 slash commands, 3 agents, 2 skills for Claude Code |
+| **Skills** | Intelligent search mode selection and query optimization |
+| **Agents** | Research assistant, search assistant, setup assistant |
+| **Server** | FastAPI backend for indexing and retrieval |
+| **CLI** | Command-line tool (also used by plugin internally) |
 
-## Code Ingestion & Search
+## Quick Start (Claude Code Plugin)
 
-Agent Brain now supports unified search across documentation and source code:
+### 1. Install the Plugin
 
-- **10 Programming Languages**: Python, TypeScript, JavaScript, Java, Kotlin, C, C++, C#, Go, Rust, and Swift
-- **AST-Aware Chunking**: Intelligent code parsing and chunking using tree-sitter
-- **Cross-Reference Queries**: Search across docs and code simultaneously
-- **Language Filtering**: Filter results by programming language
-- **Source Type Filtering**: Separate results by documentation vs. source code
-- **LLM Code Summaries**: AI-generated summaries improve semantic search quality
-
-### Example: Code-Aware Search
 ```bash
-# Index both docs and code
-agent-brain index ./my-project --include-code
+claude plugins install github:SpillwaveSolutions/agent-brain
+```
 
-# Search across everything
-agent-brain query "authentication implementation"
+### 2. Set Up Your Project
 
-# Filter by code only
-agent-brain query "API endpoints" --source-types code --languages python
+In Claude Code, run:
+```
+/agent-brain-setup
+```
+
+This interactive wizard will:
+- Install the Python packages (`agent-brain-rag`, `agent-brain-cli`)
+- Configure your API keys
+- Initialize the project
+- Start the server
+- Index your documentation
+
+### 3. Search with Commands
+
+```
+/agent-brain-search "how does authentication work"
+```
+
+That's it! The plugin handles everything automatically.
+
+## Plugin Commands
+
+### Search Commands
+
+| Command | Description | Use When |
+|---------|-------------|----------|
+| `/agent-brain-search` | Smart hybrid search (recommended) | General questions |
+| `/agent-brain-semantic` | Pure semantic/vector search | Conceptual queries |
+| `/agent-brain-keyword` | BM25 keyword search | Error messages, function names |
+| `/agent-brain-hybrid` | Hybrid with alpha tuning | Fine-tuned searches |
+| `/agent-brain-graph` | Knowledge graph search | "What calls X?", dependencies |
+| `/agent-brain-multi` | All modes combined (RRF) | Maximum recall |
+
+### Server Commands
+
+| Command | Description |
+|---------|-------------|
+| `/agent-brain-start` | Start the server (auto-port) |
+| `/agent-brain-stop` | Stop the server |
+| `/agent-brain-status` | Check health and document count |
+| `/agent-brain-index` | Index documents or code |
+
+### Setup Commands
+
+| Command | Description |
+|---------|-------------|
+| `/agent-brain-setup` | Complete guided setup wizard |
+| `/agent-brain-install` | Install pip packages |
+| `/agent-brain-init` | Initialize project directory |
+| `/agent-brain-verify` | Verify configuration |
+| `/agent-brain-providers` | Configure embedding/summarization providers |
+
+## Plugin Agents
+
+Agent Brain includes three intelligent agents for complex tasks:
+
+| Agent | Description | Triggered By |
+|-------|-------------|--------------|
+| **Search Assistant** | Multi-step search across modes, synthesizes answers | "Find all references to...", "Research how..." |
+| **Research Assistant** | Deep exploration with follow-up queries | "Investigate...", "Analyze the architecture of..." |
+| **Setup Assistant** | Guided installation and troubleshooting | "Help me set up Agent Brain", configuration issues |
+
+### Example Agent Interaction
+
+**You**: "Research how authentication is implemented across the codebase"
+
+**Research Assistant**:
+1. Searches documentation for auth concepts
+2. Queries code for auth-related functions
+3. Uses graph mode to find dependencies
+4. Synthesizes comprehensive answer with references
+
+## Plugin Skills
+
+Skills provide intelligent context to Claude for optimal searching:
+
+| Skill | Purpose |
+|-------|---------|
+| **using-agent-brain** | Search mode selection, query optimization, API knowledge |
+| **configuring-agent-brain** | Installation, provider configuration, troubleshooting |
+
+When you ask about documentation or code, Claude automatically uses the skill to:
+- Choose the best search mode for your query
+- Set appropriate parameters (top_k, threshold, alpha)
+- Interpret and synthesize results
+
+## Search Modes
+
+| Mode | Best For | Example Query |
+|------|----------|---------------|
+| `HYBRID` | General questions (default) | "How does caching work?" |
+| `VECTOR` | Conceptual understanding | "Explain the architecture" |
+| `BM25` | Exact terms, error codes | "NullPointerException", "getUserById" |
+| `GRAPH` | Relationships, dependencies | "What classes use AuthService?" |
+| `MULTI` | Comprehensive search | "Everything about data validation" |
+
+## Pluggable Providers
+
+Agent Brain supports multiple providers for embeddings and summarization:
+
+### Embedding Providers
+| Provider | Models | Local |
+|----------|--------|-------|
+| OpenAI | text-embedding-3-large, text-embedding-3-small | No |
+| Ollama | nomic-embed-text, mxbai-embed-large | Yes |
+| Cohere | embed-english-v3.0, embed-multilingual-v3.0 | No |
+
+### Summarization Providers
+| Provider | Models | Local |
+|----------|--------|-------|
+| Anthropic | claude-haiku-4-5-20251001, claude-sonnet-4-5-20250514 | No |
+| OpenAI | gpt-5, gpt-5-mini | No |
+| Gemini | gemini-3-flash, gemini-3-pro | No |
+| Grok | grok-4, grok-4-fast | No |
+| Ollama | llama4:scout, mistral-small3.2, qwen3-coder | Yes |
+
+### Fully Local Mode
+
+Run completely offline with Ollama:
+```
+/agent-brain-providers
+# Select Ollama for both embeddings and summarization
 ```
 
 ## Features
 
-- **Code Ingestion**: Index and search across documentation AND source code
-- **Cross-Reference Search**: Unified queries across docs and code with intelligent filtering
-- **Language-Aware Processing**: AST-based chunking for 10+ programming languages
-- **Hybrid Search**: Combines semantic meaning (Vector) with exact keyword matching (BM25)
-- **Semantic Search**: Natural language queries using OpenAI embeddings
-- **Keyword Search**: Precise term matching for technical documentation
-- **Advanced Filtering**: Filter by source type (doc/code) and programming language
-- **Vector Store**: ChromaDB for efficient similarity search
-- **Context-Aware Chunking**: Intelligent document and code splitting with overlap
-- **LLM Summaries**: AI-generated summaries for code chunks improve semantic search
-- **REST API**: Full OpenAPI-documented REST interface
-- **CLI Tool**: Comprehensive command-line management
-- **Claude Integration**: Native Claude Code skill for AI workflows
+### Code Search
+- **10 Programming Languages**: Python, TypeScript, JavaScript, Java, Kotlin, C, C++, C#, Go, Rust, Swift
+- **AST-Aware Chunking**: Tree-sitter parsing preserves code structure
+- **LLM Summaries**: AI-generated descriptions improve semantic search
+- **Language Filtering**: Filter results by programming language
 
-## Quick Start
+### GraphRAG (Knowledge Graph)
+- Entity and relationship extraction
+- Dependency-aware queries ("What calls X?")
+- Code structure visualization
 
-### Prerequisites
+### Multi-Instance Architecture
+- Per-project isolated servers
+- Automatic port allocation
+- Work on multiple projects simultaneously
 
-- Python 3.10+
-- [Poetry](https://python-poetry.org/docs/#installation) (dependency management)
-- [Task](https://taskfile.dev/installation/) (task runner)
-- OpenAI API key
-- Anthropic API key
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/spillwave/doc-serve.git
-cd doc-serve
-
-# Install all dependencies
-task install
-
-# List available commands
-task --list
-```
-
-### Configuration
-
-```bash
-# Copy the example environment file
-cp agent-brain-server/.env.example agent-brain-server/.env
-
-# Edit and add your API keys
-# OPENAI_API_KEY=sk-your-openai-key
-# ANTHROPIC_API_KEY=sk-ant-your-anthropic-key
-```
-
-### Running
-
-```bash
-# Start development server
-task dev
-
-# Check server status
-task status
-
-# Open API docs in browser
-task docs
-```
-
-The server starts at `http://127.0.0.1:8000` with interactive docs at `/docs`.
-
-### Using the CLI
-
-```bash
-# Check server status
-task status
-
-# Index documents
-task index -- /path/to/documents
-
-# Query the index
-task query -- "how to configure authentication"
-
-# Reset the index
-task reset
-```
-
-## Task Commands
-
-All operations use [Task](https://taskfile.dev). Run `task --list` to see all available commands.
-
-| Command | Description |
-|---------|-------------|
-| `task install` | Install all dependencies |
-| `task dev` | Start development server |
-| `task test` | Run all tests |
-| `task before-push` | Run all checks before pushing |
-| `task build` | Build all packages |
-
-## Architecture
+## Project Structure
 
 ```
-doc-serve/
-├── Taskfile.yml          # Root task runner
-├── agent-brain-server/     # FastAPI server
-│   ├── Taskfile.yml
-│   └── agent_brain_server/
-│       ├── api/          # REST endpoints
-│       ├── config/       # Settings management
-│       ├── indexing/     # Document processing
-│       ├── models/       # Pydantic models
-│       ├── services/     # Business logic
-│       └── storage/      # Vector store
-├── agent-brain-cli/          # CLI tool
-│   ├── Taskfile.yml
-│   └── agent_brain_cli/
-│       ├── client/       # API client
-│       └── commands/     # CLI commands
-├── agent-brain-skill/      # Claude skill
-│   └── doc-serve/
-│       └── SKILL.md      # Skill definition
-└── docs/                 # Documentation
+agent-brain/
+├── agent-brain-plugin/        # Claude Code plugin (primary interface)
+│   ├── commands/              # 24 slash commands
+│   ├── agents/                # 3 intelligent agents
+│   └── skills/                # 2 context skills
+├── agent-brain-server/        # FastAPI backend
+├── agent-brain-cli/           # CLI tool (used by plugin)
+└── docs/                      # Documentation
 ```
-
-## API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/health/status` | GET | Detailed indexing status |
-| `/query` | POST | Semantic search |
-| `/query/count` | GET | Document count |
-| `/index` | POST | Start indexing |
-| `/index/add` | POST | Add documents incrementally |
-| `/index` | DELETE | Clear index |
 
 ## Documentation
 
-- [User Guide](docs/USER_GUIDE.md) - How to use Agent Brain
-- [Developer Guide](docs/DEVELOPERS_GUIDE.md) - Setup and contribution guide
-- [API Reference](agent-brain-skill/doc-serve/references/api_reference.md) - Full API documentation
-- [Product Roadmap](docs/roadmaps/product-roadmap.md) - Future plans and features
-- [Spec Mapping](docs/spec_mapping.md) - Mapping of specs to features
+### Getting Started
+- [Quick Start](docs/QUICK_START.md) - Get running in minutes
+- [Plugin Guide](docs/PLUGIN_GUIDE.md) - Complete plugin documentation
+- [User Guide](docs/USER_GUIDE.md) - Detailed usage guide
 
+### Reference
+- [API Reference](docs/API_REFERENCE.md) - REST API documentation
+- [Configuration](docs/CONFIGURATION.md) - All configuration options
+- [Provider Configuration](agent-brain-plugin/skills/using-agent-brain/references/provider-configuration.md) - Provider setup
+
+### Architecture
+- [Architecture Overview](docs/ARCHITECTURE.md) - System design
+- [GraphRAG Guide](docs/GRAPHRAG_GUIDE.md) - Knowledge graph features
+- [Code Indexing](docs/CODE_INDEXING.md) - AST-aware chunking
+
+## CLI Usage (Alternative)
+
+While the plugin is the recommended interface, you can also use the CLI directly:
+
+```bash
+# Install
+pip install agent-brain-rag agent-brain-cli
+
+# Initialize and start
+agent-brain init
+agent-brain start --daemon
+
+# Index and query
+agent-brain index /path/to/docs --include-code
+agent-brain query "authentication" --mode hybrid
+```
+
+## Development
+
+### Prerequisites
+- Python 3.10+
+- Poetry (dependency management)
+- Task (task runner)
+
+### Setup
+```bash
+git clone https://github.com/SpillwaveSolutions/agent-brain.git
+cd agent-brain
+task install
+```
+
+### Running Tests
+```bash
+task test           # All tests
+task before-push    # Full quality check
+```
 
 ## Technology Stack
 
-- **Task Runner**: [Task](https://taskfile.dev)
+- **Plugin**: Claude Code slash commands, agents, skills
 - **Server**: FastAPI + Uvicorn
-- **Vector Store**: ChromaDB
-- **Embeddings**: OpenAI text-embedding-3-large
-- **Summarization**: Claude Haiku
-- **Indexing**: LlamaIndex
-- **Code Parsing**: Tree-sitter (AST-aware chunking)
+- **Vector Store**: ChromaDB (HNSW, cosine similarity)
+- **BM25 Index**: LlamaIndex BM25Retriever
+- **Graph Store**: SimplePropertyGraphStore / Kuzu
+- **Embeddings**: OpenAI or Ollama
+- **Summarization**: Claude, GPT-5, Gemini, Grok, or Ollama
+- **AST Parsing**: tree-sitter (10 languages)
 - **CLI**: Click + Rich
 - **Build System**: Poetry
 
@@ -192,7 +251,6 @@ doc-serve/
 See the [Developer Guide](docs/DEVELOPERS_GUIDE.md) for setup instructions.
 
 **Before pushing changes**, always run:
-
 ```bash
 task before-push
 ```
@@ -200,3 +258,9 @@ task before-push
 ## License
 
 MIT License - see LICENSE file for details.
+
+## Links
+
+- [GitHub Wiki](https://github.com/SpillwaveSolutions/agent-brain/wiki)
+- [Plugin Marketplace](https://skillzwave.ai/)
+- [Issue Tracker](https://github.com/SpillwaveSolutions/agent-brain/issues)

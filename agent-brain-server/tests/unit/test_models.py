@@ -29,7 +29,7 @@ class TestHealthModels:
         )
         assert status.status == "healthy"
         assert status.message == "Server is running"
-        assert status.version == "1.2.0"
+        assert status.version == "2.0.0"
         assert isinstance(status.timestamp, datetime)
 
     def test_health_status_all_statuses(self):

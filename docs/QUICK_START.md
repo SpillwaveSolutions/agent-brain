@@ -1,167 +1,167 @@
 # Agent Brain Quick Start
 
-Get up and running with Agent Brain in minutes using the command-line tools.
+Get up and running with Agent Brain in minutes. The Claude Code plugin is the primary interface - once installed, it handles everything else for you.
 
-## 1. Installation
+## Step 1: Install the Plugin
 
-Install Agent Brain and the management tool globally using the Task runner:
-
-```bash
-# Clone the repository
-git clone git@github.com:SpillwaveSolutions/doc-serve.git
-cd doc-serve
-
-# Install tools globally (makes 'agent-brain-serve' and 'agent-brain' available)
-task install:global
-```
-
-## 2. Configuration
-
-Create a `.env` file in the `agent-brain-server` directory with your API keys:
+Install the Agent Brain plugin in Claude Code:
 
 ```bash
-cd agent-brain-server
-cp .env.example .env
-# Edit .env and add:
-# OPENAI_API_KEY=sk-...
-# ANTHROPIC_API_KEY=sk-ant-...
+claude plugins install github:SpillwaveSolutions/agent-brain
 ```
 
-## 3. Launch the Server
+This gives you access to 24 commands, 3 intelligent agents, and 2 skills for working with Agent Brain.
 
-### Option A: Multi-Instance Mode (Recommended)
+## Step 2: Install the Server and CLI
 
-Initialize and start a project-specific server with auto-port allocation:
+Use the plugin to install the Python packages:
 
-```bash
-cd /path/to/your/project
-agent-brain init      # Creates .claude/doc-serve/ directory
-agent-brain start --daemon   # Starts server with auto-assigned port
+```
+/agent-brain-install
 ```
 
-The server runs in the background with isolated indexes for this project.
+This installs:
+- `agent-brain-rag` - The FastAPI server for indexing and search
+- `agent-brain-cli` - Command-line tool (used internally by the plugin)
 
-### Option B: Legacy Single-Instance Mode
+## Step 3: Configure API Keys
 
-Start the Agent Brain API server directly:
+Configure your embedding and summarization providers:
 
-```bash
-agent-brain-serve
 ```
-*Keep this terminal open or run in the background with `agent-brain-serve &`.*
-
-## 4. Index Documents and Code
-
-Agent Brain can index both documentation and source code for unified search:
-
-### Index Documentation Only (Default)
-```bash
-# Index documentation files (Markdown, TXT, PDF, etc.)
-agent-brain index ./docs
+/agent-brain-providers
 ```
 
-### Index Code + Documentation (Recommended)
-```bash
-# Index both documentation and source code files
-agent-brain index ./my-project --include-code
+Choose from:
+- **Cloud providers**: OpenAI, Anthropic, Cohere, Gemini, Grok
+- **Local providers**: Ollama (fully offline mode)
+
+Or use the complete setup wizard which handles installation AND configuration:
+
+```
+/agent-brain-setup
 ```
 
-### Advanced Indexing Options
-```bash
-# Index specific programming languages
-agent-brain index ./src --include-code --languages python,typescript
+## Step 4: Initialize Your Project
 
-# Use AST-aware chunking for better code understanding
-agent-brain index ./src --include-code --code-strategy ast_aware
+Initialize Agent Brain for your current project:
 
-# Generate LLM summaries for code chunks (improves semantic search)
-agent-brain index ./src --include-code --generate-summaries
+```
+/agent-brain-init
 ```
 
-Check the status to ensure indexing is complete:
-```bash
-agent-brain status
+This creates a `.claude/doc-serve/` directory with project-specific configuration.
+
+## Step 5: Start the Server
+
+Start the Agent Brain server:
+
+```
+/agent-brain-start
 ```
 
-## 5. Query Knowledge
+The server starts with automatic port allocation (no conflicts with other projects).
 
-Agent Brain supports three powerful search modes:
+## Step 6: Index Your Documentation
 
-### Semantic Search (Vector - Default)
-```bash
-# Search for espresso information using semantic similarity
-agent-brain query "espresso brewing techniques"
+Index your project's documentation and code:
+
+```
+/agent-brain-index ./docs
 ```
 
-### Keyword Search (BM25)
-```bash
-# Search for exact word matches (great for function names, error codes)
-agent-brain query "espresso" --mode bm25
+For code + documentation:
+
+```
+/agent-brain-index . --include-code
 ```
 
-### Hybrid Search (Recommended)
-```bash
-# Combine semantic and keyword search (best of both worlds)
-agent-brain query "espresso vs french press" --mode hybrid --alpha 0.7
+Check indexing status:
+
+```
+/agent-brain-status
 ```
 
-### Advanced Options
-```bash
-# Show individual scores for hybrid results
-agent-brain query "brewing methods" --mode hybrid --scores
+## Step 7: Search Your Knowledge Base
 
-# Adjust result count and similarity threshold
-agent-brain query "coffee temperature" --top-k 10 --threshold 0.3
+Now you can search! Use the smart search command:
+
+```
+/agent-brain-search "how does authentication work"
 ```
 
-### Code-Aware Search (with Code Ingestion)
+Or use specific search modes:
 
-When code is indexed, you can perform cross-reference searches with AST-aware metadata:
-
-```bash
-# Search across both documentation and code
-agent-brain query "authentication implementation"
-
-# Filter results by source type
-agent-brain query "API endpoints" --source-types code      # Code only
-agent-brain query "API usage" --source-types doc           # Docs only
-
-# Filter by programming language
-agent-brain query "database connection" --languages python,typescript
-
-# Combine filters for precise results
-agent-brain query "error handling" --source-types code --languages go
-
-# Search by specific function or class name (BM25 recommended for identifiers)
-agent-brain query "authenticate_user" --mode bm25 --source-types code
+```
+/agent-brain-semantic "explain the architecture"
+/agent-brain-keyword "getUserById"
+/agent-brain-graph "what calls AuthService"
 ```
 
-### Supported Languages
-Agent Brain supports AST-aware code ingestion for: **Python, TypeScript, JavaScript, Java, Go, Rust, C, C++, C#**. Other languages are supported via intelligent text-based chunking.
+---
 
-**C# Support:** Files with `.cs` and `.csx` extensions are parsed with AST-aware chunking, extracting classes, methods, interfaces, and XML documentation comments.
+## All-in-One Setup
 
-## Common Commands Summary
+For the fastest setup, use the interactive wizard which does steps 2-6 automatically:
 
-### Multi-Instance Commands (Recommended)
+```
+/agent-brain-setup
+```
 
-| Task | Command |
-|------|---------|
-| **Initialize Project** | `agent-brain init` |
-| **Start Server** | `agent-brain start --daemon` |
-| **Stop Server** | `agent-brain stop` |
-| **List All Instances** | `agent-brain list` |
-| **Check Status** | `agent-brain status` |
+The Setup Assistant guides you through:
+1. Installing packages
+2. Configuring API keys
+3. Initializing the project
+4. Starting the server
+5. Indexing your documentation
 
-### Data Commands
+---
 
-| Task | Command |
-|------|---------|
-| **Index Docs Only** | `agent-brain index /path/to/docs` |
-| **Index Code + Docs** | `agent-brain index /path --include-code` |
-| **Semantic Search** | `agent-brain query "your question"` |
-| **Keyword Search** | `agent-brain query "keyword" --mode bm25` |
-| **Hybrid Search** | `agent-brain query "question" --mode hybrid --alpha 0.5` |
-| **Filter by Source** | `agent-brain query "term" --source-types code` |
-| **Filter by Language** | `agent-brain query "term" --languages python,csharp` |
-| **Reset Index** | `agent-brain reset --yes` |
+## Search Modes Quick Reference
+
+| Command | Best For | Example |
+|---------|----------|---------|
+| `/agent-brain-search` | General questions | "how does caching work" |
+| `/agent-brain-semantic` | Conceptual queries | "explain the data flow" |
+| `/agent-brain-keyword` | Exact terms, errors | "NullPointerException" |
+| `/agent-brain-hybrid` | Fine-tuned search | "API authentication" |
+| `/agent-brain-graph` | Dependencies | "what uses UserService" |
+| `/agent-brain-multi` | Maximum recall | "everything about validation" |
+
+---
+
+## Using Agents for Complex Tasks
+
+For complex research tasks, Agent Brain's intelligent agents help:
+
+**You**: "Research how error handling is implemented across the codebase"
+
+**Research Assistant** automatically:
+1. Searches documentation for error handling patterns
+2. Queries code for try/catch blocks and error classes
+3. Uses graph mode to find error propagation
+4. Synthesizes a comprehensive answer with file references
+
+---
+
+## Verify Your Setup
+
+Check that everything is working:
+
+```
+/agent-brain-verify
+```
+
+This validates:
+- Package installation
+- API key configuration
+- Server connectivity
+- Index health
+
+---
+
+## Next Steps
+
+- [User Guide](USER_GUIDE.md) - Detailed usage patterns
+- [Plugin Guide](PLUGIN_GUIDE.md) - All 24 commands documented
+- [Provider Configuration](../agent-brain-plugin/skills/using-agent-brain/references/provider-configuration.md) - Configure embedding and summarization providers

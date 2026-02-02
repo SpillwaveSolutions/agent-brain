@@ -22,7 +22,7 @@ class HealthStatus(BaseModel):
         description="Timestamp of the health check",
     )
     version: str = Field(
-        default="1.2.0",
+        default="2.0.0",
         description="Server version",
     )
     mode: Optional[str] = Field(
@@ -49,7 +49,7 @@ class HealthStatus(BaseModel):
                     "status": "healthy",
                     "message": "Server is running and ready for queries",
                     "timestamp": "2024-12-15T10:30:00Z",
-                    "version": "1.2.0",
+                    "version": "2.0.0",
                 }
             ]
         }

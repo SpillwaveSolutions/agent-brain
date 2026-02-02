@@ -194,7 +194,7 @@ app = FastAPI(
         "RAG-based document indexing and semantic search API. "
         "Index documents from folders and query them using natural language."
     ),
-    version="1.2.0",
+    version="2.0.0",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
@@ -221,7 +221,7 @@ async def root() -> dict[str, str]:
     """Root endpoint redirects to docs."""
     return {
         "name": "Agent Brain RAG API",
-        "version": "1.2.0",
+        "version": "2.0.0",
         "docs": "/docs",
         "health": "/health",
     }

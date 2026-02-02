@@ -23,7 +23,7 @@ class TestRootEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "Agent Brain RAG API"
-        assert data["version"] == "1.2.0"
+        assert data["version"] == "2.0.0"
         assert data["docs"] == "/docs"
         assert data["health"] == "/health"
 
@@ -40,7 +40,7 @@ class TestHealthEndpoints:
         data = response.json()
         assert data["status"] in ["healthy", "indexing", "degraded"]
         assert "timestamp" in data
-        assert data["version"] == "1.2.0"
+        assert data["version"] == "2.0.0"
 
     def test_health_status_endpoint(self, client, mock_vector_store):
         """Test detailed health status endpoint."""

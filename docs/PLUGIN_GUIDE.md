@@ -1,483 +1,495 @@
-# Agent Brain Plugin and Skill Guide
+# Agent Brain Plugin Guide
 
-Agent Brain integrates seamlessly with Claude Code through both a plugin and a skill. This guide explains the available commands, proactive agents, and customization options.
+Complete reference for the Agent Brain Claude Code plugin - 24 commands, 3 agents, and 2 skills for intelligent document and code search.
 
 ## Table of Contents
 
-- [Overview](#overview)
 - [Installation](#installation)
-- [Commands Reference](#commands-reference)
+- [Quick Setup](#quick-setup)
+- [Search Commands](#search-commands)
+- [Server Commands](#server-commands)
+- [Setup Commands](#setup-commands)
+- [Provider Commands](#provider-commands)
+- [Intelligent Agents](#intelligent-agents)
+- [Skills](#skills)
 - [Search Modes](#search-modes)
-- [Server Management](#server-management)
-- [Proactive Agents](#proactive-agents)
-- [Reference Documentation](#reference-documentation)
-- [Customization](#customization)
+- [Provider Configuration](#provider-configuration)
 - [Integration Patterns](#integration-patterns)
-
----
-
-## Overview
-
-Agent Brain provides two integration points for Claude Code:
-
-| Integration | Location | Purpose |
-|-------------|----------|---------|
-| **Skill** | `agent-brain-skill/using-agent-brain/SKILL.md` | Natural language instructions for Claude |
-| **Plugin** | Installed separately | CLI-based automation |
-
-### When to Use Each
-
-- **Skill**: When you want Claude to search documentation or code on your behalf
-- **Plugin**: When you need programmatic access or CI/CD integration
-
-### Key Capabilities
-
-- Document and code search with 5 retrieval modes
-- Per-project server management
-- Automatic server discovery
-- Multi-instance support (multiple projects simultaneously)
-- GraphRAG for relationship-aware queries
+- [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Installation
 
-### Prerequisites
+Install the Agent Brain plugin in Claude Code:
 
 ```bash
-# Install Agent Brain packages
-pip install agent-brain-rag agent-brain-cli
-
-# Set required API keys
-export OPENAI_API_KEY="sk-proj-..."
-export ANTHROPIC_API_KEY="sk-ant-..."  # Optional for summarization
+claude plugins install github:SpillwaveSolutions/agent-brain
 ```
 
-### Initialize a Project
-
-```bash
-cd /path/to/your/project
-agent-brain init
-```
-
-This creates `.claude/agent-brain/` with configuration files.
-
-### Start the Server
-
-```bash
-agent-brain start --daemon
-```
-
-The server starts on an automatically-assigned port and writes connection details to `.claude/agent-brain/runtime.json`.
+This provides:
+- **24 slash commands** for all operations
+- **3 intelligent agents** for complex tasks
+- **2 skills** for context-aware assistance
 
 ---
 
-## Commands Reference
+## Quick Setup
 
-### Project Management Commands
+The fastest way to get started:
 
-| Command | Description | Example |
-|---------|-------------|---------|
-| `init` | Initialize Agent Brain for current project | `agent-brain init` |
-| `start` | Start the server for this project | `agent-brain start --daemon` |
-| `stop` | Stop the running server | `agent-brain stop` |
-| `list` | List all running Agent Brain instances | `agent-brain list` |
-
-### Data Commands
-
-| Command | Description | Example |
-|---------|-------------|---------|
-| `status` | Check server status and document count | `agent-brain status` |
-| `query` | Search indexed documents | `agent-brain query "search term"` |
-| `index` | Index documents from a folder | `agent-brain index /path/to/docs` |
-| `reset` | Clear all indexed documents | `agent-brain reset --yes` |
-
-### Command Details
-
-#### `agent-brain init`
-
-Initializes Agent Brain for the current project.
-
-```bash
-agent-brain init
-# Creates: .claude/agent-brain/config.json
+```
+/agent-brain-setup
 ```
 
-#### `agent-brain start`
+This interactive wizard:
+1. Installs packages (`agent-brain-rag`, `agent-brain-cli`)
+2. Configures API keys
+3. Initializes your project
+4. Starts the server
+5. Indexes your documentation
 
-Starts the Agent Brain server.
+Or step-by-step:
 
-```bash
-# Start in foreground
-agent-brain start
-
-# Start in background (daemon mode)
-agent-brain start --daemon
-
-# Start on specific port
-agent-brain start --port 8080
+```
+/agent-brain-install     # Install packages
+/agent-brain-providers   # Configure API keys
+/agent-brain-init        # Initialize project
+/agent-brain-start       # Start server
+/agent-brain-index .     # Index documents
 ```
 
-**Flags**:
-- `--daemon, -d`: Run in background
-- `--port, -p`: Specify port (default: auto-assign)
-- `--host, -h`: Bind address (default: 127.0.0.1)
+---
 
-#### `agent-brain stop`
+## Search Commands
 
-Stops the running server gracefully.
+### `/agent-brain-search`
 
-```bash
-agent-brain stop
+Smart hybrid search - the recommended default for general questions.
+
+```
+/agent-brain-search "how does authentication work"
+/agent-brain-search "error handling patterns" --top-k 10
 ```
 
-#### `agent-brain list`
+### `/agent-brain-semantic`
 
-Lists all running Agent Brain instances across all projects.
+Pure vector/semantic search for conceptual queries.
 
-```bash
-agent-brain list
+```
+/agent-brain-semantic "explain the overall architecture"
+/agent-brain-semantic "what is the purpose of this module"
 ```
 
-**Example Output**:
+### `/agent-brain-keyword`
+
+BM25 keyword search for exact terms, function names, error codes.
+
 ```
-project-a: http://127.0.0.1:49321 (project mode)
-project-b: http://127.0.0.1:49322 (project mode)
-```
-
-#### `agent-brain status`
-
-Shows server health and indexing status.
-
-```bash
-agent-brain status
+/agent-brain-keyword "NullPointerException"
+/agent-brain-keyword "getUserById"
 ```
 
-**Example Output**:
+### `/agent-brain-bm25`
+
+Alias for keyword search.
+
+```
+/agent-brain-bm25 "AuthenticationError"
+```
+
+### `/agent-brain-vector`
+
+Alias for semantic search.
+
+```
+/agent-brain-vector "how does caching improve performance"
+```
+
+### `/agent-brain-hybrid`
+
+Hybrid search with explicit alpha control.
+
+```
+/agent-brain-hybrid "OAuth implementation" --alpha 0.7
+/agent-brain-hybrid "database connection" --alpha 0.3
+```
+
+**Alpha Parameter:**
+- `1.0` = Pure semantic search
+- `0.5` = Balanced (default)
+- `0.0` = Pure keyword search
+
+### `/agent-brain-graph`
+
+Knowledge graph search for relationships and dependencies.
+
+```
+/agent-brain-graph "what calls AuthService"
+/agent-brain-graph "classes that extend BaseController"
+/agent-brain-graph "modules that import jwt"
+```
+
+### `/agent-brain-multi`
+
+All modes combined with Reciprocal Rank Fusion for maximum recall.
+
+```
+/agent-brain-multi "complete authentication flow"
+/agent-brain-multi "everything about data validation"
+```
+
+### Common Search Options
+
+All search commands support:
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--top-k` | 5 | Number of results |
+| `--threshold` | 0.7 | Minimum similarity (0.0-1.0) |
+| `--source-types` | all | Filter: doc, code, or both |
+| `--languages` | all | Filter by programming language |
+| `--scores` | false | Show component scores |
+
+---
+
+## Server Commands
+
+### `/agent-brain-start`
+
+Start the Agent Brain server with automatic port allocation.
+
+```
+/agent-brain-start
+/agent-brain-start --port 8080
+```
+
+### `/agent-brain-stop`
+
+Stop the running server.
+
+```
+/agent-brain-stop
+```
+
+### `/agent-brain-status`
+
+Check server health and document count.
+
+```
+/agent-brain-status
+```
+
+**Example Output:**
 ```json
 {
   "status": "healthy",
   "total_documents": 150,
   "total_chunks": 1200,
   "total_doc_chunks": 800,
-  "total_code_chunks": 400,
-  "indexed_folders": ["/path/to/docs"],
-  "supported_languages": ["python", "typescript"]
+  "total_code_chunks": 400
 }
 ```
 
-#### `agent-brain query`
+### `/agent-brain-list`
 
-Searches indexed documents.
+List all running Agent Brain instances across projects.
 
-```bash
-# Basic query
-agent-brain query "authentication"
-
-# With options
-agent-brain query "OAuth implementation" \
-  --mode hybrid \
-  --top-k 10 \
-  --threshold 0.5 \
-  --alpha 0.6
-
-# Filter by content type
-agent-brain query "database" --source-types code
-
-# Filter by language
-agent-brain query "error handling" --languages python,typescript
-
-# JSON output
-agent-brain query "api endpoints" --json
+```
+/agent-brain-list
 ```
 
-**Flags**:
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--mode` | hybrid | Search mode: bm25, vector, hybrid, graph, multi |
-| `--top-k` | 5 | Number of results to return |
-| `--threshold` | 0.7 | Minimum similarity score (0.0-1.0) |
-| `--alpha` | 0.5 | Hybrid balance (0=BM25, 1=Vector) |
-| `--source-types` | all | Filter: doc, code, or both |
-| `--languages` | all | Filter by programming languages |
-| `--scores` | false | Display individual component scores |
-| `--json` | false | Output as JSON |
+### `/agent-brain-index`
 
-#### `agent-brain index`
+Index documents and/or code.
 
-Indexes documents from a folder.
-
-```bash
-# Index documentation only
-agent-brain index /path/to/docs
-
-# Index code and documentation
-agent-brain index /path/to/project --include-code
-
-# With options
-agent-brain index /path/to/project \
-  --include-code \
-  --languages python,typescript \
-  --chunk-size 512 \
-  --recursive
+```
+/agent-brain-index ./docs
+/agent-brain-index . --include-code
+/agent-brain-index ./src --include-code --languages python,typescript
+/agent-brain-index . --include-code --generate-summaries
 ```
 
-**Flags**:
-| Flag | Default | Description |
-|------|---------|-------------|
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
 | `--include-code` | false | Include source code files |
-| `--languages` | all | Languages to index (comma-separated) |
+| `--languages` | all | Languages to index |
+| `--generate-summaries` | false | Generate LLM summaries |
 | `--chunk-size` | 512 | Chunk size in tokens |
-| `--overlap` | 50 | Chunk overlap in tokens |
-| `--recursive/--no-recursive` | true | Scan subdirectories |
-| `--generate-summaries` | false | Generate LLM summaries for code |
 
-#### `agent-brain reset`
+### `/agent-brain-reset`
 
-Clears all indexed documents.
+Clear all indexed documents.
 
-```bash
-agent-brain reset --yes
+```
+/agent-brain-reset
 ```
 
-**Flags**:
-- `--yes, -y`: Skip confirmation prompt
+---
+
+## Setup Commands
+
+### `/agent-brain-setup`
+
+Complete guided setup wizard.
+
+```
+/agent-brain-setup
+```
+
+### `/agent-brain-install`
+
+Install Agent Brain packages.
+
+```
+/agent-brain-install
+```
+
+Installs:
+- `agent-brain-rag` - FastAPI server
+- `agent-brain-cli` - Command-line tool
+
+### `/agent-brain-init`
+
+Initialize project directory.
+
+```
+/agent-brain-init
+```
+
+Creates `.claude/doc-serve/` with project configuration.
+
+### `/agent-brain-config`
+
+View or edit configuration.
+
+```
+/agent-brain-config
+/agent-brain-config --set default_mode=hybrid
+```
+
+### `/agent-brain-verify`
+
+Verify configuration and connectivity.
+
+```
+/agent-brain-verify
+```
+
+Checks:
+- Package installation
+- API key configuration
+- Server connectivity
+- Provider setup
+
+### `/agent-brain-help`
+
+Show help information.
+
+```
+/agent-brain-help
+/agent-brain-help search
+```
+
+### `/agent-brain-version`
+
+Show version information.
+
+```
+/agent-brain-version
+```
+
+---
+
+## Provider Commands
+
+### `/agent-brain-providers`
+
+List and configure embedding/summarization providers.
+
+```
+/agent-brain-providers
+```
+
+Interactive wizard for selecting:
+- Embedding provider (OpenAI, Ollama, Cohere)
+- Summarization provider (Anthropic, OpenAI, Gemini, Grok, Ollama)
+
+### `/agent-brain-embeddings`
+
+Configure embedding provider specifically.
+
+```
+/agent-brain-embeddings
+/agent-brain-embeddings --provider ollama --model nomic-embed-text
+```
+
+### `/agent-brain-summarizer`
+
+Configure summarization provider specifically.
+
+```
+/agent-brain-summarizer
+/agent-brain-summarizer --provider anthropic --model claude-haiku-4-5-20251001
+```
+
+---
+
+## Intelligent Agents
+
+The plugin includes three agents that handle complex, multi-step tasks autonomously.
+
+### Search Assistant
+
+Performs multi-step searches across different modes and synthesizes answers.
+
+**Triggers:**
+- "Find all references to..."
+- "Search for..."
+- "What files contain..."
+- "Where is... defined"
+
+**Example:**
+```
+You: "Find all references to the authentication module"
+
+Search Assistant:
+1. Searches documentation for auth concepts
+2. Searches code for auth imports and usage
+3. Uses graph mode to find dependencies
+4. Returns comprehensive list with file locations
+```
+
+### Research Assistant
+
+Deep exploration with follow-up queries and cross-referencing.
+
+**Triggers:**
+- "Research how..."
+- "Investigate..."
+- "Analyze the architecture of..."
+- "Explain the design of..."
+
+**Example:**
+```
+You: "Research how error handling is implemented across the codebase"
+
+Research Assistant:
+1. Identifies error handling patterns in docs
+2. Finds exception classes and try/catch blocks
+3. Traces error propagation through call graph
+4. Synthesizes findings with code references
+```
+
+### Setup Assistant
+
+Guided installation, configuration, and troubleshooting.
+
+**Triggers:**
+- "Help me set up Agent Brain"
+- "Configure..."
+- "Why isn't... working"
+- "Troubleshoot..."
+
+**Example:**
+```
+You: "Help me set up Agent Brain with Ollama for local operation"
+
+Setup Assistant:
+1. Checks if Ollama is installed
+2. Verifies embedding model is pulled
+3. Configures provider settings
+4. Tests the configuration
+5. Reports success or guides through fixes
+```
+
+---
+
+## Skills
+
+The plugin includes two skills that provide context-aware assistance.
+
+### using-agent-brain
+
+Provides Claude with knowledge about:
+- Optimal search mode selection
+- Query optimization techniques
+- Result interpretation
+- API usage patterns
+
+**When Active:** Claude automatically selects the best search mode for your query type.
+
+### configuring-agent-brain
+
+Provides Claude with knowledge about:
+- Installation procedures
+- Provider configuration
+- Troubleshooting steps
+- Environment setup
+
+**When Active:** Claude can guide you through setup and resolve configuration issues.
 
 ---
 
 ## Search Modes
 
-Agent Brain supports five search modes, each optimized for different query types:
+| Mode | Command | Best For | Speed |
+|------|---------|----------|-------|
+| HYBRID | `/agent-brain-search` | General questions | Medium |
+| VECTOR | `/agent-brain-semantic` | Conceptual queries | Slow |
+| BM25 | `/agent-brain-keyword` | Exact terms, function names | Fast |
+| GRAPH | `/agent-brain-graph` | Dependencies, relationships | Medium |
+| MULTI | `/agent-brain-multi` | Maximum recall | Slowest |
 
-### BM25 Mode (Keyword)
+### Mode Selection Guide
 
-Best for exact term matching: function names, error codes, technical identifiers.
-
-```bash
-agent-brain query "AuthenticationError" --mode bm25
-agent-brain query "recursiveCharacterTextSplitter" --mode bm25
-```
-
-**Speed**: Fast (10-50ms)
-
-### Vector Mode (Semantic)
-
-Best for conceptual queries and natural language questions.
-
-```bash
-agent-brain query "how does caching improve performance" --mode vector
-agent-brain query "best practices for error handling" --mode vector
-```
-
-**Speed**: Slower (800-1500ms)
-
-### Hybrid Mode (Fusion)
-
-Default mode. Combines BM25 precision with vector semantics.
-
-```bash
-agent-brain query "OAuth implementation guide" --mode hybrid
-agent-brain query "configure database connection" --mode hybrid --alpha 0.6
-```
-
-**Speed**: Slower (1000-1800ms)
-
-**Alpha Parameter**:
-- `alpha=1.0`: Pure vector search
-- `alpha=0.5`: Balanced (default)
-- `alpha=0.0`: Pure BM25 search
-
-### Graph Mode (Relationships)
-
-Best for dependency and relationship queries. Requires GraphRAG enabled.
-
-```bash
-agent-brain query "what calls AuthService" --mode graph
-agent-brain query "classes that extend BaseController" --mode graph
-agent-brain query "modules that import jwt" --mode graph
-```
-
-**Speed**: Medium (500-1200ms)
-
-**Enabling GraphRAG**:
-```bash
-export ENABLE_GRAPH_INDEX=true
-agent-brain start --daemon
-```
-
-### Multi Mode (Comprehensive)
-
-Combines all three methods with Reciprocal Rank Fusion.
-
-```bash
-agent-brain query "complete authentication flow with dependencies" --mode multi
-agent-brain query "full overview of data processing pipeline" --mode multi
-```
-
-**Speed**: Slowest (1500-2500ms)
+| Query Type | Recommended Mode | Example |
+|------------|------------------|---------|
+| "How does X work?" | HYBRID or VECTOR | "how does caching work" |
+| Function/class name | BM25 | "getUserById" |
+| Error message | BM25 | "NullPointerException" |
+| "What calls X?" | GRAPH | "what calls AuthService" |
+| "Everything about X" | MULTI | "everything about validation" |
+| Conceptual question | VECTOR | "explain the architecture" |
 
 ---
 
-## Server Management
+## Provider Configuration
 
-### Multi-Instance Architecture
+### Embedding Providers
 
-Each project runs its own isolated Agent Brain server:
+| Provider | Models | Local | API Key |
+|----------|--------|-------|---------|
+| OpenAI | text-embedding-3-large, text-embedding-3-small | No | OPENAI_API_KEY |
+| Ollama | nomic-embed-text, mxbai-embed-large | Yes | None |
+| Cohere | embed-english-v3.0, embed-multilingual-v3.0 | No | COHERE_API_KEY |
 
+### Summarization Providers
+
+| Provider | Models | Local | API Key |
+|----------|--------|-------|---------|
+| Anthropic | claude-haiku-4-5-20251001, claude-sonnet-4-5-20250514 | No | ANTHROPIC_API_KEY |
+| OpenAI | gpt-5, gpt-5-mini | No | OPENAI_API_KEY |
+| Gemini | gemini-3-flash, gemini-3-pro | No | GOOGLE_API_KEY |
+| Grok | grok-4, grok-4-fast | No | GROK_API_KEY |
+| Ollama | llama4:scout, mistral-small3.2, qwen3-coder | Yes | None |
+
+### Fully Local Mode
+
+Run completely offline with Ollama:
+
+```
+/agent-brain-providers
+# Select Ollama for embeddings
+# Select Ollama for summarization
+```
+
+Required Ollama models:
 ```bash
-# Terminal 1: Project A
-cd /path/to/project-a
-agent-brain start --daemon
-# → Started on port 49321
-
-# Terminal 2: Project B
-cd /path/to/project-b
-agent-brain start --daemon
-# → Started on port 49322
-
-# List all instances
-agent-brain list
-# project-a: http://127.0.0.1:49321 (project mode)
-# project-b: http://127.0.0.1:49322 (project mode)
-```
-
-### Runtime Discovery
-
-Server details are stored in `.claude/agent-brain/runtime.json`:
-
-```json
-{
-  "mode": "project",
-  "port": 49321,
-  "base_url": "http://127.0.0.1:49321",
-  "pid": 12345,
-  "instance_id": "abc123",
-  "project_id": "project-a",
-  "started_at": "2026-01-27T10:30:00Z"
-}
-```
-
-Claude Code reads this file to discover the running server automatically.
-
-### Working from Subdirectories
-
-Agent Brain resolves the project root from any subdirectory:
-
-```bash
-cd /path/to/project-a/src/deep/nested
-agent-brain status
-# → Connects to server for /path/to/project-a
-```
-
-### Graceful Shutdown
-
-```bash
-agent-brain stop
-# → Stops server, cleans up runtime.json
-```
-
----
-
-## Proactive Agents
-
-When the Agent Brain skill is active, Claude Code can proactively use it for relevant tasks:
-
-### Automatic Activation
-
-The skill activates when Claude detects:
-- Questions about documentation or code structure
-- Requests to "search", "find", or "query" knowledge
-- Commands like "agent-brain", "brain search", or "knowledge base search"
-
-### Example Interactions
-
-**User**: "How does authentication work in this project?"
-
-**Claude** (with skill):
-1. Detects documentation query
-2. Runs `agent-brain query "authentication" --mode hybrid`
-3. Synthesizes answer from results
-
-**User**: "What functions call the UserService?"
-
-**Claude** (with skill):
-1. Detects relationship query
-2. Runs `agent-brain query "calls UserService" --mode graph`
-3. Returns list of callers
-
----
-
-## Reference Documentation
-
-The skill includes detailed reference guides:
-
-| Guide | Description | Path |
-|-------|-------------|------|
-| BM25 Search | Keyword matching for technical queries | `references/bm25-search-guide.md` |
-| Vector Search | Semantic similarity for concepts | `references/vector-search-guide.md` |
-| Hybrid Search | Combined keyword and semantic | `references/hybrid-search-guide.md` |
-| Graph Search | Knowledge graph queries | `references/graph-search-guide.md` |
-| Server Discovery | Auto-discovery and multi-agent | `references/server-discovery.md` |
-| Integration Guide | Scripts, Python API, CI/CD | `references/integration-guide.md` |
-| API Reference | REST endpoint documentation | `references/api_reference.md` |
-| Troubleshooting | Common issues and solutions | `references/troubleshooting-guide.md` |
-
----
-
-## Customization
-
-### Environment Variables
-
-Configure Agent Brain behavior via environment variables:
-
-```bash
-# API Keys (required)
-export OPENAI_API_KEY="sk-proj-..."
-export ANTHROPIC_API_KEY="sk-ant-..."
-
-# Server Configuration
-export API_HOST="127.0.0.1"
-export API_PORT="8000"
-export DEBUG="false"
-
-# Embedding Configuration
-export EMBEDDING_MODEL="text-embedding-3-large"
-export EMBEDDING_DIMENSIONS="3072"
-
-# GraphRAG Configuration
-export ENABLE_GRAPH_INDEX="true"
-export GRAPH_STORE_TYPE="simple"
-export GRAPH_TRAVERSAL_DEPTH="2"
-```
-
-### Project Configuration
-
-Customize per-project settings in `.claude/agent-brain/config.json`:
-
-```json
-{
-  "default_mode": "hybrid",
-  "default_top_k": 10,
-  "default_threshold": 0.5,
-  "include_code": true,
-  "languages": ["python", "typescript"],
-  "exclude_patterns": ["node_modules/**", "__pycache__/**"]
-}
-```
-
-### Skill Customization
-
-Modify the skill's behavior in `SKILL.md`:
-
-```yaml
----
-name: using-agent-brain
-description: |
-  Agent Brain document search with...
-license: MIT
-metadata:
-  version: 1.4.0
----
+ollama pull nomic-embed-text
+ollama pull llama4:scout
 ```
 
 ---
@@ -486,8 +498,6 @@ metadata:
 
 ### CI/CD Integration
 
-Use Agent Brain in CI/CD pipelines for documentation validation:
-
 ```yaml
 # .github/workflows/docs-check.yml
 jobs:
@@ -495,122 +505,102 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install Agent Brain
         run: pip install agent-brain-rag agent-brain-cli
-
-      - name: Start Server
-        run: agent-brain start --daemon
-
-      - name: Index Documentation
-        run: agent-brain index ./docs
-
-      - name: Validate Links
+      - name: Start and Index
         run: |
-          agent-brain query "broken link" --mode bm25 --json | \
-          jq '.results | length == 0'
+          agent-brain init
+          agent-brain start --daemon
+          agent-brain index ./docs
+      - name: Validate
+        run: agent-brain status
 ```
 
 ### Python API
 
-Access Agent Brain programmatically:
-
 ```python
 import httpx
-
-# Discover server from runtime.json
 import json
 from pathlib import Path
 
-runtime_path = Path(".claude/agent-brain/runtime.json")
-runtime = json.loads(runtime_path.read_text())
+# Discover server
+runtime = json.loads(Path(".claude/doc-serve/runtime.json").read_text())
 base_url = runtime["base_url"]
 
-# Query documents
+# Query
 async with httpx.AsyncClient() as client:
     response = await client.post(
         f"{base_url}/query",
-        json={
-            "query": "authentication",
-            "mode": "hybrid",
-            "top_k": 5,
-        }
+        json={"query": "authentication", "mode": "hybrid", "top_k": 5}
     )
-    results = response.json()
-    for result in results["results"]:
+    for result in response.json()["results"]:
         print(f"{result['source']}: {result['score']:.2f}")
-```
-
-### Shell Scripts
-
-Automate common workflows:
-
-```bash
-#!/bin/bash
-# index-and-search.sh
-
-# Ensure server is running
-agent-brain status || agent-brain start --daemon
-
-# Index project
-agent-brain index . --include-code
-
-# Search for common issues
-agent-brain query "TODO" --mode bm25 --json | jq '.results[] | .source'
 ```
 
 ---
 
 ## Troubleshooting
 
-### "Server not running"
+### Server Not Running
 
-```bash
-# Check status
-agent-brain status
-
-# If not running, start it
-agent-brain start --daemon
+```
+/agent-brain-status
+# If not running:
+/agent-brain-start
 ```
 
-### "No results found"
+### No Results Found
 
-1. Check indexing: `agent-brain status` should show documents
-2. Lower threshold: `--threshold 0.3`
-3. Try different mode: `--mode bm25` for exact terms
+1. Check document count: `/agent-brain-status`
+2. If 0 documents: `/agent-brain-index ./docs`
+3. Lower threshold: `/agent-brain-search "term" --threshold 0.3`
+4. Try keyword search: `/agent-brain-keyword "exact term"`
 
-### "GraphRAG not enabled"
+### GraphRAG Not Working
 
-```bash
-# Enable GraphRAG
-export ENABLE_GRAPH_INDEX=true
+GraphRAG requires explicit enablement:
 
-# Restart server
-agent-brain stop
-agent-brain start --daemon
-
-# Re-index
-agent-brain index /path/to/project
+```
+/agent-brain-config --set enable_graph_index=true
+/agent-brain-stop
+/agent-brain-start
+/agent-brain-index . --include-code
 ```
 
-### "Port already in use"
+### Provider Errors
 
-```bash
-# List running instances
-agent-brain list
-
-# Stop existing instance
-agent-brain stop
-
-# Start with auto-port
-agent-brain start --daemon --port 0
 ```
+/agent-brain-verify
+/agent-brain-providers
+```
+
+Verify API keys are set correctly for your selected provider.
+
+### Reset Everything
+
+```
+/agent-brain-reset
+/agent-brain-init
+/agent-brain-start
+/agent-brain-index . --include-code
+```
+
+---
+
+## Reference Documentation
+
+| Guide | Description |
+|-------|-------------|
+| [API Reference](API_REFERENCE.md) | REST API documentation |
+| [GraphRAG Guide](GRAPHRAG_GUIDE.md) | Knowledge graph features |
+| [Code Indexing](CODE_INDEXING.md) | AST-aware chunking |
+| [Architecture](ARCHITECTURE.md) | System design |
+| [Provider Configuration](../agent-brain-plugin/skills/using-agent-brain/references/provider-configuration.md) | Provider setup |
 
 ---
 
 ## Next Steps
 
-- [Architecture Overview](ARCHITECTURE.md) - System design and components
-- [GraphRAG Integration](GRAPHRAG_GUIDE.md) - Knowledge graph features
-- [Code Indexing](CODE_INDEXING.md) - AST-aware chunking
-- [API Reference](API_REFERENCE.md) - REST API documentation
+- [Quick Start](QUICK_START.md) - Get running in minutes
+- [User Guide](USER_GUIDE.md) - Detailed usage patterns
+- [Developer Guide](DEVELOPERS_GUIDE.md) - Contributing to Agent Brain

@@ -59,8 +59,8 @@ class TestServerCLI:
             result.exit_code == 0
         ), f"--version should exit with 0, got {result.exit_code}"
         assert (
-            "1.2.0" in result.output
-        ), f"Should show version 1.2.0, got: {result.output}"
+            "2.0.0" in result.output
+        ), f"Should show version 2.0.0, got: {result.output}"
 
 
 class TestServerEntryPoint:
@@ -86,7 +86,7 @@ class TestServerEntryPoint:
 
         assert __version__ is not None
         assert isinstance(__version__, str)
-        assert __version__ == "1.2.0"
+        assert __version__ == "2.0.0"
 
 
 class TestServerApp:
@@ -102,7 +102,7 @@ class TestServerApp:
         """Verify app has version."""
         from agent_brain_server.api.main import app
 
-        assert app.version == "1.2.0"
+        assert app.version == "2.0.0"
 
     def test_app_has_docs_url(self):
         """Verify docs URL is configured."""
