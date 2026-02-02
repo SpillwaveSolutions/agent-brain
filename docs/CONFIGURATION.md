@@ -98,14 +98,14 @@ export EMBEDDING_DIMENSIONS="1536"
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | (optional) | Anthropic API key |
-| `CLAUDE_MODEL` | `claude-3-5-haiku-20241022` | Claude model for summaries |
+| `CLAUDE_MODEL` | `claude-haiku-4-5-20251001` | Claude model for summaries |
 
 **Examples**:
 
 ```bash
 # Optional: Enable LLM summaries and GraphRAG extraction
 export ANTHROPIC_API_KEY="sk-ant-..."
-export CLAUDE_MODEL="claude-3-5-haiku-20241022"
+export CLAUDE_MODEL="claude-haiku-4-5-20251001"
 ```
 
 ---

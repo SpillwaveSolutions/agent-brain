@@ -409,7 +409,7 @@ loop For each language (python, typescript, etc.)
                     SE -> Claude : Summarize code chunk
                     activate Claude
                     note right of Claude
-                        Model: claude-3-5-haiku
+                        Model: claude-haiku-4-5
                         Prompt: "Summarize this code..."
                     end note
                     Claude --> SE : summary text
@@ -639,7 +639,7 @@ loop For each document chunk
         LLM -> Claude : Extract entities and relationships
         activate Claude
         note right of Claude
-            Model: claude-3-5-haiku
+            Model: claude-haiku-4-5
             Prompt: "Extract knowledge graph
             triplets from this text.
             Return as JSON:

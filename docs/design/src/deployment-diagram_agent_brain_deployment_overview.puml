@@ -23,7 +23,7 @@ cloud "External Services" {
 
     node "Anthropic API" <<external>> as anthropic {
         component [Claude API] as claude_api
-        component [claude-3-5-haiku] as haiku_model
+        component [claude-haiku-4-5] as haiku_model
     }
 }
 
