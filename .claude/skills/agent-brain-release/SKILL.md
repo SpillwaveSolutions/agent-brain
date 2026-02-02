@@ -2,6 +2,79 @@
 
 Automates the release process for Agent Brain packages, including version bumping, changelog generation, git tagging, and GitHub release creation.
 
+## Current Version
+
+**Latest Release**: v2.0.0
+
+## Package Installation
+
+Agent Brain consists of two PyPI packages that work together:
+
+### Basic Installation
+
+```bash
+# Install both packages
+pip install agent-brain-rag agent-brain-cli
+
+# Or install specific version
+pip install agent-brain-rag==2.0.0 agent-brain-cli==2.0.0
+```
+
+### With Optional Features
+
+```bash
+# With GraphRAG support (knowledge graph retrieval)
+pip install agent-brain-rag[graphrag]==2.0.0
+
+# With all optional features
+pip install agent-brain-rag[graphrag-all]==2.0.0
+```
+
+### Package Details
+
+| Package | Description | PyPI |
+|---------|-------------|------|
+| `agent-brain-rag` | RAG server with FastAPI, embeddings, and search | [PyPI](https://pypi.org/project/agent-brain-rag/) |
+| `agent-brain-cli` | CLI tool for managing Agent Brain instances | [PyPI](https://pypi.org/project/agent-brain-cli/) |
+
+## Quick Start After Installation
+
+### 1. Set Environment Variables
+
+```bash
+export OPENAI_API_KEY=your-openai-key
+export ANTHROPIC_API_KEY=your-anthropic-key
+```
+
+### 2. Start the Server
+
+```bash
+# Using CLI (recommended)
+agent-brain init          # Initialize project config
+agent-brain start         # Start server for current project
+
+# Or run server directly
+agent-brain-serve         # Start on http://127.0.0.1:8000
+```
+
+### 3. Index Documents
+
+```bash
+agent-brain index ./docs ./src    # Index documentation and source code
+```
+
+### 4. Query Your Knowledge Base
+
+```bash
+agent-brain query "How does authentication work?"
+```
+
+### 5. Stop the Server
+
+```bash
+agent-brain stop
+```
+
 ## Trigger Patterns
 
 - `/agent-brain-release <bump>` - Create a release with specified version bump
@@ -9,9 +82,9 @@ Automates the release process for Agent Brain packages, including version bumpin
 
 Where `<bump>` is one of:
 
-- `major` - Breaking changes (1.2.0 → 2.0.0)
-- `minor` - New features (1.2.0 → 1.3.0)
-- `patch` - Bug fixes (1.2.0 → 1.2.1)
+- `major` - Breaking changes (2.0.0 → 3.0.0)
+- `minor` - New features (2.0.0 → 2.1.0)
+- `patch` - Bug fixes (2.0.0 → 2.0.1)
 
 ## Process Overview
 
@@ -58,8 +131,8 @@ Use `--dry-run` to preview all changes without executing:
 /agent-brain-release minor --dry-run
 
 [DRY RUN] Would perform the following actions:
-  Current version: 1.2.0
-  New version: 1.3.0
+  Current version: 2.0.0
+  New version: 2.1.0
 
   Files to update:
     - agent-brain-server/pyproject.toml
@@ -67,7 +140,7 @@ Use `--dry-run` to preview all changes without executing:
     - agent-brain-cli/pyproject.toml
     - agent-brain-cli/agent_brain_cli/__init__.py
 
-  Commits since v1.2.0: 15
+  Commits since v2.0.0: 15
 
   No changes made.
 ```
@@ -183,6 +256,7 @@ Agent Brain (formerly doc-serve) provides intelligent document indexing and sema
 - **Keyword Search (BM25)**: Traditional keyword matching with TF-IDF
 - **GraphRAG**: Knowledge graph retrieval for relationship-aware queries
 - **Hybrid Search**: Best of vector + keyword approaches
+- **Pluggable Providers**: Choose your embedding and summarization providers
 
 ## PyPI Packages
 
@@ -192,6 +266,9 @@ Agent Brain (formerly doc-serve) provides intelligent document indexing and sema
 ## Installation
 
 pip install agent-brain-rag==X.Y.Z agent-brain-cli==X.Y.Z
+
+# With GraphRAG support
+pip install agent-brain-rag[graphrag]==X.Y.Z
 
 ## Documentation
 
@@ -212,6 +289,7 @@ After creating a release, remind the user to:
    - <https://pypi.org/project/agent-brain-cli/>
 3. **Update Wiki**: If API changes were made, update documentation at:
    - <https://github.com/SpillwaveSolutions/agent-brain/wiki>
+4. **Announce**: Post release announcement if significant changes
 
 ## Error Handling
 
