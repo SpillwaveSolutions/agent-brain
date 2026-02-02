@@ -139,7 +139,7 @@ doc-serve/
 | `OPENAI_API_KEY` | Yes | - | OpenAI API key for embeddings |
 | `ANTHROPIC_API_KEY` | Yes | - | Anthropic API key for summarization |
 | `EMBEDDING_MODEL` | No | `text-embedding-3-large` | OpenAI embedding model |
-| `CLAUDE_MODEL` | No | `claude-3-5-haiku-20241022` | Claude summarization model |
+| `CLAUDE_MODEL` | No | `claude-haiku-4-5-20251001` | Claude summarization model |
 | `API_HOST` | No | `127.0.0.1` | Server host |
 | `API_PORT` | No | `8000` | Server port |
 | `DEBUG` | No | `false` | Debug mode |

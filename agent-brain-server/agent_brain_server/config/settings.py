@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # Anthropic Configuration
     ANTHROPIC_API_KEY: str = ""
-    CLAUDE_MODEL: str = "claude-3-5-haiku-20241022"  # Claude 3.5 Haiku (latest)
+    CLAUDE_MODEL: str = "claude-haiku-4-5-20251001"  # Claude 4.5 Haiku (latest)
 
     # Chroma Configuration
     CHROMA_PERSIST_DIR: str = "./chroma_db"

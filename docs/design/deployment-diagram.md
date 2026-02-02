@@ -30,7 +30,7 @@ cloud "External Services" {
 
     node "Anthropic API" <<external>> as anthropic {
         component [Claude API] as claude_api
-        component [claude-3-5-haiku] as haiku_model
+        component [claude-haiku-4-5] as haiku_model
     }
 }
 
@@ -461,7 +461,7 @@ rectangle "Configuration Categories" {
         component [OPENAI_API_KEY] as openai_key
         component [ANTHROPIC_API_KEY] as anthropic_key
         component [EMBEDDING_MODEL:\ntext-embedding-3-large] as embed_model
-        component [CLAUDE_MODEL:\nclaude-3-5-haiku] as claude_model
+        component [CLAUDE_MODEL:\nclaude-haiku-4-5] as claude_model
     }
 
     frame "Storage Paths" {
@@ -504,7 +504,7 @@ end note
 | `API_PORT` | No | `8000` | Server port (0 = auto-assign) |
 | `DEBUG` | No | `false` | Enable debug logging |
 | `EMBEDDING_MODEL` | No | `text-embedding-3-large` | OpenAI embedding model |
-| `CLAUDE_MODEL` | No | `claude-3-5-haiku-20241022` | Claude model for summaries |
+| `CLAUDE_MODEL` | No | `claude-haiku-4-5-20251001` | Claude model for summaries |
 | `CHROMA_PERSIST_DIR` | No | `./chroma_db` | ChromaDB storage path |
 | `BM25_INDEX_PATH` | No | `./bm25_index` | BM25 index storage path |
 | `ENABLE_GRAPH_INDEX` | No | `false` | Enable GraphRAG feature |

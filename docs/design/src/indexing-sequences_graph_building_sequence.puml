@@ -98,7 +98,7 @@ loop For each document chunk
         LLM -> Claude : Extract entities and relationships
         activate Claude
         note right of Claude
-            Model: claude-3-5-haiku
+            Model: claude-haiku-4-5
             Prompt: "Extract knowledge graph
             triplets from this text.
             Return as JSON:

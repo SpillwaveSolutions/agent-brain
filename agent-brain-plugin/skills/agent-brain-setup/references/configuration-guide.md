@@ -75,7 +75,7 @@ echo "Anthropic key: ${ANTHROPIC_API_KEY:+CONFIGURED}"
 | `DOC_SERVE_STATE_DIR` | No | `.claude/agent-brain` | State directory path |
 | `DOC_SERVE_MODE` | No | `project` | Instance mode: `project` or `shared` |
 | `EMBEDDING_MODEL` | No | `text-embedding-3-large` | OpenAI embedding model |
-| `CLAUDE_MODEL` | No | `claude-3-5-haiku-20241022` | Claude model for summaries |
+| `CLAUDE_MODEL` | `claude-haiku-4-5-20251001` | Claude model for summaries |
 | `API_HOST` | No | `127.0.0.1` | Server bind address |
 | `API_PORT` | No | `8000` | Server port (legacy mode) |
 | `DEBUG` | No | `false` | Enable debug logging |

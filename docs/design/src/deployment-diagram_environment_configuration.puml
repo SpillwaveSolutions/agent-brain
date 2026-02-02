@@ -42,7 +42,7 @@ rectangle "Configuration Categories" {
         component [OPENAI_API_KEY] as openai_key
         component [ANTHROPIC_API_KEY] as anthropic_key
         component [EMBEDDING_MODEL:\ntext-embedding-3-large] as embed_model
-        component [CLAUDE_MODEL:\nclaude-3-5-haiku] as claude_model
+        component [CLAUDE_MODEL:\nclaude-haiku-4-5] as claude_model
     }
 
     frame "Storage Paths" {
