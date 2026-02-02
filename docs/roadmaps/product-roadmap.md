@@ -1,7 +1,7 @@
 # Agent Brain Product Roadmap
 
-**Version:** 1.1.0
-**Last Updated:** 2026-01-28
+**Version:** 1.2.0
+**Last Updated:** 2026-02-01
 **Status:** Active
 
 ---
@@ -27,7 +27,10 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 | 3 | Source Code Ingestion | 101 | COMPLETED   | P2 | HTTP |
 | 3.1 | Multi-Instance Architecture | 109 | COMPLETED   | P1 | HTTP |
 | 3.2 | C# Code Indexing | 110 | COMPLETED   | P2 | HTTP |
-| 3.3 | Skill Instance Discovery | 111 | IN-PROGRESS | P2 | HTTP |
+| 3.3 | Skill Instance Discovery | 111 | COMPLETED   | P2 | HTTP |
+| 3.4 | Agent Brain Naming | 112 | COMPLETED   | P1 | HTTP |
+| 3.5 | GraphRAG Integration | 113 | COMPLETED   | P2 | HTTP |
+| 3.6 | Agent Brain Plugin | 114 | COMPLETED   | P2 | HTTP |
 | 4 | UDS & Claude Plugin Evolution | 102 | Future      | P3 | HTTP + UDS |
 | 5 | Pluggable Model Providers | 103 | Next        | P3 | HTTP + UDS |
 | 6 | PostgreSQL/AlloyDB Backend | 104 | Future      | P4 | HTTP + UDS |
@@ -229,6 +232,108 @@ Update the Agent Brain Claude Code skill to leverage multi-instance architecture
 - Zero-configuration skill usage
 - No manual server management required
 - Seamless multi-agent workflows
+
+---
+
+## Phase 3.4: Agent Brain Naming
+
+**Status:** COMPLETED
+**Spec Directory:** `.speckit/features/112-agent-brain-naming/`
+**Transport:** HTTP
+
+### Scope
+
+Unify branding across all packages from "doc-serve" to "agent-brain" for consistent identity and discoverability.
+
+### Key Features
+
+- **Package Renaming:** `doc-serve-rag` → `agent-brain-rag`, `doc-serve-cli` → `agent-brain-cli`
+- **Command Renaming:** `doc-serve` CLI → `agent-brain` CLI
+- **Backward Compatibility:** Legacy aliases maintained for transition period
+- **Documentation Updates:** All references updated to new naming
+
+### Benefits
+
+- Consistent branding across ecosystem
+- Improved discoverability
+- Better alignment with AI agent workflows
+
+---
+
+## Phase 3.5: GraphRAG Integration
+
+**Status:** COMPLETED
+**Spec Directory:** `.speckit/features/113-graphrag-integration/`
+**Transport:** HTTP
+
+### Scope
+
+Add knowledge graph extraction alongside vector search for enhanced entity-centric retrieval and relationship queries.
+
+### Key Features
+
+- **Entity Extraction:** Named entities, concepts, and relationships extracted from documents
+- **Property Graph Store:** LlamaIndex PropertyGraphStore with configurable backends
+- **Graph-Enhanced Retrieval:** Entity disambiguation and relationship traversal
+- **Hybrid Mode:** Combines graph context with vector similarity for richer results
+- **Query Modes:** `vector`, `graph`, `hybrid` (default)
+
+### API Changes
+
+```
+POST /query
+{
+  "query": "search text",
+  "mode": "hybrid",    // "vector" | "graph" | "hybrid"
+  "include_graph": true,
+  "top_k": 10
+}
+```
+
+### Benefits
+
+- Better handling of entity-centric queries
+- Relationship discovery across documents
+- Improved context for complex questions
+
+---
+
+## Phase 3.6: Agent Brain Plugin
+
+**Status:** COMPLETED
+**Spec Directory:** `.speckit/features/114-agent-brain-plugin/`
+**Transport:** HTTP
+
+### Scope
+
+Claude Code plugin providing commands, agents, and skills for seamless Agent Brain integration within Claude Code workflows.
+
+### Key Features
+
+- **Slash Commands:**
+  - `/agent-brain:search` - Semantic search across indexed content
+  - `/agent-brain:status` - Check server status and document count
+  - `/agent-brain:index` - Index documents or code
+- **Specialized Agents:**
+  - `agent-brain-researcher` - Multi-step research with citations
+  - `agent-brain-indexer` - Automated indexing workflows
+- **Skill Integration:** Updated skill with auto-discovery and lifecycle management
+
+### Installation
+
+```bash
+# Install plugin
+claude plugins add agent-brain-plugin
+
+# Or from local path
+claude plugins add ./agent-brain-plugin
+```
+
+### Benefits
+
+- Native Claude Code integration
+- Autonomous research capabilities
+- Simplified server lifecycle management
 
 ---
 

@@ -1,13 +1,23 @@
-"""Embedding generation using OpenAI's text-embedding models."""
+"""Embedding generation using pluggable providers.
+
+This module provides embedding and summarization functionality using
+the configurable provider system. Providers are selected based on
+config.yaml or environment defaults.
+"""
 
 import logging
+import re
 from collections.abc import Awaitable, Callable
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from anthropic import AsyncAnthropic
-from openai import AsyncOpenAI
+from agent_brain_server.config.provider_config import load_provider_settings
+from agent_brain_server.providers.factory import ProviderRegistry
 
-from agent_brain_server.config import settings
+if TYPE_CHECKING:
+    from agent_brain_server.providers.base import (
+        EmbeddingProvider,
+        SummarizationProvider,
+    )
 
 from .chunking import TextChunk
 
@@ -15,54 +25,68 @@ logger = logging.getLogger(__name__)
 
 
 class EmbeddingGenerator:
-    """
-    Generates embeddings using OpenAI's embedding models.
+    """Generates embeddings and summaries using pluggable providers.
 
     Supports batch processing with configurable batch sizes
-    and automatic retry on rate limits.
+    and automatic provider selection based on configuration.
     """
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        model: Optional[str] = None,
-        batch_size: Optional[int] = None,
+        embedding_provider: Optional["EmbeddingProvider"] = None,
+        summarization_provider: Optional["SummarizationProvider"] = None,
     ):
-        """
-        Initialize the embedding generator.
+        """Initialize the embedding generator.
 
         Args:
-            api_key: OpenAI API key. Defaults to config value.
-            model: Embedding model name. Defaults to config value.
-            batch_size: Number of texts to embed per API call. Defaults to 100.
+            embedding_provider: Optional embedding provider. If not provided,
+                creates one from configuration.
+            summarization_provider: Optional summarization provider. If not
+                provided, creates one from configuration.
         """
-        self.model = model or settings.EMBEDDING_MODEL
-        self.batch_size = batch_size or settings.EMBEDDING_BATCH_SIZE
+        # Load configuration
+        settings = load_provider_settings()
 
-        # Initialize OpenAI async client
-        self.client = AsyncOpenAI(
-            api_key=api_key or settings.OPENAI_API_KEY,
+        # Initialize providers from config or use provided ones
+        if embedding_provider is not None:
+            self._embedding_provider = embedding_provider
+        else:
+            self._embedding_provider = ProviderRegistry.get_embedding_provider(
+                settings.embedding
+            )
+
+        if summarization_provider is not None:
+            self._summarization_provider = summarization_provider
+        else:
+            self._summarization_provider = ProviderRegistry.get_summarization_provider(
+                settings.summarization
+            )
+
+        logger.info(
+            f"EmbeddingGenerator initialized with "
+            f"{self._embedding_provider.provider_name} embeddings "
+            f"({self._embedding_provider.model_name}) and "
+            f"{self._summarization_provider.provider_name} summarization "
+            f"({self._summarization_provider.model_name})"
         )
 
-        # Initialize Anthropic client for summarization
-        self.anthropic_client = AsyncAnthropic(
-            api_key=settings.ANTHROPIC_API_KEY,
-        )
+    @property
+    def model(self) -> str:
+        """Get the embedding model name."""
+        return self._embedding_provider.model_name
 
-        # Initialize prompt template
-        self.summary_prompt_template = (
-            "You are an expert software engineer analyzing source code. "
-            "Provide a concise 1-2 sentence summary of what this code does. "
-            "Focus on the functionality, purpose, and behavior. "
-            "Be specific about inputs, outputs, and side effects. "
-            "Ignore implementation details and focus on what the code accomplishes.\n\n"
-            "Code to summarize:\n{context_str}\n\n"
-            "Summary:"
-        )
+    @property
+    def embedding_provider(self) -> "EmbeddingProvider":
+        """Get the embedding provider."""
+        return self._embedding_provider
+
+    @property
+    def summarization_provider(self) -> "SummarizationProvider":
+        """Get the summarization provider."""
+        return self._summarization_provider
 
     async def embed_text(self, text: str) -> list[float]:
-        """
-        Generate embedding for a single text.
+        """Generate embedding for a single text.
 
         Args:
             text: Text to embed.
@@ -70,19 +94,14 @@ class EmbeddingGenerator:
         Returns:
             Embedding vector as list of floats.
         """
-        response = await self.client.embeddings.create(
-            model=self.model,
-            input=text,
-        )
-        return response.data[0].embedding
+        return await self._embedding_provider.embed_text(text)
 
     async def embed_texts(
         self,
         texts: list[str],
         progress_callback: Optional[Callable[[int, int], Awaitable[None]]] = None,
     ) -> list[list[float]]:
-        """
-        Generate embeddings for multiple texts.
+        """Generate embeddings for multiple texts.
 
         Args:
             texts: List of texts to embed.
@@ -91,49 +110,14 @@ class EmbeddingGenerator:
         Returns:
             List of embedding vectors.
         """
-        if not texts:
-            return []
-
-        all_embeddings: list[list[float]] = []
-
-        # Process in batches to respect API limits
-        for i in range(0, len(texts), self.batch_size):
-            batch = texts[i : i + self.batch_size]
-
-            try:
-                response = await self.client.embeddings.create(
-                    model=self.model,
-                    input=batch,
-                )
-
-                # Extract embeddings in order
-                batch_embeddings = [item.embedding for item in response.data]
-                all_embeddings.extend(batch_embeddings)
-
-                if progress_callback:
-                    await progress_callback(
-                        min(i + self.batch_size, len(texts)),
-                        len(texts),
-                    )
-
-                logger.debug(
-                    f"Generated embeddings for batch {i // self.batch_size + 1} "
-                    f"({len(batch)} texts)"
-                )
-
-            except Exception as e:
-                logger.error(f"Failed to generate embeddings for batch: {e}")
-                raise
-
-        return all_embeddings
+        return await self._embedding_provider.embed_texts(texts, progress_callback)
 
     async def embed_chunks(
         self,
         chunks: list[TextChunk],
         progress_callback: Optional[Callable[[int, int], Awaitable[None]]] = None,
     ) -> list[list[float]]:
-        """
-        Generate embeddings for a list of text chunks.
+        """Generate embeddings for a list of text chunks.
 
         Args:
             chunks: List of TextChunk objects.
@@ -146,8 +130,7 @@ class EmbeddingGenerator:
         return await self.embed_texts(texts, progress_callback)
 
     async def embed_query(self, query: str) -> list[float]:
-        """
-        Generate embedding for a search query.
+        """Generate embedding for a search query.
 
         This is a convenience wrapper around embed_text for queries.
 
@@ -160,41 +143,15 @@ class EmbeddingGenerator:
         return await self.embed_text(query)
 
     def get_embedding_dimensions(self) -> int:
-        """
-        Get the expected embedding dimensions for the current model.
+        """Get the expected embedding dimensions for the current model.
 
         Returns:
             Number of dimensions in the embedding vector.
         """
-        # Known dimensions for OpenAI models
-        model_dimensions = {
-            "text-embedding-3-large": 3072,
-            "text-embedding-3-small": 1536,
-            "text-embedding-ada-002": 1536,
-        }
-        return model_dimensions.get(self.model, settings.EMBEDDING_DIMENSIONS)
-
-    def _get_summary_prompt_template(self) -> str:
-        """
-        Get the prompt template for code summarization.
-
-        Returns:
-            Prompt template string.
-        """
-        template = (
-            "You are an expert software engineer analyzing source code. "
-            "Provide a concise 1-2 sentence summary of what this code does. "
-            "Focus on the functionality, purpose, and behavior. "
-            "Be specific about inputs, outputs, and side effects. "
-            "Ignore implementation details and focus on what the code accomplishes.\n\n"
-            "Code to summarize:\n{context_str}\n\n"
-            "Summary:"
-        )
-        return template
+        return self._embedding_provider.get_dimensions()
 
     async def generate_summary(self, code_text: str) -> str:
-        """
-        Generate a natural language summary of code using Claude.
+        """Generate a natural language summary of code.
 
         Args:
             code_text: The source code to summarize.
@@ -203,33 +160,23 @@ class EmbeddingGenerator:
             Natural language summary of the code's functionality.
         """
         try:
-            # Use Claude directly with custom prompt
-            prompt = self.summary_prompt_template.format(context_str=code_text)
+            summary = await self._summarization_provider.summarize(code_text)
 
-            response = await self.anthropic_client.messages.create(
-                model=settings.CLAUDE_MODEL,
-                max_tokens=300,
-                temperature=0.1,  # Low temperature for consistent summaries
-                messages=[{"role": "user", "content": prompt}],
-            )
-
-            # Extract text from Claude response
-            summary = response.content[0].text  # type: ignore
-
-            if summary and len(summary) > 10:  # Ensure we got a meaningful summary
+            if summary and len(summary) > 10:
                 return summary
             else:
-                logger.warning("Claude returned empty or too short summary")
+                logger.warning(
+                    f"{self._summarization_provider.provider_name} "
+                    "returned empty or too short summary"
+                )
                 return self._extract_fallback_summary(code_text)
 
         except Exception as e:
             logger.error(f"Failed to generate code summary: {e}")
-            # Fallback: try to extract from docstrings/comments
             return self._extract_fallback_summary(code_text)
 
     def _extract_fallback_summary(self, code_text: str) -> str:
-        """
-        Extract summary from docstrings or comments as fallback.
+        """Extract summary from docstrings or comments as fallback.
 
         Args:
             code_text: Source code to analyze.
@@ -237,13 +184,11 @@ class EmbeddingGenerator:
         Returns:
             Extracted summary or empty string.
         """
-        import re
-
         # Try to find Python docstrings
         docstring_match = re.search(r'""".*?"""', code_text, re.DOTALL)
         if docstring_match:
-            docstring = docstring_match.group(0)[3:-3]  # Remove leading/trailing """
-            if len(docstring) > 10:  # Only use if substantial
+            docstring = docstring_match.group(0)[3:-3]
+            if len(docstring) > 10:
                 return docstring[:200] + "..." if len(docstring) > 200 else docstring
 
         # Try to find function/class comments
@@ -259,7 +204,7 @@ class EmbeddingGenerator:
         if first_line.startswith(("#", "//", "/*")):
             return first_line.lstrip("#/*").strip()
 
-        return ""  # No summary available
+        return ""
 
 
 # Singleton instance
@@ -272,3 +217,9 @@ def get_embedding_generator() -> EmbeddingGenerator:
     if _embedding_generator is None:
         _embedding_generator = EmbeddingGenerator()
     return _embedding_generator
+
+
+def reset_embedding_generator() -> None:
+    """Reset the global embedding generator (for testing)."""
+    global _embedding_generator
+    _embedding_generator = None

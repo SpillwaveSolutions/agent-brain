@@ -22,6 +22,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from agent_brain_server import __version__
 from agent_brain_server.config import settings
+from agent_brain_server.config.provider_config import (
+    load_provider_settings,
+    validate_provider_config,
+)
 from agent_brain_server.indexing.bm25_index import BM25IndexManager
 from agent_brain_server.locking import (
     acquire_lock,
@@ -65,6 +69,30 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     global _runtime_state, _state_dir
 
     logger.info("Starting Agent Brain RAG server...")
+
+    # Load and validate provider configuration
+    try:
+        provider_settings = load_provider_settings()
+        validation_errors = validate_provider_config(provider_settings)
+
+        if validation_errors:
+            for error in validation_errors:
+                logger.warning(f"Provider config warning: {error}")
+            # Log but don't fail - providers may work if keys are set later
+            # or if using Ollama which doesn't need keys
+
+        # Log active provider configuration
+        logger.info(
+            f"Embedding provider: {provider_settings.embedding.provider} "
+            f"(model: {provider_settings.embedding.model})"
+        )
+        logger.info(
+            f"Summarization provider: {provider_settings.summarization.provider} "
+            f"(model: {provider_settings.summarization.model})"
+        )
+    except Exception as e:
+        logger.error(f"Failed to load provider configuration: {e}")
+        # Continue with defaults - EmbeddingGenerator will handle provider creation
 
     if settings.OPENAI_API_KEY:
         os.environ["OPENAI_API_KEY"] = settings.OPENAI_API_KEY
