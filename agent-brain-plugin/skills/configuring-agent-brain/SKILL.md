@@ -139,7 +139,7 @@ Best for privacy, air-gapped environments:
 export EMBEDDING_PROVIDER=ollama
 export EMBEDDING_MODEL=nomic-embed-text
 export SUMMARIZATION_PROVIDER=ollama
-export SUMMARIZATION_MODEL=llama3.2
+export SUMMARIZATION_MODEL=llama4:scout
 export OLLAMA_BASE_URL=http://localhost:11434
 ```
 
@@ -151,7 +151,7 @@ export OLLAMA_BASE_URL=http://localhost:11434
 export EMBEDDING_PROVIDER=openai
 export EMBEDDING_MODEL=text-embedding-3-large
 export SUMMARIZATION_PROVIDER=anthropic
-export SUMMARIZATION_MODEL=claude-3-5-haiku
+export SUMMARIZATION_MODEL=claude-haiku-4-5-20251001
 export OPENAI_API_KEY="sk-proj-..."
 export ANTHROPIC_API_KEY="sk-ant-..."
 ```
@@ -162,7 +162,7 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 export EMBEDDING_PROVIDER=openai
 export EMBEDDING_MODEL=text-embedding-3-large
 export SUMMARIZATION_PROVIDER=ollama
-export SUMMARIZATION_MODEL=llama3.2
+export SUMMARIZATION_MODEL=llama4:scout
 export OPENAI_API_KEY="sk-proj-..."
 ```
 
@@ -351,7 +351,7 @@ agent-brain index ./docs
 | `EMBEDDING_PROVIDER` | No | `openai` | Provider: openai, cohere, ollama |
 | `EMBEDDING_MODEL` | No | `text-embedding-3-large` | Model name |
 | `SUMMARIZATION_PROVIDER` | No | `anthropic` | Provider: anthropic, openai, gemini, grok, ollama |
-| `SUMMARIZATION_MODEL` | No | `claude-3-5-haiku` | Model name |
+| `SUMMARIZATION_MODEL` | No | `claude-haiku-4-5-20251001` | Model name |
 | `OPENAI_API_KEY` | Conditional | - | Required if using OpenAI |
 | `ANTHROPIC_API_KEY` | Conditional | - | Required if using Anthropic |
 | `OLLAMA_BASE_URL` | Conditional | `http://localhost:11434` | Ollama server URL |

@@ -44,11 +44,11 @@ echo "2. Cohere (embed-english-v3.0, embed-multilingual-v3.0)"
 echo "3. Ollama (nomic-embed-text, mxbai-embed-large) - Local"
 echo ""
 echo "=== Summarization Providers ==="
-echo "1. Anthropic (claude-3-5-haiku, claude-sonnet-4)"
-echo "2. OpenAI (gpt-4o, gpt-4o-mini)"
-echo "3. Gemini (gemini-1.5-flash, gemini-1.5-pro)"
-echo "4. Grok (grok-beta)"
-echo "5. Ollama (llama3.2, mistral, codellama) - Local"
+echo "1. Anthropic (claude-haiku-4-5-20251001, claude-sonnet-4-5-20250514)"
+echo "2. OpenAI (gpt-5, gpt-5-mini)"
+echo "3. Gemini (gemini-3-flash, gemini-3-pro)"
+echo "4. Grok (grok-4)"
+echo "5. Ollama (llama4:scout, mistral-small3.2, qwen3-coder) - Local"
 ```
 
 ### Show Current Configuration
@@ -58,7 +58,7 @@ echo "5. Ollama (llama3.2, mistral, codellama) - Local"
 echo "Current Embedding Provider: ${EMBEDDING_PROVIDER:-openai}"
 echo "Current Embedding Model: ${EMBEDDING_MODEL:-text-embedding-3-large}"
 echo "Current Summarization Provider: ${SUMMARIZATION_PROVIDER:-anthropic}"
-echo "Current Summarization Model: ${SUMMARIZATION_MODEL:-claude-3-5-haiku}"
+echo "Current Summarization Model: ${SUMMARIZATION_MODEL:-claude-haiku-4-5-20251001}"
 ```
 
 ### Interactive Provider Switch
@@ -90,11 +90,11 @@ Options:
 Which summarization provider would you like to use?
 
 Options:
-1. Anthropic (claude-3-5-haiku) - High quality
-2. OpenAI (gpt-4o-mini) - Fast, cost-effective
-3. Gemini (gemini-1.5-flash) - Google's model
-4. Grok (grok-beta) - xAI's model
-5. Ollama (llama3.2) - Local, no API key required
+1. Anthropic (claude-haiku-4-5-20251001) - High quality
+2. OpenAI (gpt-5-mini) - Fast, cost-effective
+3. Gemini (gemini-3-flash) - Google's model
+4. Grok (grok-4) - xAI's model
+5. Ollama (llama4:scout) - Local, no API key required
 ```
 
 **Step 4: Generate configuration**
@@ -124,13 +124,13 @@ Ollama      | nomic-embed-text, mxbai-embed-large | None (local)
 
 === Summarization Providers ===
 
-Provider    | Models                              | API Key Required
-------------|-------------------------------------|------------------
-Anthropic   | claude-3-5-haiku, claude-sonnet-4   | ANTHROPIC_API_KEY
-OpenAI      | gpt-4o, gpt-4o-mini                 | OPENAI_API_KEY
-Gemini      | gemini-1.5-flash, gemini-1.5-pro    | GOOGLE_API_KEY
-Grok        | grok-beta                           | XAI_API_KEY
-Ollama      | llama3.2, mistral, codellama        | None (local)
+Provider    | Models                                       | API Key Required
+------------|----------------------------------------------|------------------
+Anthropic   | claude-haiku-4-5-20251001, claude-sonnet-4-5-20250514 | ANTHROPIC_API_KEY
+OpenAI      | gpt-5, gpt-5-mini                            | OPENAI_API_KEY
+Gemini      | gemini-3-flash, gemini-3-pro                 | GOOGLE_API_KEY
+Grok        | grok-4                                       | XAI_API_KEY
+Ollama      | llama4:scout, mistral-small3.2, qwen3-coder  | None (local)
 ```
 
 ### Current Configuration Output
@@ -145,7 +145,7 @@ Embedding:
 
 Summarization:
   Provider: anthropic
-  Model: claude-3-5-haiku
+  Model: claude-haiku-4-5-20251001
   API Key: ANTHROPIC_API_KEY (set)
 ```
 

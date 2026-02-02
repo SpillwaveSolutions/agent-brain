@@ -167,7 +167,7 @@ Vector Index: Ready (1,247 documents)
 Graph Index: Disabled
 
 Embedding Provider: openai (text-embedding-3-large)
-Summarization: anthropic (claude-3-5-haiku)
+Summarization: anthropic (claude-haiku-4-5-20251001)
 ```
 
 ### Graceful Degradation

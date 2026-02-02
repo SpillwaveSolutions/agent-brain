@@ -23,13 +23,13 @@ No API keys required. Requires Ollama installed locally.
 export EMBEDDING_PROVIDER=ollama
 export EMBEDDING_MODEL=nomic-embed-text
 export SUMMARIZATION_PROVIDER=ollama
-export SUMMARIZATION_MODEL=llama3.2
+export SUMMARIZATION_MODEL=llama4:scout
 export OLLAMA_BASE_URL=http://localhost:11434
 ```
 
 Prerequisites:
 1. Install Ollama: https://ollama.ai
-2. Pull models: `ollama pull nomic-embed-text && ollama pull llama3.2`
+2. Pull models: `ollama pull nomic-embed-text && ollama pull llama4:scout`
 3. Start Ollama: `ollama serve`
 
 ### Profile 2: Cloud (Best Quality)
@@ -40,7 +40,7 @@ Requires OpenAI and Anthropic API keys.
 export EMBEDDING_PROVIDER=openai
 export EMBEDDING_MODEL=text-embedding-3-large
 export SUMMARIZATION_PROVIDER=anthropic
-export SUMMARIZATION_MODEL=claude-3-5-haiku
+export SUMMARIZATION_MODEL=claude-haiku-4-5-20251001
 export OPENAI_API_KEY="sk-proj-..."
 export ANTHROPIC_API_KEY="sk-ant-..."
 ```
@@ -53,7 +53,7 @@ Requires OpenAI API key only.
 export EMBEDDING_PROVIDER=openai
 export EMBEDDING_MODEL=text-embedding-3-large
 export SUMMARIZATION_PROVIDER=ollama
-export SUMMARIZATION_MODEL=llama3.2
+export SUMMARIZATION_MODEL=llama4:scout
 export OPENAI_API_KEY="sk-proj-..."
 ```
 
@@ -71,11 +71,11 @@ Choose embedding and summarization providers independently.
 **Summarization Provider Options**:
 | Provider | Model | Characteristics |
 |----------|-------|-----------------|
-| Anthropic | claude-3-5-haiku | High quality |
-| OpenAI | gpt-4o-mini | Fast, cost-effective |
-| Gemini | gemini-1.5-flash | Google's model |
-| Grok | grok-beta | xAI's model |
-| Ollama | llama3.2 | Local, no API key |
+| Anthropic | claude-haiku-4-5-20251001 | High quality |
+| OpenAI | gpt-5-mini | Fast, cost-effective |
+| Gemini | gemini-3-flash | Google's model |
+| Grok | grok-4 | xAI's model |
+| Ollama | llama4:scout | Local, no API key |
 
 ## API Key Configuration
 

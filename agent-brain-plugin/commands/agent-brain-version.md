@@ -193,7 +193,7 @@ pip install --upgrade agent-brain-rag agent-brain-cli
 export EMBEDDING_PROVIDER=openai
 export EMBEDDING_MODEL=text-embedding-3-large
 export SUMMARIZATION_PROVIDER=anthropic
-export SUMMARIZATION_MODEL=claude-3-5-haiku
+export SUMMARIZATION_MODEL=claude-haiku-4-5-20251001
 
 # 4. Re-index
 agent-brain reset --yes

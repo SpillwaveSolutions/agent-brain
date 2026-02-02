@@ -20,11 +20,11 @@ Summarization generates concise descriptions of code and documents during indexi
 
 | Provider | Models | API Key | Characteristics |
 |----------|--------|---------|-----------------|
-| Anthropic | claude-3-5-haiku, claude-sonnet-4, claude-opus-4 | ANTHROPIC_API_KEY | High quality, code-aware, fast |
-| OpenAI | gpt-4o, gpt-4o-mini, gpt-4-turbo | OPENAI_API_KEY | Versatile, good code understanding |
-| Gemini | gemini-1.5-flash, gemini-1.5-pro, gemini-2.0-flash-exp | GOOGLE_API_KEY | Fast, good for large contexts |
-| Grok | grok-beta | XAI_API_KEY | xAI's model, conversational style |
-| Ollama | llama3.2, mistral, codellama, deepseek-coder | None (local) | Privacy-first, no API costs |
+| Anthropic | claude-haiku-4-5-20251001, claude-sonnet-4-5-20250514, claude-opus-4-5-20251101 | ANTHROPIC_API_KEY | High quality, code-aware, fast |
+| OpenAI | gpt-5, gpt-5-mini | OPENAI_API_KEY | Versatile, good code understanding |
+| Gemini | gemini-3-flash, gemini-3-pro | GOOGLE_API_KEY | Fast, good for large contexts |
+| Grok | grok-4 | XAI_API_KEY | xAI's model, conversational style |
+| Ollama | llama4:scout, mistral-small3.2, qwen3-coder, gemma3 | None (local) | Privacy-first, no API costs |
 
 ## Configuration Methods
 
@@ -39,7 +39,7 @@ export EMBEDDING_MODEL=text-embedding-3-large
 
 # Summarization configuration
 export SUMMARIZATION_PROVIDER=anthropic
-export SUMMARIZATION_MODEL=claude-3-5-haiku
+export SUMMARIZATION_MODEL=claude-haiku-4-5-20251001
 
 # API keys (as needed)
 export OPENAI_API_KEY=sk-proj-...
@@ -55,7 +55,7 @@ Create `.claude/agent-brain/.env` in your project:
 EMBEDDING_PROVIDER=openai
 EMBEDDING_MODEL=text-embedding-3-large
 SUMMARIZATION_PROVIDER=anthropic
-SUMMARIZATION_MODEL=claude-3-5-haiku
+SUMMARIZATION_MODEL=claude-haiku-4-5-20251001
 
 # API keys
 OPENAI_API_KEY=sk-proj-...
@@ -71,7 +71,7 @@ agent-brain config set embedding_model text-embedding-3-large
 
 # Configure summarization provider
 agent-brain config set summarization_provider anthropic
-agent-brain config set summarization_model claude-3-5-haiku
+agent-brain config set summarization_model claude-haiku-4-5-20251001
 ```
 
 ## Configuration Profiles
@@ -84,7 +84,7 @@ Best for: Privacy, air-gapped environments, no API costs
 EMBEDDING_PROVIDER=ollama
 EMBEDDING_MODEL=nomic-embed-text
 SUMMARIZATION_PROVIDER=ollama
-SUMMARIZATION_MODEL=llama3.2
+SUMMARIZATION_MODEL=llama4:scout
 OLLAMA_BASE_URL=http://localhost:11434
 ```
 
@@ -93,7 +93,7 @@ OLLAMA_BASE_URL=http://localhost:11434
 2. Pull required models:
    ```bash
    ollama pull nomic-embed-text
-   ollama pull llama3.2
+   ollama pull llama4:scout
    ```
 
 ### Cloud (Best Quality)
@@ -104,7 +104,7 @@ Best for: Production use, highest quality results
 EMBEDDING_PROVIDER=openai
 EMBEDDING_MODEL=text-embedding-3-large
 SUMMARIZATION_PROVIDER=anthropic
-SUMMARIZATION_MODEL=claude-3-5-haiku
+SUMMARIZATION_MODEL=claude-haiku-4-5-20251001
 OPENAI_API_KEY=sk-proj-...
 ANTHROPIC_API_KEY=sk-ant-...
 ```
@@ -117,7 +117,7 @@ Best for: Quality embeddings with local summarization
 EMBEDDING_PROVIDER=openai
 EMBEDDING_MODEL=text-embedding-3-large
 SUMMARIZATION_PROVIDER=ollama
-SUMMARIZATION_MODEL=llama3.2
+SUMMARIZATION_MODEL=llama4:scout
 OPENAI_API_KEY=sk-proj-...
 OLLAMA_BASE_URL=http://localhost:11434
 ```
@@ -130,7 +130,7 @@ Best for: Lower API costs while maintaining quality
 EMBEDDING_PROVIDER=openai
 EMBEDDING_MODEL=text-embedding-3-small
 SUMMARIZATION_PROVIDER=openai
-SUMMARIZATION_MODEL=gpt-4o-mini
+SUMMARIZATION_MODEL=gpt-5-mini
 OPENAI_API_KEY=sk-proj-...
 ```
 
@@ -142,7 +142,7 @@ Best for: International content, multiple languages
 EMBEDDING_PROVIDER=cohere
 EMBEDDING_MODEL=embed-multilingual-v3.0
 SUMMARIZATION_PROVIDER=anthropic
-SUMMARIZATION_MODEL=claude-3-5-haiku
+SUMMARIZATION_MODEL=claude-haiku-4-5-20251001
 COHERE_API_KEY=...
 ANTHROPIC_API_KEY=sk-ant-...
 ```
@@ -183,7 +183,7 @@ COHERE_API_KEY=...
 EMBEDDING_PROVIDER=ollama
 EMBEDDING_MODEL=nomic-embed-text
 SUMMARIZATION_PROVIDER=ollama
-SUMMARIZATION_MODEL=llama3.2
+SUMMARIZATION_MODEL=llama4:scout
 OLLAMA_BASE_URL=http://localhost:11434  # Default Ollama URL
 ```
 
@@ -199,7 +199,7 @@ curl -fsSL https://ollama.ai/install.sh | sh
 ollama pull nomic-embed-text
 
 # Pull summarization model
-ollama pull llama3.2
+ollama pull llama4:scout
 ```
 
 **Available Embedding Models:**
@@ -208,42 +208,42 @@ ollama pull llama3.2
 - `all-minilm`: Lightweight, fast
 
 **Available Summarization Models:**
-- `llama3.2`: General purpose, good balance
-- `mistral`: Fast, efficient
-- `codellama`: Code-optimized
-- `deepseek-coder`: Code-focused
+- `llama4:scout`: Meta's Llama 4 Scout - lightweight, fast
+- `mistral-small3.2`: Mistral Small 3.2 - balanced
+- `qwen3-coder`: Alibaba Qwen 3 Coder - code-focused
+- `gemma3`: Google Gemma 3 - efficient
+- `deepseek-coder-v3`: DeepSeek Coder V3 - code-focused
 
 ### Anthropic Configuration
 
 ```bash
 SUMMARIZATION_PROVIDER=anthropic
-SUMMARIZATION_MODEL=claude-3-5-haiku
+SUMMARIZATION_MODEL=claude-haiku-4-5-20251001
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 **Available Models:**
-- `claude-3-5-haiku`: Fast, cost-effective
-- `claude-sonnet-4`: Balanced quality/speed
-- `claude-opus-4`: Highest quality
+- `claude-haiku-4-5-20251001`: Fast, cost-effective
+- `claude-sonnet-4-5-20250514`: Balanced quality/speed
+- `claude-opus-4-5-20251101`: Highest quality
 
 ### Gemini Configuration
 
 ```bash
 SUMMARIZATION_PROVIDER=gemini
-SUMMARIZATION_MODEL=gemini-1.5-flash
+SUMMARIZATION_MODEL=gemini-3-flash
 GOOGLE_API_KEY=...
 ```
 
 **Available Models:**
-- `gemini-1.5-flash`: Fast, efficient
-- `gemini-1.5-pro`: Higher quality
-- `gemini-2.0-flash-exp`: Experimental features
+- `gemini-3-flash`: Fast, efficient
+- `gemini-3-pro`: Higher quality
 
 ### Grok Configuration
 
 ```bash
 SUMMARIZATION_PROVIDER=grok
-SUMMARIZATION_MODEL=grok-beta
+SUMMARIZATION_MODEL=grok-4
 XAI_API_KEY=...
 ```
 
@@ -341,9 +341,9 @@ Error: Rate limit exceeded
 
 | Provider | Model | Input | Output |
 |----------|-------|-------|--------|
-| Anthropic | claude-3-5-haiku | $0.25 | $1.25 |
-| OpenAI | gpt-4o-mini | $0.15 | $0.60 |
-| Gemini | gemini-1.5-flash | $0.075 | $0.30 |
+| Anthropic | claude-haiku-4-5-20251001 | $0.80 | $4.00 |
+| OpenAI | gpt-5-mini | $0.50 | $1.50 |
+| Gemini | gemini-3-flash | $0.10 | $0.40 |
 | Ollama | Any | Free (local compute) |
 
-*Prices as of 2024, subject to change.*
+*Prices as of 2026, subject to change.*

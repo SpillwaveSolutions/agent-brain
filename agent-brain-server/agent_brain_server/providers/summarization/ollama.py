@@ -23,11 +23,11 @@ class OllamaSummarizationProvider(BaseSummarizationProvider):
     Uses OpenAI-compatible API endpoint provided by Ollama.
 
     Supports:
-    - llama3.2 (Meta's Llama 3.2)
-    - llama3.1 (Meta's Llama 3.1)
-    - mistral (Mistral 7B)
-    - codellama (Code Llama)
-    - deepseek-coder (DeepSeek Coder)
+    - llama4:scout (Meta's Llama 4 Scout - lightweight, fast)
+    - mistral-small3.2 (Mistral Small 3.2 - balanced)
+    - qwen3-coder (Alibaba Qwen 3 Coder - code-focused)
+    - gemma3 (Google Gemma 3 - efficient)
+    - deepseek-coder-v3 (DeepSeek Coder V3)
     - And any other chat model available in Ollama
     """
 
