@@ -16,7 +16,7 @@
         "name": "Spillwave Solutions",
         "email": "support@spillwave.com"
       },
-      "source": "../agent-brain-plugin",
+      "source": "./agent-brain-plugin",
       "category": "productivity"
     }
   ]
