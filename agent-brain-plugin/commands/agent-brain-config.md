@@ -1,16 +1,16 @@
 ---
 name: agent-brain-config
-description: Configure API keys for Agent Brain (OPENAI_API_KEY, ANTHROPIC_API_KEY)
+description: Configure providers and API keys for Agent Brain (OpenAI, Anthropic, Ollama, Gemini)
 parameters: []
 skills:
   - configuring-agent-brain
 ---
 
-# Configure Agent Brain API Keys
+# Configure Agent Brain
 
 ## Purpose
 
-Guides users through configuring the required API keys for Agent Brain. The OpenAI API key is required for vector and hybrid search modes. The Anthropic API key is optional and enables code summarization features.
+Guides users through configuring providers for Agent Brain. Agent Brain supports multiple providers - use Ollama for local/free operation or cloud providers like OpenAI, Anthropic, Gemini, and Grok.
 
 ## Usage
 
@@ -23,173 +23,220 @@ Guides users through configuring the required API keys for Agent Brain. The Open
 ### Step 1: Check Current Configuration
 
 ```bash
-echo "OpenAI: ${OPENAI_API_KEY:+SET}"
-echo "Anthropic: ${ANTHROPIC_API_KEY:+SET}"
+echo "=== Current Configuration ==="
+echo ""
+echo "Embedding Provider: ${EMBEDDING_PROVIDER:-openai}"
+echo "Embedding Model: ${EMBEDDING_MODEL:-text-embedding-3-large}"
+echo ""
+echo "Summarization Provider: ${SUMMARIZATION_PROVIDER:-anthropic}"
+echo "Summarization Model: ${SUMMARIZATION_MODEL:-claude-haiku-4-5-20251001}"
+echo ""
+echo "=== API Keys Status ==="
+echo "OPENAI_API_KEY: ${OPENAI_API_KEY:+SET}"
+echo "ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:+SET}"
+echo "GOOGLE_API_KEY: ${GOOGLE_API_KEY:+SET}"
+echo "XAI_API_KEY: ${XAI_API_KEY:+SET}"
+echo "COHERE_API_KEY: ${COHERE_API_KEY:+SET}"
 ```
 
-### Step 2: Guide API Key Setup
+### Step 2: Use AskUserQuestion for Provider Selection
 
-**For OPENAI_API_KEY (Required):**
+```
+Which provider setup would you like?
 
-1. Obtain key from: https://platform.openai.com/account/api-keys
-2. Set environment variable:
-
-```bash
-# Temporary (current session only)
-export OPENAI_API_KEY="sk-proj-..."
-
-# Permanent (add to shell profile)
-echo 'export OPENAI_API_KEY="sk-proj-..."' >> ~/.bashrc
-source ~/.bashrc
-
-# Or for zsh
-echo 'export OPENAI_API_KEY="sk-proj-..."' >> ~/.zshrc
-source ~/.zshrc
+Options:
+1. Ollama (Local) - FREE, no API keys required, runs locally
+2. OpenAI + Anthropic - Best quality, requires API keys
+3. Google Gemini - Google's models, requires GOOGLE_API_KEY
+4. Custom Mix - Choose different providers for embedding/summarization
 ```
 
-**For ANTHROPIC_API_KEY (Optional):**
+### Step 3: Based on Selection
 
-1. Obtain key from: https://console.anthropic.com/
-2. Set environment variable:
+**For Ollama (Option 1):**
 
-```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
+```
+=== Ollama Setup (Local, Free) ===
+
+Ollama runs locally - no API keys or cloud costs!
+
+1. Install Ollama (if not installed):
+
+   macOS:   brew install ollama
+   Linux:   curl -fsSL https://ollama.com/install.sh | sh
+   Windows: Download from https://ollama.com/download
+
+2. Start Ollama server:
+   ollama serve
+
+3. Pull required models:
+   ollama pull nomic-embed-text      # For embeddings
+   ollama pull llama3.2              # For summarization
+
+4. Configure environment:
+   export EMBEDDING_PROVIDER=ollama
+   export EMBEDDING_MODEL=nomic-embed-text
+   export SUMMARIZATION_PROVIDER=ollama
+   export SUMMARIZATION_MODEL=llama3.2
+
+5. Start Agent Brain:
+   /agent-brain-start
+
+No API keys needed!
 ```
 
-### Step 3: Verify Configuration
+**For OpenAI + Anthropic (Option 2):**
 
-```bash
-# Test OpenAI key
-curl -s https://api.openai.com/v1/models \
-  -H "Authorization: Bearer $OPENAI_API_KEY" | head -c 100
+```
+=== Cloud Provider Setup ===
+
+OpenAI (Embeddings):
+1. Get key: https://platform.openai.com/account/api-keys
+2. Set: export OPENAI_API_KEY="sk-proj-..."
+
+Anthropic (Summarization):
+1. Get key: https://console.anthropic.com/
+2. Set: export ANTHROPIC_API_KEY="sk-ant-..."
+
+Configuration:
+export EMBEDDING_PROVIDER=openai
+export EMBEDDING_MODEL=text-embedding-3-large
+export SUMMARIZATION_PROVIDER=anthropic
+export SUMMARIZATION_MODEL=claude-haiku-4-5-20251001
 ```
 
-If successful, shows model data. If failed, shows error message.
+**For Gemini (Option 3):**
+
+```
+=== Google Gemini Setup ===
+
+1. Get key: https://aistudio.google.com/apikey
+2. Set: export GOOGLE_API_KEY="AIza..."
+
+Configuration (Gemini for both):
+export EMBEDDING_PROVIDER=gemini
+export EMBEDDING_MODEL=text-embedding-004
+export SUMMARIZATION_PROVIDER=gemini
+export SUMMARIZATION_MODEL=gemini-2.0-flash
+```
+
+**For Custom Mix (Option 4):**
+
+Redirect to: `/agent-brain-providers switch`
 
 ## Output
 
-```
-Agent Brain Configuration
-=========================
-
-Checking current configuration...
-
-API Keys Status:
-  OPENAI_API_KEY:    SET [OK]
-  ANTHROPIC_API_KEY: NOT SET (optional)
-
-OpenAI API Key
---------------
-Status: Configured
-Test: Connection successful
-
-Anthropic API Key (Optional)
-----------------------------
-Status: Not configured
-Note: Only needed for code summarization features
-
-Configuration complete!
-
-To add Anthropic key later:
-  export ANTHROPIC_API_KEY="sk-ant-..."
-```
-
-When keys are missing:
+### Initial Status Display
 
 ```
 Agent Brain Configuration
 =========================
 
-API Keys Status:
-  OPENAI_API_KEY:    NOT SET [REQUIRED]
-  ANTHROPIC_API_KEY: NOT SET (optional)
+Current Configuration:
+  Embedding:      ollama / nomic-embed-text
+  Summarization:  ollama / llama3.2
 
-OpenAI API Key Setup (Required)
--------------------------------
-The OpenAI API key is required for semantic search.
+Provider Options:
+-----------------
 
-1. Get your API key:
-   https://platform.openai.com/account/api-keys
+1. OLLAMA (Local, Free)
+   - No API keys required
+   - Runs on your machine
+   - Models: nomic-embed-text, llama3.2
+   - Setup: ollama serve
 
-2. Set the environment variable:
+2. OPENAI + ANTHROPIC (Cloud)
+   - Best quality embeddings and summaries
+   - Requires: OPENAI_API_KEY, ANTHROPIC_API_KEY
+   - Models: text-embedding-3-large, claude-haiku
 
-   # For current session:
-   export OPENAI_API_KEY="sk-proj-..."
+3. GOOGLE GEMINI (Cloud)
+   - Google's models
+   - Requires: GOOGLE_API_KEY
+   - Models: text-embedding-004, gemini-2.0-flash
 
-   # To make permanent, add to your shell profile:
-   echo 'export OPENAI_API_KEY="your-key"' >> ~/.bashrc
-   source ~/.bashrc
+4. CUSTOM MIX
+   - Choose different providers for each function
+   - Run: /agent-brain-providers switch
 
-3. Verify with: /agent-brain-config
+Which setup would you like? (Enter 1-4)
+```
 
-Security Notes:
-- Never commit API keys to version control
-- Never share keys in chat or logs
-- Add .env to .gitignore
+### Ollama Setup Complete
+
+```
+Ollama Configuration Complete!
+==============================
+
+Environment Variables Set:
+  EMBEDDING_PROVIDER=ollama
+  EMBEDDING_MODEL=nomic-embed-text
+  SUMMARIZATION_PROVIDER=ollama
+  SUMMARIZATION_MODEL=llama3.2
+
+To make permanent, add to ~/.zshrc or ~/.bashrc:
+
+  export EMBEDDING_PROVIDER=ollama
+  export EMBEDDING_MODEL=nomic-embed-text
+  export SUMMARIZATION_PROVIDER=ollama
+  export SUMMARIZATION_MODEL=llama3.2
+
+Next steps:
+1. Ensure Ollama is running: ollama serve
+2. Initialize project: /agent-brain-init
+3. Start server: /agent-brain-start
 ```
 
 ## Error Handling
 
-### Invalid API Key Format
+### Ollama Not Installed
 
 ```
-Warning: API key format appears invalid.
+Ollama not found. Install with:
 
-OpenAI keys should start with: sk-proj- or sk-
-Anthropic keys should start with: sk-ant-
-
-Please verify you copied the complete key.
+macOS:   brew install ollama
+Linux:   curl -fsSL https://ollama.com/install.sh | sh
+Windows: https://ollama.com/download
 ```
 
-### API Key Test Failed
+### Ollama Not Running
 
 ```
-OpenAI API Key Test: FAILED
+Ollama is installed but not running.
 
-Error: Invalid API key
+Start it with: ollama serve
 
-Possible issues:
-1. Key was copied incorrectly (missing characters)
-2. Key has been revoked or expired
-3. Key has no API access (check OpenAI dashboard)
-
-Steps to resolve:
-1. Visit https://platform.openai.com/account/api-keys
-2. Create a new API key
-3. Copy the COMPLETE key (it's only shown once)
-4. Run: export OPENAI_API_KEY="new-key"
-5. Retry: /agent-brain-config
+Then pull models:
+  ollama pull nomic-embed-text
+  ollama pull llama3.2
 ```
 
-### Rate Limit or Quota Issues
+### Missing API Key for Cloud Provider
 
 ```
-OpenAI API Key Test: RATE LIMITED
+Cloud provider selected but API key not set.
 
-Your API key is valid but rate limited.
-
-This could mean:
-1. Free tier limits reached
-2. Usage quota exceeded
-3. Too many requests
-
-Check your usage: https://platform.openai.com/usage
+For OpenAI:    export OPENAI_API_KEY="sk-proj-..."
+For Anthropic: export ANTHROPIC_API_KEY="sk-ant-..."
+For Google:    export GOOGLE_API_KEY="AIza..."
+For xAI:       export XAI_API_KEY="xai-..."
 ```
 
 ## Security Guidance
 
-**IMPORTANT: Never commit API keys to version control!**
+**For cloud providers:**
+- Never commit API keys to version control
+- Add `.env` files to `.gitignore`
+- Use environment variables, not hardcoded values
 
-Recommended practices:
-1. Use environment variables, not hardcoded values
-2. Add `.env` files to `.gitignore`
-3. Use secret management for production
-4. Rotate keys periodically
-5. Use separate keys for development and production
+**For Ollama:**
+- Runs locally - no keys to manage
+- Data stays on your machine
 
-Check your `.gitignore`:
+## Related Commands
 
-```bash
-# Ensure .env is ignored
-grep -q "\.env" .gitignore || echo ".env" >> .gitignore
-```
+- `/agent-brain-providers` - List all available providers
+- `/agent-brain-providers switch` - Interactive provider switching
+- `/agent-brain-embeddings` - Configure embedding provider only
+- `/agent-brain-summarizer` - Configure summarization provider only
+- `/agent-brain-verify` - Verify provider configuration works
