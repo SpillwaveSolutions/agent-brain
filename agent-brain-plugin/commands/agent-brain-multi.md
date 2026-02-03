@@ -222,16 +222,16 @@ No results found above threshold 0.3
 - Try a more specific or broader query
 - Verify documents are indexed: `agent-brain status`
 
-### API Key Missing
+### Embedding Provider Not Configured
 
 ```
-Error: OPENAI_API_KEY not set (required for vector component)
+Error: Embedding provider not configured (vector component requires embeddings)
 ```
 
 **Resolution:**
-```bash
-export OPENAI_API_KEY="sk-proj-..."
-```
+Run `/agent-brain-config` to configure a provider:
+- **Ollama** (FREE, local): No API keys needed
+- **OpenAI** (cloud): `export OPENAI_API_KEY="sk-proj-..."`
 
 ### Index Empty
 

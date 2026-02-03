@@ -108,7 +108,7 @@ Report progress and results:
 | Path not found | Invalid path specified | Verify the path exists |
 | No files found | Path contains no supported files | Check file extensions |
 | Server not running | Agent Brain server is stopped | Run `agent-brain start` first |
-| OPENAI_API_KEY missing | API key not configured | Run `agent-brain config` |
+| Embedding provider error | Provider not configured | Run `/agent-brain-config` (use Ollama for free local option) |
 | Permission denied | Cannot read files | Check file permissions |
 | Out of memory | Too many files at once | Index in smaller batches |
 

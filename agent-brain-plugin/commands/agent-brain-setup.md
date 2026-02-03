@@ -30,16 +30,20 @@ agent-brain --version 2>/dev/null || echo "NOT_INSTALLED"
 
 If not installed, run `/agent-brain-install` first.
 
-### Step 2: Configure API Keys
+### Step 2: Configure Provider
 
-Check for required environment variables:
+Check provider configuration:
 
 ```bash
+echo "Provider: ${EMBEDDING_PROVIDER:-openai}"
 echo "OpenAI: ${OPENAI_API_KEY:+SET}"
 echo "Anthropic: ${ANTHROPIC_API_KEY:+SET}"
 ```
 
-If OPENAI_API_KEY is not set, run `/agent-brain-config`.
+If no provider is configured, run `/agent-brain-config` to choose:
+- **Ollama** (FREE, local, no API keys)
+- **OpenAI** (cloud, requires OPENAI_API_KEY)
+- **Other cloud providers**
 
 ### Step 3: Initialize Project
 
@@ -118,12 +122,17 @@ Running installation...
 [Invoke /agent-brain-install]
 ```
 
-### API Key Missing
+### Provider Not Configured
 
 ```
-[2/5] Checking API keys... INCOMPLETE
+[2/5] Checking provider... INCOMPLETE
 
-OPENAI_API_KEY is not set. This is required for search.
+No embedding provider configured.
+
+Options:
+1. Ollama (FREE, local) - No API keys needed
+2. OpenAI (cloud) - Requires OPENAI_API_KEY
+3. Other cloud providers
 
 Running configuration...
 [Invoke /agent-brain-config]
