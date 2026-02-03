@@ -37,20 +37,43 @@ Installation and configuration for Agent Brain document search with pluggable pr
 
 ## Quick Setup
 
+### Option A: Local with Ollama (FREE, No API Keys)
+
 ```bash
 # 1. Install packages
 pip install agent-brain-rag agent-brain-cli
 
-# 2. Configure API key (for cloud providers)
-export OPENAI_API_KEY="sk-proj-..."
+# 2. Install and start Ollama
+brew install ollama  # macOS
+ollama serve &
+ollama pull nomic-embed-text
+ollama pull llama3.2
 
-# 3. Initialize project
+# 3. Configure for Ollama
+export EMBEDDING_PROVIDER=ollama
+export EMBEDDING_MODEL=nomic-embed-text
+export SUMMARIZATION_PROVIDER=ollama
+export SUMMARIZATION_MODEL=llama3.2
+
+# 4. Initialize and start
 agent-brain init
-
-# 4. Start server
 agent-brain start --daemon
+agent-brain status
+```
 
-# 5. Verify setup
+### Option B: Cloud Providers (Best Quality)
+
+```bash
+# 1. Install packages
+pip install agent-brain-rag agent-brain-cli
+
+# 2. Configure API keys
+export OPENAI_API_KEY="sk-proj-..."       # For embeddings
+export ANTHROPIC_API_KEY="sk-ant-..."     # For summarization (optional)
+
+# 3. Initialize and start
+agent-brain init
+agent-brain start --daemon
 agent-brain status
 ```
 
