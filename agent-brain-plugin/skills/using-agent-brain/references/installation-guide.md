@@ -1,6 +1,6 @@
 # Agent Brain Installation Guide
 
-Complete installation options for Agent Brain v2.0.0 with pluggable providers and GraphRAG support.
+Complete installation options for Agent Brain with pluggable providers and GraphRAG support.
 
 ## Prerequisites
 

@@ -2,9 +2,19 @@
 
 Automates the release process for Agent Brain packages, including version bumping, changelog generation, git tagging, and GitHub release creation.
 
-## Current Version
+## Version Resolution
 
-**Latest Release**: v2.0.0
+Before running any install commands, resolve the latest version:
+
+```bash
+# Get latest from PyPI (recommended)
+LATEST=$(curl -sf https://pypi.org/pypi/agent-brain-rag/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])")
+echo "Latest version: $LATEST"
+```
+
+**Current PyPI Versions:**
+- Check: https://pypi.org/project/agent-brain-rag/
+- Check: https://pypi.org/project/agent-brain-cli/
 
 ## Package Installation
 
@@ -13,21 +23,21 @@ Agent Brain consists of two PyPI packages that work together:
 ### Basic Installation
 
 ```bash
-# Install both packages
-pip install agent-brain-rag agent-brain-cli
+# Resolve latest version first
+LATEST=$(curl -sf https://pypi.org/pypi/agent-brain-rag/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])")
 
-# Or install specific version
-pip install agent-brain-rag==2.0.0 agent-brain-cli==2.0.0
+# Install with pinned version
+pip install agent-brain-rag==$LATEST agent-brain-cli==$LATEST
 ```
 
 ### With Optional Features
 
 ```bash
 # With GraphRAG support (knowledge graph retrieval)
-pip install agent-brain-rag[graphrag]==2.0.0
+pip install "agent-brain-rag[graphrag]==$LATEST"
 
 # With all optional features
-pip install agent-brain-rag[graphrag-all]==2.0.0
+pip install "agent-brain-rag[graphrag-all]==$LATEST"
 ```
 
 ### Package Details
@@ -82,9 +92,9 @@ agent-brain stop
 
 Where `<bump>` is one of:
 
-- `major` - Breaking changes (2.0.0 → 3.0.0)
-- `minor` - New features (2.0.0 → 2.1.0)
-- `patch` - Bug fixes (2.0.0 → 2.0.1)
+- `major` - Breaking changes (X.0.0 → X+1.0.0)
+- `minor` - New features (X.Y.0 → X.Y+1.0)
+- `patch` - Bug fixes (X.Y.Z → X.Y.Z+1)
 
 ## Process Overview
 
@@ -131,8 +141,8 @@ Use `--dry-run` to preview all changes without executing:
 /agent-brain-release minor --dry-run
 
 [DRY RUN] Would perform the following actions:
-  Current version: 2.0.0
-  New version: 2.1.0
+  Current version: X.Y.Z
+  New version: X.Y+1.0
 
   Files to update:
     - agent-brain-server/pyproject.toml
@@ -140,7 +150,7 @@ Use `--dry-run` to preview all changes without executing:
     - agent-brain-cli/pyproject.toml
     - agent-brain-cli/agent_brain_cli/__init__.py
 
-  Commits since v2.0.0: 15
+  Commits since vX.Y.Z: <count>
 
   No changes made.
 ```

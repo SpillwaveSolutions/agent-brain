@@ -2,7 +2,7 @@
 # Triggered when a new release is published on GitHub
 #
 # Security: Uses PyPI Trusted Publisher (OIDC) authentication - no API tokens needed
-# Both packages (agent-brain-rag, agent-brain-cli) are published in parallel after quality gate
+# Packages are published sequentially: server first, then CLI (depends on server for PyPI resolution)
 
 name: Publish to PyPI
 
@@ -78,6 +78,32 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Verify tag matches pyproject.toml version
+        run: |
+          # Get version from release tag (e.g., v3.0.0 → 3.0.0)
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+
+          # Get version from pyproject.toml
+          SERVER_VERSION=$(grep '^version = ' agent-brain-server/pyproject.toml | cut -d'"' -f2)
+          CLI_VERSION=$(grep '^version = ' agent-brain-cli/pyproject.toml | cut -d'"' -f2)
+
+          echo "Tag version: $TAG_VERSION"
+          echo "Server pyproject.toml: $SERVER_VERSION"
+          echo "CLI pyproject.toml: $CLI_VERSION"
+
+          # Verify all versions match
+          if [ "$TAG_VERSION" != "$SERVER_VERSION" ]; then
+            echo "ERROR: Tag ($TAG_VERSION) does not match server version ($SERVER_VERSION)"
+            exit 1
+          fi
+
+          if [ "$TAG_VERSION" != "$CLI_VERSION" ]; then
+            echo "ERROR: Tag ($TAG_VERSION) does not match CLI version ($CLI_VERSION)"
+            exit 1
+          fi
+
+          echo "✓ All versions aligned: $TAG_VERSION"
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -99,13 +125,29 @@ jobs:
 
   publish-cli:
     name: Publish agent-brain-cli
-    needs: quality-gate
+    needs: [quality-gate, publish-server]
     runs-on: ubuntu-latest
     environment: pypi
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Wait for server package on PyPI
+        run: |
+          # Get version from release tag (e.g., v3.0.0 → 3.0.0)
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Waiting for agent-brain-rag==$VERSION on PyPI..."
+          for i in {1..30}; do
+            if curl -sf "https://pypi.org/pypi/agent-brain-rag/$VERSION/json" > /dev/null; then
+              echo "✓ Found agent-brain-rag==$VERSION on PyPI"
+              exit 0
+            fi
+            echo "Attempt $i/30: Not yet available, waiting 10s..."
+            sleep 10
+          done
+          echo "✗ Timeout waiting for PyPI propagation"
+          exit 1
 
       - name: Set up Python
         uses: actions/setup-python@v5

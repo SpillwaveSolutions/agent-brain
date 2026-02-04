@@ -2,7 +2,7 @@
 
 ## Overview
 
-Agent Brain 2.0 supports multiple configuration methods with clear precedence rules. This guide covers all configuration options.
+Agent Brain supports multiple configuration methods with clear precedence rules. This guide covers all configuration options.
 
 ## Configuration Methods
 

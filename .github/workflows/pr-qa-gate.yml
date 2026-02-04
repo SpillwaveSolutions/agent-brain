@@ -63,6 +63,21 @@ jobs:
       - name: Run type checking
         run: task typecheck
 
+      - name: Check server/CLI version alignment
+        run: |
+          SERVER_VERSION=$(grep '^version = ' agent-brain-server/pyproject.toml | cut -d'"' -f2)
+          CLI_VERSION=$(grep '^version = ' agent-brain-cli/pyproject.toml | cut -d'"' -f2)
+
+          echo "Server version: $SERVER_VERSION"
+          echo "CLI version: $CLI_VERSION"
+
+          if [ "$SERVER_VERSION" != "$CLI_VERSION" ]; then
+            echo "ERROR: Server and CLI versions must match"
+            echo "Server: $SERVER_VERSION, CLI: $CLI_VERSION"
+            exit 1
+          fi
+          echo "✓ Versions aligned: $SERVER_VERSION"
+
       - name: Run tests with coverage (Server)
         run: task server:pr-qa-gate
 

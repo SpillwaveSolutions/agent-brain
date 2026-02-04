@@ -54,6 +54,53 @@ Do not proceed until you have called AskUserQuestion and received the user's sel
 
 ---
 
+## Step 1.5: Resolve Version
+
+After receiving the user's installation method choice, resolve the latest version from PyPI:
+
+```bash
+# Get latest version from PyPI
+VERSION=$(curl -sf https://pypi.org/pypi/agent-brain-rag/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])")
+echo "Latest available: $VERSION"
+```
+
+Then ask user for version preference using AskUserQuestion:
+
+```json
+{
+  "questions": [{
+    "question": "Which version of Agent Brain do you want to install?",
+    "header": "Version",
+    "options": [
+      {
+        "label": "Latest ($VERSION) (Recommended)",
+        "description": "Install the latest stable release from PyPI."
+      },
+      {
+        "label": "Specific version",
+        "description": "I'll show available versions and ask which one."
+      }
+    ],
+    "multiSelect": false
+  }]
+}
+```
+
+If user selects "Specific version", show available versions:
+
+```bash
+curl -sf https://pypi.org/pypi/agent-brain-rag/json | python3 -c "
+import sys,json
+releases = list(json.load(sys.stdin)['releases'].keys())
+releases.sort(key=lambda v: [int(x) for x in v.split('.')], reverse=True)
+print('Available versions:', ', '.join(releases[:8]))
+"
+```
+
+Then ask the user to enter the specific version they want and store it in `$VERSION`.
+
+---
+
 ## Step 2: Check Python Version
 
 Only after receiving the user's installation method choice:
@@ -75,9 +122,9 @@ Requires Python 3.10+. If lower, tell user to upgrade first.
    pipx --version 2>/dev/null || python -m pip install --user pipx && python -m pipx ensurepath
    ```
 
-2. Install Agent Brain:
+2. Install Agent Brain with pinned version:
    ```bash
-   pipx install agent-brain-cli
+   pipx install agent-brain-cli==$VERSION
    ```
 
 3. Verify (user may need to restart terminal):
@@ -92,9 +139,9 @@ Requires Python 3.10+. If lower, tell user to upgrade first.
    uv --version 2>/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
-2. Install Agent Brain:
+2. Install Agent Brain with pinned version:
    ```bash
-   uv tool install agent-brain-cli
+   uv tool install agent-brain-cli==$VERSION
    ```
 
 3. Verify:
@@ -110,9 +157,9 @@ Requires Python 3.10+. If lower, tell user to upgrade first.
    source .venv/bin/activate  # macOS/Linux
    ```
 
-2. Install packages:
+2. Install packages with pinned version:
    ```bash
-   pip install agent-brain-rag agent-brain-cli
+   pip install agent-brain-rag==$VERSION agent-brain-cli==$VERSION
    ```
 
 3. Verify:
@@ -130,9 +177,9 @@ Requires Python 3.10+. If lower, tell user to upgrade first.
    conda activate agent-brain
    ```
 
-2. Install packages:
+2. Install packages with pinned version:
    ```bash
-   pip install agent-brain-rag agent-brain-cli
+   pip install agent-brain-rag==$VERSION agent-brain-cli==$VERSION
    ```
 
 3. Verify:
@@ -153,7 +200,8 @@ Agent Brain Installation Complete
 =================================
 
 Install Method: [method user selected]
-Version: [version from agent-brain --version]
+Installed Version: $VERSION
+Resolved from: PyPI (latest) or (user-specified)
 
 Next steps:
   1. Configure: /agent-brain-config

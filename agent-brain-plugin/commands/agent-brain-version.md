@@ -39,7 +39,7 @@ Shows current Agent Brain version and manages version installations. Use this co
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | action | No | Action to perform (default: show) |
-| --version | For install | Version to install (e.g., 2.0.0, 1.4.0) |
+| --version | For install | Version to install (e.g., 3.0.0, 2.0.0) |
 
 ## Execution
 
@@ -66,11 +66,11 @@ pip install agent-brain-rag== 2>&1 | grep -oP '\d+\.\d+\.\d+' | head -10
 ### Install Specific Version
 
 ```bash
-# Install specific version
-pip install agent-brain-rag==<version> agent-brain-cli==<version>
+# Set desired version
+VERSION="X.Y.Z"  # e.g., 3.0.0, 2.0.0
 
-# Example: Install version 1.4.0
-pip install agent-brain-rag==1.4.0 agent-brain-cli==1.4.0
+# Install specific version
+pip install agent-brain-rag==$VERSION agent-brain-cli==$VERSION
 ```
 
 ### Upgrade to Latest
@@ -87,20 +87,25 @@ pip install --upgrade agent-brain-rag agent-brain-cli
 Agent Brain Version Information
 ===============================
 
-CLI Version: 2.0.0
-Server Package: 2.0.0
+CLI Version: $VERSION
+Server Package: $VERSION
 
 Components:
-- agent-brain-rag: 2.0.0
-- agent-brain-cli: 2.0.0
+- agent-brain-rag: $VERSION
+- agent-brain-cli: $VERSION
 
 Features:
 - Hybrid Search: Enabled
 - GraphRAG: Enabled (requires ENABLE_GRAPH_INDEX=true)
 - Pluggable Providers: Yes
 
-Python: 3.11.5
+Python: 3.11.x
 Platform: darwin (arm64)
+```
+
+Note: Run version resolver to get current version:
+```bash
+VERSION=$(curl -sf https://pypi.org/pypi/agent-brain-rag/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])")
 ```
 
 ### Version List Output
@@ -109,30 +114,29 @@ Platform: darwin (arm64)
 Available Agent Brain Versions
 ==============================
 
-Latest: 2.0.0
+Latest: $LATEST (resolved from PyPI)
 
 Recent Versions:
+- 3.0.0  (2025-02) - Job queue, async indexing
 - 2.0.0  (2024-12) - Pluggable providers, GraphRAG
 - 1.4.0  (2024-11) - Graph search, multi-mode fusion
 - 1.3.0  (2024-10) - AST-aware code ingestion
-- 1.2.0  (2024-09) - Multi-instance architecture
-- 1.1.0  (2024-08) - Hybrid search, BM25
-- 1.0.0  (2024-07) - Initial release
 
 To install a specific version:
-pip install agent-brain-rag==<version> agent-brain-cli==<version>
+VERSION=$(curl -sf https://pypi.org/pypi/agent-brain-rag/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])")
+pip install agent-brain-rag==$VERSION agent-brain-cli==$VERSION
 ```
 
 ### Install Output
 
 ```
-Installing Agent Brain version 1.4.0...
+Installing Agent Brain version $VERSION...
 
-pip install agent-brain-rag==1.4.0 agent-brain-cli==1.4.0
+pip install agent-brain-rag==$VERSION agent-brain-cli==$VERSION
 
 Successfully installed:
-- agent-brain-rag 1.4.0
-- agent-brain-cli 1.4.0
+- agent-brain-rag $VERSION
+- agent-brain-cli $VERSION
 
 Note: You may need to re-index documents after version changes.
 Run: agent-brain reset --yes && agent-brain index /path/to/docs
@@ -145,17 +149,15 @@ Upgrading Agent Brain to latest version...
 
 pip install --upgrade agent-brain-rag agent-brain-cli
 
-Upgraded from 1.4.0 to 2.0.0
+Upgraded from X.Y.Z to $LATEST
 
-Changes in 2.0.0:
-- Pluggable embedding providers (OpenAI, Cohere, Ollama)
-- Pluggable summarization providers
-- Fully local mode with Ollama
-- Enhanced GraphRAG support
+Check release notes for changes:
+https://github.com/SpillwaveSolutions/agent-brain/releases
 
 Migration steps:
-1. Set provider environment variables
-2. Re-index documents for new features
+1. Review breaking changes in release notes
+2. Update provider environment variables if needed
+3. Re-index documents for new features
 ```
 
 ## Version Compatibility
@@ -166,21 +168,19 @@ Keep both packages on the same version:
 
 | RAG Version | CLI Version | Compatible |
 |-------------|-------------|------------|
-| 2.0.0 | 2.0.0 | Yes |
-| 2.0.0 | 1.4.0 | No - update CLI |
-| 1.4.0 | 1.4.0 | Yes |
+| X.Y.Z | X.Y.Z | Yes |
+| X.Y.Z | A.B.C | No - versions must match |
 
 ### Index Compatibility
 
 | From | To | Index Action |
 |------|-----|--------------|
-| 1.x | 2.0 | Re-index required |
-| 2.0.x | 2.0.y | Usually compatible |
-| 2.0 | 1.x | Re-index required |
+| N.x | N+1.0 | Re-index usually required |
+| N.x.y | N.x.z | Usually compatible |
 
 ### Migration Between Major Versions
 
-When upgrading from 1.x to 2.0:
+When upgrading between major versions:
 
 ```bash
 # 1. Stop server
@@ -240,13 +240,15 @@ pip install agent-brain-rag agent-brain-cli
 
 ```
 Warning: Package version mismatch
-- agent-brain-rag: 2.0.0
-- agent-brain-cli: 1.4.0
+- agent-brain-rag: X.Y.Z
+- agent-brain-cli: A.B.C
 ```
 
 **Resolution:**
 ```bash
-pip install agent-brain-rag==2.0.0 agent-brain-cli==2.0.0
+# Get latest version
+VERSION=$(curl -sf https://pypi.org/pypi/agent-brain-rag/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])")
+pip install agent-brain-rag==$VERSION agent-brain-cli==$VERSION
 ```
 
 ## Related Commands

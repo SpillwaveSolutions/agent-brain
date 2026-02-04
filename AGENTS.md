@@ -2,6 +2,8 @@
 
 Instructions for AI agents (Cursor, Windsurf, OpenCode, etc.) when working on this repository.
 
+Planning rule: after any planning step, save the plan to `docs/plans/<name>.md` before doing work.
+
 ## Project Overview
 
 Agent Brain is a RAG-based document indexing and semantic search system. It's a monorepo containing:

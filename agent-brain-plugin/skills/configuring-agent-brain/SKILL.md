@@ -13,7 +13,7 @@ allowed-tools:
   - Bash
   - Read
 metadata:
-  version: 2.0.0
+  version: 3.0.0
   category: ai-tools
   author: Spillwave
 ---
@@ -111,7 +111,7 @@ pip install agent-brain-rag agent-brain-cli
 agent-brain --version
 ```
 
-Expected: Version number displayed (e.g., `2.0.0`)
+Expected: Version number displayed (e.g., `3.0.0` or current version)
 
 ### With GraphRAG Support
 
@@ -152,7 +152,7 @@ pip install --user agent-brain-rag  # Correct - user installation
 
 ## Provider Configuration
 
-Agent Brain 2.0 supports pluggable providers with two configuration methods.
+Agent Brain supports pluggable providers with two configuration methods.
 
 ### Method 1: Configuration File (Recommended)
 

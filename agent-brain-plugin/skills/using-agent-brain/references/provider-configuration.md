@@ -1,6 +1,6 @@
 # Provider Configuration Guide
 
-Agent Brain 2.0 supports pluggable providers for embeddings and summarization. This guide covers all configuration options.
+Agent Brain supports pluggable providers for embeddings and summarization. This guide covers all configuration options.
 
 ## Provider Overview
 
