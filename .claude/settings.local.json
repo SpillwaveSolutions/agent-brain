@@ -39,7 +39,25 @@
       "Bash(task pr-qa-gate:*)",
       "Bash(find:*)",
       "Bash(python3:*)",
-      "Bash(poetry run python3:*)"
+      "Bash(poetry run python3:*)",
+      "Bash(git describe:*)",
+      "Bash(git tag:*)",
+      "Bash(gh release create:*)",
+      "Bash(poetry build:*)",
+      "Bash(poetry publish:*)",
+      "Bash(poetry lock:*)",
+      "Bash(pip index:*)",
+      "Bash(curl:*)",
+      "Bash(grep:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(.claude/skills/installing-local/install.sh:*)",
+      "Bash(# Final verification echo \"\"=== Verification ===\"\" echo \"\"\"\" echo \"\"Checking if agent-brain is still available...\"\" which agent-brain && echo \"\"WARNING: agent-brain still found in PATH\"\" || echo \"\"agent-brain removed from PATH\"\" echo \"\"\"\" echo \"\"Checking for running servers...\"\" pgrep -fl \"\"agent_brain_server\"\" || echo \"\"No agent_brain_server processes running\"\" pgrep -fl \"\"uvicorn\"\" || echo \"\"No uvicorn processes running\"\" echo \"\"\"\" echo \"\"Checking plugin directories...\"\" ls -la ~/.claude/plugins/)",
+      "Bash(.claude/skills/installing-local/remove.sh:*)",
+      "Bash(/Users/richardhightower/clients/spillwave/src/doc-serve/.claude/skills/installing-local/remove.sh:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(bash:*)",
+      "Bash(poetry --version:*)"
     ]
   },
   "sandbox": {

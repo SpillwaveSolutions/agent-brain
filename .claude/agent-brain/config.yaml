@@ -1,9 +1,0 @@
-embedding:
-  provider: ollama
-  model: nomic-embed-text
-  base_url: http://localhost:11434/v1
-
-summarization:
-  provider: ollama
-  model: mistral-small3.2:latest
-  base_url: http://localhost:11434/v1

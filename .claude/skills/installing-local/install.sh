@@ -68,7 +68,7 @@ pkill -9 -f "uvicorn" 2>/dev/null || true
 
 # Kill by port range (8000-8010)
 for port in $(seq 8000 8010); do
-  pid=$(lsof -i :$port -t 2>/dev/null)
+  pid=$(lsof -i :$port -t 2>/dev/null || true)
   if [ -n "$pid" ]; then
     echo "Killing process on port $port (PID: $pid)"
     kill -9 $pid 2>/dev/null || true
@@ -116,7 +116,7 @@ if [[ $USE_PATH_DEPS -eq 1 ]]; then
   else
     echo "Switching CLI dependency to local path (develop=true)..."
     perl -0pi -e 's|agent-brain-rag = [^\n]+|agent-brain-rag = {path = "../agent-brain-server", develop = true}|g' "$CLI_PYPROJECT"
-    (cd "$REPO_ROOT/agent-brain-cli" && poetry lock --no-update)
+    (cd "$REPO_ROOT/agent-brain-cli" && poetry lock)
   fi
 fi
 
@@ -125,7 +125,7 @@ if [[ $RESTORE_PYPI -eq 1 ]]; then
   if grep -q 'agent-brain-rag = {path = "../agent-brain-server"' "$CLI_PYPROJECT"; then
     echo "Restoring CLI dependency to PyPI (^$VERSION)..."
     perl -0pi -e "s|agent-brain-rag = [^\\n]+|agent-brain-rag = \"^$VERSION\"|g" "$CLI_PYPROJECT"
-    (cd "$REPO_ROOT/agent-brain-cli" && poetry lock --no-update)
+    (cd "$REPO_ROOT/agent-brain-cli" && poetry lock)
   else
     echo "CLI dependency already pointing to PyPI."
   fi
@@ -149,10 +149,17 @@ CLI_WHEEL=$(ls -t "$REPO_ROOT/agent-brain-cli/dist/"agent_brain_cli-*.whl | head
 SERVER_WHEEL=$(ls -t "$REPO_ROOT/agent-brain-server/dist/"agent_brain_rag-*.whl | head -1)
 
 echo "Installing CLI: $CLI_WHEEL"
-echo "With server: $SERVER_WHEEL"
 
-# Install CLI with server as explicit dependency to ensure fresh code
-uv tool install "$CLI_WHEEL" --with "$SERVER_WHEEL" --force --python 3.11
+# When using path deps, the CLI wheel already includes the server dependency via path reference
+# When using PyPI deps, we need to install the local server wheel explicitly
+if [[ $USE_PATH_DEPS -eq 1 ]]; then
+    echo "Mode: Path dependencies (server linked via local path)"
+    uv tool install "$CLI_WHEEL" --force --python 3.11
+else
+    echo "Mode: PyPI dependencies (including local server wheel)"
+    echo "With server: $SERVER_WHEEL"
+    uv tool install "$CLI_WHEEL" --with "$SERVER_WHEEL" --force --python 3.11
+fi
 
 echo ""
 echo "=== Step 6: Verify Installed Code is NEW ==="
