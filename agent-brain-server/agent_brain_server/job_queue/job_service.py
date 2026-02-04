@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from agent_brain_server.job_queue.job_store import JobQueueStore
 from agent_brain_server.models import IndexRequest
 from agent_brain_server.models.job import (
     JobDetailResponse,
@@ -20,7 +21,6 @@ from agent_brain_server.models.job import (
     JobSummary,
     QueueStats,
 )
-from agent_brain_server.job_queue.job_store import JobQueueStore
 
 logger = logging.getLogger(__name__)
 

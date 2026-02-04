@@ -5,9 +5,9 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
+from agent_brain_server.job_queue.job_store import JobQueueStore
 from agent_brain_server.models import IndexingState, IndexingStatusEnum, IndexRequest
 from agent_brain_server.models.job import JobProgress, JobRecord, JobStatus
-from agent_brain_server.job_queue.job_store import JobQueueStore
 from agent_brain_server.services.indexing_service import IndexingService
 
 logger = logging.getLogger(__name__)
