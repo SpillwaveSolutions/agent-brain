@@ -36,7 +36,7 @@ from agent_brain_server.locking import (
     release_lock,
 )
 from agent_brain_server.project_root import resolve_project_root
-from agent_brain_server.queue import JobQueueService, JobQueueStore, JobWorker
+from agent_brain_server.job_queue import JobQueueService, JobQueueStore, JobWorker
 from agent_brain_server.runtime import RuntimeState, delete_runtime, write_runtime
 from agent_brain_server.services import IndexingService, QueryService
 from agent_brain_server.storage import VectorStoreManager

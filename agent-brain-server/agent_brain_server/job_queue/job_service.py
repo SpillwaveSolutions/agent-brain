@@ -20,7 +20,7 @@ from agent_brain_server.models.job import (
     JobSummary,
     QueueStats,
 )
-from agent_brain_server.queue.job_store import JobQueueStore
+from agent_brain_server.job_queue.job_store import JobQueueStore
 
 logger = logging.getLogger(__name__)
 

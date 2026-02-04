@@ -5,7 +5,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, Request, status
 
 from agent_brain_server.models.job import JobDetailResponse, JobListResponse
-from agent_brain_server.queue.job_service import JobQueueService
+from agent_brain_server.job_queue.job_service import JobQueueService
 
 router = APIRouter()
 
