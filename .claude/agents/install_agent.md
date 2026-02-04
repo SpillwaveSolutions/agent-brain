@@ -3,7 +3,7 @@ name: install_agent
 description: Agent with permissions to build and install Agent Brain locally
 
 allowed_tools:
-  # Kill agent-brain processes only
+  # Kill processes
   - "Bash(pkill*)"
   - "Bash(kill*)"
   - "Bash(lsof*)"
@@ -12,33 +12,40 @@ allowed_tools:
   - "Bash(seq*)"
 
   # Uninstall/install tools
-  - "Bash(uv tool uninstall*)"
-  - "Bash(uv tool install*)"
-  - "Bash(pipx uninstall*)"
+  - "Bash(uv*)"
+  - "Bash(pipx*)"
 
   # Remove caches and build dirs
-  - "Bash(rm -rf*)"
+  - "Bash(rm*)"
 
   # Build packages
-  - "Bash(poetry build*)"
-  - "Bash(poetry lock*)"
+  - "Bash(poetry*)"
   - "Bash(cd*)"
 
   # Dependency flip
   - "Bash(perl*)"
   - "Bash(grep*)"
+  - "Bash(cut*)"
 
   # Plugin deployment
-  - "Bash(cp -r*)"
+  - "Bash(cp*)"
 
   # Verification
   - "Bash(which*)"
-  - "Bash(python3.11*)"
   - "Bash(python3*)"
+  - "Bash(python*)"
   - "Bash(agent-brain*)"
   - "Bash(ls*)"
   - "Bash(cat*)"
   - "Bash(head*)"
+  - "Bash(echo*)"
+  - "Bash(test*)"
+  - "Bash([*)"
+  - "Bash(pwd*)"
+
+  # Loop/control constructs
+  - "Bash(for*)"
+  - "Bash(if*)"
 
   # The install script itself
   - "Bash(.claude/skills/installing-local/install.sh*)"

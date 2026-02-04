@@ -10,19 +10,26 @@ allowed_tools:
 
   # Uninstall tools
   - "Bash(uv tool uninstall*)"
+  - "Bash(uv*)"
   - "Bash(pipx uninstall*)"
+  - "Bash(pipx*)"
 
   # Remove caches and directories
   - "Bash(rm -rf*)"
+  - "Bash(rm*)"
 
   # Cache cleanup
   - "Bash(pip cache*)"
+  - "Bash(pip*)"
 
   # Dependency restore
   - "Bash(poetry lock*)"
+  - "Bash(poetry*)"
   - "Bash(perl*)"
   - "Bash(cd*)"
   - "Bash(grep*)"
+  - "Bash(cut*)"
+  - "Bash(cat*)"
 
   # Verification commands
   - "Bash(pgrep*)"
@@ -30,6 +37,14 @@ allowed_tools:
   - "Bash(seq*)"
   - "Bash(sleep*)"
   - "Bash(ls*)"
+  - "Bash(echo*)"
+  - "Bash(test*)"
+  - "Bash([*)"
+  - "Bash(pwd*)"
+
+  # Loop/control constructs (for inline scripts)
+  - "Bash(for*)"
+  - "Bash(if*)"
 
   # The removal script itself
   - "Bash(.claude/skills/installing-local/remove.sh*)"
