@@ -17,6 +17,30 @@ Builds and installs Agent Brain CLI/Server locally for rapid development and tes
 
 ## Execution Steps
 
+### Step 0: Full Reset (before fresh plugin tests)
+
+Use this when you need a truly clean environment (no cached wheels, no stale plugins, no lingering state).
+
+```bash
+# Stop any running servers
+pkill -9 -f "agent_brain_server" 2>/dev/null || true
+pkill -9 -f "uvicorn" 2>/dev/null || true
+for p in $(seq 8000 8010); do kill -9 "$(lsof -i :$p -t 2>/dev/null)" 2>/dev/null || true; done
+
+# Remove tool installs and caches
+uv tool uninstall agent-brain-cli agent-brain-server 2>/dev/null || true
+pipx uninstall agent-brain-cli 2>/dev/null || true
+pipx uninstall agent-brain-server 2>/dev/null || true
+rm -rf ~/.local/share/uv/tools/agent-brain-cli ~/.local/share/uv/tools/agent-brain-server
+rm -rf ~/.cache/uv ~/.cache/pip
+
+# Clear plugin caches/deploys
+rm -rf ~/.claude/plugins/cache/agent-brain-marketplace ~/.claude/plugins/agent-brain
+
+# Optional: wipe runtime/state for a zero-carryover test (back up first if needed)
+# rm -rf ~/.claude/agent-brain ./.claude/agent-brain
+```
+
 ### Step 1: Verify Python 3.11 Available
 
 ```bash

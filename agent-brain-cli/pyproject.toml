@@ -27,7 +27,7 @@ httpx = "^0.28.0"
 rich = "^13.9.0"
 pyyaml = "^6.0.0"
 pydantic = "^2.10.0"
-agent-brain-rag = {path = "../agent-brain-server", develop = true}
+agent-brain-rag = "^3.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"
