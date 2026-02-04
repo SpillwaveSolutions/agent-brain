@@ -30,7 +30,7 @@ class TestCLIHelp:
         """Test --version flag."""
         result = runner.invoke(cli, ["--version"])
         assert result.exit_code == 0
-        assert "2.0.0" in result.output
+        assert "3.0.0" in result.output
 
 
 class TestStatusCommand:

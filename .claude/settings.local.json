@@ -34,7 +34,12 @@
       "mcp__perplexity-ask__perplexity_ask",
       "Bash(git fetch:*)",
       "Bash(ls:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(chmod:*)",
+      "Bash(task pr-qa-gate:*)",
+      "Bash(find:*)",
+      "Bash(python3:*)",
+      "Bash(poetry run python3:*)"
     ]
   },
   "sandbox": {

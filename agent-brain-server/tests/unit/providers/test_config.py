@@ -217,7 +217,13 @@ class TestLoadProviderSettings:
 
     def test_default_when_no_config(self) -> None:
         """Test defaults are used when no config file exists."""
-        with patch.dict(os.environ, {}, clear=True):
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch(
+                "agent_brain_server.config.provider_config._find_config_file",
+                return_value=None,
+            ),
+        ):
             settings = load_provider_settings()
             assert settings.embedding.provider == EmbeddingProviderType.OPENAI
             expected = SummarizationProviderType.ANTHROPIC

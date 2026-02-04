@@ -11,6 +11,7 @@ This document provides complete REST API documentation for the Agent Brain serve
   - [Health Endpoints](#health-endpoints)
   - [Query Endpoints](#query-endpoints)
   - [Index Endpoints](#index-endpoints)
+  - [Job Queue Endpoints](#job-queue-endpoints)
 - [Request/Response Models](#requestresponse-models)
 - [Error Handling](#error-handling)
 - [Examples](#examples)
@@ -320,6 +321,119 @@ Reset the index (delete all documents).
 | Code | Description |
 |------|-------------|
 | `409` | Cannot reset during indexing |
+
+---
+
+### Job Queue Endpoints
+
+As of v3.0.0, indexing operations are queued and processed asynchronously.
+
+#### GET /index/jobs/
+
+List all jobs in the queue.
+
+**Query Parameters**:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `status` | string | null | Filter by status |
+| `limit` | integer | 100 | Maximum results (1-500) |
+| `offset` | integer | 0 | Skip first N results |
+
+**Response** `200 OK`:
+
+```json
+{
+  "jobs": [
+    {
+      "id": "job_abc123def456",
+      "status": "running",
+      "folder_path": "/path/to/docs",
+      "operation": "index",
+      "include_code": true,
+      "enqueued_at": "2026-02-03T10:00:00Z",
+      "started_at": "2026-02-03T10:00:05Z",
+      "finished_at": null,
+      "progress_percent": 45.5,
+      "error": null
+    }
+  ],
+  "total": 1,
+  "pending": 0,
+  "running": 1,
+  "completed": 0,
+  "failed": 0
+}
+```
+
+---
+
+#### GET /index/jobs/{job_id}
+
+Get detailed information about a specific job.
+
+**Path Parameters**:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `job_id` | string | Job identifier |
+
+**Response** `200 OK`:
+
+```json
+{
+  "id": "job_abc123def456",
+  "status": "running",
+  "folder_path": "/path/to/docs",
+  "operation": "index",
+  "include_code": true,
+  "enqueued_at": "2026-02-03T10:00:00Z",
+  "started_at": "2026-02-03T10:00:05Z",
+  "finished_at": null,
+  "execution_time_ms": 15000,
+  "progress": {
+    "files_processed": 45,
+    "files_total": 100,
+    "chunks_created": 230,
+    "current_file": "src/services/auth.py",
+    "percent_complete": 45.0
+  },
+  "total_documents": 45,
+  "total_chunks": 230,
+  "error": null,
+  "retry_count": 0,
+  "cancel_requested": false
+}
+```
+
+**Errors**:
+
+| Code | Description |
+|------|-------------|
+| `404` | Job not found |
+
+---
+
+#### DELETE /index/jobs/{job_id}
+
+Cancel a pending or running job.
+
+**Response** `200 OK`:
+
+```json
+{
+  "job_id": "job_abc123def456",
+  "status": "cancelled",
+  "message": "Job cancellation requested"
+}
+```
+
+**Errors**:
+
+| Code | Description |
+|------|-------------|
+| `404` | Job not found |
+| `409` | Cannot cancel completed job |
 
 ---
 

@@ -239,3 +239,17 @@ tasks:
     dir: ./{{.CLI_DIR}}
     cmds:
       - poetry run agent-brain reset {{.CLI_ARGS}}
+
+  # ===================
+  # Integration Testing
+  # ===================
+
+  local-integration:
+    desc: Run local integration check (E2E validation before release)
+    cmds:
+      - ./scripts/local_integration_check.sh
+
+  quick-start:
+    desc: Run quick start guide validation
+    cmds:
+      - ./scripts/quick_start_guide.sh

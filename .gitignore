@@ -120,6 +120,7 @@ pip-delete-this-directory.txt
 data/
 indexed_docs/
 test_output/
+e2e/tmp/
 !CLAUDE.md
 !AGENTS.md
 !.claude/

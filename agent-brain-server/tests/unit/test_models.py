@@ -168,7 +168,7 @@ class TestQueryModels:
         """Test QueryRequest default values."""
         request = QueryRequest(query="test query")
         assert request.top_k == 5
-        assert request.similarity_threshold == 0.7
+        assert request.similarity_threshold == 0.3
 
     def test_query_request_query_length_bounds(self):
         """Test query length validation."""

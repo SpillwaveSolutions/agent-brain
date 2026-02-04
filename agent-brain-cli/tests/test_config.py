@@ -100,7 +100,13 @@ class TestLoadConfig:
 
     def test_default_when_no_config(self) -> None:
         """Test defaults are used when no config file exists."""
-        with patch.dict(os.environ, {}, clear=True):
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch(
+                "agent_brain_cli.config._find_config_file",
+                return_value=None,
+            ),
+        ):
             config = load_config(Path("/nonexistent"))
             assert config.server.url == "http://127.0.0.1:8000"
             assert config.embedding.provider == "openai"
@@ -154,15 +160,31 @@ class TestGetStateDir:
 
     def test_env_var_takes_precedence(self) -> None:
         """Test environment variable takes precedence."""
-        with patch.dict(os.environ, {"AGENT_BRAIN_STATE_DIR": "/env/state"}):
-            state_dir = get_state_dir()
+        with (
+            patch.dict(os.environ, {"AGENT_BRAIN_STATE_DIR": "/env/state"}),
+            patch(
+                "agent_brain_cli.config._find_project_root",
+                return_value=Path("/fake/project"),
+            ),
+            patch(
+                "agent_brain_cli.config._find_config_file",
+                return_value=None,
+            ),
+        ):
+            state_dir = get_state_dir(project_root=Path("/fake/project"))
             assert state_dir == Path("/env/state")
 
     def test_config_state_dir(self) -> None:
         """Test state dir from config object."""
         config = AgentBrainConfig(project={"state_dir": "/config/state"})
-        with patch.dict(os.environ, {}, clear=True):
-            state_dir = get_state_dir(config=config)
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch(
+                "agent_brain_cli.config._find_project_root",
+                return_value=Path("/fake/project"),
+            ),
+        ):
+            state_dir = get_state_dir(config=config, project_root=Path("/fake/project"))
             assert state_dir == Path("/config/state")
 
 

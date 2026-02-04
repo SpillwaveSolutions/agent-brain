@@ -140,7 +140,8 @@ class TestCleanupStale:
 
         assert not (state_dir / LOCK_FILE).exists()
         assert not (state_dir / PID_FILE).exists()
-        assert not (state_dir / "runtime.json").exists()
+        # runtime.json is intentionally NOT deleted to allow CLI to read URL
+        assert (state_dir / "runtime.json").exists()
 
     def test_no_cleanup_when_alive(self, tmp_path):
         """Test no cleanup when process is alive."""
