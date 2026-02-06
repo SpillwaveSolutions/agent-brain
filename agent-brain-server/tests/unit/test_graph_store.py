@@ -489,8 +489,12 @@ class TestKuzuStoreInitialization:
             manager.initialize()
 
         # Should log warning about kuzu not being available
-        warning_messages = [r.message for r in caplog.records if r.levelno == logging.WARNING]
-        kuzu_warnings = [m for m in warning_messages if "kuzu" in m.lower() or "Kuzu" in m]
+        warning_messages = [
+            r.message for r in caplog.records if r.levelno == logging.WARNING
+        ]
+        kuzu_warnings = [
+            m for m in warning_messages if "kuzu" in m.lower() or "Kuzu" in m
+        ]
         assert len(kuzu_warnings) >= 1, "Expected warning about Kuzu fallback"
 
     @patch("agent_brain_server.storage.graph_store.settings")
@@ -526,9 +530,14 @@ class TestKuzuStoreInitialization:
         assert manager.relationship_count >= 1
 
     @patch("agent_brain_server.storage.graph_store.settings")
-    @patch("agent_brain_server.storage.graph_store.GraphStoreManager._initialize_kuzu_store")
+    @patch(
+        "agent_brain_server.storage.graph_store.GraphStoreManager._initialize_kuzu_store"
+    )
     def test_kuzu_initialization_called_for_kuzu_type(
-        self, mock_init_kuzu: MagicMock, mock_settings: MagicMock, graph_persist_dir: Path
+        self,
+        mock_init_kuzu: MagicMock,
+        mock_settings: MagicMock,
+        graph_persist_dir: Path,
     ):
         """Test that _initialize_kuzu_store is called when store_type is 'kuzu'."""
         mock_settings.ENABLE_GRAPH_INDEX = True
