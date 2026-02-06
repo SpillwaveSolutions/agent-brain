@@ -385,6 +385,13 @@ Run each command and verify expected output:
 - [ ] `agent-brain status` shows document count > 0
 - [ ] `agent-brain query "test"` returns results or "no matches"
 
+### GraphRAG Verification (if enabled)
+
+- [ ] `echo ${ENABLE_GRAPH_INDEX}` shows "true"
+- [ ] `agent-brain status --json | jq '.graph_index'` shows graph index info
+- [ ] `agent-brain query "class relationships" --mode graph` returns results or graceful error
+- [ ] `agent-brain query "how it works" --mode multi` returns fused results
+
 ### Automated Verification
 
 ```bash
