@@ -41,7 +41,7 @@ Graph search is ideal for:
 |-----------|----------|---------|-------------|
 | query | Yes | - | The relationship or dependency query |
 | --top-k | No | 5 | Number of results (1-20) |
-| --threshold | No | 0.3 | Minimum relevance score (0.0-1.0) |
+| --threshold | No | 0.3 | Minimum similarity threshold (0.0-1.0) |
 
 ## Prerequisites
 
@@ -50,12 +50,19 @@ GraphRAG must be enabled before using graph search:
 ```bash
 # Enable graph indexing
 export ENABLE_GRAPH_INDEX=true
+export GRAPH_STORE_TYPE=simple       # or kuzu
+export GRAPH_USE_CODE_METADATA=true
+export GRAPH_USE_LLM_EXTRACTION=true
+
+# Optional dependencies
+pip install "agent-brain-rag[graphrag]"          # LLM extractor
+pip install "agent-brain-rag[graphrag-kuzu]"     # Kuzu backend
 
 # Start server
 agent-brain start
 
-# Index with graph extraction
-agent-brain index /path/to/code
+# Rebuild index with graph extraction
+agent-brain index /path/to/code --rebuild
 ```
 
 ### Check Graph Status
@@ -88,6 +95,9 @@ agent-brain index /path/to/code
 
 ```bash
 agent-brain query "<query>" --mode graph --top-k <k> --threshold <t>
+
+# Multi-mode fusion (vector + bm25 + graph via RRF)
+agent-brain query "<query>" --mode multi --top-k <k>
 ```
 
 ### Example Queries
@@ -144,7 +154,7 @@ Found 3 results in 850.2ms
 
 ### Relationship Metadata
 
-Graph results may include relationship metadata in the `--json` output:
+Graph and multi results may include relationship metadata in the `--json` output:
 - `graph_score`: Score from graph-based retrieval
 - `related_entities`: Connected entities found
 - `relationship_path`: Relationship chain to query term

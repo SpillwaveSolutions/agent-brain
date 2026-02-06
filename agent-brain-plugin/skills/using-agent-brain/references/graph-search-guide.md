@@ -2,7 +2,7 @@
 
 ## Overview
 
-Graph search (GraphRAG) enables relationship-aware retrieval by building a knowledge graph from your documents. Unlike traditional search that finds content based on text similarity, graph search discovers entities (functions, classes, modules) and their relationships (calls, imports, inherits), allowing you to explore code dependencies and architectural connections.
+Graph search (GraphRAG) enables relationship-aware retrieval by building a knowledge graph from your documents. Unlike traditional search that finds content based on text similarity, graph search discovers entities (functions, classes, modules) and their relationships (calls, imports, inherits), allowing you to explore code dependencies and architectural connections. You can run **graph-only** queries or **multi-mode** fusion that blends vector + BM25 + graph with Reciprocal Rank Fusion (RRF).
 
 ## When to Use Graph Search
 
@@ -26,9 +26,9 @@ Graph search (GraphRAG) enables relationship-aware retrieval by building a knowl
 
 ## How Graph Search Works
 
-### Entity Extraction
+### Entity & Relationship Extraction
 
-During indexing, Agent Brain extracts entities from code:
+During indexing, Agent Brain extracts:
 
 | Entity Type | Description | Example |
 |-------------|-------------|---------|
@@ -46,8 +46,8 @@ Relationships between entities are automatically detected:
 | CALLS | Function invocation | `main() -> process_payment()` |
 | IMPORTS | Module import | `service.py -> auth.validators` |
 | INHERITS | Class inheritance | `AdminUser -> BaseUser` |
+| CONTAINS / DEFINED_IN | Containment / definition edges | `auth.py -> authenticate_user` |
 | USES | Variable/constant usage | `retry_loop -> MAX_RETRIES` |
-| DEFINES | Definition relationship | `module -> function` |
 
 ### Graph Traversal
 
@@ -71,7 +71,7 @@ agent-brain query "classes inheriting from BaseService" --mode graph --top-k 10
 # Lower threshold for broader results
 agent-brain query "auth module dependencies" --mode graph --threshold 0.2
 
-# Multi-mode: comprehensive search
+# Multi-mode (vector + bm25 + graph via RRF)
 agent-brain query "complete payment flow" --mode multi --top-k 10
 ```
 
@@ -104,9 +104,10 @@ curl -X POST http://localhost:8000/query/ \
 | Option | Default | Description | Use Case |
 |--------|---------|-------------|----------|
 | `--mode graph` | - | Pure graph-based retrieval | Relationship queries |
-| `--mode multi` | - | Combines vector + BM25 + graph | Comprehensive results |
-| `--threshold F` | 0.3 | Minimum relevance score | Filter weak matches |
+| `--mode multi` | - | Combines vector + BM25 + graph (RRF) | Comprehensive results |
+| `--threshold F` | 0.3 | Minimum similarity threshold | Filter weak matches |
 | `--top-k N` | 5 | Maximum results | More comprehensive results |
+| `--alpha F` | 0.5 | Hybrid weight (vector vs BM25) used when graph falls back | Tune hybrid fallback |
 
 **Note:** Graph search returns relationship metadata in the result's `metadata` field when available.
 
@@ -114,20 +115,25 @@ curl -X POST http://localhost:8000/query/ \
 
 GraphRAG must be explicitly enabled during server startup:
 
-### Environment Variables
+### Environment Variables (server)
 
 ```bash
-# Required: Enable graph indexing
+# Required: master switch (default: false)
 export ENABLE_GRAPH_INDEX=true
 
-# Optional: Graph store type
-export GRAPH_STORE_TYPE=simple  # 'simple' (in-memory) or 'kuzu' (persistent)
+# Optional backends
+export GRAPH_STORE_TYPE=simple      # or kuzu
+export GRAPH_INDEX_PATH=./graph_index
 
-# Optional: Default traversal depth
+# Extraction controls
+export GRAPH_USE_CODE_METADATA=true
+export GRAPH_USE_LLM_EXTRACTION=true
+export GRAPH_MAX_TRIPLETS_PER_CHUNK=10
+export GRAPH_EXTRACTION_MODEL=claude-haiku-4-5
+
+# Query behavior
 export GRAPH_TRAVERSAL_DEPTH=2
-
-# Optional: Entity extraction model
-export GRAPH_EXTRACTION_MODEL=gpt-5-mini
+export GRAPH_RRF_K=60               # RRF constant for multi mode
 ```
 
 ### Configuration File (.env)
@@ -136,9 +142,19 @@ export GRAPH_EXTRACTION_MODEL=gpt-5-mini
 # .env file in project root
 ENABLE_GRAPH_INDEX=true
 GRAPH_STORE_TYPE=simple
+GRAPH_INDEX_PATH=./graph_index
+GRAPH_USE_CODE_METADATA=true
+GRAPH_USE_LLM_EXTRACTION=true
+GRAPH_MAX_TRIPLETS_PER_CHUNK=10
 GRAPH_TRAVERSAL_DEPTH=2
-GRAPH_EXTRACTION_MODEL=gpt-5-mini
+GRAPH_EXTRACTION_MODEL=claude-haiku-4-5
 ```
+
+### Optional Dependencies
+
+- Default simple store: included.
+- Enhanced extraction: `pip install "agent-brain-rag[graphrag]"`
+- Kuzu backend: `pip install "agent-brain-rag[graphrag-kuzu]"`
 
 ### Starting with Graph Enabled
 

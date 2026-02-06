@@ -186,6 +186,111 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 
 ---
 
+## GraphRAG Configuration (Feature 113)
+
+GraphRAG enables graph-based retrieval using entity relationships extracted from documents and code.
+
+### GraphRAG Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `ENABLE_GRAPH_INDEX` | No | `false` | Master switch to enable graph indexing |
+| `GRAPH_STORE_TYPE` | No | `simple` | Graph backend: `simple` (in-memory) or `kuzu` (persistent) |
+| `GRAPH_INDEX_PATH` | No | `./graph_index` | Path for graph persistence |
+| `GRAPH_EXTRACTION_MODEL` | No | `claude-haiku-4-5` | Model for entity extraction |
+| `GRAPH_MAX_TRIPLETS_PER_CHUNK` | No | `10` | Maximum triplets extracted per document chunk |
+| `GRAPH_USE_CODE_METADATA` | No | `true` | Extract entities from AST metadata (imports, classes) |
+| `GRAPH_USE_LLM_EXTRACTION` | No | `true` | Use LLM for semantic entity extraction |
+| `GRAPH_TRAVERSAL_DEPTH` | No | `2` | Depth for graph traversal in queries |
+| `GRAPH_RRF_K` | No | `60` | Reciprocal Rank Fusion constant for multi-mode queries |
+
+### GraphRAG in config.yaml
+
+```yaml
+# ~/.agent-brain/config.yaml
+graphrag:
+  enabled: true
+  store_type: "simple"  # "simple" or "kuzu"
+  index_path: "./graph_index"
+  extraction_model: "claude-haiku-4-5"
+  max_triplets_per_chunk: 10
+  use_code_metadata: true
+  use_llm_extraction: true
+  traversal_depth: 2
+  rrf_k: 60
+```
+
+### GraphRAG via Environment Variables
+
+```bash
+# Enable GraphRAG
+export ENABLE_GRAPH_INDEX=true
+
+# Use Kuzu for persistent graph storage (optional)
+export GRAPH_STORE_TYPE=kuzu
+export GRAPH_INDEX_PATH=".claude/agent-brain/graph_index"
+
+# Entity extraction settings
+export GRAPH_EXTRACTION_MODEL=claude-haiku-4-5
+export GRAPH_MAX_TRIPLETS_PER_CHUNK=10
+
+# Code relationship extraction (recommended for codebases)
+export GRAPH_USE_CODE_METADATA=true
+export GRAPH_USE_LLM_EXTRACTION=true
+
+# Query settings
+export GRAPH_TRAVERSAL_DEPTH=2
+export GRAPH_RRF_K=60
+```
+
+### GraphRAG Query Modes
+
+Once enabled, you can query using graph-based retrieval:
+
+```bash
+# Graph-only retrieval (entity relationships)
+agent-brain query "class relationships" --mode graph
+
+# Multi-mode fusion (vector + BM25 + graph with RRF)
+agent-brain query "how do services work" --mode multi
+```
+
+### Store Type Comparison
+
+| Store | Persistence | Performance | Use Case |
+|-------|-------------|-------------|----------|
+| `simple` | In-memory only | Fast, no disk I/O | Development, small projects |
+| `kuzu` | Persistent to disk | Graph-optimized queries | Production, large codebases |
+
+**Note**: Kuzu requires the optional `graphrag-kuzu` dependency:
+```bash
+poetry install --extras graphrag-kuzu
+```
+
+### Troubleshooting GraphRAG
+
+**GraphRAG disabled error**:
+```bash
+# Check if enabled
+echo $ENABLE_GRAPH_INDEX
+
+# Enable it
+export ENABLE_GRAPH_INDEX=true
+agent-brain stop && agent-brain start
+```
+
+**No graph results**:
+```bash
+# Verify graph index was built
+agent-brain status --json | jq '.graph_index'
+
+# Re-index with graph enabled
+agent-brain reset --yes
+agent-brain index /path/to/docs
+```
+
+---
+
 ## Profile Examples
 
 ### Fully Local (Ollama - No API Keys)
@@ -228,6 +333,28 @@ project:
 embedding:
   provider: "openai"
   api_key_env: "OPENAI_API_KEY"
+```
+
+### GraphRAG Enabled (Code Search)
+
+```yaml
+# ~/.agent-brain/config.yaml
+embedding:
+  provider: "openai"
+  model: "text-embedding-3-large"
+  api_key_env: "OPENAI_API_KEY"
+
+summarization:
+  provider: "anthropic"
+  model: "claude-haiku-4-5-20251001"
+  api_key_env: "ANTHROPIC_API_KEY"
+
+graphrag:
+  enabled: true
+  store_type: "kuzu"  # Persistent for large codebases
+  use_code_metadata: true  # Extract imports, classes from AST
+  use_llm_extraction: true  # Extract semantic relationships
+  traversal_depth: 2
 ```
 
 ---

@@ -117,7 +117,24 @@ Expected: Version number displayed (e.g., `3.0.0` or current version)
 
 ```bash
 pip install "agent-brain-rag[graphrag]" agent-brain-cli
+# Kuzu backend (optional):
+pip install "agent-brain-rag[graphrag-kuzu]" agent-brain-cli
 ```
+
+### Enable GraphRAG (server)
+
+```bash
+export ENABLE_GRAPH_INDEX=true            # Master switch (default: false)
+export GRAPH_STORE_TYPE=simple            # or kuzu
+export GRAPH_INDEX_PATH=./graph_index
+export GRAPH_USE_CODE_METADATA=true       # Extract from AST metadata
+export GRAPH_USE_LLM_EXTRACTION=true      # Use LLM extractor when available
+export GRAPH_MAX_TRIPLETS_PER_CHUNK=10    # Triplet cap per chunk
+export GRAPH_TRAVERSAL_DEPTH=2            # Default traversal depth
+export GRAPH_EXTRACTION_MODEL=claude-haiku-4-5
+```
+
+Add the same values to your `.env` if you prefer file-based config.
 
 ### Virtual Environment (Recommended)
 
