@@ -1,7 +1,7 @@
 """Query request and response models."""
 
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -69,7 +69,7 @@ class QueryRequest(BaseModel):
 
     @field_validator("languages")
     @classmethod
-    def validate_languages(cls, v: Optional[list[str]]) -> Optional[list[str]]:
+    def validate_languages(cls, v: list[str] | None) -> list[str] | None:
         """Validate that provided languages are supported."""
         if v is None:
             return v
@@ -142,6 +142,14 @@ class QueryResult(BaseModel):
     )
     relationship_path: list[str] | None = Field(
         default=None, description="Relationship paths in the graph"
+    )
+
+    # Reranking fields (Feature 123)
+    rerank_score: float | None = Field(
+        default=None, description="Score from reranking stage (if enabled)"
+    )
+    original_rank: int | None = Field(
+        default=None, description="Position before reranking (1-indexed)"
     )
 
     # Additional metadata

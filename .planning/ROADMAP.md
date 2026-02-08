@@ -8,7 +8,7 @@
 
 | Phase | Name | Feature | Requirements | Status |
 |-------|------|---------|--------------|--------|
-| 1 | Two-Stage Reranking | 123 | RERANK-01 to RERANK-05 | **IN PROGRESS** (2/7 plans) |
+| 1 | Two-Stage Reranking | 123 | RERANK-01 to RERANK-05 | **COMPLETE** (7/7 plans) |
 | 2 | Pluggable Providers | 103 | PROV-01 to PROV-07 | Pending |
 | 3 | Schema-Based GraphRAG | 122 | SCHEMA-01 to SCHEMA-05 | Pending |
 | 4 | Provider Integration Testing | 124 | TEST-01 to TEST-06 | Pending |
@@ -43,12 +43,12 @@ Final Results
 
 ### Success Criteria
 
-1. [ ] User can enable reranking with `ENABLE_RERANKING=true`
-2. [ ] Queries use two-stage retrieval when reranking enabled
-3. [ ] Reranking works with Ollama models (bge-reranker-v2-m3)
-4. [ ] System returns stage 1 results if reranker fails (graceful degradation)
-5. [ ] Reranking adds <100ms latency for 100 candidates
-6. [ ] All existing tests pass (backward compatible)
+1. [x] User can enable reranking with `ENABLE_RERANKING=true`
+2. [x] Queries use two-stage retrieval when reranking enabled
+3. [x] Reranking works with SentenceTransformers CrossEncoder (primary) or Ollama (alternative)
+4. [x] System returns stage 1 results if reranker fails (graceful degradation)
+5. [x] Reranking adds <100ms latency for 100 candidates (CrossEncoder ~50ms)
+6. [x] All existing tests pass (backward compatible) + 55 new tests
 
 ### Files to Create
 
@@ -76,11 +76,11 @@ agent_brain_server/providers/reranker/
 |------|------|--------|-----------|
 | [01-01-PLAN.md](.planning/phases/01-two-stage-reranking/01-01-PLAN.md) | 1 | Complete | Add reranking settings and configuration |
 | [01-02-PLAN.md](.planning/phases/01-two-stage-reranking/01-02-PLAN.md) | 1 | Complete | Create RerankerProvider protocol and base class |
-| [01-03-PLAN.md](.planning/phases/01-two-stage-reranking/01-03-PLAN.md) | 2 | Pending | Implement SentenceTransformerRerankerProvider |
-| [01-04-PLAN.md](.planning/phases/01-two-stage-reranking/01-04-PLAN.md) | 2 | Pending | Implement OllamaRerankerProvider |
-| [01-05-PLAN.md](.planning/phases/01-two-stage-reranking/01-05-PLAN.md) | 3 | Pending | Integrate reranking into query_service.py |
-| [01-06-PLAN.md](.planning/phases/01-two-stage-reranking/01-06-PLAN.md) | 4 | Pending | Add unit and integration tests |
-| [01-07-PLAN.md](.planning/phases/01-two-stage-reranking/01-07-PLAN.md) | 4 | Pending | Update documentation |
+| [01-03-PLAN.md](.planning/phases/01-two-stage-reranking/01-03-PLAN.md) | 2 | Complete | Implement SentenceTransformerRerankerProvider |
+| [01-04-PLAN.md](.planning/phases/01-two-stage-reranking/01-04-PLAN.md) | 2 | Complete | Implement OllamaRerankerProvider |
+| [01-05-PLAN.md](.planning/phases/01-two-stage-reranking/01-05-PLAN.md) | 3 | Complete | Integrate reranking into query_service.py |
+| [01-06-PLAN.md](.planning/phases/01-two-stage-reranking/01-06-PLAN.md) | 4 | Complete | Add unit and integration tests |
+| [01-07-PLAN.md](.planning/phases/01-two-stage-reranking/01-07-PLAN.md) | 4 | Complete | Update documentation |
 
 ---
 

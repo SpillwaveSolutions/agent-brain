@@ -8,6 +8,7 @@ This guide covers how to use Agent Brain for document indexing and semantic sear
 - [Plugin Commands](#plugin-commands)
 - [Plugin Agents](#plugin-agents)
 - [Search Modes](#search-modes)
+- [Two-Stage Retrieval with Reranking](#two-stage-retrieval-with-reranking)
 - [Indexing](#indexing)
 - [Job Queue](#job-queue)
 - [Provider Configuration](#provider-configuration)
@@ -195,6 +196,77 @@ Combines all modes using Reciprocal Rank Fusion. Best for maximum recall.
 ```
 /agent-brain-multi "everything about data validation"
 ```
+
+---
+
+## Two-Stage Retrieval with Reranking
+
+Agent Brain can optionally use two-stage retrieval to improve search precision by 15-20%.
+
+### How It Works
+
+**Without Reranking (Default)**:
+1. Query is embedded using the embedding model
+2. Vector similarity search finds top_k most similar documents
+3. Results are returned
+
+**With Reranking Enabled**:
+1. Query is embedded using the embedding model
+2. Vector + BM25 hybrid search retrieves 10x more candidates
+3. Cross-encoder model scores each candidate for relevance to the query
+4. Results are reordered by cross-encoder score
+5. Top_k results are returned
+
+### Why Reranking Helps
+
+Embedding models (bi-encoders) are fast but approximate. They encode the query and documents separately, then compare vectors. This can miss nuanced relevance.
+
+Cross-encoders process the query AND document together, allowing the model to attend across both texts. This is slower but more accurate.
+
+### When to Enable Reranking
+
+Enable reranking when:
+- Precision matters more than latency
+- Queries are complex or nuanced
+- Initial results seem "close but not quite right"
+
+Keep reranking disabled when:
+- Latency is critical (real-time search)
+- Running on resource-constrained hardware
+- Search quality is already acceptable
+
+### Configuration
+
+Enable with environment variable:
+```bash
+export ENABLE_RERANKING=true
+```
+
+Or in config.yaml:
+```yaml
+reranker:
+  provider: sentence-transformers
+  model: cross-encoder/ms-marco-MiniLM-L-6-v2
+```
+
+### Provider Choices
+
+**sentence-transformers (Recommended)**:
+- Uses HuggingFace CrossEncoder models
+- Downloads model on first use (~50MB)
+- Fast inference (~50ms for 100 candidates)
+
+**ollama (Fully Local)**:
+- Uses Ollama chat completions for scoring
+- No external downloads
+- Slower (~500ms for 100 candidates)
+- Requires Ollama running locally
+
+### Response Fields
+
+When reranking is enabled, results include additional metadata:
+- `rerank_score`: Cross-encoder relevance score
+- `original_rank`: Position before reranking (1-indexed)
 
 ---
 
