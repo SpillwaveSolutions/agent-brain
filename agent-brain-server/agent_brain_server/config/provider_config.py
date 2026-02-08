@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from agent_brain_server.providers.base import (
     EmbeddingProviderType,
+    RerankerProviderType,
     SummarizationProviderType,
 )
 
@@ -169,6 +170,51 @@ class SummarizationConfig(BaseModel):
         return None
 
 
+class RerankerConfig(BaseModel):
+    """Configuration for reranking provider."""
+
+    provider: RerankerProviderType = Field(
+        default=RerankerProviderType.SENTENCE_TRANSFORMERS,
+        description="Reranking provider to use",
+    )
+    model: str = Field(
+        default="cross-encoder/ms-marco-MiniLM-L-6-v2",
+        description="Model name for reranking",
+    )
+    base_url: Optional[str] = Field(
+        default=None,
+        description="Custom base URL (for Ollama)",
+    )
+    params: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Provider-specific parameters (batch_size, etc.)",
+    )
+
+    model_config = {"use_enum_values": True}
+
+    @field_validator("provider", mode="before")
+    @classmethod
+    def validate_provider(cls, v: Any) -> RerankerProviderType:
+        """Convert string to enum if needed."""
+        if isinstance(v, str):
+            return RerankerProviderType(v.lower())
+        if isinstance(v, RerankerProviderType):
+            return v
+        return RerankerProviderType(v)
+
+    def get_base_url(self) -> Optional[str]:
+        """Get base URL with defaults for specific providers.
+
+        Returns:
+            Base URL for the provider
+        """
+        if self.base_url:
+            return self.base_url
+        if self.provider == RerankerProviderType.OLLAMA:
+            return "http://localhost:11434"
+        return None
+
+
 class ProviderSettings(BaseModel):
     """Top-level provider configuration."""
 
@@ -179,6 +225,10 @@ class ProviderSettings(BaseModel):
     summarization: SummarizationConfig = Field(
         default_factory=SummarizationConfig,
         description="Summarization provider configuration",
+    )
+    reranker: RerankerConfig = Field(
+        default_factory=RerankerConfig,
+        description="Reranking provider configuration (optional)",
     )
 
 
@@ -304,6 +354,10 @@ def load_provider_settings() -> ProviderSettings:
     logger.info(
         f"Active summarization provider: {settings.summarization.provider} "
         f"(model: {settings.summarization.model})"
+    )
+    logger.info(
+        f"Active reranker provider: {settings.reranker.provider} "
+        f"(model: {settings.reranker.model})"
     )
 
     return settings
