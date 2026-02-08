@@ -9,7 +9,7 @@
 | Phase | Name | Feature | Requirements | Status |
 |-------|------|---------|--------------|--------|
 | 1 | Two-Stage Reranking | 123 | RERANK-01 to RERANK-05 | **COMPLETE** (7/7 plans) |
-| 2 | Pluggable Providers | 103 | PROV-01 to PROV-07 | Pending |
+| 2 | Pluggable Providers | 103 | PROV-01 to PROV-07 | **PLANNED** (0/4 plans) |
 | 3 | Schema-Based GraphRAG | 122 | SCHEMA-01 to SCHEMA-05 | Pending |
 | 4 | Provider Integration Testing | 124 | TEST-01 to TEST-06 | Pending |
 
@@ -118,6 +118,26 @@ summarization:
   params:
     api_key_env: ANTHROPIC_API_KEY
 ```
+
+### Research Findings
+
+See: `.planning/phases/02-pluggable-providers/02-RESEARCH.md`
+
+**Status:** Most infrastructure exists. Key gaps:
+- PROV-07 (dimension mismatch) - NOT implemented
+- PROV-06 (strict validation) - Partial, only warns
+- PROV-03/04 - Need E2E verification tests
+
+### Plans
+
+**Plans:** 4 plans in 2 waves
+
+| Plan | Wave | Status | Objective |
+|------|------|--------|-----------|
+| [02-01-PLAN.md](.planning/phases/02-pluggable-providers/02-01-PLAN.md) | 1 | Pending | Dimension mismatch prevention (PROV-07) |
+| [02-02-PLAN.md](.planning/phases/02-pluggable-providers/02-02-PLAN.md) | 1 | Pending | Strict startup validation (PROV-06) |
+| [02-03-PLAN.md](.planning/phases/02-pluggable-providers/02-03-PLAN.md) | 2 | Pending | Provider switching E2E test (PROV-03) |
+| [02-04-PLAN.md](.planning/phases/02-pluggable-providers/02-04-PLAN.md) | 2 | Pending | Ollama offline E2E test (PROV-04) |
 
 ---
 
