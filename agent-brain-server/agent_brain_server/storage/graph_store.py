@@ -83,9 +83,7 @@ class GraphStoreManager:
         This is a no-op when ENABLE_GRAPH_INDEX is False.
         """
         if not settings.ENABLE_GRAPH_INDEX:
-            logger.debug(
-                "graph_store.initialize: skipped (ENABLE_GRAPH_INDEX=false)"
-            )
+            logger.debug("graph_store.initialize: skipped (ENABLE_GRAPH_INDEX=false)")
             return
 
         if self._initialized:
