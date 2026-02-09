@@ -151,3 +151,34 @@ class IndexingStatus(BaseModel):
             ]
         }
     }
+
+
+class ProviderHealth(BaseModel):
+    """Health status for a single provider."""
+
+    provider_type: str = Field(description="Type: embedding, summarization, reranker")
+    provider_name: str = Field(description="Provider name (e.g., openai, ollama)")
+    model: str = Field(description="Model being used")
+    status: str = Field(description="Status: healthy, degraded, unavailable")
+    message: Optional[str] = Field(default=None, description="Status message")
+    dimensions: Optional[int] = Field(
+        default=None, description="Embedding dimensions (for embedding providers)"
+    )
+
+
+class ProvidersStatus(BaseModel):
+    """Status of all configured providers."""
+
+    config_source: Optional[str] = Field(
+        default=None, description="Path to config file if loaded"
+    )
+    strict_mode: bool = Field(
+        default=False, description="Whether strict validation is enabled"
+    )
+    validation_errors: list[str] = Field(
+        default_factory=list, description="Validation error messages"
+    )
+    providers: list[ProviderHealth] = Field(
+        default_factory=list, description="Status of each provider"
+    )
+    timestamp: datetime = Field(description="Status check timestamp")
