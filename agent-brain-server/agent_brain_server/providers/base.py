@@ -27,6 +27,13 @@ class SummarizationProviderType(str, Enum):
     OLLAMA = "ollama"
 
 
+class RerankerProviderType(str, Enum):
+    """Supported reranking providers."""
+
+    SENTENCE_TRANSFORMERS = "sentence-transformers"
+    OLLAMA = "ollama"
+
+
 @runtime_checkable
 class EmbeddingProvider(Protocol):
     """Protocol for embedding providers.

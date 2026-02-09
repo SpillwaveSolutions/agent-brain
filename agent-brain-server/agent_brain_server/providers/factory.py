@@ -8,12 +8,14 @@ from agent_brain_server.providers.exceptions import ProviderNotFoundError
 if TYPE_CHECKING:
     from agent_brain_server.config.provider_config import (
         EmbeddingConfig,
+        RerankerConfig,
         SummarizationConfig,
     )
     from agent_brain_server.providers.base import (
         EmbeddingProvider,
         SummarizationProvider,
     )
+    from agent_brain_server.providers.reranker.base import RerankerProvider
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,7 @@ class ProviderRegistry:
 
     _embedding_providers: dict[str, type[Any]] = {}
     _summarization_providers: dict[str, type[Any]] = {}
+    _reranker_providers: dict[str, type[Any]] = {}
     _instances: dict[str, Any] = {}
 
     @classmethod
@@ -141,6 +144,60 @@ class ProviderRegistry:
         return cast(SummarizationProvider, cls._instances[cache_key])
 
     @classmethod
+    def register_reranker_provider(
+        cls,
+        provider_type: str,
+        provider_class: type["RerankerProvider"],
+    ) -> None:
+        """Register a reranking provider class.
+
+        Args:
+            provider_type: Provider identifier (e.g., 'sentence-transformers', 'ollama')
+            provider_class: Provider class implementing RerankerProvider protocol
+        """
+        cls._reranker_providers[provider_type] = provider_class
+        logger.debug(f"Registered reranker provider: {provider_type}")
+
+    @classmethod
+    def get_reranker_provider(cls, config: "RerankerConfig") -> "RerankerProvider":
+        """Get or create reranker provider instance.
+
+        Args:
+            config: Reranker provider configuration
+
+        Returns:
+            Configured RerankerProvider instance
+
+        Raises:
+            ProviderNotFoundError: If provider type is not registered
+        """
+        # Get provider type as string value
+        provider_type = (
+            config.provider.value
+            if hasattr(config.provider, "value")
+            else str(config.provider)
+        )
+        cache_key = f"rerank:{provider_type}:{config.model}"
+
+        if cache_key not in cls._instances:
+            provider_class = cls._reranker_providers.get(provider_type)
+            if not provider_class:
+                available = list(cls._reranker_providers.keys())
+                raise ProviderNotFoundError(
+                    f"Unknown reranker provider: {provider_type}. "
+                    f"Available: {', '.join(available) if available else 'none'}",
+                    provider_type,
+                )
+            cls._instances[cache_key] = provider_class(config)
+            logger.info(
+                f"Created {provider_type} reranker provider with model {config.model}"
+            )
+
+        from agent_brain_server.providers.reranker.base import RerankerProvider
+
+        return cast(RerankerProvider, cls._instances[cache_key])
+
+    @classmethod
     def clear_cache(cls) -> None:
         """Clear provider instance cache (for testing)."""
         cls._instances.clear()
@@ -155,3 +212,8 @@ class ProviderRegistry:
     def get_available_summarization_providers(cls) -> list[str]:
         """Get list of registered summarization provider types."""
         return list(cls._summarization_providers.keys())
+
+    @classmethod
+    def get_available_reranker_providers(cls) -> list[str]:
+        """Get list of registered reranker provider types."""
+        return list(cls._reranker_providers.keys())

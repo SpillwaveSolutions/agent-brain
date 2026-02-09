@@ -68,6 +68,14 @@ class Settings(BaseSettings):
     AGENT_BRAIN_MAX_RETRIES: int = 3  # Max retries for failed jobs
     AGENT_BRAIN_CHECKPOINT_INTERVAL: int = 50  # Progress checkpoint every N files
 
+    # Reranking Configuration (Feature 123)
+    ENABLE_RERANKING: bool = False  # Off by default
+    RERANKER_PROVIDER: str = "sentence-transformers"  # or "ollama"
+    RERANKER_MODEL: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    RERANKER_TOP_K_MULTIPLIER: int = 10  # Retrieve top_k * this for Stage 1
+    RERANKER_MAX_CANDIDATES: int = 100  # Cap on Stage 1 candidates
+    # Note: CrossEncoder.rank() handles batching internally, no batch_size config needed
+
     model_config = SettingsConfigDict(
         env_file=[
             ".env",  # Current directory

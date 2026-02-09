@@ -134,6 +134,84 @@ poetry install --with graphrag-kuzu
 poetry install --with graphrag
 ```
 
+## Two-Stage Reranking (Feature 123)
+
+Agent Brain supports optional two-stage retrieval with reranking for improved search precision. When enabled, the system:
+
+1. **Stage 1**: Retrieves more candidates than requested (e.g., 50 candidates for top_k=5)
+2. **Stage 2**: Reranks candidates using a cross-encoder model for more accurate relevance scoring
+
+### Enabling Reranking
+
+Set the following environment variables:
+
+```bash
+# Enable two-stage reranking (default: false)
+ENABLE_RERANKING=true
+
+# Choose provider (default: sentence-transformers)
+RERANKER_PROVIDER=sentence-transformers  # or "ollama"
+
+# Choose model (default: cross-encoder/ms-marco-MiniLM-L-6-v2)
+RERANKER_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2
+
+# Stage 1 retrieval multiplier (default: 10)
+RERANKER_TOP_K_MULTIPLIER=10
+
+# Maximum candidates for Stage 1 (default: 100)
+RERANKER_MAX_CANDIDATES=100
+
+# Batch size for reranking inference (default: 32)
+RERANKER_BATCH_SIZE=32
+```
+
+### Provider Options
+
+| Provider | Model | Latency | Description |
+|----------|-------|---------|-------------|
+| sentence-transformers | cross-encoder/ms-marco-MiniLM-L-6-v2 | ~50ms | Recommended. Fast, accurate cross-encoder. |
+| sentence-transformers | cross-encoder/ms-marco-MiniLM-L-12-v2 | ~100ms | Slower but more accurate. |
+| ollama | llama3.2:1b | ~500ms | Fully local, no HuggingFace download. |
+
+### YAML Configuration
+
+You can also configure reranking in `config.yaml`:
+
+```yaml
+reranker:
+  provider: sentence-transformers
+  model: cross-encoder/ms-marco-MiniLM-L-6-v2
+  params:
+    batch_size: 32
+```
+
+### Graceful Degradation
+
+If the reranker fails (model unavailable, timeout, etc.), the system automatically falls back to Stage 1 results. This ensures queries never fail due to reranking issues.
+
+### Response Fields
+
+When reranking is enabled, query results include additional fields:
+
+- `rerank_score`: The cross-encoder relevance score
+- `original_rank`: The position before reranking (1-indexed)
+
+Example response:
+```json
+{
+  "results": [
+    {
+      "text": "Document content...",
+      "source": "docs/guide.md",
+      "score": 0.95,
+      "rerank_score": 0.95,
+      "original_rank": 5,
+      "chunk_id": "chunk_abc123"
+    }
+  ]
+}
+```
+
 ## Development Installation
 
 ```bash

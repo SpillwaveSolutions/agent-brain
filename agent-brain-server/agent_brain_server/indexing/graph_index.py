@@ -572,9 +572,11 @@ class GraphIndexManager:
                 "graph_index.clear: skipped",
                 extra={
                     "enabled": settings.ENABLE_GRAPH_INDEX,
-                    "initialized": self.graph_store.is_initialized
-                    if settings.ENABLE_GRAPH_INDEX
-                    else False,
+                    "initialized": (
+                        self.graph_store.is_initialized
+                        if settings.ENABLE_GRAPH_INDEX
+                        else False
+                    ),
                 },
             )
 

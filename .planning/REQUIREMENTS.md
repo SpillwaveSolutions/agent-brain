@@ -1,0 +1,124 @@
+# Requirements: Agent Brain
+
+**Defined:** 2026-02-07
+**Core Value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API
+
+## v1 Requirements
+
+Requirements for current milestone. Each maps to roadmap phases.
+
+### Reranking (Feature 123)
+
+- [ ] **RERANK-01**: System supports two-stage retrieval with optional reranking
+- [ ] **RERANK-02**: Ollama-based reranker works locally without API keys
+- [ ] **RERANK-03**: Reranking gracefully degrades on failure (returns stage 1 results)
+- [ ] **RERANK-04**: Reranking adds <100ms latency for top 100 candidates
+- [ ] **RERANK-05**: Configuration via ENABLE_RERANKING, RERANKER_PROVIDER, RERANKER_MODEL
+
+### Pluggable Providers (Feature 103)
+
+- [ ] **PROV-01**: YAML configuration for embedding provider (OpenAI/Ollama/Cohere)
+- [ ] **PROV-02**: YAML configuration for summarization provider (Anthropic/OpenAI/Gemini/Grok/Ollama)
+- [ ] **PROV-03**: Switching providers requires only config change, no code changes
+- [ ] **PROV-04**: Fully offline operation supported with Ollama for both embeddings and summarization
+- [ ] **PROV-05**: API keys read from environment variables, never stored in config
+- [ ] **PROV-06**: Provider configuration validated on startup with clear errors
+- [ ] **PROV-07**: Embedding dimension mismatch detected and prevented
+
+### Schema-Based GraphRAG (Feature 122)
+
+- [ ] **SCHEMA-01**: Domain-specific entity types defined (Package, Module, Class, Method, Function, Interface, Enum)
+- [ ] **SCHEMA-02**: Documentation entity types defined (DesignDoc, UserDoc, PRD, Runbook, README, APIDoc)
+- [ ] **SCHEMA-03**: Enhanced relationship predicates (calls, extends, implements, references, depends_on)
+- [ ] **SCHEMA-04**: Entity type filtering in graph queries
+- [ ] **SCHEMA-05**: LLM extraction prompts use schema vocabulary
+
+### Provider Integration Testing (Feature 124)
+
+- [ ] **TEST-01**: E2E test suite for OpenAI provider
+- [ ] **TEST-02**: E2E test suite for Anthropic provider
+- [ ] **TEST-03**: E2E test suite for Ollama provider
+- [ ] **TEST-04**: E2E test suite for Cohere provider
+- [ ] **TEST-05**: Provider health check endpoint (/health/providers)
+- [ ] **TEST-06**: Verified provider configuration documentation
+
+## v2 Requirements
+
+Deferred to future releases. Tracked but not in current roadmap.
+
+### PostgreSQL Backend (Feature 104)
+
+- **PG-01**: pgvector for high-performance vector similarity search
+- **PG-02**: tsvector/tsquery for native full-text search (replaces BM25)
+- **PG-03**: JSONB for graph storage with GIN indexes
+- **PG-04**: Migration tool from ChromaDB
+
+### AWS Bedrock Provider (Feature 105)
+
+- **AWS-01**: Bedrock embedding provider (Titan, Cohere)
+- **AWS-02**: Bedrock summarization provider (Claude, Titan, Llama, Mistral)
+- **AWS-03**: Default AWS credentials chain support
+
+### Vertex AI Provider (Feature 106)
+
+- **VERTEX-01**: Vertex AI embedding provider (textembedding-gecko)
+- **VERTEX-02**: Vertex AI summarization provider (Gemini)
+- **VERTEX-03**: Application Default Credentials support
+
+### Future Optimizations
+
+- **OPT-01**: Embedding cache with content hashing (50-80% index speedup)
+- **OPT-02**: File watcher for auto-indexing
+- **OPT-03**: Background incremental updates
+- **OPT-04**: Query caching with LRU
+- **OPT-05**: UDS transport for sub-millisecond local queries
+
+## Out of Scope
+
+Explicitly excluded. Documented to prevent scope creep.
+
+| Feature | Reason |
+|---------|--------|
+| MCP Server | User prefers Skill + CLI model — simpler, less context overhead |
+| Real-time streaming | Not needed for document search use case |
+| Multi-tenancy | Local-first philosophy — one instance per project |
+| Web UI | CLI-first philosophy — agents are primary consumers |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| RERANK-01 | Phase 1 | Pending |
+| RERANK-02 | Phase 1 | Pending |
+| RERANK-03 | Phase 1 | Pending |
+| RERANK-04 | Phase 1 | Pending |
+| RERANK-05 | Phase 1 | Pending |
+| PROV-01 | Phase 2 | Pending |
+| PROV-02 | Phase 2 | Pending |
+| PROV-03 | Phase 2 | Pending |
+| PROV-04 | Phase 2 | Pending |
+| PROV-05 | Phase 2 | Pending |
+| PROV-06 | Phase 2 | Pending |
+| PROV-07 | Phase 2 | Pending |
+| SCHEMA-01 | Phase 3 | Pending |
+| SCHEMA-02 | Phase 3 | Pending |
+| SCHEMA-03 | Phase 3 | Pending |
+| SCHEMA-04 | Phase 3 | Pending |
+| SCHEMA-05 | Phase 3 | Pending |
+| TEST-01 | Phase 4 | Pending |
+| TEST-02 | Phase 4 | Pending |
+| TEST-03 | Phase 4 | Pending |
+| TEST-04 | Phase 4 | Pending |
+| TEST-05 | Phase 4 | Pending |
+| TEST-06 | Phase 4 | Pending |
+
+**Coverage:**
+- v1 requirements: 23 total
+- Mapped to phases: 23
+- Unmapped: 0 ✓
+
+---
+*Requirements defined: 2026-02-07*
+*Last updated: 2026-02-07 after GSD migration*

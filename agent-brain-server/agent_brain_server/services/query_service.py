@@ -2,12 +2,15 @@
 
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
 from llama_index.core.retrievers import BaseRetriever
 from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
 
+# Import reranker module to trigger provider registration
+import agent_brain_server.providers.reranker  # noqa: F401
 from agent_brain_server.config import settings
+from agent_brain_server.config.provider_config import load_provider_settings
 from agent_brain_server.indexing import EmbeddingGenerator, get_embedding_generator
 from agent_brain_server.indexing.bm25_index import BM25IndexManager, get_bm25_manager
 from agent_brain_server.indexing.graph_index import (
@@ -20,6 +23,7 @@ from agent_brain_server.models import (
     QueryResponse,
     QueryResult,
 )
+from agent_brain_server.providers import ProviderRegistry
 from agent_brain_server.storage import VectorStoreManager, get_vector_store
 
 logger = logging.getLogger(__name__)
@@ -71,10 +75,10 @@ class QueryService:
 
     def __init__(
         self,
-        vector_store: Optional[VectorStoreManager] = None,
-        embedding_generator: Optional[EmbeddingGenerator] = None,
-        bm25_manager: Optional[BM25IndexManager] = None,
-        graph_index_manager: Optional[GraphIndexManager] = None,
+        vector_store: VectorStoreManager | None = None,
+        embedding_generator: EmbeddingGenerator | None = None,
+        bm25_manager: BM25IndexManager | None = None,
+        graph_index_manager: GraphIndexManager | None = None,
     ):
         """
         Initialize the query service.
@@ -103,6 +107,10 @@ class QueryService:
         """
         Execute a search query based on the requested mode.
 
+        Supports optional two-stage reranking when ENABLE_RERANKING=True.
+        Stage 1: Broad retrieval with expanded top_k
+        Stage 2: Cross-encoder reranking for precision
+
         Args:
             request: QueryRequest with query text and parameters.
 
@@ -119,26 +127,78 @@ class QueryService:
 
         start_time = time.time()
 
-        if request.mode == QueryMode.BM25:
-            results = await self._execute_bm25_query(request)
-        elif request.mode == QueryMode.VECTOR:
-            results = await self._execute_vector_query(request)
-        elif request.mode == QueryMode.GRAPH:
-            results = await self._execute_graph_query(request)
-        elif request.mode == QueryMode.MULTI:
-            results = await self._execute_multi_query(request)
+        # Determine if reranking is enabled
+        # Use getattr with default False to handle mocked settings in tests
+        enable_reranking = getattr(settings, "ENABLE_RERANKING", False)
+        if not isinstance(enable_reranking, bool):
+            enable_reranking = False
+        original_top_k = request.top_k
+
+        # Stage 1: Adjust top_k for reranking if enabled
+        if enable_reranking:
+            # Calculate stage 1 candidates: top_k * multiplier, capped at max_candidates
+            multiplier = getattr(settings, "RERANKER_TOP_K_MULTIPLIER", 10)
+            max_candidates = getattr(settings, "RERANKER_MAX_CANDIDATES", 100)
+            stage1_top_k = min(
+                request.top_k * multiplier,
+                max_candidates,
+            )
+            logger.debug(
+                f"Reranking enabled: Stage 1 retrieving {stage1_top_k} candidates "
+                f"for final top_k={original_top_k}"
+            )
+            # Create modified request with expanded top_k for Stage 1
+            stage1_request = QueryRequest(
+                query=request.query,
+                top_k=stage1_top_k,
+                similarity_threshold=request.similarity_threshold,
+                mode=request.mode,
+                alpha=request.alpha,
+                source_types=request.source_types,
+                languages=request.languages,
+                file_paths=request.file_paths,
+            )
+        else:
+            stage1_request = request
+
+        # Execute Stage 1 retrieval
+        if stage1_request.mode == QueryMode.BM25:
+            results = await self._execute_bm25_query(stage1_request)
+        elif stage1_request.mode == QueryMode.VECTOR:
+            results = await self._execute_vector_query(stage1_request)
+        elif stage1_request.mode == QueryMode.GRAPH:
+            results = await self._execute_graph_query(stage1_request)
+        elif stage1_request.mode == QueryMode.MULTI:
+            results = await self._execute_multi_query(stage1_request)
         else:  # HYBRID
-            results = await self._execute_hybrid_query(request)
+            results = await self._execute_hybrid_query(stage1_request)
 
         # Apply content filters if specified
         if any([request.source_types, request.languages, request.file_paths]):
             results = self._filter_results(results, request)
+
+        # Stage 2: Apply reranking if enabled and we have more results than requested
+        if enable_reranking and len(results) > original_top_k:
+            results = await self._rerank_results(
+                results=results,
+                query=request.query,
+                top_k=original_top_k,
+            )
+        elif enable_reranking:
+            # Not enough results to warrant reranking, just truncate
+            logger.debug(
+                f"Skipping reranking: only {len(results)} results, "
+                f"need more than {original_top_k}"
+            )
+            results = results[:original_top_k]
+        # else: reranking disabled, results already at correct size
 
         query_time_ms = (time.time() - start_time) * 1000
 
         logger.debug(
             f"Query ({request.mode}) '{request.query[:50]}...' returned "
             f"{len(results)} results in {query_time_ms:.2f}ms"
+            f"{' (reranked)' if enable_reranking else ''}"
         )
 
         return QueryResponse(
@@ -609,9 +669,106 @@ class QueryService:
         else:
             return {"$and": conditions}
 
+    async def _rerank_results(
+        self,
+        results: list[QueryResult],
+        query: str,
+        top_k: int,
+    ) -> list[QueryResult]:
+        """Rerank results using a cross-encoder model.
+
+        Two-stage retrieval: Stage 1 returns broad candidates, Stage 2 reranks
+        using a more accurate cross-encoder model.
+
+        Args:
+            results: List of QueryResult from Stage 1 retrieval.
+            query: The original query text.
+            top_k: Number of final results to return.
+
+        Returns:
+            Reranked list of QueryResult with updated scores and reranking metadata.
+            Falls back to original results (truncated to top_k) on any failure.
+        """
+        if not results:
+            return results
+
+        start_time = time.time()
+
+        try:
+            # Get reranker configuration
+            provider_settings = load_provider_settings()
+            reranker = ProviderRegistry.get_reranker_provider(
+                provider_settings.reranker
+            )
+
+            # Check if reranker is available
+            if not reranker.is_available():
+                logger.warning(
+                    f"Reranker {reranker.provider_name} not available, "
+                    "falling back to stage 1 results"
+                )
+                return results[:top_k]
+
+            # Extract document texts for reranking
+            documents = [r.text for r in results]
+
+            # Perform reranking
+            reranked = await reranker.rerank(
+                query=query,
+                documents=documents,
+                top_k=top_k,
+            )
+
+            # If reranker returned nothing, fall back gracefully
+            if not reranked:
+                logger.warning(
+                    "Reranker returned no results, falling back to stage 1 results"
+                )
+                return results[:top_k]
+
+            # Build reranked results with updated scores and metadata
+            reranked_results: list[QueryResult] = []
+            for original_index, rerank_score in reranked:
+                result = results[original_index]
+                # Create new result with reranking metadata
+                reranked_result = QueryResult(
+                    text=result.text,
+                    source=result.source,
+                    score=rerank_score,  # Update main score to rerank score
+                    vector_score=result.vector_score,
+                    bm25_score=result.bm25_score,
+                    chunk_id=result.chunk_id,
+                    source_type=result.source_type,
+                    language=result.language,
+                    graph_score=result.graph_score,
+                    related_entities=result.related_entities,
+                    relationship_path=result.relationship_path,
+                    rerank_score=rerank_score,
+                    original_rank=original_index + 1,  # 1-indexed
+                    metadata=result.metadata,
+                )
+                reranked_results.append(reranked_result)
+
+            rerank_time_ms = (time.time() - start_time) * 1000
+            logger.info(
+                f"Reranked {len(results)} -> {len(reranked_results)} results "
+                f"in {rerank_time_ms:.2f}ms using {reranker.provider_name}"
+            )
+
+            return reranked_results
+
+        except Exception as e:
+            rerank_time_ms = (time.time() - start_time) * 1000
+            logger.warning(
+                f"Reranking failed after {rerank_time_ms:.2f}ms: {e}, "
+                "falling back to stage 1 results"
+            )
+            # Graceful fallback: return stage 1 results truncated to top_k
+            return results[:top_k]
+
 
 # Singleton instance
-_query_service: Optional[QueryService] = None
+_query_service: QueryService | None = None
 
 
 def get_query_service() -> QueryService:
