@@ -195,6 +195,11 @@ def update_registry(project_root: Path, state_dir: Path) -> None:
     help="Startup timeout in seconds (default: 30)",
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+@click.option(
+    "--strict",
+    is_flag=True,
+    help="Enable strict mode: fail on critical provider configuration errors",
+)
 def start_command(
     path: Optional[str],
     host: Optional[str],
@@ -202,6 +207,7 @@ def start_command(
     foreground: bool,
     timeout: int,
     json_output: bool,
+    strict: bool,
 ) -> None:
     """Start an Agent Brain server for this project.
 
@@ -212,6 +218,7 @@ def start_command(
     Examples:
       agent-brain start                    # Start server for current project
       agent-brain start --port 8080        # Start on specific port
+      agent-brain start --strict           # Fail on missing API keys
       agent-brain start --foreground       # Run in foreground
       agent-brain start --path /my/project # Start for specific project
     """
@@ -337,6 +344,8 @@ def start_command(
         env = os.environ.copy()
         env["AGENT_BRAIN_PROJECT_ROOT"] = str(project_root)
         env["AGENT_BRAIN_STATE_DIR"] = str(state_dir)
+        if strict:
+            env["AGENT_BRAIN_STRICT_MODE"] = "true"
 
         if foreground:
             # Write runtime state even in foreground mode so CLI can discover the URL
