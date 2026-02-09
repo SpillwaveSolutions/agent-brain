@@ -1,17 +1,17 @@
 # Agent Brain — Project State
 
-**Last Updated:** 2026-02-08
+**Last Updated:** 2026-02-09
 **Current Phase:** Phase 2 — Pluggable Providers (Feature 103)
-**Status:** PLANNED
+**Status:** IN PROGRESS
 
 ## Current Position
 
 Phase: 2 of 4 (Pluggable Providers)
-Plan: 0 of 4 in current phase
-Status: Planned, ready for execution
-Last activity: 2026-02-08 - Created Phase 2 plans from research
+Plan: 2 of 4 in current phase
+Status: In progress - Wave 1 complete
+Last activity: 2026-02-09 - Completed 02-02-PLAN.md (Strict startup validation)
 
-Progress: ██░░░░░░░░ 25%
+Progress: ███░░░░░░░ 37.5%
 
 ## Project Reference
 
@@ -29,14 +29,14 @@ Roadmap Progress: ██▓░░░░░░░ 25%
 | Phase | Status | Plans | Progress |
 |-------|--------|-------|----------|
 | 1 — Two-Stage Reranking | ● Complete | 7/7 | 100% |
-| 2 — Pluggable Providers | ◐ Planned | 0/4 | 0% |
+| 2 — Pluggable Providers | ◑ In Progress | 2/4 | 50% |
 | 3 — Schema GraphRAG | ○ Pending | 0/0 | 0% |
 | 4 — Provider Testing | ○ Pending | 0/0 | 0% |
 
 ## Current Session
 
 **Phase 2:** Pluggable Providers
-**Status:** PLANNED — Research complete, 4 plans ready for execution
+**Status:** IN PROGRESS — Wave 1 complete (2/4 plans), ready for Wave 2
 
 ### Research Summary
 
@@ -52,8 +52,8 @@ See: `.planning/phases/02-pluggable-providers/02-RESEARCH.md`
 
 | Plan | Wave | Status | Objective |
 |------|------|--------|-----------|
-| 02-01-PLAN.md | 1 | Pending | Dimension mismatch prevention (PROV-07) |
-| 02-02-PLAN.md | 1 | Pending | Strict startup validation (PROV-06) |
+| 02-01-PLAN.md | 1 | Complete | Dimension mismatch prevention (PROV-07) |
+| 02-02-PLAN.md | 1 | Complete | Strict startup validation (PROV-06) |
 | 02-03-PLAN.md | 2 | Pending | Provider switching E2E test (PROV-03) |
 | 02-04-PLAN.md | 2 | Pending | Ollama offline E2E test (PROV-04) |
 
@@ -75,9 +75,16 @@ See: `.planning/phases/02-pluggable-providers/02-RESEARCH.md`
 
 ## Session Continuity
 
-Last session: 2026-02-08
-Stopped at: Created Phase 2 plans
+Last session: 2026-02-09
+Stopped at: Completed 02-02-PLAN.md (Strict startup validation)
 Resume file: None
+
+## Decisions Made
+
+- **Validation Severity Levels**: Use ValidationSeverity enum (CRITICAL, WARNING) for structured error handling
+- **Strict Mode Default**: Strict mode is opt-in (default: False) for backward compatibility
+- **Health Endpoint**: /health/providers provides debugging visibility without blocking startup
+- **Embedding Metadata**: Store provider/model/dimensions in ChromaDB collection metadata for compatibility checks
 
 ## Next Action
 
@@ -85,7 +92,7 @@ Resume file: None
 /gsd:execute-phase 2
 ```
 
-Execute Phase 2: Pluggable Providers (Wave 1: plans 02-01 and 02-02).
+Execute Phase 2: Pluggable Providers (Wave 2: plans 02-03 and 02-04).
 
 ---
-*State updated: 2026-02-08*
+*State updated: 2026-02-09*
