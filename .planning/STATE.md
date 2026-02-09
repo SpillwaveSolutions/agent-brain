@@ -7,11 +7,11 @@
 ## Current Position
 
 Phase: 2 of 4 (Pluggable Providers)
-Plan: 2 of 4 in current phase
-Status: In progress - Wave 1 complete
-Last activity: 2026-02-09 - Completed 02-02-PLAN.md (Strict startup validation)
+Plan: 1 of 4 in current phase
+Status: In progress - Wave 1 started
+Last activity: 2026-02-09 - Completed 02-01-PLAN.md (Dimension mismatch prevention)
 
-Progress: ███░░░░░░░ 37.5%
+Progress: ██░░░░░░░░ 25%
 
 ## Project Reference
 
@@ -29,20 +29,20 @@ Roadmap Progress: ██▓░░░░░░░ 25%
 | Phase | Status | Plans | Progress |
 |-------|--------|-------|----------|
 | 1 — Two-Stage Reranking | ● Complete | 7/7 | 100% |
-| 2 — Pluggable Providers | ◑ In Progress | 2/4 | 50% |
+| 2 — Pluggable Providers | ◐ In Progress | 1/4 | 25% |
 | 3 — Schema GraphRAG | ○ Pending | 0/0 | 0% |
 | 4 — Provider Testing | ○ Pending | 0/0 | 0% |
 
 ## Current Session
 
 **Phase 2:** Pluggable Providers
-**Status:** IN PROGRESS — Wave 1 complete (2/4 plans), ready for Wave 2
+**Status:** IN PROGRESS — Wave 1 started (1/4 plans)
 
 ### Research Summary
 
 Most provider infrastructure already exists (PROV-01, PROV-02, PROV-04, PROV-05 done).
 Key gaps identified:
-- **PROV-07**: Dimension mismatch prevention (NOT implemented)
+- **PROV-07**: Dimension mismatch prevention ✅ COMPLETE (02-01)
 - **PROV-06**: Strict startup validation (partial - only warns)
 - **PROV-03/04**: Need E2E verification tests
 
@@ -52,8 +52,8 @@ See: `.planning/phases/02-pluggable-providers/02-RESEARCH.md`
 
 | Plan | Wave | Status | Objective |
 |------|------|--------|-----------|
-| 02-01-PLAN.md | 1 | Complete | Dimension mismatch prevention (PROV-07) |
-| 02-02-PLAN.md | 1 | Complete | Strict startup validation (PROV-06) |
+| 02-01-PLAN.md | 1 | ✅ Complete | Dimension mismatch prevention (PROV-07) |
+| 02-02-PLAN.md | 1 | Pending | Strict startup validation (PROV-06) |
 | 02-03-PLAN.md | 2 | Pending | Provider switching E2E test (PROV-03) |
 | 02-04-PLAN.md | 2 | Pending | Ollama offline E2E test (PROV-04) |
 
@@ -76,15 +76,15 @@ See: `.planning/phases/02-pluggable-providers/02-RESEARCH.md`
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed 02-02-PLAN.md (Strict startup validation)
+Stopped at: Completed 02-01-PLAN.md (Dimension mismatch prevention)
 Resume file: None
 
 ## Decisions Made
 
-- **Validation Severity Levels**: Use ValidationSeverity enum (CRITICAL, WARNING) for structured error handling
-- **Strict Mode Default**: Strict mode is opt-in (default: False) for backward compatibility
-- **Health Endpoint**: /health/providers provides debugging visibility without blocking startup
-- **Embedding Metadata**: Store provider/model/dimensions in ChromaDB collection metadata for compatibility checks
+- **Embedding Metadata Storage**: Store provider/model/dimensions in ChromaDB collection metadata (not separate table)
+- **Validation Strategy**: Validate at two points - startup (warning only) and indexing (error unless force=True)
+- **Force Flag Dual Purpose**: --force bypasses both job deduplication AND provider validation
+- **Validation Scope**: Check both dimensions AND provider/model (not just dimensions) to catch incompatible embeddings
 
 ## Next Action
 
