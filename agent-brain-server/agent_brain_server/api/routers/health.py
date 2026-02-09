@@ -223,7 +223,7 @@ async def providers_status(request: Request) -> ProvidersStatus:
 
     # Check summarization provider
     try:
-        summarization_provider = ProviderRegistry.get_summarization_provider(
+        _ = ProviderRegistry.get_summarization_provider(
             settings.summarization
         )
         summarization_status = "healthy"
@@ -247,7 +247,7 @@ async def providers_status(request: Request) -> ProvidersStatus:
 
     if app_settings.ENABLE_RERANKING:
         try:
-            reranker_provider = ProviderRegistry.get_reranker_provider(
+            _ = ProviderRegistry.get_reranker_provider(
                 settings.reranker
             )
             reranker_status = "healthy"

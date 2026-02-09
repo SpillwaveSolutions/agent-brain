@@ -418,8 +418,8 @@ def validate_provider_config(settings: ProviderSettings) -> list[ValidationError
             errors.append(
                 ValidationError(
                     message=(
-                        f"Missing API key for {settings.embedding.provider} embeddings. "
-                        f"Set {env_var} environment variable."
+                        f"Missing API key for {settings.embedding.provider} "
+                        f"embeddings. Set {env_var} environment variable."
                     ),
                     severity=ValidationSeverity.CRITICAL,
                     provider_type="embedding",
@@ -435,8 +435,8 @@ def validate_provider_config(settings: ProviderSettings) -> list[ValidationError
             errors.append(
                 ValidationError(
                     message=(
-                        f"Missing API key for {settings.summarization.provider} summarization. "
-                        f"Set {env_var} environment variable."
+                        f"Missing API key for {settings.summarization.provider} "
+                        f"summarization. Set {env_var} environment variable."
                     ),
                     severity=ValidationSeverity.CRITICAL,
                     provider_type="summarization",
