@@ -224,8 +224,12 @@ Triplets:"""
             elif len(parts) >= 5:
                 subject, subject_type_raw, predicate, obj, object_type_raw = parts[:5]
                 # Normalize entity types using schema
-                subject_type = normalize_entity_type(subject_type_raw if subject_type_raw else None)
-                object_type = normalize_entity_type(object_type_raw if object_type_raw else None)
+                subject_type = normalize_entity_type(
+                    subject_type_raw if subject_type_raw else None
+                )
+                object_type = normalize_entity_type(
+                    object_type_raw if object_type_raw else None
+                )
 
                 # Log debug warnings for unknown entity types (permissive, not strict)
                 if subject_type and subject_type not in ENTITY_TYPES:
@@ -274,12 +278,12 @@ class CodeMetadataExtractor:
     """
 
     # Common relationship predicates for code (aligned with RelationshipType schema)
-    PREDICATE_IMPORTS = "imports"          # matches RelationshipType
-    PREDICATE_CONTAINS = "contains"        # matches RelationshipType
-    PREDICATE_CALLS = "calls"              # matches RelationshipType
-    PREDICATE_EXTENDS = "extends"          # matches RelationshipType
-    PREDICATE_IMPLEMENTS = "implements"    # matches RelationshipType
-    PREDICATE_DEFINED_IN = "defined_in"    # matches RelationshipType
+    PREDICATE_IMPORTS = "imports"  # matches RelationshipType
+    PREDICATE_CONTAINS = "contains"  # matches RelationshipType
+    PREDICATE_CALLS = "calls"  # matches RelationshipType
+    PREDICATE_EXTENDS = "extends"  # matches RelationshipType
+    PREDICATE_IMPLEMENTS = "implements"  # matches RelationshipType
+    PREDICATE_DEFINED_IN = "defined_in"  # matches RelationshipType
 
     def __init__(self) -> None:
         """Initialize code metadata extractor."""
