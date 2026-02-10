@@ -11,7 +11,7 @@
 | 1 | Two-Stage Reranking | 123 | RERANK-01 to RERANK-05 | **COMPLETE** (7/7 plans) |
 | 2 | Pluggable Providers | 103 | PROV-01 to PROV-07 | **COMPLETE** (4/4 plans) |
 | 3 | Schema-Based GraphRAG | 122 | SCHEMA-01 to SCHEMA-05 | **COMPLETE** (2/2 plans) |
-| 4 | Provider Integration Testing | 124 | TEST-01 to TEST-06 | Pending |
+| 4 | Provider Integration Testing | 124 | TEST-01 to TEST-06 | Planning (2 plans) |
 
 ---
 
@@ -200,7 +200,12 @@ See: `.planning/phases/02-pluggable-providers/02-RESEARCH.md`
 
 ### Requirements Covered
 
-- TEST-01 to TEST-06
+- TEST-01: E2E test suite for OpenAI provider
+- TEST-02: E2E test suite for Anthropic provider
+- TEST-03: E2E test suite for Ollama provider
+- TEST-04: E2E test suite for Cohere provider
+- TEST-05: Provider health check endpoint (/health/providers)
+- TEST-06: Verified provider configuration documentation
 
 ### Test Matrix
 
@@ -217,6 +222,15 @@ See: `.planning/phases/02-pluggable-providers/02-RESEARCH.md`
 2. [ ] Provider health check endpoint
 3. [ ] Verified configuration documentation
 4. [ ] All providers pass CI
+
+### Plans
+
+**Plans:** 2 plans in 2 waves
+
+| Plan | Wave | Status | Objective |
+|------|------|--------|-----------|
+| [04-01-PLAN.md](.planning/phases/04-provider-integration-testing/04-01-PLAN.md) | 1 | Pending | Provider E2E test suites (TEST-01/02/03/04/05) |
+| [04-02-PLAN.md](.planning/phases/04-provider-integration-testing/04-02-PLAN.md) | 2 | Pending | CI workflow + configuration documentation (TEST-06) |
 
 ---
 
@@ -271,4 +285,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-02-10 - Phase 3 COMPLETE (2/2 plans, verified 11/11 must-haves)*
+*Last updated: 2026-02-10 - Phase 4 planned (2 plans in 2 waves)*
