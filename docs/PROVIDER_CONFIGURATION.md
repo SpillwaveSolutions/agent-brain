@@ -568,24 +568,22 @@ Agent Brain uses GitHub Actions for automated provider testing. See `.github/wor
 1. **config-tests job** - Always runs, requires no API keys
    - Tests configuration loading for all providers
    - Validates config file parsing
-   - Tests health endpoint with minimal FastAPI app
+   - Tests health endpoint using real app with mocked dependencies
 
 2. **provider-tests job** - Matrix of 4 providers
    - Tests OpenAI, Anthropic, Cohere, Ollama separately
    - Checks for required API keys before running
    - Skips gracefully when keys unavailable
    - Uses `fail-fast: false` to allow all providers to complete
-
-3. **ollama-service-tests job** - Optional Ollama service tests
-   - Marked `continue-on-error: true` (doesn't fail workflow)
-   - Requires Ollama server (usually not available in CI)
-   - Documents how to run tests locally
+   - Ollama matrix entry runs config-only tests (no service required)
 
 **Triggering CI tests:**
 
 Provider E2E tests only run when:
 - Pushing to `main` or `develop` branches
 - PR has `test-providers` label
+
+The workflow uses default PR event types (opened, synchronize, reopened) with an `if` guard on each job, so tests re-run on subsequent pushes to already-labeled PRs.
 
 Add the label to your PR to test provider changes:
 ```bash

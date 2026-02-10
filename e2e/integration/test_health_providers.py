@@ -1,22 +1,27 @@
 """E2E tests for /health/providers endpoint (TEST-05).
 
 This module tests the health providers endpoint that reports status
-of all configured providers.
+of all configured providers. Uses the module-level app from
+agent_brain_server.api.main with mocked app.state dependencies,
+following the same pattern as tests/integration/test_graph_query.py.
 """
 
 import os
 import shutil
 import tempfile
-from contextlib import asynccontextmanager
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Generator
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from agent_brain_server.config.provider_config import clear_settings_cache
+
+# Set test environment variables before importing app
+os.environ.setdefault("OPENAI_API_KEY", "test-key")
+os.environ.setdefault("ANTHROPIC_API_KEY", "test-key")
 
 # Path to fixture files
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
@@ -40,30 +45,70 @@ def clear_config_cache() -> Generator[None, None, None]:
     clear_settings_cache()
 
 
-def create_test_app_with_config(config_file: str) -> FastAPI:
-    """Create a minimal FastAPI app for testing /health/providers endpoint.
+@contextmanager
+def create_health_test_client(strict_mode: bool = False):
+    """Create a test client using the real module-level app.
+
+    Imports app from agent_brain_server.api.main and creates a TestClient
+    that triggers the real lifespan. Patches heavy infrastructure classes
+    (VectorStoreManager, BM25IndexManager, JobWorker) so the lifespan
+    runs without real database initialization, while preserving config
+    loading and app.state setup.
+
+    This follows the same pattern as tests/integration/test_graph_query.py:
+    import the real app, let the lifespan set up state, then override
+    app.state as needed for testing.
 
     Args:
-        config_file: Name of the config fixture file to use
-
-    Returns:
-        FastAPI app with /health/providers endpoint
+        strict_mode: Value to set for app.state.strict_mode
     """
+    mock_vs = MagicMock()
+    mock_vs.is_initialized = True
+    mock_vs.initialize = AsyncMock()
+    mock_vs.get_count = AsyncMock(return_value=0)
+    mock_vs.get_embedding_metadata = AsyncMock(return_value=None)
 
-    @asynccontextmanager
-    async def minimal_lifespan(app: FastAPI):
-        # Minimal app.state setup
-        app.state.strict_mode = False
-        yield
+    mock_bm25 = MagicMock()
+    mock_bm25.is_initialized = True
+    mock_bm25.initialize = MagicMock()
 
-    app = FastAPI(lifespan=minimal_lifespan)
+    mock_job_store = MagicMock()
+    mock_job_store.initialize = AsyncMock()
 
-    # Import and include health router
-    from agent_brain_server.api.routers import health_router
+    mock_job_worker = MagicMock()
+    mock_job_worker.start = AsyncMock()
+    mock_job_worker.stop = AsyncMock()
 
-    app.include_router(health_router, prefix="/health", tags=["Health"])
+    with (
+        patch(
+            "agent_brain_server.api.main.VectorStoreManager",
+            return_value=mock_vs,
+        ),
+        patch(
+            "agent_brain_server.api.main.BM25IndexManager",
+            return_value=mock_bm25,
+        ),
+        patch(
+            "agent_brain_server.api.main.JobQueueStore",
+            return_value=mock_job_store,
+        ),
+        patch("agent_brain_server.api.main.JobQueueService"),
+        patch(
+            "agent_brain_server.api.main.JobWorker",
+            return_value=mock_job_worker,
+        ),
+        patch(
+            "agent_brain_server.api.main.check_embedding_compatibility",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+    ):
+        from agent_brain_server.api.main import app
 
-    return app
+        with TestClient(app) as client:
+            # Override app.state after lifespan runs
+            app.state.strict_mode = strict_mode
+            yield client
 
 
 class TestHealthProvidersEndpoint:
@@ -79,9 +124,7 @@ class TestHealthProvidersEndpoint:
             os.chdir(temp_project_dir)
             clear_settings_cache()
 
-            app = create_test_app_with_config("config_openai.yaml")
-
-            with TestClient(app) as client:
+            with create_health_test_client() as client:
                 response = client.get("/health/providers")
                 assert response.status_code == 200
 
@@ -101,9 +144,7 @@ class TestHealthProvidersEndpoint:
             os.chdir(temp_project_dir)
             clear_settings_cache()
 
-            app = create_test_app_with_config("config_openai.yaml")
-
-            with TestClient(app) as client:
+            with create_health_test_client() as client:
                 response = client.get("/health/providers")
                 data = response.json()
 
@@ -135,9 +176,7 @@ class TestHealthProvidersEndpoint:
             os.chdir(temp_project_dir)
             clear_settings_cache()
 
-            app = create_test_app_with_config("config_openai.yaml")
-
-            with TestClient(app) as client:
+            with create_health_test_client() as client:
                 response = client.get("/health/providers")
                 data = response.json()
 
@@ -149,7 +188,9 @@ class TestHealthProvidersEndpoint:
             os.chdir(original_cwd)
             clear_settings_cache()
 
-    def test_providers_reports_status_for_each(self, temp_project_dir: Path) -> None:
+    def test_providers_reports_status_for_each(
+        self, temp_project_dir: Path
+    ) -> None:
         """Test each provider entry has a status field."""
         config_path = temp_project_dir / ".claude" / "agent-brain" / "config.yaml"
         shutil.copy(FIXTURES_DIR / "config_openai.yaml", config_path)
@@ -159,15 +200,17 @@ class TestHealthProvidersEndpoint:
             os.chdir(temp_project_dir)
             clear_settings_cache()
 
-            app = create_test_app_with_config("config_openai.yaml")
-
-            with TestClient(app) as client:
+            with create_health_test_client() as client:
                 response = client.get("/health/providers")
                 data = response.json()
 
                 for provider in data["providers"]:
                     assert "status" in provider
-                    assert provider["status"] in ["healthy", "degraded", "unavailable"]
+                    assert provider["status"] in [
+                        "healthy",
+                        "degraded",
+                        "unavailable",
+                    ]
                     assert "provider_name" in provider
                     assert "model" in provider
 
@@ -187,14 +230,14 @@ class TestHealthProvidersEndpoint:
             os.chdir(temp_project_dir)
             clear_settings_cache()
 
-            app = create_test_app_with_config("config_openai.yaml")
-
-            with TestClient(app) as client:
+            with create_health_test_client() as client:
                 response = client.get("/health/providers")
                 data = response.json()
 
                 embedding_providers = [
-                    p for p in data["providers"] if p["provider_type"] == "embedding"
+                    p
+                    for p in data["providers"]
+                    if p["provider_type"] == "embedding"
                 ]
                 assert len(embedding_providers) > 0
 
@@ -224,9 +267,7 @@ class TestProvidersWithAnthropicConfig:
             os.chdir(temp_project_dir)
             clear_settings_cache()
 
-            app = create_test_app_with_config("config_anthropic.yaml")
-
-            with TestClient(app) as client:
+            with create_health_test_client() as client:
                 response = client.get("/health/providers")
                 assert response.status_code == 200
                 data = response.json()
@@ -260,20 +301,17 @@ class TestProvidersWithOllamaConfig:
             os.chdir(temp_project_dir)
             clear_settings_cache()
 
-            app = create_test_app_with_config("config_ollama_only.yaml")
-
-            with TestClient(app) as client:
+            with create_health_test_client() as client:
                 response = client.get("/health/providers")
                 assert response.status_code == 200
                 data = response.json()
 
-                # Ollama config shouldn't have critical validation errors for missing keys
+                # Ollama config shouldn't have critical API key errors
                 critical_errors = [
                     e
                     for e in data["validation_errors"]
                     if "CRITICAL" in e.upper() and "API" in e.upper()
                 ]
-                # Should have no critical API key errors for Ollama
                 assert len(critical_errors) == 0
 
         finally:

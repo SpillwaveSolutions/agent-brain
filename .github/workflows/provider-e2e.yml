@@ -2,9 +2,11 @@
 # Runs E2E tests for each provider combination
 #
 # Trigger Strategy:
-# - Only runs on push to main/develop OR when PR has "test-providers" label
-# - This prevents expensive API calls on every PR
-# - Use "test-providers" label when changes affect provider integration
+# - Runs on push to main/develop
+# - Runs on any PR event if PR has "test-providers" label
+# - Uses default PR types (opened, synchronize, reopened) so workflow
+#   re-runs on subsequent pushes to already-labeled PRs
+# - Each job has an `if` guard to check for label presence
 #
 # Matrix Strategy:
 # - Tests each provider separately (OpenAI, Anthropic, Cohere, Ollama)
@@ -21,7 +23,6 @@ on:
   push:
     branches: [main, develop]
   pull_request:
-    types: [labeled]
 
 jobs:
   # Always runs - tests config loading without requiring API keys
@@ -104,7 +105,7 @@ jobs:
             config_file: config_ollama_only.yaml
             marker: ollama
             required_keys: ""
-            description: "Ollama-only (fully offline)"
+            description: "Ollama config tests (no service required)"
 
     steps:
       - name: Checkout code
@@ -178,79 +179,6 @@ jobs:
       - name: Tests skipped (missing API keys)
         if: steps.check_keys.outputs.skip == 'true'
         run: |
-          echo "⚠️  Skipping ${{ matrix.provider }} tests - required API keys not available"
+          echo "Skipping ${{ matrix.provider }} tests - required API keys not available"
           echo "This is expected in public CI environments"
           echo "Tests will run when secrets are configured"
-
-  # Ollama requires a running service - handled separately with continue-on-error
-  # This allows other providers to pass even if Ollama is unavailable in CI
-  ollama-service-tests:
-    name: Ollama Service Tests (Optional)
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'test-providers')
-    continue-on-error: true  # Don't fail the workflow if Ollama tests fail
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: 1.7.1
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-
-      - name: Cache Poetry dependencies
-        uses: actions/cache@v4
-        with:
-          path: agent-brain-server/.venv
-          key: ollama-venv-${{ runner.os }}-${{ hashFiles('agent-brain-server/poetry.lock') }}
-          restore-keys: |
-            ollama-venv-${{ runner.os }}-
-
-      - name: Install dependencies
-        run: |
-          cd agent-brain-server
-          poetry install
-
-      - name: Note about Ollama service
-        run: |
-          echo "ℹ️  Ollama service tests require a running Ollama instance"
-          echo "These tests are marked continue-on-error since Ollama may not be available in CI"
-          echo "To run these tests locally:"
-          echo "  1. Install Ollama: https://ollama.com/download"
-          echo "  2. Run: ollama serve"
-          echo "  3. Pull models: ollama pull nomic-embed-text && ollama pull llama3.2"
-          echo "  4. Run tests: poetry run pytest ../e2e/integration/ -m ollama -v"
-
-      - name: Check if Ollama is available
-        id: check_ollama
-        run: |
-          if curl -f http://localhost:11434/api/tags > /dev/null 2>&1; then
-            echo "ollama_available=true" >> $GITHUB_OUTPUT
-            echo "✓ Ollama service is available"
-          else
-            echo "ollama_available=false" >> $GITHUB_OUTPUT
-            echo "✗ Ollama service not available (expected in most CI environments)"
-          fi
-
-      - name: Run Ollama E2E tests
-        if: steps.check_ollama.outputs.ollama_available == 'true'
-        run: |
-          cd agent-brain-server
-          AGENT_BRAIN_CONFIG=../e2e/fixtures/config_ollama_only.yaml \
-            poetry run pytest ../e2e/integration/ \
-            -m ollama \
-            -v --tb=short
-
-      - name: Ollama tests skipped
-        if: steps.check_ollama.outputs.ollama_available == 'false'
-        run: |
-          echo "⚠️  Skipping Ollama service tests - Ollama not running"
-          echo "This is expected in most CI environments"
