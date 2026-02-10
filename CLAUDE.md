@@ -4,15 +4,26 @@ Instructions for Claude Code when working on this repository.
 
 Planning rule: after any planning step, save the plan to `docs/plans/<name>.md` before doing work.
 
-## CRITICAL: Pre-Push Requirement
+## CRITICAL: NEVER PUSH WITHOUT TESTING
 
-**BEFORE EVERY `git push`**, you MUST run:
+**ABSOLUTE RULE: You MUST run `task before-push` BEFORE EVERY `git push`. NO EXCEPTIONS.**
 
 ```bash
 task before-push
 ```
 
-This runs format, lint, typecheck, and tests. **Do NOT push code that fails this check.** PRs are expensive due to CI testing - catch errors locally first.
+This runs format, lint, typecheck, and tests. **Do NOT push code that fails this check.**
+
+**Why this matters:** PRs trigger expensive CI pipelines. Pushing broken code wastes time and money. Every single push failure that could have been caught locally is unacceptable.
+
+**Enforcement checklist (verify ALL pass before pushing):**
+1. `task before-push` exits with code 0
+2. No lint errors (Ruff)
+3. No type errors (mypy)
+4. All tests pass
+5. Code is formatted (Black)
+
+**If `task before-push` fails, DO NOT push. Fix the issues first.**
 
 ## Project Overview
 
@@ -207,24 +218,19 @@ doc-serve/
 
 ## Quality Assurance
 
-**IMPORTANT**: After ANY major code changes (including but not limited to):
-- Adding new features or functionality
-- Refactoring existing code
-- Fixing bugs
-- Modifying core business logic
-- Updating dependencies or configurations
+**NEVER PUSH WITHOUT TESTING. NEVER. NOT EVEN "JUST A SMALL CHANGE".**
 
-You MUST:
-1. Always run `task pr-qa-gate` before checking in or pushing changes.
-2. Always run `task pr-qa-gate` when checking project status or SDD status.
-3. Use the `qa-enforcer` agent to enforce test coverage and quality standards.
-4. After making code changes, run:
+After ANY code changes — no matter how small — you MUST:
+1. Run `task before-push` and verify it passes with exit code 0
+2. Run `task pr-qa-gate` before creating or updating PRs
+3. Fix ALL errors before pushing — do not push hoping CI will catch it
 
 ```bash
-task before-push
+task before-push    # MUST pass before ANY push
+task pr-qa-gate     # MUST pass before ANY PR
 ```
 
-This runs format, lint, typecheck, and tests with coverage.
+**MANDATORY**: Any feature or task is not considered done unless `task pr-qa-gate` passes successfully.
 
 ## Git Workflow
 
@@ -233,9 +239,9 @@ This runs format, lint, typecheck, and tests with coverage.
 - **MANDATORY**: Run `task before-push` before pushing to any branch
 - PRs will fail CI if code coverage is below 50%
 
-## Pre-Push Requirement
+## Pre-Push Requirement (MANDATORY — READ THIS)
 
-**IMPORTANT**: Before pushing any changes to a branch, you MUST run:
+**NEVER PUSH CODE WITHOUT RUNNING `task before-push` FIRST.**
 
 ```bash
 task before-push
@@ -247,7 +253,12 @@ This is a mandatory step that ensures:
 3. Type checking passes (mypy)
 4. All tests pass with coverage report
 
-Do NOT push code that fails `task before-push`.
+**If it fails, FIX IT. Then run it again. Only push when it passes.**
+
+**Common failures to watch for:**
+- Line too long (>88 chars) — run `black` to auto-fix
+- Missing type stubs — install with `pip install types-XXX`
+- Import order — run `ruff check --fix` to auto-fix
 
 ## Active Technologies
 - Python 3.10+ + FastAPI, LlamaIndex, ChromaDB, OpenAI, rank-bm25 (100-bm25-hybrid-retrieval)

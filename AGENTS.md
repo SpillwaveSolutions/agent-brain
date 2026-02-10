@@ -192,28 +192,35 @@ doc-serve/
 
 ## Quality Assurance
 
-After making code changes, run:
+**NEVER PUSH WITHOUT TESTING. NEVER. NOT EVEN "JUST A SMALL CHANGE".**
+
+After ANY code changes — no matter how small — you MUST:
 
 ```bash
-task before-push
+task before-push    # MUST pass before ANY push
+task pr-qa-gate     # MUST pass before ANY PR
 ```
 
 This runs format, lint, typecheck, and tests with coverage.
 
-**IMPORTANT**: You MUST run `task pr-qa-gate` before checking in or pushing any changes. You should also run `task pr-qa-gate` whenever checking project status or SDD status.
+**MANDATORY**: You MUST run `task before-push` and verify exit code 0 before EVERY `git push`. No exceptions.
 
 **MANDATORY**: Any feature or task is not considered done unless `task pr-qa-gate` passes successfully.
+
+**If it fails, FIX IT. Then run it again. Only push when it passes.**
 
 ## Git Workflow
 
 - Use conventional commits: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`
 - Create feature branches from main
-- **MANDATORY**: Run `task before-push` before pushing to any branch
+- **MANDATORY**: Run `task before-push` before pushing to any branch — NEVER skip this
+- **MANDATORY**: Run `task pr-qa-gate` before creating PRs
 - PRs will fail CI if code coverage is below 50%
+- **If `task before-push` fails, DO NOT push. Fix first, test again, then push.**
 
-## Pre-Push Requirement
+## Pre-Push Requirement (MANDATORY — READ THIS)
 
-**IMPORTANT**: Before pushing any changes to a branch, you MUST run:
+**NEVER PUSH CODE WITHOUT RUNNING `task before-push` FIRST.**
 
 ```bash
 task before-push
@@ -225,7 +232,7 @@ This is a mandatory step that ensures:
 3. Type checking passes (mypy)
 4. All tests pass with coverage report
 
-Do NOT push code that fails `task before-push`.
+**If it fails, FIX IT. Then run it again. Only push when it passes.**
 
 ## Agent-Specific Notes
 
