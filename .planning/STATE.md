@@ -1,24 +1,24 @@
 # Agent Brain — Project State
 
 **Last Updated:** 2026-02-10
-**Current Phase:** Phase 3 — Schema-Based GraphRAG (Feature 122)
-**Status:** PHASE 3 COMPLETE — VERIFIED
+**Current Phase:** Phase 4 — Provider Integration Testing
+**Status:** IN PROGRESS
 
 ## Current Position
 
-Phase: 3 of 4 (Schema-Based GraphRAG)
-Plan: 2 of 2 in current phase
-Status: Phase 3 verified (11/11 must-haves)
-Last activity: 2026-02-10 - Phase 3 verified complete
+Phase: 4 of 4 (Provider Integration Testing)
+Plan: 1 of ? in current phase
+Status: Plan 04-01 complete (6/6 must-haves)
+Last activity: 2026-02-10 - Completed 04-01-PLAN.md
 
-Progress: ████████░░ 80%
+Progress: ██████████ 100%
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API
-**Current focus:** Phase 3 — Schema-Based GraphRAG
+**Current focus:** Phase 4 — Provider Integration Testing
 
 ## Progress
 
@@ -31,7 +31,7 @@ Roadmap Progress: ████████░░ 80%
 | 1 — Two-Stage Reranking | ● Complete | 7/7 | 100% |
 | 2 — Pluggable Providers | ● Complete | 4/4 | 100% |
 | 3 — Schema GraphRAG | ● Complete | 2/2 | 100% |
-| 4 — Provider Testing | ○ Pending | 0/0 | 0% |
+| 4 — Provider Testing | ◐ In Progress | 1/? | ?% |
 
 ## Completed Phases
 
@@ -67,6 +67,16 @@ Roadmap Progress: ████████░░ 80%
   - 11 new tests, all 505 tests passing (70% coverage)
 - See: `.planning/phases/03-schema-graphrag/`
 
+### Phase 4: Provider Integration Testing (IN PROGRESS)
+
+- Plan 04-01 complete: Per-Provider E2E Test Suites
+  - 5 provider test files (OpenAI, Anthropic, Cohere, Ollama, Health)
+  - 42 new tests with graceful API key skipping
+  - Config-level tests pass without API keys
+  - Health endpoint tests validate structured provider status
+  - Duration: 367s (6.1 minutes)
+- See: `.planning/phases/04-provider-integration-testing/`
+
 ## Key Decisions
 
 - **Embedding Metadata Storage**: Store provider/model/dimensions in ChromaDB collection metadata
@@ -79,20 +89,20 @@ Roadmap Progress: ████████░░ 80%
 - **Schema Enforcement**: Permissive (log unknown types, don't reject) to enable schema evolution
 - **Backward Compatibility**: GraphTriple types remain str | None to preserve existing untyped triplets
 - **Type Filtering Strategy**: Over-fetch (3x top_k) then post-filter for type-filtered queries to ensure enough results
+- **Cohere Provider Testing**: Cohere requires API key at instantiation (unlike Ollama), so provider instantiation tests need check_cohere_key fixture
+- **Health Endpoint Testing**: Use minimal FastAPI app with custom lifespan to avoid ChromaDB initialization in tests
 
 ## Session Continuity
 
 Last session: 2026-02-10
-Stopped at: Completed 03-02-PLAN.md (Type Filtering for Graph Queries)
+Stopped at: Completed 04-01-PLAN.md (Per-Provider E2E Test Suites)
 Resume file: None
 
 ## Next Action
 
-```
-/gsd:execute-phase 4
-```
+Continue Phase 4 execution with next plan, or verify phase completion.
 
-Phase 3 complete. Ready to begin Phase 4 (Provider Testing) or other next steps.
+Phase 4 Plan 01 complete. Provider E2E tests established.
 
 ---
 *State updated: 2026-02-10*
