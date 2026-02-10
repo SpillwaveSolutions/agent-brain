@@ -5,8 +5,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-from ..indexing.document_loader import LanguageDetector
-
 
 class QueryMode(str, Enum):
     """Retrieval modes."""
@@ -93,6 +91,8 @@ class QueryRequest(BaseModel):
         """Validate that provided languages are supported."""
         if v is None:
             return v
+
+        from ..indexing.document_loader import LanguageDetector
 
         detector = LanguageDetector()
         supported_languages = detector.get_supported_languages()
