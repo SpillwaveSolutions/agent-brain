@@ -10,7 +10,7 @@
 |-------|------|---------|--------------|--------|
 | 1 | Two-Stage Reranking | 123 | RERANK-01 to RERANK-05 | **COMPLETE** (7/7 plans) |
 | 2 | Pluggable Providers | 103 | PROV-01 to PROV-07 | **COMPLETE** (4/4 plans) |
-| 3 | Schema-Based GraphRAG | 122 | SCHEMA-01 to SCHEMA-05 | Pending |
+| 3 | Schema-Based GraphRAG | 122 | SCHEMA-01 to SCHEMA-05 | **Planned** (2 plans) |
 | 4 | Provider Integration Testing | 124 | TEST-01 to TEST-06 | Pending |
 
 ---
@@ -33,11 +33,11 @@
 
 ```
 Stage 1: Fast Retrieval (BM25 + Vector + Graph, top_k=100)
-    ↓
-RRF Fusion → ~50 candidates
-    ↓
+    |
+RRF Fusion -> ~50 candidates
+    |
 Stage 2: Ollama Reranking (optional, top_k=10)
-    ↓
+    |
 Final Results
 ```
 
@@ -149,7 +149,11 @@ See: `.planning/phases/02-pluggable-providers/02-RESEARCH.md`
 
 ### Requirements Covered
 
-- SCHEMA-01 to SCHEMA-05
+- SCHEMA-01: Domain-specific entity types defined (Package, Module, Class, Method, Function, Interface, Enum)
+- SCHEMA-02: Documentation entity types defined (DesignDoc, UserDoc, PRD, Runbook, README, APIDoc)
+- SCHEMA-03: Enhanced relationship predicates (calls, extends, implements, references, depends_on)
+- SCHEMA-04: Entity type filtering in graph queries
+- SCHEMA-05: LLM extraction prompts use schema vocabulary
 
 ### Entity Type Schema
 
@@ -171,11 +175,20 @@ See: `.planning/phases/02-pluggable-providers/02-RESEARCH.md`
 
 ### Success Criteria
 
-1. [ ] Entity types defined as Pydantic enums
-2. [ ] CodeMetadataExtractor categorizes entities by type
-3. [ ] LLM extraction uses schema vocabulary
-4. [ ] Graph queries support type filtering
-5. [ ] Existing graph functionality preserved
+1. [ ] Entity types defined as Literal types with runtime validation helpers
+2. [ ] CodeMetadataExtractor categorizes entities by type (normalize_entity_type)
+3. [ ] LLM extraction uses schema vocabulary in prompts
+4. [ ] Graph queries support type filtering (query_by_type)
+5. [ ] Existing graph functionality preserved (backward compatible)
+
+### Plans
+
+**Plans:** 2 plans in 2 waves
+
+| Plan | Wave | Status | Objective |
+|------|------|--------|-----------|
+| [03-01-PLAN.md](.planning/phases/03-schema-graphrag/03-01-PLAN.md) | 1 | Pending | Schema definitions + extractor integration (SCHEMA-01/02/03/05) |
+| [03-02-PLAN.md](.planning/phases/03-schema-graphrag/03-02-PLAN.md) | 2 | Pending | Type filtering in graph queries (SCHEMA-04) |
 
 ---
 
@@ -258,4 +271,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-02-08 - Completed plans 01-01 and 01-02*
+*Last updated: 2026-02-10 - Phase 3 planned (2 plans in 2 waves)*
