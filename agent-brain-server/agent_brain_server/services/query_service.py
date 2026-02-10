@@ -157,6 +157,8 @@ class QueryService:
                 source_types=request.source_types,
                 languages=request.languages,
                 file_paths=request.file_paths,
+                entity_types=request.entity_types,
+                relationship_types=request.relationship_types,
             )
         else:
             stage1_request = request
@@ -415,12 +417,25 @@ class QueryService:
                 "GraphRAG not enabled. Set ENABLE_GRAPH_INDEX=true in environment."
             )
 
-        # Query the graph for related entities
-        graph_results = self.graph_index_manager.query(
-            query_text=request.query,
-            top_k=request.top_k,
-            traversal_depth=traversal_depth,
-        )
+        # Get filter parameters (use getattr for backward compat with test mocks)
+        entity_types = getattr(request, "entity_types", None)
+        relationship_types = getattr(request, "relationship_types", None)
+
+        # Query the graph for related entities (with type filters if provided)
+        if entity_types or relationship_types:
+            graph_results = self.graph_index_manager.query_by_type(
+                query_text=request.query,
+                entity_types=entity_types,
+                relationship_types=relationship_types,
+                top_k=request.top_k,
+                traversal_depth=traversal_depth,
+            )
+        else:
+            graph_results = self.graph_index_manager.query(
+                query_text=request.query,
+                top_k=request.top_k,
+                traversal_depth=traversal_depth,
+            )
 
         if not graph_results:
             logger.debug("No graph results found, falling back to vector search")

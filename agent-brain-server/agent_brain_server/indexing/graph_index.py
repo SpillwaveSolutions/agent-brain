@@ -20,6 +20,7 @@ from agent_brain_server.models.graph import (
     GraphIndexStatus,
     GraphQueryContext,
     GraphTriple,
+    normalize_entity_type,
 )
 from agent_brain_server.storage.graph_store import (
     GraphStoreManager,
@@ -329,6 +330,97 @@ class GraphIndexManager:
 
         return final_results
 
+    def query_by_type(
+        self,
+        query_text: str,
+        entity_types: list[str] | None = None,
+        relationship_types: list[str] | None = None,
+        top_k: int = 10,
+        traversal_depth: int = 2,
+    ) -> list[dict[str, Any]]:
+        """Query graph filtered by entity and/or relationship types.
+
+        Fetches extra results from the base query, then filters by
+        entity types and relationship types before returning top_k.
+
+        Args:
+            query_text: Natural language query.
+            entity_types: Filter to results involving these entity types
+                (matches against subject_type or object_type).
+            relationship_types: Filter to results with these predicates.
+            top_k: Maximum results to return after filtering.
+            traversal_depth: Graph traversal depth.
+
+        Returns:
+            Filtered list of result dicts.
+        """
+        # No filters: delegate directly to base query (no overhead)
+        if not entity_types and not relationship_types:
+            return self.query(query_text, top_k=top_k, traversal_depth=traversal_depth)
+
+        # Over-fetch to ensure enough results after filtering
+        fetch_k = top_k * 3
+        candidate_results = self.query(
+            query_text, top_k=fetch_k, traversal_depth=traversal_depth
+        )
+
+        if not candidate_results:
+            return []
+
+        # Normalize filter types for case-insensitive comparison
+        normalized_entity_types: set[str | None] = set()
+        if entity_types:
+            for et in entity_types:
+                normalized = normalize_entity_type(et)
+                if normalized:
+                    normalized_entity_types.add(normalized)
+
+        normalized_relationship_types: set[str] = set()
+        if relationship_types:
+            normalized_relationship_types = {rt.lower() for rt in relationship_types}
+
+        # Filter results
+        filtered_results: list[dict[str, Any]] = []
+        for result in candidate_results:
+            # Filter by entity_types
+            if entity_types:
+                subject_type = result.get("subject_type")
+                object_type = result.get("object_type")
+                # Normalize the result types
+                norm_subject = normalize_entity_type(subject_type)
+                norm_object = normalize_entity_type(object_type)
+                # Match if either subject_type or object_type is in filter
+                if (
+                    norm_subject not in normalized_entity_types
+                    and norm_object not in normalized_entity_types
+                ):
+                    continue
+
+            # Filter by relationship_types
+            if relationship_types:
+                predicate = result.get("predicate", "").lower()
+                if predicate not in normalized_relationship_types:
+                    continue
+
+            filtered_results.append(result)
+
+        # Limit to top_k
+        final_results = filtered_results[:top_k]
+
+        logger.info(
+            "graph_index.query_by_type: completed",
+            extra={
+                "query": query_text[:100],
+                "candidates": len(candidate_results),
+                "filtered": len(filtered_results),
+                "returned": len(final_results),
+                "entity_types": entity_types,
+                "relationship_types": relationship_types,
+            },
+        )
+
+        return final_results
+
     def _extract_query_entities(self, query_text: str) -> list[str]:
         """Extract potential entity names from query text.
 
@@ -436,8 +528,14 @@ class GraphIndexManager:
                 result = {
                     "entity": entity,
                     "subject": self._get_triplet_field(triplet, "subject", ""),
+                    "subject_type": self._get_triplet_field(
+                        triplet, "subject_type", None
+                    ),
                     "predicate": self._get_triplet_field(triplet, "predicate", ""),
                     "object": self._get_triplet_field(triplet, "object", ""),
+                    "object_type": self._get_triplet_field(
+                        triplet, "object_type", None
+                    ),
                     "source_chunk_id": self._get_triplet_field(
                         triplet, "source_chunk_id", None
                     ),
