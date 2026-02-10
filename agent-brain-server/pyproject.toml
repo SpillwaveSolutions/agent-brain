@@ -104,6 +104,9 @@ filterwarnings = [
     "ignore::pydantic._internal._generate_schema.UnsupportedFieldAttributeWarning",
 ]
 markers = [
+    "openai: marks tests that require OPENAI_API_KEY",
+    "anthropic: marks tests that require ANTHROPIC_API_KEY",
+    "cohere: marks tests that require COHERE_API_KEY",
     "ollama: marks tests that require Ollama to be running",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
