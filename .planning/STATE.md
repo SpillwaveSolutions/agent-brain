@@ -7,9 +7,9 @@
 ## Current Position
 
 Phase: 4 of 4 (Provider Integration Testing)
-Plan: 1 of ? in current phase
-Status: Plan 04-01 complete (6/6 must-haves)
-Last activity: 2026-02-10 - Completed 04-01-PLAN.md
+Plan: 2 of ? in current phase
+Status: Plan 04-02 complete (5/5 must-haves)
+Last activity: 2026-02-10 - Completed 04-02-PLAN.md
 
 Progress: ██████████ 100%
 
@@ -31,7 +31,7 @@ Roadmap Progress: ████████░░ 80%
 | 1 — Two-Stage Reranking | ● Complete | 7/7 | 100% |
 | 2 — Pluggable Providers | ● Complete | 4/4 | 100% |
 | 3 — Schema GraphRAG | ● Complete | 2/2 | 100% |
-| 4 — Provider Testing | ◐ In Progress | 1/? | ?% |
+| 4 — Provider Testing | ◐ In Progress | 2/? | ?% |
 
 ## Completed Phases
 
@@ -75,6 +75,13 @@ Roadmap Progress: ████████░░ 80%
   - Config-level tests pass without API keys
   - Health endpoint tests validate structured provider status
   - Duration: 367s (6.1 minutes)
+- Plan 04-02 complete: CI Workflow and Provider Configuration Documentation
+  - GitHub Actions workflow with matrix strategy for 4 providers
+  - Graceful CI skipping when API keys missing (doesn't fail build)
+  - Config-tests job validates configuration without API keys
+  - 641-line provider configuration documentation covering 7 providers
+  - Verified examples, troubleshooting guide, testing instructions
+  - Duration: 262s (4.4 minutes)
 - See: `.planning/phases/04-provider-integration-testing/`
 
 ## Key Decisions
@@ -91,18 +98,20 @@ Roadmap Progress: ████████░░ 80%
 - **Type Filtering Strategy**: Over-fetch (3x top_k) then post-filter for type-filtered queries to ensure enough results
 - **Cohere Provider Testing**: Cohere requires API key at instantiation (unlike Ollama), so provider instantiation tests need check_cohere_key fixture
 - **Health Endpoint Testing**: Use minimal FastAPI app with custom lifespan to avoid ChromaDB initialization in tests
+- **CI Provider Testing**: Use matrix strategy with conditional execution to test providers independently, skip when API keys unavailable
+- **Provider Documentation**: Verify all config examples against actual fixture files and source code for accuracy
 
 ## Session Continuity
 
 Last session: 2026-02-10
-Stopped at: Completed 04-01-PLAN.md (Per-Provider E2E Test Suites)
+Stopped at: Completed 04-02-PLAN.md (CI Workflow and Provider Configuration Documentation)
 Resume file: None
 
 ## Next Action
 
 Continue Phase 4 execution with next plan, or verify phase completion.
 
-Phase 4 Plan 01 complete. Provider E2E tests established.
+Phase 4 Plan 02 complete. CI workflow and documentation established.
 
 ---
 *State updated: 2026-02-10*
