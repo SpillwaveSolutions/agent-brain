@@ -84,6 +84,7 @@ def reset_singletons():
     import agent_brain_server.indexing.graph_index as graph_index_mod
     import agent_brain_server.services.indexing_service as idx_mod
     import agent_brain_server.services.query_service as query_mod
+    import agent_brain_server.storage.factory as factory_mod
     import agent_brain_server.storage.graph_store as graph_mod
 
     bm25_mod._bm25_manager = None
@@ -94,6 +95,9 @@ def reset_singletons():
     graph_index_mod._graph_index_manager = None
     extractor_mod._llm_extractor = None
     extractor_mod._code_extractor = None
+    # Reset storage backend singleton (Phase 5)
+    factory_mod._storage_backend = None
+    factory_mod._backend_type = None
 
     yield
 
@@ -105,6 +109,9 @@ def reset_singletons():
     graph_index_mod._graph_index_manager = None
     extractor_mod._llm_extractor = None
     extractor_mod._code_extractor = None
+    # Reset storage backend singleton (Phase 5)
+    factory_mod._storage_backend = None
+    factory_mod._backend_type = None
 
 
 @pytest.fixture
@@ -116,6 +123,8 @@ def mock_bm25_manager():
     mock.build_index = MagicMock()
     mock.get_retriever = MagicMock()
     mock.reset = MagicMock()
+    # Add search_with_filters for new StorageBackendProtocol path (Phase 5)
+    mock.search_with_filters = AsyncMock(return_value=[])
 
     retriever_mock = AsyncMock()
     retriever_mock.aretrieve = AsyncMock(return_value=[])

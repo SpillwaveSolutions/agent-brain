@@ -24,13 +24,18 @@ from agent_brain_server.models import (
     QueryResult,
 )
 from agent_brain_server.providers import ProviderRegistry
-from agent_brain_server.storage import VectorStoreManager, get_vector_store
+from agent_brain_server.storage import (
+    StorageBackendProtocol,
+    VectorStoreManager,
+    get_storage_backend,
+    get_vector_store,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class VectorManagerRetriever(BaseRetriever):
-    """LlamaIndex retriever wrapper for VectorStoreManager."""
+    """LlamaIndex retriever wrapper for storage backend vector search."""
 
     def __init__(
         self,
@@ -51,7 +56,7 @@ class VectorManagerRetriever(BaseRetriever):
         query_embedding = await self.service.embedding_generator.embed_query(
             query_bundle.query_str
         )
-        results = await self.service.vector_store.similarity_search(
+        results = await self.service.storage_backend.vector_search(
             query_embedding=query_embedding,
             top_k=self.top_k,
             similarity_threshold=self.threshold,
@@ -79,19 +84,46 @@ class QueryService:
         embedding_generator: EmbeddingGenerator | None = None,
         bm25_manager: BM25IndexManager | None = None,
         graph_index_manager: GraphIndexManager | None = None,
+        storage_backend: StorageBackendProtocol | None = None,
     ):
         """
         Initialize the query service.
 
         Args:
-            vector_store: Vector store manager instance.
+            vector_store: [DEPRECATED] Vector store manager instance (for backward compat).
             embedding_generator: Embedding generator instance.
-            bm25_manager: BM25 index manager instance.
+            bm25_manager: [DEPRECATED] BM25 index manager instance (for backward compat).
             graph_index_manager: Graph index manager instance (Feature 113).
+            storage_backend: Storage backend implementing protocol (preferred).
         """
-        self.vector_store = vector_store or get_vector_store()
+        # Resolve storage_backend with backward compatibility
+        if storage_backend is not None:
+            self.storage_backend = storage_backend
+        elif vector_store is not None or bm25_manager is not None:
+            # Legacy path: wrap provided stores in ChromaBackend
+            from agent_brain_server.storage.chroma.backend import ChromaBackend
+
+            self.storage_backend = ChromaBackend(
+                vector_store=vector_store,
+                bm25_manager=bm25_manager,
+            )
+        else:
+            # New path: use factory
+            self.storage_backend = get_storage_backend()
+
+        # Maintain backward-compatible aliases for code that accesses them directly
+        # Extract from ChromaBackend if possible, otherwise set to None
+        if hasattr(self.storage_backend, "vector_store"):
+            self.vector_store = self.storage_backend.vector_store  # type: ignore[attr-defined]
+        else:
+            self.vector_store = vector_store or get_vector_store()
+
+        if hasattr(self.storage_backend, "bm25_manager"):
+            self.bm25_manager = self.storage_backend.bm25_manager  # type: ignore[attr-defined]
+        else:
+            self.bm25_manager = bm25_manager or get_bm25_manager()
+
         self.embedding_generator = embedding_generator or get_embedding_generator()
-        self.bm25_manager = bm25_manager or get_bm25_manager()
         self.graph_index_manager = graph_index_manager or get_graph_index_manager()
 
     def is_ready(self) -> bool:
@@ -99,9 +131,9 @@ class QueryService:
         Check if the service is ready to process queries.
 
         Returns:
-            True if the vector store is initialized and has documents.
+            True if the storage backend is initialized and has documents.
         """
-        return self.vector_store.is_initialized
+        return self.storage_backend.is_initialized
 
     async def execute_query(self, request: QueryRequest) -> QueryResponse:
         """
@@ -213,7 +245,7 @@ class QueryService:
         """Execute pure semantic search."""
         query_embedding = await self.embedding_generator.embed_query(request.query)
         where_clause = self._build_where_clause(request.source_types, request.languages)
-        search_results = await self.vector_store.similarity_search(
+        search_results = await self.storage_backend.vector_search(
             query_embedding=query_embedding,
             top_k=request.top_k,
             similarity_threshold=request.similarity_threshold,
@@ -245,27 +277,32 @@ class QueryService:
         if not self.bm25_manager.is_initialized:
             raise RuntimeError("BM25 index not initialized")
 
-        retriever = self.bm25_manager.get_retriever(top_k=request.top_k)
-        nodes = await retriever.aretrieve(request.query)
+        # Use storage backend's keyword_search (scores already normalized 0-1)
+        search_results = await self.storage_backend.keyword_search(
+            query=request.query,
+            top_k=request.top_k,
+            source_types=request.source_types,
+            languages=request.languages,
+        )
 
         return [
             QueryResult(
-                text=node.node.get_content(),
-                source=node.node.metadata.get(
-                    "source", node.node.metadata.get("file_path", "unknown")
+                text=res.text,
+                source=res.metadata.get(
+                    "source", res.metadata.get("file_path", "unknown")
                 ),
-                score=node.score or 0.0,
-                bm25_score=node.score,
-                chunk_id=node.node.node_id,
-                source_type=node.node.metadata.get("source_type", "doc"),
-                language=node.node.metadata.get("language"),
+                score=res.score,
+                bm25_score=res.score,  # Already normalized 0-1
+                chunk_id=res.chunk_id,
+                source_type=res.metadata.get("source_type", "doc"),
+                language=res.metadata.get("language"),
                 metadata={
                     k: v
-                    for k, v in node.node.metadata.items()
+                    for k, v in res.metadata.items()
                     if k not in ("source", "file_path", "source_type", "language")
                 },
             )
-            for node in nodes
+            for res in search_results
         ]
 
     async def _execute_hybrid_query(self, request: QueryRequest) -> list[QueryResult]:
@@ -274,7 +311,7 @@ class QueryService:
         # We'll perform the individual searches first to get the scores.
 
         # Get corpus size to avoid requesting more than available
-        corpus_size = await self.vector_store.get_count()
+        corpus_size = await self.storage_backend.get_count()
         effective_top_k = min(request.top_k, corpus_size)
 
         # Build ChromaDB where clause for filtering
@@ -282,41 +319,41 @@ class QueryService:
 
         # 1. Vector Search
         query_embedding = await self.embedding_generator.embed_query(request.query)
-        vector_results = await self.vector_store.similarity_search(
+        vector_results = await self.storage_backend.vector_search(
             query_embedding=query_embedding,
             top_k=effective_top_k,
             similarity_threshold=request.similarity_threshold,
             where=where_clause,
         )
 
-        # 2. BM25 Search
-        bm25_results = []
+        # 2. BM25 Search (scores already normalized 0-1 by ChromaBackend)
+        bm25_search_results = []
         if self.bm25_manager.is_initialized:
-            # Use the new filtered search method
-            bm25_results = await self.bm25_manager.search_with_filters(
+            # Use storage backend's keyword_search (returns SearchResult with normalized scores)
+            bm25_search_results = await self.storage_backend.keyword_search(
                 query=request.query,
                 top_k=effective_top_k,
                 source_types=request.source_types,
                 languages=request.languages,
-                max_results=corpus_size,
             )
-        # Convert BM25 results to same format as vector results
+
+        # Convert BM25 SearchResults to QueryResults
         bm25_query_results = []
-        for node in bm25_results:
+        for res in bm25_search_results:
             bm25_query_results.append(
                 QueryResult(
-                    text=node.node.get_content(),
-                    source=node.node.metadata.get(
-                        "source", node.node.metadata.get("file_path", "unknown")
+                    text=res.text,
+                    source=res.metadata.get(
+                        "source", res.metadata.get("file_path", "unknown")
                     ),
-                    score=node.score or 0.0,
-                    bm25_score=node.score,
-                    chunk_id=node.node.node_id,
-                    source_type=node.node.metadata.get("source_type", "doc"),
-                    language=node.node.metadata.get("language"),
+                    score=res.score,  # Already normalized 0-1
+                    bm25_score=res.score,
+                    chunk_id=res.chunk_id,
+                    source_type=res.metadata.get("source_type", "doc"),
+                    language=res.metadata.get("language"),
                     metadata={
                         k: v
-                        for k, v in node.node.metadata.items()
+                        for k, v in res.metadata.items()
                         if k not in ("source", "file_path", "source_type", "language")
                     },
                 )
@@ -325,7 +362,9 @@ class QueryService:
         # 3. Simple hybrid fusion for small corpora
         # Combine vector and BM25 results manually to avoid retriever complexity
 
-        # Score normalization: bring both to 0-1 range
+        # Score normalization: both already in 0-1 range from backend
+        # Vector scores are cosine similarity (0-1)
+        # BM25 scores are normalized to 0-1 by ChromaBackend.keyword_search
         max_vector_score = max((r.score for r in vector_results), default=1.0) or 1.0
         max_bm25_score = (
             max((r.bm25_score or 0.0 for r in bm25_query_results), default=1.0) or 1.0
@@ -457,9 +496,9 @@ class QueryService:
             if not chunk_id:
                 continue
 
-            # Get document from vector store by ID
+            # Get document from storage backend by ID
             try:
-                doc = await self.vector_store.get_by_id(chunk_id)
+                doc = await self.storage_backend.get_by_id(chunk_id)
                 if doc:
                     result = QueryResult(
                         text=doc.get("text", ""),

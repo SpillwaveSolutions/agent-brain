@@ -10,20 +10,23 @@ class TestBM25QueryEndpoint:
         self, app_with_mocks, client, mock_vector_store, mock_bm25_manager
     ):
         """Test querying with mode=bm25."""
+        from llama_index.core.schema import NodeWithScore, TextNode
+
         from agent_brain_server.services import QueryService
 
         mock_vector_store.is_initialized = True
         mock_bm25_manager.is_initialized = True
 
-        # Setup mock retriever results
-        retriever_mock = AsyncMock()
-        node_mock = MagicMock()
-        node_mock.node.get_content.return_value = "Exact keyword match"
-        node_mock.node.metadata = {"source": "docs/keyword.md"}
-        node_mock.node.node_id = "chunk_bm25"
-        node_mock.score = 1.0
-        retriever_mock.aretrieve = AsyncMock(return_value=[node_mock])
-        mock_bm25_manager.get_retriever.return_value = retriever_mock
+        # Setup mock search_with_filters results (new path via ChromaBackend)
+        node_mock = NodeWithScore(
+            node=TextNode(
+                text="Exact keyword match",
+                id_="chunk_bm25",
+                metadata={"source": "docs/keyword.md"},
+            ),
+            score=10.0,  # Raw BM25 score (will be normalized to 1.0)
+        )
+        mock_bm25_manager.search_with_filters = AsyncMock(return_value=[node_mock])
 
         # Create QueryService with mocked deps and set on app.state
         query_service = QueryService(

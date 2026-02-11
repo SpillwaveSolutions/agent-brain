@@ -25,7 +25,12 @@ from agent_brain_server.indexing.graph_index import (
     get_graph_index_manager,
 )
 from agent_brain_server.models import IndexingState, IndexingStatusEnum, IndexRequest
-from agent_brain_server.storage import VectorStoreManager, get_vector_store
+from agent_brain_server.storage import (
+    StorageBackendProtocol,
+    VectorStoreManager,
+    get_storage_backend,
+    get_vector_store,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,23 +55,49 @@ class IndexingService:
         embedding_generator: EmbeddingGenerator | None = None,
         bm25_manager: BM25IndexManager | None = None,
         graph_index_manager: GraphIndexManager | None = None,
+        storage_backend: StorageBackendProtocol | None = None,
     ):
         """
         Initialize the indexing service.
 
         Args:
-            vector_store: Vector store manager instance.
+            vector_store: [DEPRECATED] Vector store manager instance (for backward compat).
             document_loader: Document loader instance.
             chunker: Text chunker instance.
             embedding_generator: Embedding generator instance.
-            bm25_manager: BM25 index manager instance.
+            bm25_manager: [DEPRECATED] BM25 index manager instance (for backward compat).
             graph_index_manager: Graph index manager instance (Feature 113).
+            storage_backend: Storage backend implementing protocol (preferred).
         """
-        self.vector_store = vector_store or get_vector_store()
+        # Resolve storage_backend with backward compatibility
+        if storage_backend is not None:
+            self.storage_backend = storage_backend
+        elif vector_store is not None or bm25_manager is not None:
+            # Legacy path: wrap provided stores in ChromaBackend
+            from agent_brain_server.storage.chroma.backend import ChromaBackend
+
+            self.storage_backend = ChromaBackend(
+                vector_store=vector_store,
+                bm25_manager=bm25_manager,
+            )
+        else:
+            # New path: use factory
+            self.storage_backend = get_storage_backend()
+
+        # Maintain backward-compatible aliases
+        if hasattr(self.storage_backend, "vector_store"):
+            self.vector_store = self.storage_backend.vector_store  # type: ignore[attr-defined]
+        else:
+            self.vector_store = vector_store or get_vector_store()
+
+        if hasattr(self.storage_backend, "bm25_manager"):
+            self.bm25_manager = self.storage_backend.bm25_manager  # type: ignore[attr-defined]
+        else:
+            self.bm25_manager = bm25_manager or get_bm25_manager()
+
         self.document_loader = document_loader or DocumentLoader()
         self.chunker = chunker or ContextAwareChunker()
         self.embedding_generator = embedding_generator or EmbeddingGenerator()
-        self.bm25_manager = bm25_manager or get_bm25_manager()
         self.graph_index_manager = graph_index_manager or get_graph_index_manager()
 
         # Internal state
@@ -97,7 +128,7 @@ class IndexingService:
     def is_ready(self) -> bool:
         """Check if the system is ready for queries."""
         return (
-            self.vector_store.is_initialized
+            self.storage_backend.is_initialized
             and not self.is_indexing
             and self._state.status != IndexingStatusEnum.FAILED
         )
@@ -158,20 +189,20 @@ class IndexingService:
             ProviderMismatchError: If provider/model/dimensions don't match
         """
         # Get stored metadata
-        stored_metadata = await self.vector_store.get_embedding_metadata()
+        stored_metadata = await self.storage_backend.get_embedding_metadata()
 
         if stored_metadata is None:
             # No existing index, no validation needed
             return
 
         # Get current config
-        settings = load_provider_settings()
-        current_provider = settings.embedding.provider
-        current_model = settings.embedding.model
+        provider_settings = load_provider_settings()
+        current_provider = provider_settings.embedding.provider
+        current_model = provider_settings.embedding.model
         current_dimensions = self.embedding_generator.get_embedding_dimensions()
 
         # Validate
-        self.vector_store.validate_embedding_compatibility(
+        self.storage_backend.validate_embedding_compatibility(
             provider=str(current_provider),
             model=current_model,
             dimensions=current_dimensions,
@@ -193,8 +224,8 @@ class IndexingService:
             progress_callback: Optional progress callback.
         """
         try:
-            # Ensure vector store is initialized
-            await self.vector_store.initialize()
+            # Ensure storage backend is initialized
+            await self.storage_backend.initialize()
 
             # Get current embedding config for metadata storage
             provider_settings = load_provider_settings()
@@ -204,9 +235,9 @@ class IndexingService:
 
             # Validate embedding compatibility unless force=True
             if not request.force:
-                stored_metadata = await self.vector_store.get_embedding_metadata()
+                stored_metadata = await self.storage_backend.get_embedding_metadata()
                 if stored_metadata is not None:
-                    self.vector_store.validate_embedding_compatibility(
+                    self.storage_backend.validate_embedding_compatibility(
                         provider=current_provider,
                         model=current_model,
                         dimensions=current_dimensions,
@@ -415,7 +446,7 @@ class IndexingService:
                 batch_chunks = chunks[batch_start:batch_end]
                 batch_embeddings = embeddings[batch_start:batch_end]
 
-                await self.vector_store.upsert_documents(
+                await self.storage_backend.upsert_documents(
                     ids=[chunk.chunk_id for chunk in batch_chunks],
                     embeddings=batch_embeddings,
                     documents=[chunk.text for chunk in batch_chunks],
@@ -428,7 +459,7 @@ class IndexingService:
                 )
 
             # Store embedding metadata for future validation
-            await self.vector_store.set_embedding_metadata(
+            await self.storage_backend.set_embedding_metadata(
                 provider=current_provider,
                 model=current_model,
                 dimensions=current_dimensions,
@@ -495,8 +526,8 @@ class IndexingService:
             Dictionary with status information.
         """
         total_chunks = (
-            await self.vector_store.get_count()
-            if self.vector_store.is_initialized
+            await self.storage_backend.get_count()
+            if self.storage_backend.is_initialized
             else 0
         )
 

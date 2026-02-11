@@ -40,7 +40,7 @@ from agent_brain_server.locking import (
 from agent_brain_server.project_root import resolve_project_root
 from agent_brain_server.runtime import RuntimeState, delete_runtime, write_runtime
 from agent_brain_server.services import IndexingService, QueryService
-from agent_brain_server.storage import VectorStoreManager
+from agent_brain_server.storage import VectorStoreManager, get_effective_backend_type, get_storage_backend
 from agent_brain_server.storage_paths import resolve_state_dir, resolve_storage_paths
 
 from .routers import health_router, index_router, jobs_router, query_router
@@ -229,6 +229,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await vector_store.initialize()
         app.state.vector_store = vector_store
         logger.info("Vector store initialized")
+
+        # Initialize storage backend (Phase 5)
+        backend_type = get_effective_backend_type()
+        logger.info(f"Storage backend: {backend_type}")
+
+        # Get storage backend instance (wraps vector_store and bm25_manager)
+        storage_backend = get_storage_backend()
+        await storage_backend.initialize()
+        app.state.storage_backend = storage_backend
+        logger.info("Storage backend initialized")
 
         # Check embedding compatibility (PROV-07)
         embedding_warning = await check_embedding_compatibility(vector_store)
