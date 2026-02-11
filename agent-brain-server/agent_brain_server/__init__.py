@@ -1,3 +1,3 @@
 """Doc-Serve Server - RAG-based document indexing and query service."""
 
-__version__ = "4.0.0"
+__version__ = "5.0.0"

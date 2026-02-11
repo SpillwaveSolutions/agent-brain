@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agent-brain-rag"
-version = "4.0.0"
+version = "5.0.0"
 description = "Agent Brain RAG - Intelligent document indexing and semantic search server that gives AI agents long-term memory"
 authors = ["Spillwave Solutions"]
 readme = "README.md"
