@@ -2,29 +2,29 @@
 
 **Last Updated:** 2026-02-11
 **Current Milestone:** v5.0 PostgreSQL Backend
-**Status:** Phase 6 COMPLETE — all 3 plans done
+**Status:** Phase 7 IN PROGRESS — Plan 1 of 2 complete
 
 ## Current Position
 
-Phase: 6 of 8 (PostgreSQL Backend Implementation) — COMPLETE
-Plan: 3 of 3 complete
-Status: Phase 6 complete, ready for Phase 7 (Testing & CI)
-Last activity: 2026-02-11 — Phase 6 Plan 03 executed
+Phase: 7 of 8 (Testing & CI) — IN PROGRESS
+Plan: 1 of 2 complete
+Status: Phase 7 Plan 1 complete, ready for Plan 02
+Last activity: 2026-02-11 — Phase 7 Plan 01 executed
 
-Progress: [██████████] 100% (Phase 6 Plan 3/3 complete)
+Progress: [█████-----] 50% (Phase 7 Plan 1/2 complete)
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Phase 6 complete - PostgreSQL Backend ready for Phase 7 Testing
+**Current focus:** Phase 7 Testing & CI - contract tests in place, ready for Plan 02
 
 ## Milestone Summary
 
 ```
 v3.0 Advanced RAG:     [██████████] 100% (shipped 2026-02-10)
-v5.0 PostgreSQL:       [██████████] 100% (Phase 6 complete, 3/3 plans)
+v5.0 PostgreSQL:       [██████----] Phase 7 in progress (Plan 1/2 done)
 ```
 
 ## Performance Metrics
@@ -63,6 +63,7 @@ v5.0 PostgreSQL:       [██████████] 100% (Phase 6 complete, 
 | 06-01 | 6 min | 3/3 | 6 | Complete |
 | 06-02 | 4 min | 2/2 | 4 | Complete |
 | 06-03 | 11 min | 3/3 | 13 | Complete |
+| Phase 07 P01 | 16 min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -105,6 +106,7 @@ v5.0 PostgreSQL:       [██████████] 100% (Phase 6 complete, 
 - 06-03: Dedicated /health/postgres endpoint — backend-specific pool metrics
 - 06-03: Lifespan uses hasattr(backend, 'close') — safe for ChromaBackend (no close)
 - 06-03: Poetry extras [postgres] — asyncpg + sqlalchemy as optional deps
+- [Phase 07]: Avoid updating Chroma hnsw:space metadata during embedding metadata writes.
 
 ### From Phase 6 Plan 03 (Integration)
 - Factory creates PostgresBackend from YAML config with DATABASE_URL env var override
@@ -148,9 +150,9 @@ v5.0 PostgreSQL:       [██████████] 100% (Phase 6 complete, 
 
 ## Session Continuity
 
-Last session: 2026-02-11 (Phase 6 Plan 03 execution)
-Stopped at: Completed 06-03-PLAN.md (Integration). Phase 6 complete. Ready for Phase 7 (Testing & CI).
-Resume file: Phase 7 planning needed next
+Last session: 2026-02-11 (Phase 7 Plan 01 execution)
+Stopped at: Completed 07-01-PLAN.md (Testing & CI contract tests). Ready for Plan 02.
+Resume file: Phase 7 Plan 02 execution
 
 ---
 *State updated: 2026-02-11*
