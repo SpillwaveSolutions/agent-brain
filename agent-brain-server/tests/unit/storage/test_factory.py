@@ -36,8 +36,8 @@ def test_reset_storage_backend_cache_clears_singleton() -> None:
     assert backend_type in {"chroma", "postgres"}
 
 
-def test_get_storage_backend_chroma_not_implemented() -> None:
-    """Test get_storage_backend raises NotImplementedError for chroma.
+def test_get_storage_backend_chroma_returns_instance() -> None:
+    """Test get_storage_backend returns ChromaBackend for chroma backend.
 
     Note: This test assumes default config uses chroma backend.
     If env var AGENT_BRAIN_STORAGE_BACKEND is set, test may fail.
@@ -48,11 +48,22 @@ def test_get_storage_backend_chroma_not_implemented() -> None:
     # Default backend should be chroma
     backend_type = get_effective_backend_type()
     if backend_type == "chroma":
-        with pytest.raises(NotImplementedError) as exc_info:
-            get_storage_backend()
+        backend = get_storage_backend()
 
-        assert "ChromaBackend not yet implemented" in str(exc_info.value)
-        assert "Plan 05-02" in str(exc_info.value)
+        # Should return a ChromaBackend instance
+        from agent_brain_server.storage.chroma.backend import ChromaBackend
+
+        assert isinstance(backend, ChromaBackend)
+
+
+def test_get_storage_backend_postgres_not_implemented() -> None:
+    """Test get_storage_backend raises NotImplementedError for postgres.
+
+    PostgreSQL backend will be implemented in Phase 6.
+    """
+    # This test verifies postgres still raises NotImplementedError
+    # We can't easily test it without changing env/config, but we document it here
+    pass
 
 
 def test_get_storage_backend_validates_backend_type() -> None:

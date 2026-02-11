@@ -87,12 +87,11 @@ def get_storage_backend() -> StorageBackendProtocol:
 
     # Create backend instance based on type
     if backend_type == "chroma":
-        # ChromaBackend will be implemented in Plan 02
-        raise NotImplementedError(
-            "ChromaBackend not yet implemented — see Plan 05-02. "
-            "The existing VectorStoreManager will be wrapped in a "
-            "ChromaBackend adapter that implements StorageBackendProtocol."
-        )
+        from agent_brain_server.storage.chroma.backend import ChromaBackend
+
+        _storage_backend = ChromaBackend()
+        _backend_type = backend_type
+        return _storage_backend
     elif backend_type == "postgres":
         # PostgresBackend will be implemented in Phase 6
         raise NotImplementedError(
