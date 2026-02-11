@@ -114,12 +114,12 @@ class QueryService:
         # Maintain backward-compatible aliases for code that accesses them directly
         # Extract from ChromaBackend if possible, otherwise set to None
         if hasattr(self.storage_backend, "vector_store"):
-            self.vector_store = self.storage_backend.vector_store  # type: ignore[attr-defined]
+            self.vector_store = getattr(self.storage_backend, "vector_store")
         else:
             self.vector_store = vector_store or get_vector_store()
 
         if hasattr(self.storage_backend, "bm25_manager"):
-            self.bm25_manager = self.storage_backend.bm25_manager  # type: ignore[attr-defined]
+            self.bm25_manager = getattr(self.storage_backend, "bm25_manager")
         else:
             self.bm25_manager = bm25_manager or get_bm25_manager()
 
@@ -644,7 +644,7 @@ class QueryService:
         """
         if not self.is_ready():
             return 0
-        return await self.vector_store.get_count()
+        return await self.storage_backend.get_count()
 
     def _filter_results(
         self, results: list[QueryResult], request: QueryRequest

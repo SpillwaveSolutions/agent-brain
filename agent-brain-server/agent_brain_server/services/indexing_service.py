@@ -86,12 +86,12 @@ class IndexingService:
 
         # Maintain backward-compatible aliases
         if hasattr(self.storage_backend, "vector_store"):
-            self.vector_store = self.storage_backend.vector_store  # type: ignore[attr-defined]
+            self.vector_store = getattr(self.storage_backend, "vector_store")
         else:
             self.vector_store = vector_store or get_vector_store()
 
         if hasattr(self.storage_backend, "bm25_manager"):
-            self.bm25_manager = self.storage_backend.bm25_manager  # type: ignore[attr-defined]
+            self.bm25_manager = getattr(self.storage_backend, "bm25_manager")
         else:
             self.bm25_manager = bm25_manager or get_bm25_manager()
 
