@@ -2,29 +2,29 @@
 
 **Last Updated:** 2026-02-11
 **Current Milestone:** v5.0 PostgreSQL Backend
-**Status:** Phase 6 in progress — Plan 01 complete
+**Status:** Phase 6 in progress — Plan 02 complete
 
 ## Current Position
 
 Phase: 6 of 8 (PostgreSQL Backend Implementation) — IN PROGRESS
-Plan: 1 of 3 complete
-Status: Plan 06-01 (Foundation) complete, Plan 06-02 (Vector/Keyword Ops) next
-Last activity: 2026-02-11 — Phase 6 Plan 01 executed
+Plan: 2 of 3 complete
+Status: Plan 06-02 (Core Operations) complete, Plan 06-03 (Integration) next
+Last activity: 2026-02-11 — Phase 6 Plan 02 executed
 
-Progress: [███░░░░░░░] 33% (Phase 6 Plan 1/3 complete)
+Progress: [██████░░░░] 67% (Phase 6 Plan 2/3 complete)
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Phase 6 - PostgreSQL Backend (Plan 02: Vector/Keyword Operations next)
+**Current focus:** Phase 6 - PostgreSQL Backend (Plan 03: Integration next)
 
 ## Milestone Summary
 
 ```
 v3.0 Advanced RAG:     [██████████] 100% (shipped 2026-02-10)
-v5.0 PostgreSQL:       [███░░░░░░░]  33% (Phase 6 Plan 1/3 complete)
+v5.0 PostgreSQL:       [██████░░░░]  67% (Phase 6 Plan 2/3 complete)
 ```
 
 ## Performance Metrics
@@ -61,6 +61,7 @@ v5.0 PostgreSQL:       [███░░░░░░░]  33% (Phase 6 Plan 1/3 c
 | Plan | Duration | Tasks | Files Created | Status |
 |------|----------|-------|---------------|--------|
 | 06-01 | 6 min | 3/3 | 6 | Complete |
+| 06-02 | 4 min | 2/2 | 4 | Complete |
 
 ## Accumulated Context
 
@@ -94,6 +95,18 @@ v5.0 PostgreSQL:       [███░░░░░░░]  33% (Phase 6 Plan 1/3 c
 - 06-01: QueuePool isinstance check for pool metrics — handles non-standard pool types
 - 06-01: Embedded SQL with f-string for integer params — safe for validated ints only
 - 06-01: Graceful table-not-found in get_embedding_metadata() — first-startup scenario
+- 06-02: json.dumps() for embedding serialization with ::vector cast — SQLAlchemy text() binding
+- 06-02: RRF k=60 constant — per academic literature recommendation
+- 06-02: Individual upserts for MVP — batch optimization deferred
+- 06-02: Discover dimensions from ProviderRegistry at initialize() — dynamic dimensions
+
+### From Phase 6 Plan 02 (Core Operations)
+- VectorOps: pgvector search with cosine (<=>), L2 (<->), inner_product (<#>) metrics, 0-1 score normalization
+- KeywordOps: tsvector with weighted relevance (title=A, summary=B, content=C), configurable language, websearch_to_tsquery
+- PostgresBackend: implements all 11 StorageBackendProtocol methods + hybrid_search_with_rrf() + close()
+- RRF hybrid search: fetch 2x top_k from both sources, weighted rank fusion with k=60, 0-1 normalized output
+- Package exports: PostgresBackend, PostgresConfig, PostgresConnectionManager, PostgresSchemaManager
+- 559 existing tests still pass (no regressions)
 
 ### From Phase 6 Plan 01 (PostgreSQL Foundation)
 - PostgresConfig: host, port, database, user, password, pool_size, pool_max_overflow, language, hnsw_m, hnsw_ef_construction, debug
@@ -120,9 +133,9 @@ v5.0 PostgreSQL:       [███░░░░░░░]  33% (Phase 6 Plan 1/3 c
 
 ## Session Continuity
 
-Last session: 2026-02-11 (Phase 6 Plan 01 execution)
-Stopped at: Completed 06-01-PLAN.md (PostgreSQL Foundation). Ready for 06-02-PLAN.md (Vector/Keyword Operations).
-Resume file: Run `/gsd:execute-phase 6` to continue with Plan 02
+Last session: 2026-02-11 (Phase 6 Plan 02 execution)
+Stopped at: Completed 06-02-PLAN.md (Core Operations). Ready for 06-03-PLAN.md (Integration).
+Resume file: Run `/gsd:execute-phase 6` to continue with Plan 03
 
 ---
 *State updated: 2026-02-11*
