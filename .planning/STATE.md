@@ -2,29 +2,29 @@
 
 **Last Updated:** 2026-02-11
 **Current Milestone:** v5.0 PostgreSQL Backend
-**Status:** Phase 6 in progress — Plan 02 complete
+**Status:** Phase 6 COMPLETE — all 3 plans done
 
 ## Current Position
 
-Phase: 6 of 8 (PostgreSQL Backend Implementation) — IN PROGRESS
-Plan: 2 of 3 complete
-Status: Plan 06-02 (Core Operations) complete, Plan 06-03 (Integration) next
-Last activity: 2026-02-11 — Phase 6 Plan 02 executed
+Phase: 6 of 8 (PostgreSQL Backend Implementation) — COMPLETE
+Plan: 3 of 3 complete
+Status: Phase 6 complete, ready for Phase 7 (Testing & CI)
+Last activity: 2026-02-11 — Phase 6 Plan 03 executed
 
-Progress: [██████░░░░] 67% (Phase 6 Plan 2/3 complete)
+Progress: [██████████] 100% (Phase 6 Plan 3/3 complete)
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Phase 6 - PostgreSQL Backend (Plan 03: Integration next)
+**Current focus:** Phase 6 complete - PostgreSQL Backend ready for Phase 7 Testing
 
 ## Milestone Summary
 
 ```
 v3.0 Advanced RAG:     [██████████] 100% (shipped 2026-02-10)
-v5.0 PostgreSQL:       [██████░░░░]  67% (Phase 6 Plan 2/3 complete)
+v5.0 PostgreSQL:       [██████████] 100% (Phase 6 complete, 3/3 plans)
 ```
 
 ## Performance Metrics
@@ -62,12 +62,13 @@ v5.0 PostgreSQL:       [██████░░░░]  67% (Phase 6 Plan 2/3 c
 |------|----------|-------|---------------|--------|
 | 06-01 | 6 min | 3/3 | 6 | Complete |
 | 06-02 | 4 min | 2/2 | 4 | Complete |
+| 06-03 | 11 min | 3/3 | 13 | Complete |
 
 ## Accumulated Context
 
 ### From v3.0 Advanced RAG
 - Pluggable provider pattern (YAML config) works well — reused for backend selection
-- 559 tests passing, 70% coverage after Phase 5 refactor
+- 654 tests passing (559 base + 95 postgres), 70% coverage after Phase 5 refactor
 - Existing architecture: ChromaDB (vectors), disk BM25 (keyword), SimplePropertyGraphStore (graph)
 - Dual-layer validation pattern (startup warning + runtime error) proven effective
 
@@ -99,6 +100,20 @@ v5.0 PostgreSQL:       [██████░░░░]  67% (Phase 6 Plan 2/3 c
 - 06-02: RRF k=60 constant — per academic literature recommendation
 - 06-02: Individual upserts for MVP — batch optimization deferred
 - 06-02: Discover dimensions from ProviderRegistry at initialize() — dynamic dimensions
+- 06-03: Lazy import PostgresBackend in factory — avoid importing asyncpg when using chroma
+- 06-03: DATABASE_URL overrides connection string only, pool config stays in YAML
+- 06-03: Dedicated /health/postgres endpoint — backend-specific pool metrics
+- 06-03: Lifespan uses hasattr(backend, 'close') — safe for ChromaBackend (no close)
+- 06-03: Poetry extras [postgres] — asyncpg + sqlalchemy as optional deps
+
+### From Phase 6 Plan 03 (Integration)
+- Factory creates PostgresBackend from YAML config with DATABASE_URL env var override
+- /health/postgres endpoint returns pool metrics (pool_size, checked_in, checked_out, overflow, total) and database version
+- Server lifespan closes PostgreSQL connection pool on shutdown via hasattr check
+- Poetry extras [postgres] = asyncpg + sqlalchemy[asyncio] (optional)
+- 95 new unit tests covering all 6 PostgreSQL modules (config, connection, schema, vector_ops, keyword_ops, backend) + health endpoint
+- 654 total tests (559 existing + 95 new), zero regression
+- All code passes mypy strict, ruff, and black
 
 ### From Phase 6 Plan 02 (Core Operations)
 - VectorOps: pgvector search with cosine (<=>), L2 (<->), inner_product (<#>) metrics, 0-1 score normalization
@@ -133,9 +148,9 @@ v5.0 PostgreSQL:       [██████░░░░]  67% (Phase 6 Plan 2/3 c
 
 ## Session Continuity
 
-Last session: 2026-02-11 (Phase 6 Plan 02 execution)
-Stopped at: Completed 06-02-PLAN.md (Core Operations). Ready for 06-03-PLAN.md (Integration).
-Resume file: Run `/gsd:execute-phase 6` to continue with Plan 03
+Last session: 2026-02-11 (Phase 6 Plan 03 execution)
+Stopped at: Completed 06-03-PLAN.md (Integration). Phase 6 complete. Ready for Phase 7 (Testing & CI).
+Resume file: Phase 7 planning needed next
 
 ---
 *State updated: 2026-02-11*
