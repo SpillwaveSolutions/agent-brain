@@ -1,56 +1,44 @@
 # Agent Brain — Project State
 
 **Last Updated:** 2026-02-10
-**Current Milestone:** v3.0 Advanced RAG — SHIPPED
-**Status:** MILESTONE COMPLETE
+**Current Milestone:** v5.0 PostgreSQL Backend
+**Status:** Defining requirements
 
 ## Current Position
 
-Milestone: v3.0 Advanced RAG (shipped 2026-02-10)
-Phases: 4/4 complete (15 plans total)
-Next: Planning next milestone
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-10 — Milestone v5.0 started
 
-Progress: ██████████ 100%
+Progress: ░░░░░░░░░░ 0%
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API
-**Current focus:** Milestone complete — planning next milestone
+**Current focus:** v5.0 PostgreSQL Backend — dual backend architecture with pgvector + tsvector
 
 ## Milestone Summary
 
 ```
-v3.0 Advanced RAG: ██████████ 100% SHIPPED
+v5.0 PostgreSQL Backend: ░░░░░░░░░░ 0%
 ```
 
-| Phase | Status | Plans | Progress |
-|-------|--------|-------|----------|
-| 1 — Two-Stage Reranking | ● Complete | 7/7 | 100% |
-| 2 — Pluggable Providers | ● Complete | 4/4 | 100% |
-| 3 — Schema GraphRAG | ● Complete | 2/2 | 100% |
-| 4 — Provider Testing | ● Complete | 2/2 | 100% |
+## Accumulated Context
 
-## Archive
-
-- Roadmap: `.planning/milestones/v3.0-ROADMAP.md`
-- Requirements: `.planning/milestones/v3.0-REQUIREMENTS.md`
-- Milestones log: `.planning/MILESTONES.md`
+### From v3.0 Advanced RAG
+- Pluggable provider pattern (YAML config) works well — reuse for backend selection
+- Storage layer currently tightly coupled to ChromaDB — will need abstraction
+- 505 tests passing, 70% coverage — must maintain through refactor
+- Existing architecture: ChromaDB (vectors), disk BM25 (keyword), SimplePropertyGraphStore (graph)
 
 ## Session Continuity
 
 Last session: 2026-02-10
-Stopped at: v3.0 milestone archived
+Stopped at: Milestone v5.0 initialization — defining requirements
 Resume file: None
-
-## Next Action
-
-```
-/gsd:new-milestone
-```
-
-Start next milestone (questioning -> research -> requirements -> roadmap).
 
 ---
 *State updated: 2026-02-10*

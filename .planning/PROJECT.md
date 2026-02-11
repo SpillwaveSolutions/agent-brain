@@ -58,7 +58,18 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ### Active
 
-(None — planning next milestone)
+**Current Milestone: v5.0 PostgreSQL Backend**
+
+**Goal:** Add PostgreSQL as a configurable storage backend with pgvector for vector search and tsvector for full-text search, running alongside ChromaDB as a dual-backend architecture.
+
+**Target features:**
+- Storage backend abstraction layer (ChromaDB default, PostgreSQL optional)
+- pgvector for vector similarity search
+- tsvector for full-text search (replaces BM25 when using PostgreSQL)
+- Hybrid retrieval (RRF fusion) works with PostgreSQL backend
+- Backend selection via YAML provider config
+- Docker Compose for local PostgreSQL + pgvector development setup
+- E2E tests for PostgreSQL backend
 
 ### Out of Scope
 
@@ -67,6 +78,10 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 - **Embedding caching**: Deferred to future optimization phase
 - **Web UI**: CLI-first philosophy — agents are primary consumers
 - **Multi-tenancy**: Local-first philosophy — one instance per project
+- **AlloyDB-specific features**: Standard PostgreSQL + pgvector for maximum portability
+- **ChromaDB-to-PostgreSQL migration tool**: Users re-index from source when switching backends
+- **GraphRAG on PostgreSQL**: Stays ChromaDB-only for now, deferred to future milestone
+- **Alembic schema migrations**: Manual SQL scripts via Docker Compose for now
 
 ## Context
 
@@ -116,4 +131,4 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 | CI matrix with conditional API key checks | Tests skip gracefully, config tests always run | ✓ Good |
 
 ---
-*Last updated: 2026-02-10 after v3.0 milestone*
+*Last updated: 2026-02-10 after v5.0 milestone started*
