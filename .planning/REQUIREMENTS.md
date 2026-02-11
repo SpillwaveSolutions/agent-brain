@@ -109,46 +109,53 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STOR-01 | — | Pending |
-| STOR-02 | — | Pending |
-| STOR-03 | — | Pending |
-| STOR-04 | — | Pending |
-| STOR-05 | — | Pending |
-| PGVEC-01 | — | Pending |
-| PGVEC-02 | — | Pending |
-| PGVEC-03 | — | Pending |
-| PGVEC-04 | — | Pending |
-| PGFTS-01 | — | Pending |
-| PGFTS-02 | — | Pending |
-| PGFTS-03 | — | Pending |
-| PGFTS-04 | — | Pending |
-| INFRA-01 | — | Pending |
-| INFRA-02 | — | Pending |
-| INFRA-03 | — | Pending |
-| INFRA-04 | — | Pending |
-| INFRA-05 | — | Pending |
-| CONF-01 | — | Pending |
-| CONF-02 | — | Pending |
-| CONF-03 | — | Pending |
-| TEST-01 | — | Pending |
-| TEST-02 | — | Pending |
-| TEST-03 | — | Pending |
-| TEST-04 | — | Pending |
-| PLUG-01 | — | Pending |
-| PLUG-02 | — | Pending |
-| PLUG-03 | — | Pending |
-| PLUG-04 | — | Pending |
-| PLUG-05 | — | Pending |
-| PLUG-06 | — | Pending |
-| DOCS-01 | — | Pending |
-| DOCS-02 | — | Pending |
-| DOCS-03 | — | Pending |
+| STOR-01 | Phase 5 | Pending |
+| STOR-02 | Phase 5 | Pending |
+| STOR-03 | Phase 5 | Pending |
+| STOR-04 | Phase 5 | Pending |
+| CONF-01 | Phase 5 | Pending |
+| CONF-02 | Phase 5 | Pending |
+| CONF-03 | Phase 5 | Pending |
+| PGVEC-01 | Phase 6 | Pending |
+| PGVEC-02 | Phase 6 | Pending |
+| PGVEC-03 | Phase 6 | Pending |
+| PGVEC-04 | Phase 6 | Pending |
+| PGFTS-01 | Phase 6 | Pending |
+| PGFTS-02 | Phase 6 | Pending |
+| PGFTS-03 | Phase 6 | Pending |
+| PGFTS-04 | Phase 6 | Pending |
+| INFRA-01 | Phase 6 | Pending |
+| INFRA-02 | Phase 6 | Pending |
+| INFRA-03 | Phase 6 | Pending |
+| INFRA-04 | Phase 6 | Pending |
+| INFRA-05 | Phase 6 | Pending |
+| TEST-01 | Phase 7 | Pending |
+| TEST-02 | Phase 7 | Pending |
+| TEST-03 | Phase 7 | Pending |
+| TEST-04 | Phase 7 | Pending |
+| STOR-05 | Phase 7 | Pending |
+| PLUG-01 | Phase 8 | Pending |
+| PLUG-02 | Phase 8 | Pending |
+| PLUG-03 | Phase 8 | Pending |
+| PLUG-04 | Phase 8 | Pending |
+| PLUG-05 | Phase 8 | Pending |
+| PLUG-06 | Phase 8 | Pending |
+| DOCS-01 | Phase 8 | Pending |
+| DOCS-02 | Phase 8 | Pending |
+| DOCS-03 | Phase 8 | Pending |
 
 **Coverage:**
 - v5.0 requirements: 34 total
-- Mapped to phases: 0
-- Unmapped: 34
+- Mapped to phases: 34
+- Unmapped: 0
+- Coverage: 100%
+
+**Phase Distribution:**
+- Phase 5 (Storage Abstraction): 7 requirements
+- Phase 6 (PostgreSQL Backend): 13 requirements
+- Phase 7 (Testing & CI): 5 requirements
+- Phase 8 (Plugin & Documentation): 9 requirements
 
 ---
 *Requirements defined: 2026-02-10*
-*Last updated: 2026-02-10 after initial definition*
+*Last updated: 2026-02-10 after v5.0 roadmap creation — 100% coverage validated*
