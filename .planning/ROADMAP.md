@@ -72,11 +72,11 @@ Plans:
   3. GitHub Actions CI runs PostgreSQL tests via service container
   4. Load test validates 50 concurrent queries plus background indexing without connection pool exhaustion
   5. Hybrid search produces similar top-5 results across both backends (validated via test)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 07-01: TBD
-- [ ] 07-02: TBD
+- [ ] 07-01-PLAN.md — Contract test fixtures, protocol contract tests (all 11 methods), hybrid search similarity
+- [ ] 07-02-PLAN.md — Connection pool load test, CI workflow with pgvector service container, before-push verification
 
 #### Phase 8: Plugin & Documentation
 **Goal**: Update Claude Code plugin for PostgreSQL configuration and document backend selection, setup, and performance tradeoffs
@@ -108,7 +108,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8
 | 4. Provider Integration Testing | v3.0 | 2/2 | Complete | 2026-02-10 |
 | 5. Storage Abstraction | v5.0 | 2/2 | Complete | 2026-02-10 |
 | 6. PostgreSQL Backend | v5.0 | 3/3 | Complete | 2026-02-11 |
-| 7. Testing & CI | v5.0 | 0/? | Not started | - |
+| 7. Testing & CI | v5.0 | 0/2 | Planned | - |
 | 8. Plugin & Documentation | v5.0 | 0/? | Not started | - |
 
 ## Future Phases
@@ -155,4 +155,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-02-11 — Phase 6 planned (3 plans in 3 waves)*
+*Last updated: 2026-02-11 — Phase 7 planned (2 plans in 2 waves)*
