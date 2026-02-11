@@ -55,12 +55,12 @@ Plans:
   6. Health endpoint reports PostgreSQL backend status including connection pool metrics
   7. Docker Compose provides local PostgreSQL + pgvector development environment
   8. Server prevents embedding dimension mismatches via startup validation
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 06-01: TBD
-- [ ] 06-02: TBD
-- [ ] 06-03: TBD
+- [ ] 06-01-PLAN.md — PostgresConfig, connection pool manager, schema manager, Docker Compose template
+- [ ] 06-02-PLAN.md — pgvector vector ops, tsvector keyword ops, PostgresBackend (11 protocol methods)
+- [ ] 06-03-PLAN.md — Factory integration, health endpoint, lifespan update, Poetry extras, unit tests
 
 #### Phase 7: Testing & CI Integration
 **Goal**: Validate identical behavior across ChromaDB and PostgreSQL backends with contract tests and extend CI to support PostgreSQL testing
@@ -107,7 +107,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8
 | 3. Schema-Based GraphRAG | v3.0 | 2/2 | Complete | 2026-02-10 |
 | 4. Provider Integration Testing | v3.0 | 2/2 | Complete | 2026-02-10 |
 | 5. Storage Abstraction | v5.0 | 2/2 | Complete | 2026-02-10 |
-| 6. PostgreSQL Backend | v5.0 | 0/? | Not started | - |
+| 6. PostgreSQL Backend | v5.0 | 0/3 | Planned | - |
 | 7. Testing & CI | v5.0 | 0/? | Not started | - |
 | 8. Plugin & Documentation | v5.0 | 0/? | Not started | - |
 
@@ -155,4 +155,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-02-10 — Phase 5 complete (2/2 plans, verified)*
+*Last updated: 2026-02-11 — Phase 6 planned (3 plans in 3 waves)*
