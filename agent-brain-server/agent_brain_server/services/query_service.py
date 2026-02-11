@@ -90,9 +90,11 @@ class QueryService:
         Initialize the query service.
 
         Args:
-            vector_store: [DEPRECATED] Vector store manager instance (for backward compat).
+            vector_store: [DEPRECATED] Vector store manager
+                (for backward compat).
             embedding_generator: Embedding generator instance.
-            bm25_manager: [DEPRECATED] BM25 index manager instance (for backward compat).
+            bm25_manager: [DEPRECATED] BM25 index manager
+                (for backward compat).
             graph_index_manager: Graph index manager instance (Feature 113).
             storage_backend: Storage backend implementing protocol (preferred).
         """
@@ -114,12 +116,12 @@ class QueryService:
         # Maintain backward-compatible aliases for code that accesses them directly
         # Extract from ChromaBackend if possible, otherwise set to None
         if hasattr(self.storage_backend, "vector_store"):
-            self.vector_store = getattr(self.storage_backend, "vector_store")
+            self.vector_store = self.storage_backend.vector_store
         else:
             self.vector_store = vector_store or get_vector_store()
 
         if hasattr(self.storage_backend, "bm25_manager"):
-            self.bm25_manager = getattr(self.storage_backend, "bm25_manager")
+            self.bm25_manager = self.storage_backend.bm25_manager
         else:
             self.bm25_manager = bm25_manager or get_bm25_manager()
 
@@ -329,7 +331,8 @@ class QueryService:
         # 2. BM25 Search (scores already normalized 0-1 by ChromaBackend)
         bm25_search_results = []
         if self.bm25_manager.is_initialized:
-            # Use storage backend's keyword_search (returns SearchResult with normalized scores)
+            # Use storage backend's keyword_search
+            # (returns SearchResult with normalized scores)
             bm25_search_results = await self.storage_backend.keyword_search(
                 query=request.query,
                 top_k=effective_top_k,

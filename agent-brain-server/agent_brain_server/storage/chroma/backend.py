@@ -9,8 +9,6 @@ import asyncio
 import logging
 from typing import Any
 
-from llama_index.core.schema import TextNode
-
 from agent_brain_server.indexing.bm25_index import BM25IndexManager, get_bm25_manager
 from agent_brain_server.storage.protocol import (
     EmbeddingMetadata,
@@ -76,7 +74,7 @@ class ChromaBackend:
             raise StorageError(
                 f"Failed to initialize ChromaBackend: {e}",
                 backend="chroma",
-            )
+            ) from e
 
     async def upsert_documents(
         self,
@@ -115,7 +113,7 @@ class ChromaBackend:
             raise StorageError(
                 f"Failed to upsert documents: {e}",
                 backend="chroma",
-            )
+            ) from e
 
     async def vector_search(
         self,
@@ -162,7 +160,7 @@ class ChromaBackend:
             raise StorageError(
                 f"Vector search failed: {e}",
                 backend="chroma",
-            )
+            ) from e
 
     async def keyword_search(
         self,
@@ -226,7 +224,7 @@ class ChromaBackend:
             raise StorageError(
                 f"Keyword search failed: {e}",
                 backend="chroma",
-            )
+            ) from e
 
     async def get_count(self, where: dict[str, Any] | None = None) -> int:
         """Get document count, optionally filtered.
@@ -246,7 +244,7 @@ class ChromaBackend:
             raise StorageError(
                 f"Get count failed: {e}",
                 backend="chroma",
-            )
+            ) from e
 
     async def get_by_id(self, chunk_id: str) -> dict[str, Any] | None:
         """Get document by chunk ID.
@@ -266,7 +264,7 @@ class ChromaBackend:
             raise StorageError(
                 f"Get by ID failed: {e}",
                 backend="chroma",
-            )
+            ) from e
 
     async def reset(self) -> None:
         """Reset storage backend by clearing all data.
@@ -286,7 +284,7 @@ class ChromaBackend:
             raise StorageError(
                 f"Reset failed: {e}",
                 backend="chroma",
-            )
+            ) from e
 
     async def get_embedding_metadata(self) -> EmbeddingMetadata | None:
         """Get stored embedding metadata.
@@ -313,7 +311,7 @@ class ChromaBackend:
             raise StorageError(
                 f"Get embedding metadata failed: {e}",
                 backend="chroma",
-            )
+            ) from e
 
     async def set_embedding_metadata(
         self,
@@ -341,7 +339,7 @@ class ChromaBackend:
             raise StorageError(
                 f"Set embedding metadata failed: {e}",
                 backend="chroma",
-            )
+            ) from e
 
     def validate_embedding_compatibility(
         self,

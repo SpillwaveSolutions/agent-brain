@@ -1,8 +1,8 @@
 """Unit tests for ChromaDB backend adapter."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from llama_index.core.schema import NodeWithScore, TextNode
 
 from agent_brain_server.storage.chroma.backend import ChromaBackend
@@ -13,10 +13,10 @@ from agent_brain_server.storage.protocol import (
     StorageError,
 )
 from agent_brain_server.storage.vector_store import (
-    SearchResult as VectorStoreSearchResult,
+    EmbeddingMetadata as VectorStoreEmbeddingMetadata,
 )
 from agent_brain_server.storage.vector_store import (
-    EmbeddingMetadata as VectorStoreEmbeddingMetadata,
+    SearchResult as VectorStoreSearchResult,
 )
 
 
@@ -59,7 +59,9 @@ def chroma_backend(mock_vector_store, mock_bm25_manager):
 class TestChromaBackendConstruction:
     """Test ChromaBackend construction and initialization."""
 
-    def test_constructor_with_provided_managers(self, mock_vector_store, mock_bm25_manager):
+    def test_constructor_with_provided_managers(
+        self, mock_vector_store, mock_bm25_manager
+    ):
         """Test ChromaBackend accepts provided managers."""
         backend = ChromaBackend(
             vector_store=mock_vector_store,
@@ -75,7 +77,9 @@ class TestChromaBackendConstruction:
         assert backend.vector_store is not None
         assert backend.bm25_manager is not None
 
-    def test_is_initialized_delegates_to_vector_store(self, mock_vector_store, mock_bm25_manager):
+    def test_is_initialized_delegates_to_vector_store(
+        self, mock_vector_store, mock_bm25_manager
+    ):
         """Test is_initialized property delegates to vector store."""
         mock_vector_store.is_initialized = True
         backend = ChromaBackend(mock_vector_store, mock_bm25_manager)
@@ -89,7 +93,9 @@ class TestChromaBackendInitialization:
     """Test initialization logic."""
 
     @pytest.mark.asyncio
-    async def test_initialize_calls_both_managers(self, chroma_backend, mock_vector_store, mock_bm25_manager):
+    async def test_initialize_calls_both_managers(
+        self, chroma_backend, mock_vector_store, mock_bm25_manager
+    ):
         """Test initialize delegates to both vector store and BM25 manager."""
         await chroma_backend.initialize()
 
@@ -97,7 +103,9 @@ class TestChromaBackendInitialization:
         mock_bm25_manager.initialize.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_initialize_raises_storage_error_on_failure(self, chroma_backend, mock_vector_store):
+    async def test_initialize_raises_storage_error_on_failure(
+        self, chroma_backend, mock_vector_store
+    ):
         """Test initialize wraps exceptions as StorageError."""
         mock_vector_store.initialize.side_effect = Exception("Chroma init failed")
 
@@ -112,7 +120,9 @@ class TestVectorSearch:
     """Test vector similarity search."""
 
     @pytest.mark.asyncio
-    async def test_vector_search_delegates_to_vector_store(self, chroma_backend, mock_vector_store):
+    async def test_vector_search_delegates_to_vector_store(
+        self, chroma_backend, mock_vector_store
+    ):
         """Test vector_search calls similarity_search and converts results."""
         mock_vector_store.similarity_search.return_value = [
             VectorStoreSearchResult(
@@ -144,7 +154,9 @@ class TestVectorSearch:
         assert results[0].chunk_id == "chunk_1"
 
     @pytest.mark.asyncio
-    async def test_vector_search_raises_storage_error_on_failure(self, chroma_backend, mock_vector_store):
+    async def test_vector_search_raises_storage_error_on_failure(
+        self, chroma_backend, mock_vector_store
+    ):
         """Test vector_search wraps exceptions as StorageError."""
         mock_vector_store.similarity_search.side_effect = Exception("Search failed")
 
@@ -159,7 +171,9 @@ class TestKeywordSearch:
     """Test BM25 keyword search with score normalization."""
 
     @pytest.mark.asyncio
-    async def test_keyword_search_normalizes_scores(self, chroma_backend, mock_bm25_manager):
+    async def test_keyword_search_normalizes_scores(
+        self, chroma_backend, mock_bm25_manager
+    ):
         """Test keyword_search normalizes BM25 scores to 0-1 range."""
         # Mock BM25 results with raw scores
         mock_bm25_manager.search_with_filters.return_value = [
@@ -198,7 +212,9 @@ class TestKeywordSearch:
         assert results[2].score == 0.25  # 2.5 / 10.0
 
     @pytest.mark.asyncio
-    async def test_keyword_search_empty_results(self, chroma_backend, mock_bm25_manager):
+    async def test_keyword_search_empty_results(
+        self, chroma_backend, mock_bm25_manager
+    ):
         """Test keyword_search returns empty list for no results."""
         mock_bm25_manager.search_with_filters.return_value = []
 
@@ -222,7 +238,9 @@ class TestKeywordSearch:
         assert results[0].score == 0.0
 
     @pytest.mark.asyncio
-    async def test_keyword_search_raises_storage_error_on_failure(self, chroma_backend, mock_bm25_manager):
+    async def test_keyword_search_raises_storage_error_on_failure(
+        self, chroma_backend, mock_bm25_manager
+    ):
         """Test keyword_search wraps exceptions as StorageError."""
         mock_bm25_manager.search_with_filters.side_effect = Exception("BM25 failed")
 
@@ -236,17 +254,23 @@ class TestDocumentOperations:
     """Test document counting and retrieval."""
 
     @pytest.mark.asyncio
-    async def test_get_count_delegates_to_vector_store(self, chroma_backend, mock_vector_store):
+    async def test_get_count_delegates_to_vector_store(
+        self, chroma_backend, mock_vector_store
+    ):
         """Test get_count delegates to vector store."""
         mock_vector_store.get_count.return_value = 42
 
         count = await chroma_backend.get_count(where={"source_type": "doc"})
 
-        mock_vector_store.get_count.assert_called_once_with(where={"source_type": "doc"})
+        mock_vector_store.get_count.assert_called_once_with(
+            where={"source_type": "doc"}
+        )
         assert count == 42
 
     @pytest.mark.asyncio
-    async def test_get_by_id_delegates_to_vector_store(self, chroma_backend, mock_vector_store):
+    async def test_get_by_id_delegates_to_vector_store(
+        self, chroma_backend, mock_vector_store
+    ):
         """Test get_by_id delegates to vector store."""
         mock_vector_store.get_by_id.return_value = {
             "text": "test content",
@@ -259,7 +283,9 @@ class TestDocumentOperations:
         assert result["text"] == "test content"
 
     @pytest.mark.asyncio
-    async def test_upsert_documents_delegates_to_vector_store(self, chroma_backend, mock_vector_store):
+    async def test_upsert_documents_delegates_to_vector_store(
+        self, chroma_backend, mock_vector_store
+    ):
         """Test upsert_documents delegates to vector store (not BM25)."""
         mock_vector_store.upsert_documents.return_value = 3
 
@@ -278,7 +304,9 @@ class TestReset:
     """Test reset operation."""
 
     @pytest.mark.asyncio
-    async def test_reset_calls_both_managers(self, chroma_backend, mock_vector_store, mock_bm25_manager):
+    async def test_reset_calls_both_managers(
+        self, chroma_backend, mock_vector_store, mock_bm25_manager
+    ):
         """Test reset delegates to both vector store and BM25 manager."""
         await chroma_backend.reset()
 
@@ -293,11 +321,13 @@ class TestEmbeddingMetadata:
     async def test_get_embedding_metadata_converts_to_protocol_type(
         self, chroma_backend, mock_vector_store
     ):
-        """Test get_embedding_metadata converts VectorStore metadata to protocol type."""
-        mock_vector_store.get_embedding_metadata.return_value = VectorStoreEmbeddingMetadata(
-            provider="openai",
-            model="text-embedding-3-large",
-            dimensions=3072,
+        """Test get_embedding_metadata converts types."""
+        mock_vector_store.get_embedding_metadata.return_value = (
+            VectorStoreEmbeddingMetadata(
+                provider="openai",
+                model="text-embedding-3-large",
+                dimensions=3072,
+            )
         )
 
         metadata = await chroma_backend.get_embedding_metadata()
