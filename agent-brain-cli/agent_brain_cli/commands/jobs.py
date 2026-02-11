@@ -1,7 +1,7 @@
 """Jobs command for viewing and managing the job queue."""
 
 import time
-from typing import Any, Optional
+from typing import Any
 
 import click
 from rich.console import Console
@@ -14,7 +14,7 @@ from ..config import get_server_url
 console = Console()
 
 
-def _format_timestamp(ts: Optional[str]) -> str:
+def _format_timestamp(ts: str | None) -> str:
     """Format a timestamp for display, handling None values."""
     if not ts:
         return "-"
@@ -24,7 +24,7 @@ def _format_timestamp(ts: Optional[str]) -> str:
     return ts
 
 
-def _format_progress(progress: Optional[float], total: Optional[int]) -> str:
+def _format_progress(progress: float | None, total: int | None) -> str:
     """Format progress for display."""
     if progress is None:
         return "-"
@@ -235,11 +235,11 @@ def _watch_jobs(client: DocServeClient, limit: int) -> None:
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
 def jobs_command(
-    job_id: Optional[str],
+    job_id: str | None,
     watch: bool,
     cancel: bool,
     limit: int,
-    url: Optional[str],
+    url: str | None,
     json_output: bool,
 ) -> None:
     """View job queue and status.

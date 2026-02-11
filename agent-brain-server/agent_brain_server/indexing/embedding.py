@@ -99,7 +99,7 @@ class EmbeddingGenerator:
     async def embed_texts(
         self,
         texts: list[str],
-        progress_callback: Optional[Callable[[int, int], Awaitable[None]]] = None,
+        progress_callback: Callable[[int, int], Awaitable[None]] | None = None,
     ) -> list[list[float]]:
         """Generate embeddings for multiple texts.
 
@@ -115,7 +115,7 @@ class EmbeddingGenerator:
     async def embed_chunks(
         self,
         chunks: list[TextChunk],
-        progress_callback: Optional[Callable[[int, int], Awaitable[None]]] = None,
+        progress_callback: Callable[[int, int], Awaitable[None]] | None = None,
     ) -> list[list[float]]:
         """Generate embeddings for a list of text chunks.
 
@@ -208,7 +208,7 @@ class EmbeddingGenerator:
 
 
 # Singleton instance
-_embedding_generator: Optional[EmbeddingGenerator] = None
+_embedding_generator: EmbeddingGenerator | None = None
 
 
 def get_embedding_generator() -> EmbeddingGenerator:

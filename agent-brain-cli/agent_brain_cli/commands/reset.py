@@ -1,7 +1,5 @@
 """Reset command for clearing the index."""
 
-from typing import Optional
-
 import click
 from rich.console import Console
 from rich.prompt import Confirm
@@ -26,7 +24,7 @@ console = Console()
     help="Skip confirmation prompt",
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
-def reset_command(url: Optional[str], yes: bool, json_output: bool) -> None:
+def reset_command(url: str | None, yes: bool, json_output: bool) -> None:
     """Reset the index by deleting all indexed documents.
 
     WARNING: This permanently removes all indexed content.

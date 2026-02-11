@@ -1,7 +1,5 @@
 """Status command for checking server health."""
 
-from typing import Optional
-
 import click
 from rich.console import Console
 from rich.panel import Panel
@@ -21,7 +19,7 @@ console = Console()
     help="Agent Brain server URL (default: from config or http://127.0.0.1:8000)",
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
-def status_command(url: Optional[str], json_output: bool) -> None:
+def status_command(url: str | None, json_output: bool) -> None:
     """Check Agent Brain server status and health."""
     resolved_url = url or get_server_url()
     try:

@@ -7,7 +7,7 @@ allowing projects and users to configure Agent Brain without environment variabl
 import logging
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, Field
@@ -42,11 +42,11 @@ class ServerConfig(BaseModel):
 class ProjectConfig(BaseModel):
     """Project-related configuration."""
 
-    state_dir: Optional[str] = Field(
+    state_dir: str | None = Field(
         default=None,
         description="Custom state directory path (default: .claude/agent-brain)",
     )
-    project_root: Optional[str] = Field(
+    project_root: str | None = Field(
         default=None,
         description="Project root directory",
     )
@@ -63,15 +63,15 @@ class EmbeddingConfig(BaseModel):
         default="text-embedding-3-large",
         description="Model name for embeddings",
     )
-    api_key: Optional[str] = Field(
+    api_key: str | None = Field(
         default=None,
         description="API key (alternative to api_key_env)",
     )
-    api_key_env: Optional[str] = Field(
+    api_key_env: str | None = Field(
         default="OPENAI_API_KEY",
         description="Environment variable containing API key",
     )
-    base_url: Optional[str] = Field(
+    base_url: str | None = Field(
         default=None,
         description="Custom base URL (for Ollama or compatible APIs)",
     )
@@ -88,15 +88,15 @@ class SummarizationConfig(BaseModel):
         default="claude-haiku-4-5-20251001",
         description="Model name for summarization",
     )
-    api_key: Optional[str] = Field(
+    api_key: str | None = Field(
         default=None,
         description="API key (alternative to api_key_env)",
     )
-    api_key_env: Optional[str] = Field(
+    api_key_env: str | None = Field(
         default="ANTHROPIC_API_KEY",
         description="Environment variable containing API key",
     )
-    base_url: Optional[str] = Field(
+    base_url: str | None = Field(
         default=None,
         description="Custom base URL",
     )
@@ -111,7 +111,7 @@ class AgentBrainConfig(BaseModel):
     summarization: SummarizationConfig = Field(default_factory=SummarizationConfig)
 
 
-def _find_config_file(start_path: Optional[Path] = None) -> Optional[Path]:
+def _find_config_file(start_path: Path | None = None) -> Path | None:
     """Find configuration file in standard locations.
 
     Search order:
@@ -193,7 +193,7 @@ def _load_yaml_config(path: Path) -> dict[str, Any]:
         raise ValueError(f"Failed to read config file {path}: {e}") from e
 
 
-def load_config(start_path: Optional[Path] = None) -> AgentBrainConfig:
+def load_config(start_path: Path | None = None) -> AgentBrainConfig:
     """Load Agent Brain configuration.
 
     Searches for config file in standard locations and returns
@@ -224,7 +224,7 @@ def load_config(start_path: Optional[Path] = None) -> AgentBrainConfig:
     return config
 
 
-def _find_project_root(start_path: Optional[Path] = None) -> Path:
+def _find_project_root(start_path: Path | None = None) -> Path:
     """Find the project root by looking for markers.
 
     Walks up from start_path looking for:
@@ -269,8 +269,8 @@ def _find_project_root(start_path: Optional[Path] = None) -> Path:
 
 
 def get_state_dir(
-    config: Optional[AgentBrainConfig] = None,
-    project_root: Optional[Path] = None,
+    config: AgentBrainConfig | None = None,
+    project_root: Path | None = None,
 ) -> Path:
     """Get the resolved state directory path.
 
@@ -311,7 +311,7 @@ def get_state_dir(
     return project_root / STATE_DIR_NAME
 
 
-def get_server_url(config: Optional[AgentBrainConfig] = None) -> str:
+def get_server_url(config: AgentBrainConfig | None = None) -> str:
     """Get the server URL.
 
     Resolution order:

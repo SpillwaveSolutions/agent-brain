@@ -1,0 +1,23 @@
+# Ollama-only configuration for fully offline operation
+# No external API calls are made with this configuration
+
+embedding:
+  provider: ollama
+  model: nomic-embed-text
+  base_url: http://localhost:11434/v1
+  params:
+    batch_size: 64
+
+summarization:
+  provider: ollama
+  model: llama3.2
+  base_url: http://localhost:11434/v1
+  params:
+    max_tokens: 500
+    temperature: 0.3
+
+# Reranker can also use Ollama for fully offline operation
+reranker:
+  provider: ollama
+  model: llama3.2
+  base_url: http://localhost:11434

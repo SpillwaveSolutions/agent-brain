@@ -1,0 +1,10 @@
+# OpenAI provider configuration for E2E testing
+embedding:
+  provider: openai
+  model: text-embedding-3-large
+  api_key_env: OPENAI_API_KEY
+
+summarization:
+  provider: anthropic
+  model: claude-haiku-4-5-20251001
+  api_key_env: ANTHROPIC_API_KEY

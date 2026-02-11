@@ -166,6 +166,7 @@ async def index_documents(
             include_patterns=request_body.include_patterns,
             exclude_patterns=request_body.exclude_patterns,
             generate_summaries=request_body.generate_summaries,
+            force=request_body.force,
         )
 
         result = await job_service.enqueue_job(
@@ -269,6 +270,7 @@ async def add_documents(
             code_chunk_strategy=request_body.code_chunk_strategy,
             include_patterns=request_body.include_patterns,
             exclude_patterns=request_body.exclude_patterns,
+            force=request_body.force,
         )
 
         result = await job_service.enqueue_job(

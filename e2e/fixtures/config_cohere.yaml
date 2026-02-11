@@ -1,0 +1,10 @@
+# Cohere provider configuration (different dimensions than OpenAI)
+embedding:
+  provider: cohere
+  model: embed-english-v3.0
+  api_key_env: COHERE_API_KEY
+
+summarization:
+  provider: anthropic
+  model: claude-haiku-4-5-20251001
+  api_key_env: ANTHROPIC_API_KEY

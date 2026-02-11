@@ -8,6 +8,7 @@ import click
 
 from . import __version__
 from .commands import (
+    config_group,
     index_command,
     init_command,
     jobs_command,
@@ -71,6 +72,7 @@ cli.add_command(query_command, name="query")
 cli.add_command(index_command, name="index")
 cli.add_command(jobs_command, name="jobs")
 cli.add_command(reset_command, name="reset")
+cli.add_command(config_group, name="config")
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ import signal
 import subprocess
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from urllib.request import Request, urlopen
 
 import click
@@ -20,7 +20,7 @@ PID_FILE = "agent-brain.pid"
 RUNTIME_FILE = "runtime.json"
 
 
-def resolve_project_root(start_path: Optional[Path] = None) -> Path:
+def resolve_project_root(start_path: Path | None = None) -> Path:
     """Resolve the canonical project root directory."""
     start = (start_path or Path.cwd()).resolve()
 
@@ -50,7 +50,7 @@ def resolve_project_root(start_path: Optional[Path] = None) -> Path:
     return start
 
 
-def read_runtime(state_dir: Path) -> Optional[dict[str, Any]]:
+def read_runtime(state_dir: Path) -> dict[str, Any] | None:
     """Read runtime state from state directory."""
     runtime_path = state_dir / RUNTIME_FILE
     if not runtime_path.exists():
@@ -155,7 +155,7 @@ def remove_from_registry(project_root: Path) -> None:
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
 def stop_command(
-    path: Optional[str],
+    path: str | None,
     force: bool,
     timeout: int,
     json_output: bool,

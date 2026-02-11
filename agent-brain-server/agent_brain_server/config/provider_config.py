@@ -6,9 +6,11 @@ provider configuration, and functions to load configuration from YAML files.
 
 import logging
 import os
+from dataclasses import dataclass
+from enum import Enum
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
@@ -22,6 +24,31 @@ from agent_brain_server.providers.base import (
 logger = logging.getLogger(__name__)
 
 
+class ValidationSeverity(str, Enum):
+    """Severity level for validation errors."""
+
+    CRITICAL = "critical"  # Blocks startup in strict mode
+    WARNING = "warning"  # Logged but doesn't block startup
+
+
+@dataclass
+class ValidationError:
+    """A validation error with severity and details."""
+
+    message: str
+    severity: ValidationSeverity
+    provider_type: str  # "embedding", "summarization", "reranker"
+    field: str = ""  # Optional field name
+
+    def __str__(self) -> str:
+        prefix = (
+            "[CRITICAL]"
+            if self.severity == ValidationSeverity.CRITICAL
+            else "[WARNING]"
+        )
+        return f"{prefix} {self.provider_type}: {self.message}"
+
+
 class EmbeddingConfig(BaseModel):
     """Configuration for embedding provider."""
 
@@ -33,15 +60,15 @@ class EmbeddingConfig(BaseModel):
         default="text-embedding-3-large",
         description="Model name for embeddings",
     )
-    api_key: Optional[str] = Field(
+    api_key: str | None = Field(
         default=None,
         description="API key (alternative to api_key_env for local config files)",
     )
-    api_key_env: Optional[str] = Field(
+    api_key_env: str | None = Field(
         default="OPENAI_API_KEY",
         description="Environment variable name containing API key",
     )
-    base_url: Optional[str] = Field(
+    base_url: str | None = Field(
         default=None,
         description="Custom base URL (for Ollama or compatible APIs)",
     )
@@ -62,7 +89,7 @@ class EmbeddingConfig(BaseModel):
             return v
         return EmbeddingProviderType(v)
 
-    def get_api_key(self) -> Optional[str]:
+    def get_api_key(self) -> str | None:
         """Resolve API key from config or environment variable.
 
         Resolution order:
@@ -82,7 +109,7 @@ class EmbeddingConfig(BaseModel):
             return os.getenv(self.api_key_env)
         return None
 
-    def get_base_url(self) -> Optional[str]:
+    def get_base_url(self) -> str | None:
         """Get base URL with defaults for specific providers.
 
         Returns:
@@ -106,15 +133,15 @@ class SummarizationConfig(BaseModel):
         default="claude-haiku-4-5-20251001",
         description="Model name for summarization",
     )
-    api_key: Optional[str] = Field(
+    api_key: str | None = Field(
         default=None,
         description="API key (alternative to api_key_env for local config files)",
     )
-    api_key_env: Optional[str] = Field(
+    api_key_env: str | None = Field(
         default="ANTHROPIC_API_KEY",
         description="Environment variable name containing API key",
     )
-    base_url: Optional[str] = Field(
+    base_url: str | None = Field(
         default=None,
         description="Custom base URL (for Grok or Ollama)",
     )
@@ -135,7 +162,7 @@ class SummarizationConfig(BaseModel):
             return v
         return SummarizationProviderType(v)
 
-    def get_api_key(self) -> Optional[str]:
+    def get_api_key(self) -> str | None:
         """Resolve API key from config or environment variable.
 
         Resolution order:
@@ -155,7 +182,7 @@ class SummarizationConfig(BaseModel):
             return os.getenv(self.api_key_env)
         return None
 
-    def get_base_url(self) -> Optional[str]:
+    def get_base_url(self) -> str | None:
         """Get base URL with defaults for specific providers.
 
         Returns:
@@ -181,7 +208,7 @@ class RerankerConfig(BaseModel):
         default="cross-encoder/ms-marco-MiniLM-L-6-v2",
         description="Model name for reranking",
     )
-    base_url: Optional[str] = Field(
+    base_url: str | None = Field(
         default=None,
         description="Custom base URL (for Ollama)",
     )
@@ -202,7 +229,7 @@ class RerankerConfig(BaseModel):
             return v
         return RerankerProviderType(v)
 
-    def get_base_url(self) -> Optional[str]:
+    def get_base_url(self) -> str | None:
         """Get base URL with defaults for specific providers.
 
         Returns:
@@ -232,7 +259,7 @@ class ProviderSettings(BaseModel):
     )
 
 
-def _find_config_file() -> Optional[Path]:
+def _find_config_file() -> Path | None:
     """Find the configuration file in standard locations.
 
     Search order:
@@ -368,20 +395,24 @@ def clear_settings_cache() -> None:
     load_provider_settings.cache_clear()
 
 
-def validate_provider_config(settings: ProviderSettings) -> list[str]:
+def validate_provider_config(
+    settings: ProviderSettings,
+    reranking_enabled: bool = False,
+) -> list[ValidationError]:
     """Validate provider configuration and return list of errors.
 
     Checks:
-    - API keys are available for providers that need them
-    - Models are known for the selected provider
+    - API keys are available for providers that need them (CRITICAL)
+    - Reranker base_url is set for Ollama reranker when enabled (WARNING)
 
     Args:
         settings: Provider settings to validate
+        reranking_enabled: Whether reranking is enabled (from app settings)
 
     Returns:
-        List of validation error messages (empty if valid)
+        List of ValidationError objects (empty if valid)
     """
-    errors: list[str] = []
+    errors: list[ValidationError] = []
 
     # Validate embedding provider
     if settings.embedding.provider != EmbeddingProviderType.OLLAMA:
@@ -389,8 +420,15 @@ def validate_provider_config(settings: ProviderSettings) -> list[str]:
         if not api_key:
             env_var = settings.embedding.api_key_env or "OPENAI_API_KEY"
             errors.append(
-                f"Missing API key for {settings.embedding.provider} embeddings. "
-                f"Set {env_var} environment variable."
+                ValidationError(
+                    message=(
+                        f"Missing API key for {settings.embedding.provider} "
+                        f"embeddings. Set {env_var} environment variable."
+                    ),
+                    severity=ValidationSeverity.CRITICAL,
+                    provider_type="embedding",
+                    field="api_key",
+                )
             )
 
     # Validate summarization provider
@@ -399,8 +437,45 @@ def validate_provider_config(settings: ProviderSettings) -> list[str]:
         if not api_key:
             env_var = settings.summarization.api_key_env or "ANTHROPIC_API_KEY"
             errors.append(
-                f"Missing API key for {settings.summarization.provider} summarization. "
-                f"Set {env_var} environment variable."
+                ValidationError(
+                    message=(
+                        f"Missing API key for {settings.summarization.provider} "
+                        f"summarization. Set {env_var} environment variable."
+                    ),
+                    severity=ValidationSeverity.CRITICAL,
+                    provider_type="summarization",
+                    field="api_key",
+                )
             )
 
+    # Validate reranker provider (when reranking is enabled)
+    if reranking_enabled:
+        if settings.reranker.provider == RerankerProviderType.OLLAMA:
+            base_url = settings.reranker.get_base_url()
+            if not base_url:
+                errors.append(
+                    ValidationError(
+                        message=(
+                            "Ollama reranker enabled but no base_url configured. "
+                            "Set reranker.base_url in config.yaml or use "
+                            "default (http://localhost:11434)."
+                        ),
+                        severity=ValidationSeverity.WARNING,
+                        provider_type="reranker",
+                        field="base_url",
+                    )
+                )
+
     return errors
+
+
+def has_critical_errors(errors: list[ValidationError]) -> bool:
+    """Check if any validation errors are critical.
+
+    Args:
+        errors: List of validation errors
+
+    Returns:
+        True if any error has CRITICAL severity
+    """
+    return any(e.severity == ValidationSeverity.CRITICAL for e in errors)

@@ -16,6 +16,7 @@ from typing import Generator, Optional
 # Load environment from server's .env file
 try:
     from dotenv import load_dotenv
+
     E2E_DIR = Path(__file__).parent.parent
     PROJECT_ROOT = E2E_DIR.parent
     SERVER_ENV = PROJECT_ROOT / "agent-brain-server" / ".env"
@@ -26,7 +27,7 @@ except ImportError:
     PROJECT_ROOT = E2E_DIR.parent
 
 # Paths
-if 'E2E_DIR' not in dir():
+if "E2E_DIR" not in dir():
     E2E_DIR = Path(__file__).parent.parent
     PROJECT_ROOT = E2E_DIR.parent
 SERVER_DIR = PROJECT_ROOT / "agent-brain-server"
@@ -51,25 +52,21 @@ class CLIRunner:
 
         try:
             result = subprocess.run(
-                cmd,
-                cwd=self.cli_dir,
-                capture_output=True,
-                text=True,
-                timeout=timeout
+                cmd, cwd=self.cli_dir, capture_output=True, text=True, timeout=timeout
             )
 
             return {
                 "returncode": result.returncode,
                 "stdout": result.stdout,
                 "stderr": result.stderr,
-                "json": self._parse_json(result.stdout) if "--json" in args else None
+                "json": self._parse_json(result.stdout) if "--json" in args else None,
             }
         except subprocess.TimeoutExpired:
             return {
                 "returncode": -1,
                 "stdout": "",
                 "stderr": "Command timed out",
-                "json": None
+                "json": None,
             }
 
     def _parse_json(self, stdout: str) -> Optional[dict]:
@@ -90,7 +87,7 @@ class CLIRunner:
         top_k: int = 5,
         threshold: float = 0.3,
         mode: str = "hybrid",
-        alpha: float = 0.5
+        alpha: float = 0.5,
     ) -> dict:
         """Run a query and return results.
 
@@ -102,11 +99,15 @@ class CLIRunner:
             alpha: Weight for hybrid search (1.0=pure vector, 0.0=pure bm25)
         """
         args = [
-            "query", query_text,
+            "query",
+            query_text,
             "--json",
-            "--top-k", str(top_k),
-            "--threshold", str(threshold),
-            "--mode", mode,
+            "--top-k",
+            str(top_k),
+            "--threshold",
+            str(threshold),
+            "--mode",
+            mode,
         ]
         if mode == "hybrid":
             args.extend(["--alpha", str(alpha)])
@@ -114,12 +115,7 @@ class CLIRunner:
         result = self.run(*args)
         return result.get("json") or {}
 
-    def query_raw(
-        self,
-        query_text: str,
-        mode: str = "hybrid",
-        **kwargs
-    ) -> dict:
+    def query_raw(self, query_text: str, mode: str = "hybrid", **kwargs) -> dict:
         """Run a query and return the full result including returncode.
 
         Useful for testing error cases like disabled GraphRAG.
@@ -148,6 +144,27 @@ def check_api_key():
 
 
 @pytest.fixture(scope="session")
+def check_openai_key():
+    """Check that OPENAI_API_KEY is set."""
+    if not os.environ.get("OPENAI_API_KEY"):
+        pytest.skip("OPENAI_API_KEY not set - skipping OpenAI tests")
+
+
+@pytest.fixture(scope="session")
+def check_anthropic_key():
+    """Check that ANTHROPIC_API_KEY is set."""
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        pytest.skip("ANTHROPIC_API_KEY not set - skipping Anthropic tests")
+
+
+@pytest.fixture(scope="session")
+def check_cohere_key():
+    """Check that COHERE_API_KEY is set."""
+    if not os.environ.get("COHERE_API_KEY"):
+        pytest.skip("COHERE_API_KEY not set - skipping Cohere tests")
+
+
+@pytest.fixture(scope="session")
 def server_process(check_api_key) -> Generator[subprocess.Popen, None, None]:
     """Start the doc-serve server for the test session."""
     env = os.environ.copy()
@@ -158,7 +175,7 @@ def server_process(check_api_key) -> Generator[subprocess.Popen, None, None]:
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        preexec_fn=os.setsid
+        preexec_fn=os.setsid,
     )
 
     # Wait for server to start

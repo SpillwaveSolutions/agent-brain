@@ -6,7 +6,6 @@ import os
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -29,8 +28,8 @@ class RuntimeState(BaseModel):
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
     # Shared mode fields
-    project_id: Optional[str] = None
-    active_projects: Optional[list[str]] = None
+    project_id: str | None = None
+    active_projects: list[str] | None = None
 
 
 def write_runtime(state_dir: Path, state: RuntimeState) -> None:
@@ -46,7 +45,7 @@ def write_runtime(state_dir: Path, state: RuntimeState) -> None:
     logger.info(f"Runtime state written to {runtime_path}")
 
 
-def read_runtime(state_dir: Path) -> Optional[RuntimeState]:
+def read_runtime(state_dir: Path) -> RuntimeState | None:
     """Read runtime state from state directory.
 
     Args:

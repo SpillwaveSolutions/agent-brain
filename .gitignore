@@ -102,8 +102,7 @@ anthropic.key
 api_keys.txt
 api_keys.json
 
-# Poetry
-poetry.lock
+# Poetry - lock files are committed for reproducible CI builds
 
 # Jupyter
 .ipynb_checkpoints/

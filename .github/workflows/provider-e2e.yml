@@ -1,0 +1,184 @@
+# Provider E2E Test Matrix
+# Runs E2E tests for each provider combination
+#
+# Trigger Strategy:
+# - Runs on push to main/develop
+# - Runs on any PR event if PR has "test-providers" label
+# - Uses default PR types (opened, synchronize, reopened) so workflow
+#   re-runs on subsequent pushes to already-labeled PRs
+# - Each job has an `if` guard to check for label presence
+#
+# Matrix Strategy:
+# - Tests each provider separately (OpenAI, Anthropic, Cohere, Ollama)
+# - Skips tests gracefully when required API keys are missing
+# - Uses fail-fast: false to allow other providers to complete
+# - Limits concurrent API usage with max-parallel: 2
+#
+# Security: This workflow uses secrets for API keys.
+# API keys are only passed to test environments and never exposed in logs.
+
+name: Provider E2E Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+jobs:
+  # Always runs - tests config loading without requiring API keys
+  config-tests:
+    name: Configuration Tests (No API Keys)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'test-providers')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.7.1
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v4
+        with:
+          path: agent-brain-server/.venv
+          key: config-tests-venv-${{ runner.os }}-${{ hashFiles('agent-brain-server/poetry.lock') }}
+          restore-keys: |
+            config-tests-venv-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          cd agent-brain-server
+          poetry install
+
+      - name: Run configuration tests
+        run: |
+          cd agent-brain-server
+          poetry run pytest \
+            ../e2e/integration/test_provider_openai.py::TestOpenAIConfiguration \
+            ../e2e/integration/test_provider_anthropic.py::TestAnthropicConfiguration \
+            ../e2e/integration/test_provider_cohere.py::TestCohereConfiguration \
+            ../e2e/integration/test_provider_ollama.py::TestOllamaRerankerConfig \
+            ../e2e/integration/test_provider_ollama.py::TestOllamaProviderRegistry \
+            ../e2e/integration/test_health_providers.py \
+            -v --tb=short
+
+  # Provider-specific E2E tests (require API keys)
+  provider-tests:
+    name: Provider Tests - ${{ matrix.provider }}
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'test-providers')
+
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - provider: openai
+            config_file: config_openai.yaml
+            marker: openai
+            required_keys: "OPENAI_API_KEY ANTHROPIC_API_KEY"
+            description: "OpenAI embeddings + Anthropic summarization"
+
+          - provider: anthropic
+            config_file: config_anthropic.yaml
+            marker: anthropic
+            required_keys: "OPENAI_API_KEY ANTHROPIC_API_KEY"
+            description: "Anthropic summarization with OpenAI embeddings"
+
+          - provider: cohere
+            config_file: config_cohere.yaml
+            marker: cohere
+            required_keys: "COHERE_API_KEY ANTHROPIC_API_KEY"
+            description: "Cohere embeddings + Anthropic summarization"
+
+          - provider: ollama
+            config_file: config_ollama_only.yaml
+            marker: ollama
+            required_keys: ""
+            description: "Ollama config tests (no service required)"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.7.1
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v4
+        with:
+          path: agent-brain-server/.venv
+          key: provider-venv-${{ runner.os }}-${{ hashFiles('agent-brain-server/poetry.lock') }}
+          restore-keys: |
+            provider-venv-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          cd agent-brain-server
+          poetry install
+
+      - name: Check required API keys
+        id: check_keys
+        run: |
+          MISSING=""
+          if [ -n "${{ matrix.required_keys }}" ]; then
+            for key in ${{ matrix.required_keys }}; do
+              if [ "$key" = "OPENAI_API_KEY" ] && [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
+                MISSING="$MISSING OPENAI_API_KEY"
+              fi
+              if [ "$key" = "ANTHROPIC_API_KEY" ] && [ -z "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+                MISSING="$MISSING ANTHROPIC_API_KEY"
+              fi
+              if [ "$key" = "COHERE_API_KEY" ] && [ -z "${{ secrets.COHERE_API_KEY }}" ]; then
+                MISSING="$MISSING COHERE_API_KEY"
+              fi
+            done
+          fi
+
+          if [ -n "$MISSING" ]; then
+            echo "Missing API keys:$MISSING"
+            echo "Skipping ${{ matrix.provider }} tests (${{ matrix.description }})"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "All required API keys present for ${{ matrix.provider }}"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run ${{ matrix.provider }} E2E tests
+        if: steps.check_keys.outputs.skip == 'false'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+        run: |
+          cd agent-brain-server
+          AGENT_BRAIN_CONFIG=../e2e/fixtures/${{ matrix.config_file }} \
+            poetry run pytest ../e2e/integration/ \
+            -m ${{ matrix.marker }} \
+            -v --tb=short
+
+      - name: Tests skipped (missing API keys)
+        if: steps.check_keys.outputs.skip == 'true'
+        run: |
+          echo "Skipping ${{ matrix.provider }} tests - required API keys not available"
+          echo "This is expected in public CI environments"
+          echo "Tests will run when secrets are configured"

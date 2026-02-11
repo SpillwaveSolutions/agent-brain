@@ -6,10 +6,18 @@ import pytest
 from pydantic import ValidationError
 
 from agent_brain_server.models import (
+    CODE_ENTITY_TYPES,
+    DOC_ENTITY_TYPES,
+    ENTITY_TYPE_NORMALIZE,
+    ENTITY_TYPES,
+    INFRA_ENTITY_TYPES,
+    RELATIONSHIP_TYPES,
+    SYMBOL_TYPE_MAPPING,
     GraphEntity,
     GraphIndexStatus,
     GraphQueryContext,
     GraphTriple,
+    normalize_entity_type,
 )
 
 
@@ -334,3 +342,225 @@ class TestQueryResultGraphFields:
 
         assert data["graph_score"] == 0.75
         assert data["related_entities"] == ["Entity1"]
+
+
+class TestEntityTypeSchema:
+    """Tests for entity type schema (Feature 122 - Phase 3)."""
+
+    def test_entity_types_complete(self):
+        """Test ENTITY_TYPES has exactly 17 entries with expected values."""
+        assert len(ENTITY_TYPES) == 17
+
+        # Code types (7)
+        assert "Package" in ENTITY_TYPES
+        assert "Module" in ENTITY_TYPES
+        assert "Class" in ENTITY_TYPES
+        assert "Method" in ENTITY_TYPES
+        assert "Function" in ENTITY_TYPES
+        assert "Interface" in ENTITY_TYPES
+        assert "Enum" in ENTITY_TYPES
+
+        # Documentation types (6)
+        assert "DesignDoc" in ENTITY_TYPES
+        assert "UserDoc" in ENTITY_TYPES
+        assert "PRD" in ENTITY_TYPES
+        assert "Runbook" in ENTITY_TYPES
+        assert "README" in ENTITY_TYPES
+        assert "APIDoc" in ENTITY_TYPES
+
+        # Infrastructure types (4)
+        assert "Service" in ENTITY_TYPES
+        assert "Endpoint" in ENTITY_TYPES
+        assert "Database" in ENTITY_TYPES
+        assert "ConfigFile" in ENTITY_TYPES
+
+    def test_code_entity_types(self):
+        """Test CODE_ENTITY_TYPES contains exactly 7 code types."""
+        assert len(CODE_ENTITY_TYPES) == 7
+        assert "Package" in CODE_ENTITY_TYPES
+        assert "Module" in CODE_ENTITY_TYPES
+        assert "Class" in CODE_ENTITY_TYPES
+        assert "Method" in CODE_ENTITY_TYPES
+        assert "Function" in CODE_ENTITY_TYPES
+        assert "Interface" in CODE_ENTITY_TYPES
+        assert "Enum" in CODE_ENTITY_TYPES
+
+    def test_doc_entity_types(self):
+        """Test DOC_ENTITY_TYPES contains exactly 6 documentation types."""
+        assert len(DOC_ENTITY_TYPES) == 6
+        assert "DesignDoc" in DOC_ENTITY_TYPES
+        assert "UserDoc" in DOC_ENTITY_TYPES
+        assert "PRD" in DOC_ENTITY_TYPES
+        assert "Runbook" in DOC_ENTITY_TYPES
+        assert "README" in DOC_ENTITY_TYPES
+        assert "APIDoc" in DOC_ENTITY_TYPES
+
+    def test_infra_entity_types(self):
+        """Test INFRA_ENTITY_TYPES contains exactly 4 infrastructure types."""
+        assert len(INFRA_ENTITY_TYPES) == 4
+        assert "Service" in INFRA_ENTITY_TYPES
+        assert "Endpoint" in INFRA_ENTITY_TYPES
+        assert "Database" in INFRA_ENTITY_TYPES
+        assert "ConfigFile" in INFRA_ENTITY_TYPES
+
+    def test_relationship_types_complete(self):
+        """Test RELATIONSHIP_TYPES has exactly 8 predicates."""
+        assert len(RELATIONSHIP_TYPES) == 8
+        assert "calls" in RELATIONSHIP_TYPES
+        assert "extends" in RELATIONSHIP_TYPES
+        assert "implements" in RELATIONSHIP_TYPES
+        assert "references" in RELATIONSHIP_TYPES
+        assert "depends_on" in RELATIONSHIP_TYPES
+        assert "imports" in RELATIONSHIP_TYPES
+        assert "contains" in RELATIONSHIP_TYPES
+        assert "defined_in" in RELATIONSHIP_TYPES
+
+    def test_normalize_entity_type_known(self):
+        """Test normalize_entity_type with known lowercase types."""
+        assert normalize_entity_type("function") == "Function"
+        assert normalize_entity_type("class") == "Class"
+        assert normalize_entity_type("method") == "Method"
+        assert normalize_entity_type("module") == "Module"
+        assert normalize_entity_type("package") == "Package"
+        assert normalize_entity_type("interface") == "Interface"
+        assert normalize_entity_type("enum") == "Enum"
+
+    def test_normalize_entity_type_case_insensitive(self):
+        """Test normalize_entity_type is case-insensitive with acronym preservation."""
+        # Uppercase
+        assert normalize_entity_type("CLASS") == "Class"
+        assert normalize_entity_type("FUNCTION") == "Function"
+
+        # Acronyms must be preserved (not .capitalize() which breaks them)
+        assert normalize_entity_type("readme") == "README"
+        assert normalize_entity_type("README") == "README"
+        assert normalize_entity_type("apidoc") == "APIDoc"
+        assert normalize_entity_type("APIDOC") == "APIDoc"
+        assert normalize_entity_type("prd") == "PRD"
+        assert normalize_entity_type("PRD") == "PRD"
+
+        # Mixed case
+        assert normalize_entity_type("ClAsS") == "Class"
+        assert normalize_entity_type("fUnCtIoN") == "Function"
+
+    def test_normalize_entity_type_none(self):
+        """Test normalize_entity_type returns None for None input."""
+        assert normalize_entity_type(None) is None
+
+    def test_normalize_entity_type_unknown(self):
+        """Test normalize_entity_type returns original string for unknown types."""
+        # Unknown types are passed through (permissive, not strict)
+        assert normalize_entity_type("SomeUnknownType") == "SomeUnknownType"
+        assert normalize_entity_type("CustomEntity") == "CustomEntity"
+        assert normalize_entity_type("Framework") == "Framework"
+
+    def test_symbol_type_mapping_keys(self):
+        """Test SYMBOL_TYPE_MAPPING has lowercase keys for all code entity types."""
+        # All keys should be lowercase
+        for key in SYMBOL_TYPE_MAPPING.keys():
+            assert key == key.lower()
+
+        # Verify mappings for code types
+        assert SYMBOL_TYPE_MAPPING.get("function") == "Function"
+        assert SYMBOL_TYPE_MAPPING.get("class") == "Class"
+        assert SYMBOL_TYPE_MAPPING.get("method") == "Method"
+        assert SYMBOL_TYPE_MAPPING.get("module") == "Module"
+        assert SYMBOL_TYPE_MAPPING.get("package") == "Package"
+        assert SYMBOL_TYPE_MAPPING.get("interface") == "Interface"
+        assert SYMBOL_TYPE_MAPPING.get("enum") == "Enum"
+
+    def test_triple_backward_compat_untyped(self):
+        """Test GraphTriple backward compatibility with untyped entities."""
+        # Existing untyped triplets with subject_type=None must still work
+        triple = GraphTriple(
+            subject="A",
+            predicate="uses",
+            object="B",
+        )
+
+        assert triple.subject == "A"
+        assert triple.subject_type is None
+        assert triple.object_type is None
+
+    def test_triple_backward_compat_custom_type(self):
+        """Test GraphTriple backward compatibility with non-schema types."""
+        # Existing triplets with custom types (not in schema) must still work
+        triple = GraphTriple(
+            subject="FastAPI",
+            subject_type="Framework",  # Not in schema, but valid
+            predicate="uses",
+            object="Pydantic",
+            object_type="Library",  # Not in schema, but valid
+        )
+
+        assert triple.subject_type == "Framework"
+        assert triple.object_type == "Library"
+
+    def test_entity_type_normalize_dict(self):
+        """Test ENTITY_TYPE_NORMALIZE dict is populated correctly."""
+        # Should have entries for all ENTITY_TYPES (lowercase keys)
+        for entity_type in ENTITY_TYPES:
+            assert entity_type.lower() in ENTITY_TYPE_NORMALIZE
+
+        # Should also have SYMBOL_TYPE_MAPPING entries
+        for key in SYMBOL_TYPE_MAPPING.keys():
+            assert key in ENTITY_TYPE_NORMALIZE
+
+
+class TestQueryRequestGraphFilters:
+    """Tests for entity_types and relationship_types fields (SCHEMA-04)."""
+
+    def test_query_request_entity_types_field(self):
+        """Test QueryRequest accepts entity_types filter."""
+        from agent_brain_server.models import QueryRequest
+
+        request = QueryRequest(query="test query", entity_types=["Class", "Function"])
+
+        assert request.entity_types == ["Class", "Function"]
+
+    def test_query_request_relationship_types_field(self):
+        """Test QueryRequest accepts relationship_types filter."""
+        from agent_brain_server.models import QueryRequest
+
+        request = QueryRequest(
+            query="test query", relationship_types=["calls", "extends"]
+        )
+
+        assert request.relationship_types == ["calls", "extends"]
+
+    def test_query_request_defaults_none(self):
+        """Test QueryRequest filter fields default to None."""
+        from agent_brain_server.models import QueryRequest
+
+        request = QueryRequest(query="test query")
+
+        assert request.entity_types is None
+        assert request.relationship_types is None
+
+    def test_query_request_both_filters(self):
+        """Test QueryRequest with both filters set."""
+        from agent_brain_server.models import QueryRequest
+
+        request = QueryRequest(
+            query="test query",
+            entity_types=["Class"],
+            relationship_types=["calls"],
+        )
+
+        assert request.entity_types == ["Class"]
+        assert request.relationship_types == ["calls"]
+
+    def test_query_request_serialization_with_filters(self):
+        """Test QueryRequest serialization includes filter fields."""
+        from agent_brain_server.models import QueryRequest
+
+        request = QueryRequest(
+            query="test query",
+            entity_types=["Class", "Function"],
+            relationship_types=["calls"],
+        )
+
+        data = request.model_dump()
+
+        assert data["entity_types"] == ["Class", "Function"]
+        assert data["relationship_types"] == ["calls"]

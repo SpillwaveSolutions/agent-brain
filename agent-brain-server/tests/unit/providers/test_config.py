@@ -185,7 +185,9 @@ class TestValidateProviderConfig:
             )
             errors = validate_provider_config(settings)
             assert len(errors) >= 1
-            assert "embedding" in errors[0].lower() or "MISSING_KEY" in errors[0]
+            assert "embedding" in str(errors[0]).lower() or "MISSING_KEY" in str(
+                errors[0]
+            )
 
     def test_missing_summarization_api_key(self) -> None:
         """Test error when summarization API key is missing."""
@@ -195,7 +197,9 @@ class TestValidateProviderConfig:
             )
             errors = validate_provider_config(settings)
             assert len(errors) >= 1
-            assert "summarization" in errors[0].lower() or "MISSING_KEY" in errors[0]
+            assert "summarization" in str(errors[0]).lower() or "MISSING_KEY" in str(
+                errors[0]
+            )
 
     def test_valid_config_with_keys(self) -> None:
         """Test valid config with all keys present."""

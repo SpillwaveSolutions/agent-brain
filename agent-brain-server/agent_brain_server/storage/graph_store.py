@@ -40,17 +40,17 @@ class GraphStoreManager:
         """
         self.persist_dir = persist_dir
         self.store_type = store_type
-        self._graph_store: Optional[Any] = None
+        self._graph_store: Any | None = None
         self._initialized = False
         self._entity_count = 0
         self._relationship_count = 0
-        self._last_updated: Optional[datetime] = None
+        self._last_updated: datetime | None = None
 
     @classmethod
     def get_instance(
         cls,
-        persist_dir: Optional[Path] = None,
-        store_type: Optional[str] = None,
+        persist_dir: Path | None = None,
+        store_type: str | None = None,
     ) -> "GraphStoreManager":
         """Get or create singleton instance.
 
@@ -337,9 +337,9 @@ class GraphStoreManager:
         subject: str,
         predicate: str,
         obj: str,
-        subject_type: Optional[str] = None,
-        object_type: Optional[str] = None,
-        source_chunk_id: Optional[str] = None,
+        subject_type: str | None = None,
+        object_type: str | None = None,
+        source_chunk_id: str | None = None,
     ) -> bool:
         """Add a triplet to the graph.
 
@@ -469,12 +469,12 @@ class GraphStoreManager:
         return self._relationship_count
 
     @property
-    def last_updated(self) -> Optional[datetime]:
+    def last_updated(self) -> datetime | None:
         """Return timestamp of last update."""
         return self._last_updated
 
     @property
-    def graph_store(self) -> Optional[Any]:
+    def graph_store(self) -> Any | None:
         """Return the underlying graph store instance."""
         return self._graph_store
 
@@ -499,9 +499,9 @@ class _MinimalGraphStore:
         subject: str,
         predicate: str,
         obj: str,
-        subject_type: Optional[str] = None,
-        object_type: Optional[str] = None,
-        source_chunk_id: Optional[str] = None,
+        subject_type: str | None = None,
+        object_type: str | None = None,
+        source_chunk_id: str | None = None,
     ) -> None:
         """Add a triplet to the minimal store."""
         # Add entities
@@ -532,12 +532,12 @@ class _MinimalGraphStore:
 
 
 # Module-level singleton access
-_graph_store_manager: Optional[GraphStoreManager] = None
+_graph_store_manager: GraphStoreManager | None = None
 
 
 def get_graph_store_manager(
-    persist_dir: Optional[Path] = None,
-    store_type: Optional[str] = None,
+    persist_dir: Path | None = None,
+    store_type: str | None = None,
 ) -> GraphStoreManager:
     """Get the global graph store manager instance.
 
@@ -555,8 +555,8 @@ def get_graph_store_manager(
 
 
 def initialize_graph_store(
-    persist_dir: Optional[Path] = None,
-    store_type: Optional[str] = None,
+    persist_dir: Path | None = None,
+    store_type: str | None = None,
 ) -> GraphStoreManager:
     """Initialize and return the global graph store manager.
 

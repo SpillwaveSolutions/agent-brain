@@ -1,7 +1,5 @@
 """Query command for searching documents."""
 
-from typing import Optional
-
 import click
 from rich.console import Console
 from rich.panel import Panel
@@ -78,7 +76,7 @@ def _get_default_url() -> str:
 )
 def query_command(
     query_text: str,
-    url: Optional[str],
+    url: str | None,
     top_k: int,
     threshold: float,
     mode: str,
@@ -86,9 +84,9 @@ def query_command(
     json_output: bool,
     full: bool,
     scores: bool,
-    source_types: Optional[str],
-    languages: Optional[str],
-    file_paths: Optional[str],
+    source_types: str | None,
+    languages: str | None,
+    file_paths: str | None,
 ) -> None:
     """Search indexed documents with natural language or keyword query."""
     # Get URL from config if not specified

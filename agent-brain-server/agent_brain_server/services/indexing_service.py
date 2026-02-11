@@ -4,13 +4,14 @@ import asyncio
 import logging
 import os
 import uuid
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional, Union
+from typing import Any
 
 from llama_index.core.schema import TextNode
 
 from agent_brain_server.config import settings
+from agent_brain_server.config.provider_config import load_provider_settings
 from agent_brain_server.indexing import (
     BM25IndexManager,
     ContextAwareChunker,
@@ -43,12 +44,12 @@ class IndexingService:
 
     def __init__(
         self,
-        vector_store: Optional[VectorStoreManager] = None,
-        document_loader: Optional[DocumentLoader] = None,
-        chunker: Optional[ContextAwareChunker] = None,
-        embedding_generator: Optional[EmbeddingGenerator] = None,
-        bm25_manager: Optional[BM25IndexManager] = None,
-        graph_index_manager: Optional[GraphIndexManager] = None,
+        vector_store: VectorStoreManager | None = None,
+        document_loader: DocumentLoader | None = None,
+        chunker: ContextAwareChunker | None = None,
+        embedding_generator: EmbeddingGenerator | None = None,
+        bm25_manager: BM25IndexManager | None = None,
+        graph_index_manager: GraphIndexManager | None = None,
     ):
         """
         Initialize the indexing service.
@@ -104,7 +105,8 @@ class IndexingService:
     async def start_indexing(
         self,
         request: IndexRequest,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
+        force: bool = False,
     ) -> str:
         """
         Start a new indexing job.
@@ -112,6 +114,7 @@ class IndexingService:
         Args:
             request: IndexRequest with folder path and configuration.
             progress_callback: Optional callback for progress updates.
+            force: If True, bypass embedding compatibility validation.
 
         Returns:
             Job ID for tracking the indexing operation.
@@ -122,6 +125,10 @@ class IndexingService:
         async with self._lock:
             if self._state.is_indexing:
                 raise RuntimeError("Indexing already in progress")
+
+            # Validate embedding compatibility unless force=True
+            if not force:
+                await self._validate_embedding_compatibility()
 
             # Generate job ID and initialize state
             job_id = f"job_{uuid.uuid4().hex[:12]}"
@@ -144,11 +151,38 @@ class IndexingService:
 
         return job_id
 
+    async def _validate_embedding_compatibility(self) -> None:
+        """Validate current embedding config matches existing index.
+
+        Raises:
+            ProviderMismatchError: If provider/model/dimensions don't match
+        """
+        # Get stored metadata
+        stored_metadata = await self.vector_store.get_embedding_metadata()
+
+        if stored_metadata is None:
+            # No existing index, no validation needed
+            return
+
+        # Get current config
+        settings = load_provider_settings()
+        current_provider = settings.embedding.provider
+        current_model = settings.embedding.model
+        current_dimensions = self.embedding_generator.get_embedding_dimensions()
+
+        # Validate
+        self.vector_store.validate_embedding_compatibility(
+            provider=str(current_provider),
+            model=current_model,
+            dimensions=current_dimensions,
+            stored_metadata=stored_metadata,
+        )
+
     async def _run_indexing_pipeline(
         self,
         request: IndexRequest,
         job_id: str,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> None:
         """
         Execute the full indexing pipeline.
@@ -161,6 +195,23 @@ class IndexingService:
         try:
             # Ensure vector store is initialized
             await self.vector_store.initialize()
+
+            # Get current embedding config for metadata storage
+            provider_settings = load_provider_settings()
+            current_provider = str(provider_settings.embedding.provider)
+            current_model = provider_settings.embedding.model
+            current_dimensions = self.embedding_generator.get_embedding_dimensions()
+
+            # Validate embedding compatibility unless force=True
+            if not request.force:
+                stored_metadata = await self.vector_store.get_embedding_metadata()
+                if stored_metadata is not None:
+                    self.vector_store.validate_embedding_compatibility(
+                        provider=current_provider,
+                        model=current_model,
+                        dimensions=current_dimensions,
+                        stored_metadata=stored_metadata,
+                    )
 
             # Step 1: Load documents
             if progress_callback:
@@ -205,7 +256,7 @@ class IndexingService:
                 f"{len(code_documents)} code files"
             )
 
-            all_chunks: list[Union[TextChunk, CodeChunk]] = []
+            all_chunks: list[TextChunk | CodeChunk] = []
             total_to_process = len(documents)
 
             # Chunk documents
@@ -376,6 +427,13 @@ class IndexingService:
                     f"({len(batch_chunks)} chunks) in vector database"
                 )
 
+            # Store embedding metadata for future validation
+            await self.vector_store.set_embedding_metadata(
+                provider=current_provider,
+                model=current_model,
+                dimensions=current_dimensions,
+            )
+
             # Step 5: Build BM25 index
             if progress_callback:
                 await progress_callback(95, 100, "Building BM25 index...")
@@ -483,7 +541,11 @@ class IndexingService:
         }
 
     async def reset(self) -> None:
-        """Reset the indexing service and vector store."""
+        """Reset the indexing service and vector store.
+
+        Note: Embedding metadata is stored in collection metadata,
+        so it will be cleared when collection is reset.
+        """
         async with self._lock:
             await self.vector_store.reset()
             self.bm25_manager.reset()
@@ -504,7 +566,7 @@ class IndexingService:
 
 
 # Singleton instance
-_indexing_service: Optional[IndexingService] = None
+_indexing_service: IndexingService | None = None
 
 
 def get_indexing_service() -> IndexingService:

@@ -5,7 +5,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from llama_index.core import Document, SimpleDirectoryReader
 
@@ -135,7 +135,7 @@ class LanguageDetector:
     }
 
     @classmethod
-    def detect_from_path(cls, file_path: str) -> Optional[str]:
+    def detect_from_path(cls, file_path: str) -> str | None:
         """
         Detect language from file path/extension.
 
@@ -184,9 +184,7 @@ class LanguageDetector:
         return sorted_scores[:top_n]
 
     @classmethod
-    def detect_language(
-        cls, file_path: str, content: Optional[str] = None
-    ) -> Optional[str]:
+    def detect_language(cls, file_path: str, content: str | None = None) -> str | None:
         """
         Detect programming language using both path and content analysis.
 
@@ -295,8 +293,8 @@ class DocumentLoader:
 
     def __init__(
         self,
-        supported_extensions: Optional[set[str]] = None,
-        exclude_patterns: Optional[list[str]] = None,
+        supported_extensions: set[str] | None = None,
+        exclude_patterns: list[str] | None = None,
     ):
         """
         Initialize the document loader.

@@ -3,7 +3,6 @@
 import logging
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional
 
 from llama_index.core.schema import BaseNode, NodeWithScore
 from llama_index.retrievers.bm25 import BM25Retriever
@@ -21,7 +20,7 @@ class BM25IndexManager:
     and loading it for retrieval.
     """
 
-    def __init__(self, persist_dir: Optional[str] = None):
+    def __init__(self, persist_dir: str | None = None):
         """
         Initialize the BM25 index manager.
 
@@ -29,7 +28,7 @@ class BM25IndexManager:
             persist_dir: Directory for index persistence.
         """
         self.persist_dir = persist_dir or settings.BM25_INDEX_PATH
-        self._retriever: Optional[BM25Retriever] = None
+        self._retriever: BM25Retriever | None = None
 
     @property
     def is_initialized(self) -> bool:
@@ -110,9 +109,9 @@ class BM25IndexManager:
         self,
         query: str,
         top_k: int = 5,
-        source_types: Optional[list[str]] = None,
-        languages: Optional[list[str]] = None,
-        max_results: Optional[int] = None,
+        source_types: list[str] | None = None,
+        languages: list[str] | None = None,
+        max_results: int | None = None,
     ) -> list[NodeWithScore]:
         """
         Search the BM25 index with metadata filtering.
@@ -168,7 +167,7 @@ class BM25IndexManager:
 
 
 # Global singleton instance
-_bm25_manager: Optional[BM25IndexManager] = None
+_bm25_manager: BM25IndexManager | None = None
 
 
 def get_bm25_manager() -> BM25IndexManager:

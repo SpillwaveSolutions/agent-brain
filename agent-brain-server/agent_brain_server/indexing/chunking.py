@@ -6,7 +6,7 @@ import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import tiktoken
 import tree_sitter
@@ -34,23 +34,23 @@ class ChunkMetadata:
     created_at: datetime = field(default_factory=datetime.utcnow)
 
     # Document-specific metadata
-    language: Optional[str] = None  # For docs/code: language type
-    heading_path: Optional[str] = None  # Document heading hierarchy
-    section_title: Optional[str] = None  # Current section title
-    content_type: Optional[str] = None  # "tutorial", "api_ref", "guide", etc.
+    language: str | None = None  # For docs/code: language type
+    heading_path: str | None = None  # Document heading hierarchy
+    section_title: str | None = None  # Current section title
+    content_type: str | None = None  # "tutorial", "api_ref", "guide", etc.
 
     # Code-specific metadata (AST-aware fields)
-    symbol_name: Optional[str] = None  # Full symbol path
-    symbol_kind: Optional[str] = None  # "function", "class", "method", etc.
-    start_line: Optional[int] = None  # 1-based line number
-    end_line: Optional[int] = None  # 1-based line number
-    section_summary: Optional[str] = None  # AI-generated summary
-    prev_section_summary: Optional[str] = None  # Previous section summary
-    docstring: Optional[str] = None  # Extracted docstring
-    parameters: Optional[list[str]] = None  # Function parameters as strings
-    return_type: Optional[str] = None  # Function return type
-    decorators: Optional[list[str]] = None  # Python decorators or similar
-    imports: Optional[list[str]] = None  # Import statements in this chunk
+    symbol_name: str | None = None  # Full symbol path
+    symbol_kind: str | None = None  # "function", "class", "method", etc.
+    start_line: int | None = None  # 1-based line number
+    end_line: int | None = None  # 1-based line number
+    section_summary: str | None = None  # AI-generated summary
+    prev_section_summary: str | None = None  # Previous section summary
+    docstring: str | None = None  # Extracted docstring
+    parameters: list[str] | None = None  # Function parameters as strings
+    return_type: str | None = None  # Function return type
+    decorators: list[str] | None = None  # Python decorators or similar
+    imports: list[str] | None = None  # Import statements in this chunk
 
     # Additional flexible metadata
     extra: dict[str, Any] = field(default_factory=dict)
@@ -140,18 +140,18 @@ class CodeChunk:
         chunk_index: int,
         total_chunks: int,
         token_count: int,
-        symbol_name: Optional[str] = None,
-        symbol_kind: Optional[str] = None,
-        start_line: Optional[int] = None,
-        end_line: Optional[int] = None,
-        section_summary: Optional[str] = None,
-        prev_section_summary: Optional[str] = None,
-        docstring: Optional[str] = None,
-        parameters: Optional[list[str]] = None,
-        return_type: Optional[str] = None,
-        decorators: Optional[list[str]] = None,
-        imports: Optional[list[str]] = None,
-        extra: Optional[dict[str, Any]] = None,
+        symbol_name: str | None = None,
+        symbol_kind: str | None = None,
+        start_line: int | None = None,
+        end_line: int | None = None,
+        section_summary: str | None = None,
+        prev_section_summary: str | None = None,
+        docstring: str | None = None,
+        parameters: list[str] | None = None,
+        return_type: str | None = None,
+        decorators: list[str] | None = None,
+        imports: list[str] | None = None,
+        extra: dict[str, Any] | None = None,
     ) -> "CodeChunk":
         """Create a CodeChunk with properly structured metadata."""
         file_name = source.split("/")[-1] if "/" in source else source
@@ -203,8 +203,8 @@ class ContextAwareChunker:
 
     def __init__(
         self,
-        chunk_size: Optional[int] = None,
-        chunk_overlap: Optional[int] = None,
+        chunk_size: int | None = None,
+        chunk_overlap: int | None = None,
         tokenizer_name: str = "cl100k_base",
     ):
         """
@@ -236,7 +236,7 @@ class ContextAwareChunker:
     async def chunk_documents(
         self,
         documents: list[LoadedDocument],
-        progress_callback: Optional[Callable[[int, int], Awaitable[None]]] = None,
+        progress_callback: Callable[[int, int], Awaitable[None]] | None = None,
     ) -> list[TextChunk]:
         """
         Chunk multiple documents into smaller pieces.
@@ -401,9 +401,9 @@ class CodeChunker:
     def __init__(
         self,
         language: str,
-        chunk_lines: Optional[int] = None,
-        chunk_lines_overlap: Optional[int] = None,
-        max_chars: Optional[int] = None,
+        chunk_lines: int | None = None,
+        chunk_lines_overlap: int | None = None,
+        max_chars: int | None = None,
         generate_summaries: bool = False,
     ):
         """
@@ -599,9 +599,7 @@ class CodeChunker:
 
         return symbols
 
-    def _extract_xml_doc_comment(
-        self, text: str, declaration_line: int
-    ) -> Optional[str]:
+    def _extract_xml_doc_comment(self, text: str, declaration_line: int) -> str | None:
         """
         Extract XML doc comments (/// lines) preceding a C# declaration.
 

@@ -128,6 +128,62 @@ Another | valid | one"""
         assert "SUBJECT" in prompt
         assert "PREDICATE" in prompt
 
+    def test_schema_aware_prompt_contains_entity_types(self):
+        """Test schema-aware prompt includes all entity type categories."""
+        extractor = LLMEntityExtractor()
+
+        prompt = extractor._build_extraction_prompt("test", max_triplets=5)
+
+        # Code entity types
+        assert "Package" in prompt
+        assert "Module" in prompt
+        assert "Class" in prompt
+        assert "Function" in prompt
+        assert "Method" in prompt
+
+        # Documentation entity types
+        assert "DesignDoc" in prompt
+        assert "README" in prompt
+        assert "APIDoc" in prompt
+
+        # Infrastructure entity types
+        assert "Service" in prompt
+        assert "Endpoint" in prompt
+        assert "Database" in prompt
+
+    def test_schema_aware_prompt_contains_all_relationship_types(self):
+        """Test schema-aware prompt includes all 8 relationship predicates."""
+        extractor = LLMEntityExtractor()
+
+        prompt = extractor._build_extraction_prompt("test", max_triplets=5)
+
+        # All 8 relationship types
+        assert "calls" in prompt
+        assert "extends" in prompt
+        assert "implements" in prompt
+        assert "references" in prompt
+        assert "depends_on" in prompt
+        assert "imports" in prompt
+        assert "contains" in prompt
+        assert "defined_in" in prompt
+
+    def test_parse_triplets_normalizes_types(self):
+        """Test _parse_triplets normalizes entity types from LLM response."""
+        extractor = LLMEntityExtractor()
+
+        # LLM returns lowercase entity types - should be normalized
+        response = "MyClass | class | calls | my_func | function"
+
+        triplets = extractor._parse_triplets(response, source_chunk_id="chunk_1")
+
+        assert len(triplets) == 1
+        assert triplets[0].subject == "MyClass"
+        assert triplets[0].subject_type == "Class"  # Normalized from "class"
+        assert triplets[0].predicate == "calls"
+        assert triplets[0].object == "my_func"
+        assert triplets[0].object_type == "Function"  # Normalized from "function"
+        assert triplets[0].source_chunk_id == "chunk_1"
+
 
 class TestCodeMetadataExtractor:
     """Tests for CodeMetadataExtractor."""
@@ -371,6 +427,69 @@ import (
         result = extractor.extract_from_text("import os", language="python")
 
         assert result == []
+
+    @patch("agent_brain_server.indexing.graph_extractors.settings")
+    def test_extract_normalizes_function_type(self, mock_settings: MagicMock):
+        """Test extract_from_metadata normalizes 'function' to 'Function'."""
+        mock_settings.ENABLE_GRAPH_INDEX = True
+        mock_settings.GRAPH_USE_CODE_METADATA = True
+
+        extractor = CodeMetadataExtractor()
+        metadata = {
+            "symbol_name": "foo",
+            "symbol_type": "function",
+            "file_path": "src/m.py",
+        }
+
+        triplets = extractor.extract_from_metadata(metadata)
+
+        # Check defined_in triplet has normalized subject_type
+        defined_in = [t for t in triplets if t.predicate == "defined_in"]
+        assert len(defined_in) >= 1
+        assert defined_in[0].subject_type == "Function"  # Not "function"
+
+    @patch("agent_brain_server.indexing.graph_extractors.settings")
+    def test_extract_normalizes_method_type(self, mock_settings: MagicMock):
+        """Test extract_from_metadata normalizes 'method' to 'Method'."""
+        mock_settings.ENABLE_GRAPH_INDEX = True
+        mock_settings.GRAPH_USE_CODE_METADATA = True
+
+        extractor = CodeMetadataExtractor()
+        metadata = {
+            "symbol_name": "bar",
+            "symbol_type": "method",
+            "class_name": "MyClass",
+            "file_path": "src/m.py",
+        }
+
+        triplets = extractor.extract_from_metadata(metadata)
+
+        # Check class contains method triplet has normalized object_type
+        contains = [
+            t for t in triplets if t.predicate == "contains" and t.subject == "MyClass"
+        ]
+        assert len(contains) >= 1
+        assert contains[0].object_type == "Method"  # Not "method"
+
+    @patch("agent_brain_server.indexing.graph_extractors.settings")
+    def test_extract_normalizes_class_type(self, mock_settings: MagicMock):
+        """Test extract_from_metadata normalizes 'class' to 'Class'."""
+        mock_settings.ENABLE_GRAPH_INDEX = True
+        mock_settings.GRAPH_USE_CODE_METADATA = True
+
+        extractor = CodeMetadataExtractor()
+        metadata = {
+            "symbol_name": "MyClass",
+            "symbol_type": "class",
+            "file_path": "src/models.py",
+        }
+
+        triplets = extractor.extract_from_metadata(metadata)
+
+        # Check defined_in triplet has normalized subject_type
+        defined_in = [t for t in triplets if t.predicate == "defined_in"]
+        assert len(defined_in) >= 1
+        assert defined_in[0].subject_type == "Class"  # Not "class"
 
 
 class TestModuleFunctions:

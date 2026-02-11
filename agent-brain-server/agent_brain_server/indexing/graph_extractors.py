@@ -9,10 +9,18 @@ All extractors return GraphTriple objects for graph construction.
 
 import logging
 import re
-from typing import Any, Optional
+from typing import Any
 
 from agent_brain_server.config import settings
-from agent_brain_server.models.graph import GraphTriple
+from agent_brain_server.models.graph import (
+    CODE_ENTITY_TYPES,
+    DOC_ENTITY_TYPES,
+    ENTITY_TYPES,
+    INFRA_ENTITY_TYPES,
+    RELATIONSHIP_TYPES,
+    GraphTriple,
+    normalize_entity_type,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +38,8 @@ class LLMEntityExtractor:
 
     def __init__(
         self,
-        model: Optional[str] = None,
-        max_triplets: Optional[int] = None,
+        model: str | None = None,
+        max_triplets: int | None = None,
     ) -> None:
         """Initialize LLM entity extractor.
 
@@ -41,9 +49,9 @@ class LLMEntityExtractor:
         """
         self.model = model or settings.GRAPH_EXTRACTION_MODEL
         self.max_triplets = max_triplets or settings.GRAPH_MAX_TRIPLETS_PER_CHUNK
-        self._client: Optional[Any] = None
+        self._client: Any | None = None
 
-    def _get_client(self) -> Optional[Any]:
+    def _get_client(self) -> Any | None:
         """Get or create Anthropic client.
 
         Returns:
@@ -72,8 +80,8 @@ class LLMEntityExtractor:
     def extract_triplets(
         self,
         text: str,
-        max_triplets: Optional[int] = None,
-        source_chunk_id: Optional[str] = None,
+        max_triplets: int | None = None,
+        source_chunk_id: str | None = None,
     ) -> list[GraphTriple]:
         """Extract entity-relationship triplets from text using LLM.
 
@@ -140,23 +148,38 @@ class LLMEntityExtractor:
             return []
 
     def _build_extraction_prompt(self, text: str, max_triplets: int) -> str:
-        """Build the extraction prompt for the LLM.
+        """Build schema-aware extraction prompt for the LLM.
+
+        Includes full schema vocabulary organized by category to guide LLM extraction.
 
         Args:
             text: Text to extract from.
             max_triplets: Maximum number of triplets to request.
 
         Returns:
-            Formatted prompt string.
+            Formatted prompt string with schema vocabulary.
         """
+        # Build entity type lists organized by category
+        code_types = ", ".join(CODE_ENTITY_TYPES)
+        doc_types = ", ".join(DOC_ENTITY_TYPES)
+        infra_types = ", ".join(INFRA_ENTITY_TYPES)
+        predicates = ", ".join(RELATIONSHIP_TYPES)
+
         return f"""Extract key entity relationships from the following text.
 Return up to {max_triplets} triplets in the format:
 SUBJECT | SUBJECT_TYPE | PREDICATE | OBJECT | OBJECT_TYPE
 
+Valid entity types (SUBJECT_TYPE / OBJECT_TYPE):
+- Code: {code_types}
+- Documentation: {doc_types}
+- Infrastructure: {infra_types}
+
+Valid relationships (PREDICATE):
+{predicates}
+
 Rules:
-- SUBJECT and OBJECT are entity names (classes, functions, concepts, etc.)
-- SUBJECT_TYPE and OBJECT_TYPE are entity types (Class, Function, Module, Concept, etc.)
-- PREDICATE is the relationship (uses, calls, extends, implements, contains, etc.)
+- Use exact type/predicate names from lists above
+- Prefer specific types (Method over Function for class methods)
 - One triplet per line
 - Only output triplets, no explanations
 
@@ -168,16 +191,19 @@ Triplets:"""
     def _parse_triplets(
         self,
         response: str,
-        source_chunk_id: Optional[str] = None,
+        source_chunk_id: str | None = None,
     ) -> list[GraphTriple]:
-        """Parse triplets from LLM response.
+        """Parse triplets from LLM response with schema normalization.
+
+        Normalizes entity types and predicates to match schema vocabulary.
+        Logs warnings for unknown types but remains permissive.
 
         Args:
             response: Raw LLM response text.
             source_chunk_id: Optional source chunk ID.
 
         Returns:
-            List of parsed GraphTriple objects.
+            List of parsed GraphTriple objects with normalized types.
         """
         triplets: list[GraphTriple] = []
 
@@ -196,12 +222,29 @@ Triplets:"""
                 subject_type = None
                 object_type = None
             elif len(parts) >= 5:
-                subject, subject_type, predicate, obj, object_type = parts[:5]
-                # Clean up types
-                subject_type = subject_type if subject_type else None
-                object_type = object_type if object_type else None
+                subject, subject_type_raw, predicate, obj, object_type_raw = parts[:5]
+                # Normalize entity types using schema
+                subject_type = normalize_entity_type(
+                    subject_type_raw if subject_type_raw else None
+                )
+                object_type = normalize_entity_type(
+                    object_type_raw if object_type_raw else None
+                )
+
+                # Log debug warnings for unknown entity types (permissive, not strict)
+                if subject_type and subject_type not in ENTITY_TYPES:
+                    logger.debug(f"Unknown subject_type from LLM: {subject_type}")
+                if object_type and object_type not in ENTITY_TYPES:
+                    logger.debug(f"Unknown object_type from LLM: {object_type}")
             else:
                 continue
+
+            # Normalize predicate: lowercase and strip
+            predicate = predicate.lower().strip()
+
+            # Log debug warning for unknown predicates (permissive)
+            if predicate not in RELATIONSHIP_TYPES:
+                logger.debug(f"Unknown predicate from LLM: {predicate}")
 
             # Validate and clean
             if not subject or not predicate or not obj:
@@ -234,13 +277,13 @@ class CodeMetadataExtractor:
     pipeline, making it fast and deterministic.
     """
 
-    # Common relationship predicates for code
-    PREDICATE_IMPORTS = "imports"
-    PREDICATE_CONTAINS = "contains"
-    PREDICATE_CALLS = "calls"
-    PREDICATE_EXTENDS = "extends"
-    PREDICATE_IMPLEMENTS = "implements"
-    PREDICATE_DEFINED_IN = "defined_in"
+    # Common relationship predicates for code (aligned with RelationshipType schema)
+    PREDICATE_IMPORTS = "imports"  # matches RelationshipType
+    PREDICATE_CONTAINS = "contains"  # matches RelationshipType
+    PREDICATE_CALLS = "calls"  # matches RelationshipType
+    PREDICATE_EXTENDS = "extends"  # matches RelationshipType
+    PREDICATE_IMPLEMENTS = "implements"  # matches RelationshipType
+    PREDICATE_DEFINED_IN = "defined_in"  # matches RelationshipType
 
     def __init__(self) -> None:
         """Initialize code metadata extractor."""
@@ -249,7 +292,7 @@ class CodeMetadataExtractor:
     def extract_from_metadata(
         self,
         metadata: dict[str, Any],
-        source_chunk_id: Optional[str] = None,
+        source_chunk_id: str | None = None,
     ) -> list[GraphTriple]:
         """Extract import and containment relationships from code metadata.
 
@@ -291,7 +334,7 @@ class CodeMetadataExtractor:
                 if isinstance(imp, str) and imp:
                     triplet = GraphTriple(
                         subject=symbol_name or module_name or "unknown",
-                        subject_type=symbol_type or "Module",
+                        subject_type=normalize_entity_type(symbol_type) or "Module",
                         predicate=self.PREDICATE_IMPORTS,
                         object=imp,
                         object_type="Module",
@@ -306,7 +349,7 @@ class CodeMetadataExtractor:
                 subject_type="Class" if "." not in parent_symbol else "Module",
                 predicate=self.PREDICATE_CONTAINS,
                 object=symbol_name,
-                object_type=symbol_type or "Symbol",
+                object_type=normalize_entity_type(symbol_type) or "Symbol",
                 source_chunk_id=source_chunk_id,
             )
             triplets.append(triplet)
@@ -319,7 +362,7 @@ class CodeMetadataExtractor:
                     subject_type="Class",
                     predicate=self.PREDICATE_CONTAINS,
                     object=symbol_name,
-                    object_type=symbol_type.capitalize(),
+                    object_type=normalize_entity_type(symbol_type),
                     source_chunk_id=source_chunk_id,
                 )
                 triplets.append(triplet)
@@ -331,7 +374,7 @@ class CodeMetadataExtractor:
                 subject_type="Module",
                 predicate=self.PREDICATE_CONTAINS,
                 object=symbol_name,
-                object_type=symbol_type or "Symbol",
+                object_type=normalize_entity_type(symbol_type) or "Symbol",
                 source_chunk_id=source_chunk_id,
             )
             triplets.append(triplet)
@@ -340,7 +383,7 @@ class CodeMetadataExtractor:
         if symbol_name and module_name:
             triplet = GraphTriple(
                 subject=symbol_name,
-                subject_type=symbol_type or "Symbol",
+                subject_type=normalize_entity_type(symbol_type) or "Symbol",
                 predicate=self.PREDICATE_DEFINED_IN,
                 object=module_name,
                 object_type="Module",
@@ -361,7 +404,7 @@ class CodeMetadataExtractor:
         )
         return triplets
 
-    def _extract_module_name(self, file_path: str) -> Optional[str]:
+    def _extract_module_name(self, file_path: str) -> str | None:
         """Extract module name from file path.
 
         Args:
@@ -392,8 +435,8 @@ class CodeMetadataExtractor:
     def extract_from_text(
         self,
         text: str,
-        language: Optional[str] = None,
-        source_chunk_id: Optional[str] = None,
+        language: str | None = None,
+        source_chunk_id: str | None = None,
     ) -> list[GraphTriple]:
         """Extract relationships from code text using pattern matching.
 
@@ -439,7 +482,7 @@ class CodeMetadataExtractor:
     def _extract_python_imports(
         self,
         text: str,
-        source_chunk_id: Optional[str],
+        source_chunk_id: str | None,
     ) -> list[GraphTriple]:
         """Extract imports from Python code."""
         triplets: list[GraphTriple] = []
@@ -477,7 +520,7 @@ class CodeMetadataExtractor:
     def _extract_js_imports(
         self,
         text: str,
-        source_chunk_id: Optional[str],
+        source_chunk_id: str | None,
     ) -> list[GraphTriple]:
         """Extract imports from JavaScript/TypeScript code."""
         triplets: list[GraphTriple] = []
@@ -515,7 +558,7 @@ class CodeMetadataExtractor:
     def _extract_java_imports(
         self,
         text: str,
-        source_chunk_id: Optional[str],
+        source_chunk_id: str | None,
     ) -> list[GraphTriple]:
         """Extract imports from Java code."""
         triplets: list[GraphTriple] = []
@@ -539,7 +582,7 @@ class CodeMetadataExtractor:
     def _extract_go_imports(
         self,
         text: str,
-        source_chunk_id: Optional[str],
+        source_chunk_id: str | None,
     ) -> list[GraphTriple]:
         """Extract imports from Go code."""
         triplets: list[GraphTriple] = []
@@ -578,8 +621,8 @@ class CodeMetadataExtractor:
 
 
 # Module-level singleton instances
-_llm_extractor: Optional[LLMEntityExtractor] = None
-_code_extractor: Optional[CodeMetadataExtractor] = None
+_llm_extractor: LLMEntityExtractor | None = None
+_code_extractor: CodeMetadataExtractor | None = None
 
 
 def get_llm_extractor() -> LLMEntityExtractor:

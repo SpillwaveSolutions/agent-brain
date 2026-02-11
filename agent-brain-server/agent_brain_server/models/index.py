@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -53,7 +52,7 @@ class IndexRequest(BaseModel):
         default=False,
         description="Whether to index source code files alongside documents",
     )
-    supported_languages: Optional[list[str]] = Field(
+    supported_languages: list[str] | None = Field(
         default=None,
         description="Programming languages to index (defaults to all supported)",
         examples=[["python", "typescript"], ["java", "kotlin"]],
@@ -66,14 +65,18 @@ class IndexRequest(BaseModel):
         default=False,
         description="Generate LLM summaries for code chunks to improve semantic search",
     )
+    force: bool = Field(
+        default=False,
+        description="Force re-indexing even if embedding provider has changed",
+    )
 
     # File filtering options
-    include_patterns: Optional[list[str]] = Field(
+    include_patterns: list[str] | None = Field(
         default=None,
         description="Additional file patterns to include (supports wildcards)",
         examples=[["*.md", "*.py"], ["docs/**/*.md", "src/**/*.py"]],
     )
-    exclude_patterns: Optional[list[str]] = Field(
+    exclude_patterns: list[str] | None = Field(
         default=None,
         description="Additional file patterns to exclude (supports wildcards)",
         examples=[["*.log", "__pycache__/**"], ["node_modules/**", "*.tmp"]],
@@ -115,7 +118,7 @@ class IndexResponse(BaseModel):
 
     job_id: str = Field(..., description="Unique identifier for the indexing job")
     status: str = Field(..., description="Current status of the indexing job")
-    message: Optional[str] = Field(None, description="Additional status message")
+    message: str | None = Field(None, description="Additional status message")
 
     model_config = {
         "json_schema_extra": {
@@ -133,21 +136,19 @@ class IndexResponse(BaseModel):
 class IndexingState(BaseModel):
     """Internal state model for tracking indexing progress."""
 
-    current_job_id: Optional[str] = Field(None, description="Current job ID")
+    current_job_id: str | None = Field(None, description="Current job ID")
     status: IndexingStatusEnum = Field(
         default=IndexingStatusEnum.IDLE,
         description="Current indexing status",
     )
     is_indexing: bool = Field(default=False, description="Whether indexing is active")
-    folder_path: Optional[str] = Field(None, description="Folder being indexed")
+    folder_path: str | None = Field(None, description="Folder being indexed")
     total_documents: int = Field(default=0, description="Total documents found")
     processed_documents: int = Field(default=0, description="Documents processed")
     total_chunks: int = Field(default=0, description="Total chunks created")
-    started_at: Optional[datetime] = Field(None, description="When indexing started")
-    completed_at: Optional[datetime] = Field(
-        None, description="When indexing completed"
-    )
-    error: Optional[str] = Field(None, description="Error message if failed")
+    started_at: datetime | None = Field(None, description="When indexing started")
+    completed_at: datetime | None = Field(None, description="When indexing completed")
+    error: str | None = Field(None, description="Error message if failed")
 
     @property
     def progress_percent(self) -> float:

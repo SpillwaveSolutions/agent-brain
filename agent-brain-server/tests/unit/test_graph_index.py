@@ -476,6 +476,269 @@ class TestExtractQueryEntities:
         assert len(entities) <= 10
 
 
+class TestQueryByType:
+    """Tests for GraphIndexManager.query_by_type (SCHEMA-04)."""
+
+    @patch("agent_brain_server.indexing.graph_index.settings")
+    def test_query_by_type_no_filters(
+        self, mock_settings, mock_graph_store, mock_llm_extractor, mock_code_extractor
+    ):
+        """Test query_by_type without filters delegates to base query."""
+        mock_settings.ENABLE_GRAPH_INDEX = True
+        mock_graph_store.is_initialized = True
+
+        class SimpleGraphStore:
+            def __init__(self):
+                self._relationships = [
+                    {
+                        "subject": "FastAPI",
+                        "subject_type": "Class",
+                        "predicate": "uses",
+                        "object": "Pydantic",
+                        "object_type": "Class",
+                        "source_chunk_id": "chunk_1",
+                    }
+                ]
+
+        mock_graph_store.graph_store = SimpleGraphStore()
+
+        manager = GraphIndexManager(
+            graph_store=mock_graph_store,
+            llm_extractor=mock_llm_extractor,
+            code_extractor=mock_code_extractor,
+        )
+
+        # Call without filters should behave like base query
+        result = manager.query_by_type(
+            "FastAPI", entity_types=None, relationship_types=None
+        )
+
+        assert len(result) >= 1
+
+    @patch("agent_brain_server.indexing.graph_index.settings")
+    def test_query_by_type_entity_filter(
+        self, mock_settings, mock_graph_store, mock_llm_extractor, mock_code_extractor
+    ):
+        """Test query_by_type filters by entity types."""
+        mock_settings.ENABLE_GRAPH_INDEX = True
+        mock_graph_store.is_initialized = True
+
+        class SimpleGraphStore:
+            def __init__(self):
+                self._relationships = [
+                    {
+                        "subject": "MyClass",
+                        "subject_type": "Class",
+                        "predicate": "contains",
+                        "object": "my_method",
+                        "object_type": "Method",
+                        "source_chunk_id": "chunk_1",
+                    },
+                    {
+                        "subject": "my_package",
+                        "subject_type": "Package",
+                        "predicate": "contains",
+                        "object": "MyClass",
+                        "object_type": "Class",
+                        "source_chunk_id": "chunk_2",
+                    },
+                    {
+                        "subject": "standalone_func",
+                        "subject_type": "Function",
+                        "predicate": "calls",
+                        "object": "other_func",
+                        "object_type": "Function",
+                        "source_chunk_id": "chunk_3",
+                    },
+                ]
+
+        mock_graph_store.graph_store = SimpleGraphStore()
+
+        manager = GraphIndexManager(
+            graph_store=mock_graph_store,
+            llm_extractor=mock_llm_extractor,
+            code_extractor=mock_code_extractor,
+        )
+
+        # Filter to only Class entities
+        result = manager.query_by_type(
+            "MyClass", entity_types=["Class"], relationship_types=None, top_k=10
+        )
+
+        # Should return only results involving Class entities
+        for r in result:
+            subject_type = r.get("subject_type")
+            object_type = r.get("object_type")
+            assert subject_type == "Class" or object_type == "Class"
+
+    @patch("agent_brain_server.indexing.graph_index.settings")
+    def test_query_by_type_relationship_filter(
+        self, mock_settings, mock_graph_store, mock_llm_extractor, mock_code_extractor
+    ):
+        """Test query_by_type filters by relationship types."""
+        mock_settings.ENABLE_GRAPH_INDEX = True
+        mock_graph_store.is_initialized = True
+
+        class SimpleGraphStore:
+            def __init__(self):
+                self._relationships = [
+                    {
+                        "subject": "ClassA",
+                        "subject_type": "Class",
+                        "predicate": "calls",
+                        "object": "method_b",
+                        "object_type": "Method",
+                        "source_chunk_id": "chunk_1",
+                    },
+                    {
+                        "subject": "ClassA",
+                        "subject_type": "Class",
+                        "predicate": "extends",
+                        "object": "ClassB",
+                        "object_type": "Class",
+                        "source_chunk_id": "chunk_2",
+                    },
+                    {
+                        "subject": "module_a",
+                        "subject_type": "Module",
+                        "predicate": "imports",
+                        "object": "module_b",
+                        "object_type": "Module",
+                        "source_chunk_id": "chunk_3",
+                    },
+                ]
+
+        mock_graph_store.graph_store = SimpleGraphStore()
+
+        manager = GraphIndexManager(
+            graph_store=mock_graph_store,
+            llm_extractor=mock_llm_extractor,
+            code_extractor=mock_code_extractor,
+        )
+
+        # Filter to only "calls" relationships
+        result = manager.query_by_type(
+            "ClassA", entity_types=None, relationship_types=["calls"], top_k=10
+        )
+
+        # Should return only "calls" relationships
+        for r in result:
+            assert r.get("predicate") == "calls"
+
+    @patch("agent_brain_server.indexing.graph_index.settings")
+    def test_query_by_type_combined_filters(
+        self, mock_settings, mock_graph_store, mock_llm_extractor, mock_code_extractor
+    ):
+        """Test query_by_type with both entity and relationship filters."""
+        mock_settings.ENABLE_GRAPH_INDEX = True
+        mock_graph_store.is_initialized = True
+
+        class SimpleGraphStore:
+            def __init__(self):
+                self._relationships = [
+                    {
+                        "subject": "ClassA",
+                        "subject_type": "Class",
+                        "predicate": "calls",
+                        "object": "method_b",
+                        "object_type": "Method",
+                        "source_chunk_id": "chunk_1",
+                    },
+                    {
+                        "subject": "ClassA",
+                        "subject_type": "Class",
+                        "predicate": "extends",
+                        "object": "ClassB",
+                        "object_type": "Class",
+                        "source_chunk_id": "chunk_2",
+                    },
+                    {
+                        "subject": "func_a",
+                        "subject_type": "Function",
+                        "predicate": "calls",
+                        "object": "func_b",
+                        "object_type": "Function",
+                        "source_chunk_id": "chunk_3",
+                    },
+                ]
+
+        mock_graph_store.graph_store = SimpleGraphStore()
+
+        manager = GraphIndexManager(
+            graph_store=mock_graph_store,
+            llm_extractor=mock_llm_extractor,
+            code_extractor=mock_code_extractor,
+        )
+
+        # Filter to Class entities with "extends" relationship
+        result = manager.query_by_type(
+            "ClassA",
+            entity_types=["Class"],
+            relationship_types=["extends"],
+            top_k=10,
+        )
+
+        # Should return only results matching both filters
+        assert len(result) == 1
+        assert result[0].get("predicate") == "extends"
+        assert result[0].get("subject_type") == "Class"
+
+    @patch("agent_brain_server.indexing.graph_index.settings")
+    def test_query_by_type_empty_after_filter(
+        self, mock_settings, mock_graph_store, mock_llm_extractor, mock_code_extractor
+    ):
+        """Test query_by_type returns empty when filters match nothing."""
+        mock_settings.ENABLE_GRAPH_INDEX = True
+        mock_graph_store.is_initialized = True
+
+        class SimpleGraphStore:
+            def __init__(self):
+                self._relationships = [
+                    {
+                        "subject": "ClassA",
+                        "subject_type": "Class",
+                        "predicate": "calls",
+                        "object": "method_b",
+                        "object_type": "Method",
+                        "source_chunk_id": "chunk_1",
+                    }
+                ]
+
+        mock_graph_store.graph_store = SimpleGraphStore()
+
+        manager = GraphIndexManager(
+            graph_store=mock_graph_store,
+            llm_extractor=mock_llm_extractor,
+            code_extractor=mock_code_extractor,
+        )
+
+        # Filter with non-matching entity types
+        result = manager.query_by_type(
+            "ClassA", entity_types=["Package"], relationship_types=None, top_k=10
+        )
+
+        assert len(result) == 0
+
+    @patch("agent_brain_server.indexing.graph_index.settings")
+    def test_query_by_type_disabled(
+        self, mock_settings, mock_graph_store, mock_llm_extractor, mock_code_extractor
+    ):
+        """Test query_by_type returns empty when ENABLE_GRAPH_INDEX is False."""
+        mock_settings.ENABLE_GRAPH_INDEX = False
+
+        manager = GraphIndexManager(
+            graph_store=mock_graph_store,
+            llm_extractor=mock_llm_extractor,
+            code_extractor=mock_code_extractor,
+        )
+
+        result = manager.query_by_type(
+            "test", entity_types=["Class"], relationship_types=None, top_k=10
+        )
+
+        assert result == []
+
+
 class TestModuleFunctions:
     """Tests for module-level convenience functions."""
 

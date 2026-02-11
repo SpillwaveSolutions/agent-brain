@@ -3,7 +3,6 @@
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Optional
 
 from agent_brain_server.job_queue.job_store import JobQueueStore
 from agent_brain_server.models import IndexingState, IndexingStatusEnum, IndexRequest
@@ -46,9 +45,9 @@ class JobWorker:
         self,
         job_store: JobQueueStore,
         indexing_service: IndexingService,
-        max_runtime_seconds: Optional[int] = None,
-        progress_checkpoint_interval: Optional[int] = None,
-        poll_interval_seconds: Optional[float] = None,
+        max_runtime_seconds: int | None = None,
+        progress_checkpoint_interval: int | None = None,
+        poll_interval_seconds: float | None = None,
     ):
         """Initialize the job worker.
 
@@ -71,8 +70,8 @@ class JobWorker:
 
         # Internal state
         self._running = False
-        self._task: Optional[asyncio.Task[None]] = None
-        self._current_job: Optional[JobRecord] = None
+        self._task: asyncio.Task[None] | None = None
+        self._current_job: JobRecord | None = None
         self._stop_event = asyncio.Event()
 
     @property
@@ -81,7 +80,7 @@ class JobWorker:
         return self._running and self._task is not None and not self._task.done()
 
     @property
-    def current_job(self) -> Optional[JobRecord]:
+    def current_job(self) -> JobRecord | None:
         """Get the currently processing job, if any."""
         return self._current_job
 

@@ -14,7 +14,6 @@ import socket
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Optional
 
 import click
 import uvicorn
@@ -24,7 +23,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from agent_brain_server import __version__
 from agent_brain_server.config import settings
 from agent_brain_server.config.provider_config import (
+    ValidationSeverity,
     clear_settings_cache,
+    has_critical_errors,
     load_provider_settings,
     validate_provider_config,
 )
@@ -52,11 +53,58 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Module-level state for multi-instance mode
-_runtime_state: Optional[RuntimeState] = None
-_state_dir: Optional[Path] = None
+_runtime_state: RuntimeState | None = None
+_state_dir: Path | None = None
 
 # Module-level reference to job worker for cleanup
-_job_worker: Optional[JobWorker] = None
+_job_worker: JobWorker | None = None
+
+
+async def check_embedding_compatibility(
+    vector_store: VectorStoreManager,
+) -> str | None:
+    """Check if current embedding config matches existing index.
+
+    Args:
+        vector_store: Initialized vector store manager
+
+    Returns:
+        Warning message if mismatch detected, None if compatible
+    """
+    try:
+        stored_metadata = await vector_store.get_embedding_metadata()
+        if stored_metadata is None:
+            return None  # No existing index
+
+        # Get current config
+        provider_settings = load_provider_settings()
+        from agent_brain_server.providers.factory import ProviderRegistry
+
+        embedding_provider = ProviderRegistry.get_embedding_provider(
+            provider_settings.embedding
+        )
+        current_dimensions = embedding_provider.get_dimensions()
+        current_provider = str(provider_settings.embedding.provider)
+        current_model = provider_settings.embedding.model
+
+        # Check for mismatch
+        if (
+            stored_metadata.dimensions != current_dimensions
+            or stored_metadata.provider != current_provider
+            or stored_metadata.model != current_model
+        ):
+            return (
+                f"Embedding provider mismatch: index was created with "
+                f"{stored_metadata.provider}/{stored_metadata.model} "
+                f"({stored_metadata.dimensions}d), but current config uses "
+                f"{current_provider}/{current_model} ({current_dimensions}d). "
+                f"Queries may return incorrect results. "
+                f"Re-index with --force to update."
+            )
+        return None
+    except Exception as e:
+        logger.warning(f"Failed to check embedding compatibility: {e}")
+        return None
 
 
 @asynccontextmanager
@@ -80,15 +128,34 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Load and validate provider configuration
     # Clear cache first to ensure we pick up env vars set by CLI
     clear_settings_cache()
+    strict_mode = settings.AGENT_BRAIN_STRICT_MODE
+
     try:
         provider_settings = load_provider_settings()
-        validation_errors = validate_provider_config(provider_settings)
+        enable_reranking = getattr(settings, "ENABLE_RERANKING", False)
+        validation_errors = validate_provider_config(
+            provider_settings,
+            reranking_enabled=bool(enable_reranking),
+        )
 
         if validation_errors:
             for error in validation_errors:
-                logger.warning(f"Provider config warning: {error}")
-            # Log but don't fail - providers may work if keys are set later
-            # or if using Ollama which doesn't need keys
+                if error.severity == ValidationSeverity.CRITICAL:
+                    logger.error(f"Provider config error: {error}")
+                else:
+                    logger.warning(f"Provider config warning: {error}")
+
+            # In strict mode, fail on critical errors
+            if strict_mode and has_critical_errors(validation_errors):
+                critical_msgs = [
+                    str(e)
+                    for e in validation_errors
+                    if e.severity == ValidationSeverity.CRITICAL
+                ]
+                raise RuntimeError(
+                    f"Critical provider configuration errors (strict mode): "
+                    f"{'; '.join(critical_msgs)}"
+                )
 
         # Log active provider configuration
         logger.info(
@@ -115,7 +182,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         state_dir = Path(settings.AGENT_BRAIN_STATE_DIR).resolve()
         logger.info(f"Using state directory from environment: {state_dir}")
 
-    storage_paths: Optional[dict[str, Path]] = None
+    storage_paths: dict[str, Path] | None = None
 
     if state_dir is not None:
         # Per-project mode with explicit state directory
@@ -137,7 +204,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.info(f"State directory: {state_dir}")
 
     # Determine project root for path validation
-    project_root: Optional[Path] = None
+    project_root: Path | None = None
     if state_dir is not None:
         # Project root is 3 levels up from .claude/agent-brain
         project_root = state_dir.parent.parent.parent
@@ -162,6 +229,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await vector_store.initialize()
         app.state.vector_store = vector_store
         logger.info("Vector store initialized")
+
+        # Check embedding compatibility (PROV-07)
+        embedding_warning = await check_embedding_compatibility(vector_store)
+        if embedding_warning:
+            logger.warning(f"Embedding compatibility: {embedding_warning}")
+            # Store warning for health endpoint
+            app.state.embedding_warning = embedding_warning
+        else:
+            app.state.embedding_warning = None
 
         bm25_manager = BM25IndexManager(
             persist_dir=bm25_dir,
@@ -258,6 +334,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.instance_id = _runtime_state.instance_id if _runtime_state else None
         app.state.project_id = _runtime_state.project_id if _runtime_state else None
         app.state.active_projects = None  # For shared mode (future)
+        app.state.strict_mode = strict_mode
 
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}")
@@ -338,10 +415,10 @@ def _find_free_port() -> int:
 
 
 def run(
-    host: Optional[str] = None,
-    port: Optional[int] = None,
-    reload: Optional[bool] = None,
-    state_dir: Optional[str] = None,
+    host: str | None = None,
+    port: int | None = None,
+    reload: bool | None = None,
+    state_dir: str | None = None,
 ) -> None:
     """Run the server using uvicorn.
 
@@ -423,11 +500,11 @@ def run(
     help="Project directory (auto-resolves state-dir to .claude/agent-brain)",
 )
 def cli(
-    host: Optional[str],
-    port: Optional[int],
-    reload: Optional[bool],
-    state_dir: Optional[str],
-    project_dir: Optional[str],
+    host: str | None,
+    port: int | None,
+    reload: bool | None,
+    state_dir: str | None,
+    project_dir: str | None,
 ) -> None:
     """Agent Brain RAG Server - Document indexing and semantic search API.
 

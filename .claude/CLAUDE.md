@@ -2,15 +2,26 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with the Agent Brain repository.
 
-## CRITICAL: Pre-Push Requirement
+## CRITICAL: NEVER PUSH WITHOUT TESTING
 
-**BEFORE EVERY `git push`**, you MUST run:
+**ABSOLUTE RULE: You MUST run `task before-push` BEFORE EVERY `git push`. NO EXCEPTIONS.**
 
 ```bash
 task before-push
 ```
 
-This runs format, lint, typecheck, and tests. **Do NOT push code that fails this check.** PRs are expensive due to CI testing - catch errors locally first.
+This runs format, lint, typecheck, and tests. **Do NOT push code that fails this check.**
+
+**Why this matters:** PRs trigger expensive CI pipelines. Pushing broken code wastes time and money. Every push failure that could have been caught locally is unacceptable.
+
+**Enforcement checklist (verify ALL pass before pushing):**
+1. `task before-push` exits with code 0
+2. No lint errors (Ruff)
+3. No type errors (mypy)
+4. All tests pass
+5. Code is formatted (Black)
+
+**If `task before-push` fails, DO NOT push. Fix the issues first.**
 
 ## Repository Status
 
@@ -87,10 +98,13 @@ task pr-qa-gate
 
 ## Quality Assurance Protocol
 
+**NEVER PUSH WITHOUT TESTING. NEVER. NOT EVEN "JUST A SMALL CHANGE".**
+
 **MANDATORY**: Before pushing any changes, you MUST run:
 
 ```bash
-task before-push
+task before-push    # MUST pass before ANY push
+task pr-qa-gate     # MUST pass before ANY PR
 ```
 
 This ensures:
@@ -100,6 +114,8 @@ This ensures:
 4. All tests pass with coverage report (>50%)
 
 **MANDATORY**: Any feature or task is not considered done unless `task pr-qa-gate` passes successfully.
+
+**If it fails, FIX IT. Then run it again. Only push when it passes.**
 
 ### End-to-End Validation
 
@@ -132,8 +148,10 @@ This validates the complete workflow from server startup to advanced querying.
 
 - Use conventional commits: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`
 - Create feature branches from main
-- **MANDATORY**: Run `task before-push` before pushing to any branch
+- **MANDATORY**: Run `task before-push` before pushing to any branch — NEVER skip this
+- **MANDATORY**: Run `task pr-qa-gate` before creating PRs
 - PRs require end-to-end validation with `scripts/quick_start_guide.sh`
+- **If `task before-push` fails, DO NOT push. Fix first, test again, then push.**
 
 ## Environment Setup
 

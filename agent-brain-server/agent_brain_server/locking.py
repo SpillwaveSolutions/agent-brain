@@ -3,8 +3,8 @@
 import logging
 import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +166,7 @@ def release_lock(state_dir: Path) -> None:
     logger.info(f"Lock released: {lock_path}")
 
 
-def read_pid(state_dir: Path) -> Optional[int]:
+def read_pid(state_dir: Path) -> int | None:
     """Read the PID from the PID file.
 
     Args:

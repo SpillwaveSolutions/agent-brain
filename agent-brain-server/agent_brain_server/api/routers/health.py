@@ -6,7 +6,14 @@ from typing import Literal
 from fastapi import APIRouter, Request
 
 from agent_brain_server import __version__
+from agent_brain_server.config.provider_config import (
+    _find_config_file,
+    load_provider_settings,
+    validate_provider_config,
+)
 from agent_brain_server.models import HealthStatus, IndexingStatus
+from agent_brain_server.models.health import ProviderHealth, ProvidersStatus
+from agent_brain_server.providers.factory import ProviderRegistry
 
 router = APIRouter()
 
@@ -162,4 +169,103 @@ async def indexing_status(request: Request) -> IndexingStatus:
         queue_pending=queue_pending,
         queue_running=queue_running,
         current_job_running_time_ms=current_job_running_time_ms,
+    )
+
+
+@router.get(
+    "/providers",
+    response_model=ProvidersStatus,
+    summary="Provider Status",
+    description="Returns status of all configured providers with health checks.",
+)
+async def providers_status(request: Request) -> ProvidersStatus:
+    """Get detailed status of all configured providers.
+
+    Returns:
+        ProvidersStatus with configuration source, validation errors,
+        and health status of each provider.
+    """
+    # Get config source
+    config_file = _find_config_file()
+    config_source = str(config_file) if config_file else None
+
+    # Get strict mode from app state
+    strict_mode = getattr(request.app.state, "strict_mode", False)
+
+    # Load settings and validate
+    settings = load_provider_settings()
+    validation_errors = validate_provider_config(settings)
+    error_messages = [str(e) for e in validation_errors]
+
+    providers: list[ProviderHealth] = []
+
+    # Check embedding provider
+    try:
+        embedding_provider = ProviderRegistry.get_embedding_provider(settings.embedding)
+        embedding_status = "healthy"
+        embedding_message = None
+        embedding_dimensions = embedding_provider.get_dimensions()
+    except Exception as e:
+        embedding_status = "unavailable"
+        embedding_message = str(e)
+        embedding_dimensions = None
+
+    providers.append(
+        ProviderHealth(
+            provider_type="embedding",
+            provider_name=str(settings.embedding.provider),
+            model=settings.embedding.model,
+            status=embedding_status,
+            message=embedding_message,
+            dimensions=embedding_dimensions,
+        )
+    )
+
+    # Check summarization provider
+    try:
+        _ = ProviderRegistry.get_summarization_provider(settings.summarization)
+        summarization_status = "healthy"
+        summarization_message = None
+    except Exception as e:
+        summarization_status = "unavailable"
+        summarization_message = str(e)
+
+    providers.append(
+        ProviderHealth(
+            provider_type="summarization",
+            provider_name=str(settings.summarization.provider),
+            model=settings.summarization.model,
+            status=summarization_status,
+            message=summarization_message,
+        )
+    )
+
+    # Check reranker provider if reranking is enabled
+    from agent_brain_server.config import settings as app_settings
+
+    if app_settings.ENABLE_RERANKING:
+        try:
+            _ = ProviderRegistry.get_reranker_provider(settings.reranker)
+            reranker_status = "healthy"
+            reranker_message = None
+        except Exception as e:
+            reranker_status = "unavailable"
+            reranker_message = str(e)
+
+        providers.append(
+            ProviderHealth(
+                provider_type="reranker",
+                provider_name=str(settings.reranker.provider),
+                model=settings.reranker.model,
+                status=reranker_status,
+                message=reranker_message,
+            )
+        )
+
+    return ProvidersStatus(
+        config_source=config_source,
+        strict_mode=strict_mode,
+        validation_errors=error_messages,
+        providers=providers,
+        timestamp=datetime.now(timezone.utc),
     )

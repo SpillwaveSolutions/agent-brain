@@ -3,12 +3,11 @@
 import logging
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 
-def resolve_project_root(start_path: Optional[Path] = None) -> Path:
+def resolve_project_root(start_path: Path | None = None) -> Path:
     """Resolve the canonical project root directory.
 
     Resolution order:
@@ -40,7 +39,7 @@ def resolve_project_root(start_path: Optional[Path] = None) -> Path:
     return start
 
 
-def _resolve_git_root(start: Path) -> Optional[Path]:
+def _resolve_git_root(start: Path) -> Path | None:
     """Resolve git repository root with timeout.
 
     Args:
@@ -64,7 +63,7 @@ def _resolve_git_root(start: Path) -> Optional[Path]:
     return None
 
 
-def _walk_up_for_marker(start: Path) -> Optional[Path]:
+def _walk_up_for_marker(start: Path) -> Path | None:
     """Walk up directories looking for project markers.
 
     Looks for .claude/ directory or pyproject.toml file.

@@ -1,7 +1,7 @@
 """Health status models."""
 
 from datetime import datetime, timezone
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -13,7 +13,7 @@ class HealthStatus(BaseModel):
         ...,
         description="Current server health status",
     )
-    message: Optional[str] = Field(
+    message: str | None = Field(
         None,
         description="Additional status message",
     )
@@ -25,19 +25,19 @@ class HealthStatus(BaseModel):
         default="2.0.0",
         description="Server version",
     )
-    mode: Optional[str] = Field(
+    mode: str | None = Field(
         default=None,
         description="Instance mode: 'project' or 'shared'",
     )
-    instance_id: Optional[str] = Field(
+    instance_id: str | None = Field(
         default=None,
         description="Unique instance identifier",
     )
-    project_id: Optional[str] = Field(
+    project_id: str | None = Field(
         default=None,
         description="Project identifier (shared mode)",
     )
-    active_projects: Optional[int] = Field(
+    active_projects: int | None = Field(
         default=None,
         description="Number of active projects (shared mode)",
     )
@@ -87,7 +87,7 @@ class IndexingStatus(BaseModel):
         default=False,
         description="Whether indexing is currently in progress",
     )
-    current_job_id: Optional[str] = Field(
+    current_job_id: str | None = Field(
         None,
         description="ID of the current indexing job",
     )
@@ -97,7 +97,7 @@ class IndexingStatus(BaseModel):
         le=100.0,
         description="Progress percentage of current indexing job",
     )
-    last_indexed_at: Optional[datetime] = Field(
+    last_indexed_at: datetime | None = Field(
         None,
         description="Timestamp of last completed indexing operation",
     )
@@ -106,7 +106,7 @@ class IndexingStatus(BaseModel):
         description="List of folders that have been indexed",
     )
     # Graph index status (Feature 113)
-    graph_index: Optional[dict[str, Any]] = Field(
+    graph_index: dict[str, Any] | None = Field(
         default=None,
         description="Graph index status with entity_count, relationship_count, etc.",
     )
@@ -121,7 +121,7 @@ class IndexingStatus(BaseModel):
         ge=0,
         description="Number of running jobs (0 or 1)",
     )
-    current_job_running_time_ms: Optional[int] = Field(
+    current_job_running_time_ms: int | None = Field(
         None,
         description="Running time of current job in milliseconds",
     )
@@ -151,3 +151,34 @@ class IndexingStatus(BaseModel):
             ]
         }
     }
+
+
+class ProviderHealth(BaseModel):
+    """Health status for a single provider."""
+
+    provider_type: str = Field(description="Type: embedding, summarization, reranker")
+    provider_name: str = Field(description="Provider name (e.g., openai, ollama)")
+    model: str = Field(description="Model being used")
+    status: str = Field(description="Status: healthy, degraded, unavailable")
+    message: str | None = Field(default=None, description="Status message")
+    dimensions: int | None = Field(
+        default=None, description="Embedding dimensions (for embedding providers)"
+    )
+
+
+class ProvidersStatus(BaseModel):
+    """Status of all configured providers."""
+
+    config_source: str | None = Field(
+        default=None, description="Path to config file if loaded"
+    )
+    strict_mode: bool = Field(
+        default=False, description="Whether strict validation is enabled"
+    )
+    validation_errors: list[str] = Field(
+        default_factory=list, description="Validation error messages"
+    )
+    providers: list[ProviderHealth] = Field(
+        default_factory=list, description="Status of each provider"
+    )
+    timestamp: datetime = Field(description="Status check timestamp")

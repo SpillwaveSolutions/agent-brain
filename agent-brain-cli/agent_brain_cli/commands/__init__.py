@@ -1,5 +1,6 @@
 """CLI commands for agent-brain."""
 
+from .config import config_group
 from .index import index_command
 from .init import init_command
 from .jobs import jobs_command
@@ -11,6 +12,7 @@ from .status import status_command
 from .stop import stop_command
 
 __all__ = [
+    "config_group",
     "index_command",
     "init_command",
     "jobs_command",

@@ -4,7 +4,7 @@ import logging
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 from enum import Enum
-from typing import Optional, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ class EmbeddingProvider(Protocol):
     async def embed_texts(
         self,
         texts: list[str],
-        progress_callback: Optional[Callable[[int, int], Awaitable[None]]] = None,
+        progress_callback: Callable[[int, int], Awaitable[None]] | None = None,
     ) -> list[list[float]]:
         """Generate embeddings for multiple texts.
 
@@ -159,7 +159,7 @@ class BaseEmbeddingProvider(ABC):
     async def embed_texts(
         self,
         texts: list[str],
-        progress_callback: Optional[Callable[[int, int], Awaitable[None]]] = None,
+        progress_callback: Callable[[int, int], Awaitable[None]] | None = None,
     ) -> list[list[float]]:
         """Default batch implementation using _embed_batch."""
         if not texts:
@@ -225,7 +225,7 @@ class BaseSummarizationProvider(ABC):
         model: str,
         max_tokens: int = 300,
         temperature: float = 0.1,
-        prompt_template: Optional[str] = None,
+        prompt_template: str | None = None,
     ) -> None:
         self._model = model
         self._max_tokens = max_tokens

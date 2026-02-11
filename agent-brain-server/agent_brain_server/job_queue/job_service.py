@@ -8,7 +8,6 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 from agent_brain_server.job_queue.job_store import JobQueueStore
 from agent_brain_server.models import IndexRequest
@@ -37,9 +36,7 @@ class JobQueueService:
     Backpressure is handled at the router level, not here.
     """
 
-    def __init__(
-        self, store: JobQueueStore, project_root: Optional[Path] = None
-    ) -> None:
+    def __init__(self, store: JobQueueStore, project_root: Path | None = None) -> None:
         """Initialize the job queue service.
 
         Args:
@@ -59,7 +56,7 @@ class JobQueueService:
         return self._store
 
     @property
-    def project_root(self) -> Optional[Path]:
+    def project_root(self) -> Path | None:
         """Get the project root directory."""
         return self._project_root
 
@@ -201,7 +198,7 @@ class JobQueueService:
             dedupe_hit=False,
         )
 
-    async def get_job(self, job_id: str) -> Optional[JobDetailResponse]:
+    async def get_job(self, job_id: str) -> JobDetailResponse | None:
         """Get detailed information about a specific job.
 
         Args:

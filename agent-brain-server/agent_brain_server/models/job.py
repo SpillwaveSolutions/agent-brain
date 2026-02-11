@@ -4,7 +4,6 @@ import hashlib
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 from pydantic import BaseModel, Field, computed_field
 
@@ -60,13 +59,13 @@ class JobRecord(BaseModel):
     generate_summaries: bool = Field(
         default=False, description="Generate LLM summaries"
     )
-    supported_languages: Optional[list[str]] = Field(
+    supported_languages: list[str] | None = Field(
         default=None, description="Languages to index"
     )
-    include_patterns: Optional[list[str]] = Field(
+    include_patterns: list[str] | None = Field(
         default=None, description="File patterns to include"
     )
-    exclude_patterns: Optional[list[str]] = Field(
+    exclude_patterns: list[str] | None = Field(
         default=None, description="File patterns to exclude"
     )
 
@@ -83,25 +82,23 @@ class JobRecord(BaseModel):
         default_factory=lambda: datetime.now(timezone.utc),
         description="When the job was enqueued",
     )
-    started_at: Optional[datetime] = Field(
+    started_at: datetime | None = Field(
         default=None, description="When the job started running"
     )
-    finished_at: Optional[datetime] = Field(
+    finished_at: datetime | None = Field(
         default=None, description="When the job finished (done, failed, or cancelled)"
     )
 
     # Results and metadata
-    error: Optional[str] = Field(default=None, description="Error message if failed")
+    error: str | None = Field(default=None, description="Error message if failed")
     retry_count: int = Field(default=0, ge=0, description="Number of retry attempts")
-    progress: Optional[JobProgress] = Field(
-        default=None, description="Progress tracking"
-    )
+    progress: JobProgress | None = Field(default=None, description="Progress tracking")
     total_chunks: int = Field(default=0, ge=0, description="Total chunks indexed")
     total_documents: int = Field(default=0, ge=0, description="Total documents indexed")
 
     @computed_field  # type: ignore[prop-decorator]
     @property
-    def execution_time_ms(self) -> Optional[int]:
+    def execution_time_ms(self) -> int | None:
         """Calculate execution time in milliseconds."""
         if self.started_at is None:
             return None
@@ -114,8 +111,8 @@ class JobRecord(BaseModel):
         folder_path: str,
         include_code: bool,
         operation: str,
-        include_patterns: Optional[list[str]] = None,
-        exclude_patterns: Optional[list[str]] = None,
+        include_patterns: list[str] | None = None,
+        exclude_patterns: list[str] | None = None,
     ) -> str:
         """Compute deduplication key from job parameters.
 
@@ -195,10 +192,10 @@ class JobSummary(BaseModel):
     operation: str = Field(..., description="Operation type")
     include_code: bool = Field(..., description="Whether indexing code")
     enqueued_at: datetime = Field(..., description="When queued")
-    started_at: Optional[datetime] = Field(default=None, description="When started")
-    finished_at: Optional[datetime] = Field(default=None, description="When finished")
+    started_at: datetime | None = Field(default=None, description="When started")
+    finished_at: datetime | None = Field(default=None, description="When finished")
     progress_percent: float = Field(default=0.0, description="Completion percentage")
-    error: Optional[str] = Field(default=None, description="Error message if failed")
+    error: str | None = Field(default=None, description="Error message if failed")
 
     @classmethod
     def from_record(cls, record: JobRecord) -> "JobSummary":
@@ -230,21 +227,19 @@ class JobDetailResponse(BaseModel):
 
     # Timestamps
     enqueued_at: datetime = Field(..., description="When queued")
-    started_at: Optional[datetime] = Field(default=None, description="When started")
-    finished_at: Optional[datetime] = Field(default=None, description="When finished")
-    execution_time_ms: Optional[int] = Field(
+    started_at: datetime | None = Field(default=None, description="When started")
+    finished_at: datetime | None = Field(default=None, description="When finished")
+    execution_time_ms: int | None = Field(
         default=None, description="Execution time in ms"
     )
 
     # Progress
-    progress: Optional[JobProgress] = Field(
-        default=None, description="Progress details"
-    )
+    progress: JobProgress | None = Field(default=None, description="Progress details")
 
     # Results
     total_documents: int = Field(default=0, description="Documents indexed")
     total_chunks: int = Field(default=0, description="Chunks created")
-    error: Optional[str] = Field(default=None, description="Error message if failed")
+    error: str | None = Field(default=None, description="Error message if failed")
     retry_count: int = Field(default=0, description="Retry attempts")
     cancel_requested: bool = Field(
         default=False, description="Whether cancellation requested"
@@ -281,9 +276,9 @@ class QueueStats(BaseModel):
     failed: int = Field(default=0, ge=0, description="Failed jobs count")
     cancelled: int = Field(default=0, ge=0, description="Cancelled jobs count")
     total: int = Field(default=0, ge=0, description="Total jobs count")
-    current_job_id: Optional[str] = Field(
+    current_job_id: str | None = Field(
         default=None, description="Currently running job ID"
     )
-    current_job_running_time_ms: Optional[int] = Field(
+    current_job_running_time_ms: int | None = Field(
         default=None, description="Current job running time in ms"
     )

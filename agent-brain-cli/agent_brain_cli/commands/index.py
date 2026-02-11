@@ -1,7 +1,6 @@
 """Index command for triggering document indexing."""
 
 from pathlib import Path
-from typing import Optional
 
 import click
 from rich.console import Console
@@ -68,7 +67,7 @@ console = Console()
 @click.option(
     "--force",
     is_flag=True,
-    help="Bypass deduplication and force a new indexing job",
+    help="Force re-indexing even if embedding provider has changed",
 )
 @click.option(
     "--allow-external",
@@ -78,15 +77,15 @@ console = Console()
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
 def index_command(
     folder_path: str,
-    url: Optional[str],
+    url: str | None,
     chunk_size: int,
     chunk_overlap: int,
     no_recursive: bool,
     include_code: bool,
-    languages: Optional[str],
+    languages: str | None,
     code_strategy: str,
-    include_patterns: Optional[str],
-    exclude_patterns: Optional[str],
+    include_patterns: str | None,
+    exclude_patterns: str | None,
     generate_summaries: bool,
     force: bool,
     allow_external: bool,

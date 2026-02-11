@@ -5,8 +5,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-from ..indexing.document_loader import LanguageDetector
-
 
 class QueryMode(str, Enum):
     """Retrieval modes."""
@@ -67,12 +65,34 @@ class QueryRequest(BaseModel):
         examples=[["docs/*.md"], ["src/**/*.py"]],
     )
 
+    # Graph entity type filtering (Feature 122 - Schema GraphRAG)
+    entity_types: list[str] | None = Field(
+        default=None,
+        description=(
+            "Filter graph results by entity types "
+            "(e.g., ['Class', 'Function']). "
+            "Only applies to graph and multi query modes."
+        ),
+        examples=[["Class", "Function"], ["Package", "Module"]],
+    )
+    relationship_types: list[str] | None = Field(
+        default=None,
+        description=(
+            "Filter graph results by relationship types "
+            "(e.g., ['calls', 'extends']). "
+            "Only applies to graph and multi query modes."
+        ),
+        examples=[["calls", "extends"], ["imports", "contains"]],
+    )
+
     @field_validator("languages")
     @classmethod
     def validate_languages(cls, v: list[str] | None) -> list[str] | None:
         """Validate that provided languages are supported."""
         if v is None:
             return v
+
+        from ..indexing.document_loader import LanguageDetector
 
         detector = LanguageDetector()
         supported_languages = detector.get_supported_languages()

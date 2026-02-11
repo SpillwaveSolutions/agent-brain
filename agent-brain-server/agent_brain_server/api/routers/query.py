@@ -31,6 +31,7 @@ async def query_documents(
 
     Raises:
         400: Invalid query (empty or too long)
+        409: Embedding provider mismatch (re-index required)
         503: Index not ready (indexing in progress or not initialized)
     """
     from agent_brain_server.services import QueryService
@@ -58,6 +59,19 @@ async def query_documents(
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Index not ready. Please index documents first.",
+            )
+
+    # Check for embedding provider mismatch (PROV-07 query-time guard)
+    embedding_warning = getattr(request.app.state, "embedding_warning", None)
+    if embedding_warning:
+        # Check if it's a dimension mismatch (critical) vs provider/model only
+        if "d)" in embedding_warning:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Embedding mismatch: {embedding_warning} "
+                    "Re-index with --force to resolve."
+                ),
             )
 
     # Execute query

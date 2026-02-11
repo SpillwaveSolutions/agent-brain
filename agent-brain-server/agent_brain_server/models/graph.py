@@ -5,9 +5,139 @@ All models are configured with frozen=True for immutability.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field
+
+# Entity Type Schema (SCHEMA-01, SCHEMA-02, SCHEMA-03)
+
+# Code entity types
+CodeEntityType = Literal[
+    "Package",  # Top-level package
+    "Module",  # Python module, JS file
+    "Class",  # Class definition
+    "Method",  # Class method
+    "Function",  # Standalone function
+    "Interface",  # Interface/Protocol
+    "Enum",  # Enumeration type
+]
+
+# Documentation entity types
+DocEntityType = Literal[
+    "DesignDoc",  # Design documents
+    "UserDoc",  # User documentation
+    "PRD",  # Product requirements
+    "Runbook",  # Operational runbooks
+    "README",  # README files
+    "APIDoc",  # API documentation
+]
+
+# Infrastructure entity types
+InfraEntityType = Literal[
+    "Service",  # Microservice
+    "Endpoint",  # API endpoint
+    "Database",  # Database
+    "ConfigFile",  # Configuration file
+]
+
+# Combined entity type (all 17 types)
+EntityType = Literal[
+    # Code (7 types)
+    "Package",
+    "Module",
+    "Class",
+    "Method",
+    "Function",
+    "Interface",
+    "Enum",
+    # Documentation (6 types)
+    "DesignDoc",
+    "UserDoc",
+    "PRD",
+    "Runbook",
+    "README",
+    "APIDoc",
+    # Infrastructure (4 types)
+    "Service",
+    "Endpoint",
+    "Database",
+    "ConfigFile",
+]
+
+# Relationship types (8 predicates)
+RelationshipType = Literal[
+    "calls",  # Function/method invocation
+    "extends",  # Class inheritance
+    "implements",  # Interface implementation
+    "references",  # Documentation references code
+    "depends_on",  # Package/module dependency
+    "imports",  # Import statement
+    "contains",  # Containment relationship
+    "defined_in",  # Symbol defined in module
+]
+
+# Runtime constants for validation and iteration
+ENTITY_TYPES: list[str] = list(get_args(EntityType))
+RELATIONSHIP_TYPES: list[str] = list(get_args(RelationshipType))
+CODE_ENTITY_TYPES: list[str] = list(get_args(CodeEntityType))
+DOC_ENTITY_TYPES: list[str] = list(get_args(DocEntityType))
+INFRA_ENTITY_TYPES: list[str] = list(get_args(InfraEntityType))
+
+# AST symbol type mapping to schema entity types
+SYMBOL_TYPE_MAPPING: dict[str, str] = {
+    "package": "Package",
+    "module": "Module",
+    "class": "Class",
+    "method": "Method",
+    "function": "Function",
+    "interface": "Interface",
+    "enum": "Enum",
+}
+
+# Comprehensive case-insensitive mapping for ALL entity types.
+# .capitalize() breaks acronyms like README and APIDoc, so we use
+# an explicit lookup table built from get_args(EntityType).
+ENTITY_TYPE_NORMALIZE: dict[str, str] = {t.lower(): t for t in ENTITY_TYPES}
+# Also merge SYMBOL_TYPE_MAPPING for AST symbol types
+ENTITY_TYPE_NORMALIZE.update(SYMBOL_TYPE_MAPPING)
+
+
+def normalize_entity_type(raw_type: str | None) -> str | None:
+    """Normalize a raw entity type string to schema EntityType.
+
+    Uses explicit mapping to preserve acronyms (README, APIDoc, PRD).
+    Returns None if input is None, returns original string if no mapping found.
+
+    Args:
+        raw_type: Raw entity type string (may be lowercase, mixed case, etc.)
+
+    Returns:
+        Normalized entity type from schema, or original if not found, or None.
+
+    Examples:
+        >>> normalize_entity_type("function")
+        "Function"
+        >>> normalize_entity_type("CLASS")
+        "Class"
+        >>> normalize_entity_type("readme")
+        "README"
+        >>> normalize_entity_type("apidoc")
+        "APIDoc"
+        >>> normalize_entity_type(None)
+        None
+        >>> normalize_entity_type("CustomType")
+        "CustomType"
+    """
+    if raw_type is None:
+        return None
+    # Exact match first (already correct case)
+    if raw_type in ENTITY_TYPES:
+        return raw_type
+    # Case-insensitive lookup via explicit mapping
+    mapped = ENTITY_TYPE_NORMALIZE.get(raw_type.lower())
+    if mapped:
+        return mapped
+    return raw_type  # Fallback: keep original for flexibility
 
 
 class GraphTriple(BaseModel):
@@ -54,7 +184,7 @@ class GraphTriple(BaseModel):
         min_length=1,
         description="Subject entity in the triple",
     )
-    subject_type: Optional[str] = Field(
+    subject_type: str | None = Field(
         default=None,
         description="Type classification for subject entity",
     )
@@ -68,11 +198,11 @@ class GraphTriple(BaseModel):
         min_length=1,
         description="Object entity in the triple",
     )
-    object_type: Optional[str] = Field(
+    object_type: str | None = Field(
         default=None,
         description="Type classification for object entity",
     )
-    source_chunk_id: Optional[str] = Field(
+    source_chunk_id: str | None = Field(
         default=None,
         description="ID of the source document chunk",
     )
@@ -112,11 +242,11 @@ class GraphEntity(BaseModel):
         min_length=1,
         description="Unique name/identifier of the entity",
     )
-    entity_type: Optional[str] = Field(
+    entity_type: str | None = Field(
         default=None,
         description="Classification type for the entity",
     )
-    description: Optional[str] = Field(
+    description: str | None = Field(
         default=None,
         description="Description of the entity",
     )
@@ -187,7 +317,7 @@ class GraphIndexStatus(BaseModel):
         ge=0,
         description="Number of relationships in the graph",
     )
-    last_updated: Optional[datetime] = Field(
+    last_updated: datetime | None = Field(
         default=None,
         description="Timestamp of last graph update",
     )

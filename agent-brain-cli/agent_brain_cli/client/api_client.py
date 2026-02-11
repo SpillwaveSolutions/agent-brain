@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from types import TracebackType
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
@@ -22,7 +22,7 @@ class ConnectionError(DocServeError):
 class ServerError(DocServeError):
     """Raised when server returns an error response."""
 
-    def __init__(self, message: str, status_code: int, detail: Optional[str] = None):
+    def __init__(self, message: str, status_code: int, detail: str | None = None):
         super().__init__(message)
         self.status_code = status_code
         self.detail = detail
@@ -33,7 +33,7 @@ class HealthStatus:
     """Server health status."""
 
     status: str
-    message: Optional[str]
+    message: str | None
     version: str
     timestamp: str
 
@@ -45,9 +45,9 @@ class IndexingStatus:
     total_documents: int
     total_chunks: int
     indexing_in_progress: bool
-    current_job_id: Optional[str]
+    current_job_id: str | None
     progress_percent: float
-    last_indexed_at: Optional[str]
+    last_indexed_at: str | None
     indexed_folders: list[str]
 
 
@@ -60,8 +60,8 @@ class QueryResult:
     score: float
     chunk_id: str
     metadata: dict[str, Any]
-    vector_score: Optional[float] = None
-    bm25_score: Optional[float] = None
+    vector_score: float | None = None
+    bm25_score: float | None = None
 
 
 @dataclass
@@ -79,7 +79,7 @@ class IndexResponse:
 
     job_id: str
     status: str
-    message: Optional[str]
+    message: str | None
 
 
 class DocServeClient:
@@ -106,9 +106,9 @@ class DocServeClient:
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         self.close()
 
@@ -120,8 +120,8 @@ class DocServeClient:
         self,
         method: str,
         path: str,
-        json: Optional[dict[str, Any]] = None,
-        params: Optional[dict[str, Any]] = None,
+        json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Make an HTTP request to the server.
@@ -211,9 +211,9 @@ class DocServeClient:
         similarity_threshold: float = 0.7,
         mode: str = "hybrid",
         alpha: float = 0.5,
-        source_types: Optional[list[str]] = None,
-        languages: Optional[list[str]] = None,
-        file_paths: Optional[list[str]] = None,
+        source_types: list[str] | None = None,
+        languages: list[str] | None = None,
+        file_paths: list[str] | None = None,
     ) -> QueryResponse:
         """
         Query indexed documents.
@@ -273,10 +273,10 @@ class DocServeClient:
         chunk_overlap: int = 50,
         recursive: bool = True,
         include_code: bool = False,
-        supported_languages: Optional[list[str]] = None,
+        supported_languages: list[str] | None = None,
         code_chunk_strategy: str = "ast_aware",
-        include_patterns: Optional[list[str]] = None,
-        exclude_patterns: Optional[list[str]] = None,
+        include_patterns: list[str] | None = None,
+        exclude_patterns: list[str] | None = None,
         generate_summaries: bool = False,
         force: bool = False,
         allow_external: bool = False,
@@ -315,6 +315,7 @@ class DocServeClient:
                 "include_patterns": include_patterns,
                 "exclude_patterns": exclude_patterns,
                 "generate_summaries": generate_summaries,
+                "force": force,
             },
             params={"force": force, "allow_external": allow_external},
         )

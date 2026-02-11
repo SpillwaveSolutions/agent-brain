@@ -2,7 +2,6 @@
 
 import json
 from pathlib import Path
-from typing import Optional
 
 import click
 from rich.console import Console
@@ -35,7 +34,7 @@ DEFAULT_CONFIG = {
 STATE_DIR_NAME = ".claude/agent-brain"
 
 
-def resolve_project_root(start_path: Optional[Path] = None) -> Path:
+def resolve_project_root(start_path: Path | None = None) -> Path:
     """Resolve the canonical project root directory.
 
     Resolution order:
@@ -112,12 +111,12 @@ def resolve_project_root(start_path: Optional[Path] = None) -> Path:
     help="Custom state directory for index data (default: .claude/agent-brain)",
 )
 def init_command(
-    path: Optional[str],
+    path: str | None,
     host: str,
-    port: Optional[int],
+    port: int | None,
     force: bool,
     json_output: bool,
-    state_dir: Optional[str],
+    state_dir: str | None,
 ) -> None:
     """Initialize a new Agent Brain project.
 

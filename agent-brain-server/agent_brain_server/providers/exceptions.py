@@ -1,13 +1,11 @@
 """Exception hierarchy for provider errors."""
 
-from typing import Optional
-
 
 class ProviderError(Exception):
     """Base exception for provider errors."""
 
     def __init__(
-        self, message: str, provider: str, cause: Optional[Exception] = None
+        self, message: str, provider: str, cause: Exception | None = None
     ) -> None:
         self.provider = provider
         self.cause = cause
@@ -57,7 +55,7 @@ class ProviderMismatchError(ProviderError):
 class RateLimitError(ProviderError):
     """Raised when provider rate limit is hit."""
 
-    def __init__(self, provider: str, retry_after: Optional[int] = None) -> None:
+    def __init__(self, provider: str, retry_after: int | None = None) -> None:
         self.retry_after = retry_after
         message = "Rate limit exceeded"
         if retry_after:
@@ -69,7 +67,7 @@ class ModelNotFoundError(ProviderError):
     """Raised when specified model is not available."""
 
     def __init__(
-        self, provider: str, model: str, available_models: Optional[list[str]] = None
+        self, provider: str, model: str, available_models: list[str] | None = None
     ) -> None:
         self.model = model
         self.available_models = available_models or []
@@ -86,7 +84,7 @@ class ModelNotFoundError(ProviderError):
 class OllamaConnectionError(ProviderError):
     """Raised when Ollama is not running or unreachable."""
 
-    def __init__(self, base_url: str, cause: Optional[Exception] = None) -> None:
+    def __init__(self, base_url: str, cause: Exception | None = None) -> None:
         message = (
             f"Cannot connect to Ollama at {base_url}. "
             "Ensure Ollama is running with 'ollama serve' command."

@@ -4,10 +4,11 @@ import asyncio
 import logging
 import os
 import sys
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from types import TracebackType
-from typing import IO, Any, Callable, Literal, Optional
+from typing import IO, Any, Literal
 
 from agent_brain_server.models.job import JobRecord, JobStatus, QueueStats
 
@@ -271,7 +272,7 @@ class JobQueueStore:
             self._jobs[job.id] = job
             await self._persist_job(job)
 
-    async def get_job(self, job_id: str) -> Optional[JobRecord]:
+    async def get_job(self, job_id: str) -> JobRecord | None:
         """Get a job by ID.
 
         Args:
@@ -282,7 +283,7 @@ class JobQueueStore:
         """
         return self._jobs.get(job_id)
 
-    async def find_by_dedupe_key(self, dedupe_key: str) -> Optional[JobRecord]:
+    async def find_by_dedupe_key(self, dedupe_key: str) -> JobRecord | None:
         """Find an active job by deduplication key.
 
         Args:
@@ -308,7 +309,7 @@ class JobQueueStore:
         pending = [j for j in self._jobs.values() if j.status == JobStatus.PENDING]
         return sorted(pending, key=lambda j: j.enqueued_at)
 
-    async def get_running_job(self) -> Optional[JobRecord]:
+    async def get_running_job(self) -> JobRecord | None:
         """Get the currently running job, if any.
 
         Returns:
@@ -397,7 +398,7 @@ class _FileLock:
 
     def __init__(self, lock_path: Path) -> None:
         self._lock_path = lock_path
-        self._lock_file: Optional[IO[Any]] = None
+        self._lock_file: IO[Any] | None = None
 
     def __enter__(self) -> "_FileLock":
         global _lock_warning_shown
@@ -417,9 +418,9 @@ class _FileLock:
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> Literal[False]:
         if self._lock_file:
             _unlock_file(self._lock_file.fileno())

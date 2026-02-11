@@ -3,7 +3,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from urllib.request import Request, urlopen
 
 import click
@@ -15,7 +15,7 @@ console = Console()
 RUNTIME_FILE = "runtime.json"
 
 
-def read_runtime(state_dir: Path) -> Optional[dict[str, Any]]:
+def read_runtime(state_dir: Path) -> dict[str, Any] | None:
     """Read runtime state from state directory."""
     runtime_path = state_dir / RUNTIME_FILE
     if not runtime_path.exists():

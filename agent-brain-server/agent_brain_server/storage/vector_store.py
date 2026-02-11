@@ -2,14 +2,15 @@
 
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import chromadb
 from chromadb.config import Settings as ChromaSettings
 
 from agent_brain_server.config import settings
+from agent_brain_server.providers.exceptions import ProviderMismatchError
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,28 @@ class SearchResult:
     chunk_id: str
 
 
+@dataclass
+class EmbeddingMetadata:
+    """Metadata about the embedding provider used for this collection."""
+
+    provider: str
+    model: str
+    dimensions: int
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for ChromaDB metadata."""
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "EmbeddingMetadata":
+        """Create from dictionary (ChromaDB metadata)."""
+        return cls(
+            provider=data.get("embedding_provider", "unknown"),
+            model=data.get("embedding_model", "unknown"),
+            dimensions=data.get("embedding_dimensions", 0),
+        )
+
+
 class VectorStoreManager:
     """
     Manages Chroma vector store operations with thread-safe access.
@@ -34,8 +57,8 @@ class VectorStoreManager:
 
     def __init__(
         self,
-        persist_dir: Optional[str] = None,
-        collection_name: Optional[str] = None,
+        persist_dir: str | None = None,
+        collection_name: str | None = None,
     ):
         """
         Initialize the vector store manager.
@@ -46,8 +69,8 @@ class VectorStoreManager:
         """
         self.persist_dir = persist_dir or settings.CHROMA_PERSIST_DIR
         self.collection_name = collection_name or settings.COLLECTION_NAME
-        self._client: Optional[chromadb.PersistentClient] = None  # type: ignore[valid-type]
-        self._collection: Optional[chromadb.Collection] = None
+        self._client: chromadb.PersistentClient | None = None  # type: ignore[valid-type]
+        self._collection: chromadb.Collection | None = None
         self._lock = asyncio.Lock()
         self._initialized = False
 
@@ -92,12 +115,104 @@ class VectorStoreManager:
                 f"({self._collection.count()} existing documents)"
             )
 
+    async def get_embedding_metadata(self) -> EmbeddingMetadata | None:
+        """Get stored embedding metadata from collection.
+
+        Returns:
+            EmbeddingMetadata if collection has metadata, None otherwise.
+        """
+        if not self.is_initialized or self._collection is None:
+            return None
+
+        async with self._lock:
+            metadata = self._collection.metadata
+            if metadata and "embedding_provider" in metadata:
+                return EmbeddingMetadata.from_dict(metadata)
+            return None
+
+    async def set_embedding_metadata(
+        self,
+        provider: str,
+        model: str,
+        dimensions: int,
+    ) -> None:
+        """Store embedding metadata in collection.
+
+        Args:
+            provider: Embedding provider name (e.g., "openai", "ollama")
+            model: Model name (e.g., "text-embedding-3-large")
+            dimensions: Embedding vector dimensions
+        """
+        if not self.is_initialized or self._collection is None:
+            raise RuntimeError("Vector store not initialized")
+
+        async with self._lock:
+            assert self._client is not None
+            # ChromaDB requires recreating collection to update metadata
+            # Get existing metadata and merge
+            existing_meta = dict(self._collection.metadata or {})
+            existing_meta.update(
+                {
+                    "embedding_provider": provider,
+                    "embedding_model": model,
+                    "embedding_dimensions": dimensions,
+                    "hnsw:space": "cosine",
+                }
+            )
+
+            # Modify collection metadata
+            self._collection.modify(metadata=existing_meta)
+
+            logger.info(
+                f"Stored embedding metadata: {provider}/{model} "
+                f"({dimensions} dimensions)"
+            )
+
+    def validate_embedding_compatibility(
+        self,
+        provider: str,
+        model: str,
+        dimensions: int,
+        stored_metadata: EmbeddingMetadata | None,
+    ) -> None:
+        """Validate current embedding config against stored metadata.
+
+        Args:
+            provider: Current provider name
+            model: Current model name
+            dimensions: Current embedding dimensions
+            stored_metadata: Previously stored metadata (or None if new index)
+
+        Raises:
+            ProviderMismatchError: If dimensions or provider/model don't match
+        """
+        if stored_metadata is None:
+            return  # New index, no validation needed
+
+        # Check dimension mismatch first (critical)
+        if stored_metadata.dimensions != dimensions:
+            raise ProviderMismatchError(
+                current_provider=provider,
+                current_model=model,
+                indexed_provider=stored_metadata.provider,
+                indexed_model=stored_metadata.model,
+            )
+
+        # Check provider/model mismatch (even same dimensions can be incompatible)
+        if stored_metadata.provider != provider or stored_metadata.model != model:
+            raise ProviderMismatchError(
+                current_provider=provider,
+                current_model=model,
+                indexed_provider=stored_metadata.provider,
+                indexed_model=stored_metadata.model,
+            )
+
     async def add_documents(
         self,
         ids: list[str],
         embeddings: list[list[float]],
         documents: list[str],
-        metadatas: Optional[list[dict[str, Any]]] = None,
+        metadatas: list[dict[str, Any]] | None = None,
     ) -> int:
         """
         Add documents with embeddings to the vector store.
@@ -134,7 +249,7 @@ class VectorStoreManager:
         ids: list[str],
         embeddings: list[list[float]],
         documents: list[str],
-        metadatas: Optional[list[dict[str, Any]]] = None,
+        metadatas: list[dict[str, Any]] | None = None,
     ) -> int:
         """
         Upsert documents with embeddings to the vector store.
@@ -172,7 +287,7 @@ class VectorStoreManager:
         query_embedding: list[float],
         top_k: int = 5,
         similarity_threshold: float = 0.0,
-        where: Optional[dict[str, Any]] = None,
+        where: dict[str, Any] | None = None,
     ) -> list[SearchResult]:
         """
         Perform similarity search on the vector store.
@@ -236,7 +351,7 @@ class VectorStoreManager:
         )
         return search_results
 
-    async def get_count(self, where: Optional[dict[str, Any]] = None) -> int:
+    async def get_count(self, where: dict[str, Any] | None = None) -> int:
         """
         Get the number of documents in the collection, optionally filtered.
 
@@ -260,7 +375,7 @@ class VectorStoreManager:
                 return 0
             return self._collection.count()
 
-    async def get_by_id(self, chunk_id: str) -> Optional[dict[str, Any]]:
+    async def get_by_id(self, chunk_id: str) -> dict[str, Any] | None:
         """
         Get a document by its chunk ID.
 
@@ -318,6 +433,9 @@ class VectorStoreManager:
     async def reset(self) -> None:
         """
         Reset the vector store by deleting and recreating the collection.
+
+        Note: Embedding metadata is stored in collection metadata,
+        so it will be cleared when collection is reset.
         """
         await self.delete_collection()
         self._initialized = False
@@ -337,7 +455,7 @@ class VectorStoreManager:
 
 
 # Global singleton instance
-_vector_store: Optional[VectorStoreManager] = None
+_vector_store: VectorStoreManager | None = None
 
 
 def get_vector_store() -> VectorStoreManager:
