@@ -202,9 +202,7 @@ class TestStorageBackendContract:
         if metadata is not None:
             assert isinstance(metadata, EmbeddingMetadata)
 
-    async def test_set_and_get_embedding_metadata(
-        self, storage_backend: Any
-    ) -> None:
+    async def test_set_and_get_embedding_metadata(self, storage_backend: Any) -> None:
         await storage_backend.set_embedding_metadata(
             provider="openai",
             model="text-embedding-3-large",

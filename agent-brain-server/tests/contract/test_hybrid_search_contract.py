@@ -6,9 +6,9 @@ and that cross-backend results overlap meaningfully for the same query/data.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
-import os
 import pytest
 from llama_index.core.schema import TextNode
 
