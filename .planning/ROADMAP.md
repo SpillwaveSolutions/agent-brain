@@ -92,7 +92,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 08-01-PLAN.md — Plugin backend selection, setup flow updates, and v5.0.0 metadata bump
+- [x] 08-01-PLAN.md — Plugin backend selection, setup flow updates, and v5.0.0 metadata bump
 - [ ] 08-02-PLAN.md — PostgreSQL setup, configuration, and performance tradeoff documentation
 
 ## Progress
@@ -109,7 +109,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8
 | 5. Storage Abstraction | v5.0 | 2/2 | Complete | 2026-02-10 |
 | 6. PostgreSQL Backend | v5.0 | 3/3 | Complete | 2026-02-11 |
 | 7. Testing & CI | v5.0 | 2/2 | Complete | 2026-02-12 |
-| 8. Plugin & Documentation | v5.0 | 0/? | Not started | - |
+| 8. Plugin & Documentation | v5.0 | 1/2 | In progress | - |
 
 ## Future Phases
 
