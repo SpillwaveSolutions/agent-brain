@@ -596,6 +596,8 @@ Verify API keys are set correctly for your selected provider.
 | [Code Indexing](CODE_INDEXING.md) | AST-aware chunking |
 | [Architecture](ARCHITECTURE.md) | System design |
 | [Provider Configuration](../agent-brain-plugin/skills/using-agent-brain/references/provider-configuration.md) | Provider setup |
+| [PostgreSQL Setup](POSTGRESQL_SETUP.md) | Docker Compose pgvector setup |
+| [Performance Tradeoffs](PERFORMANCE_TRADEOFFS.md) | ChromaDB vs PostgreSQL selection guidance |
 
 ---
 
