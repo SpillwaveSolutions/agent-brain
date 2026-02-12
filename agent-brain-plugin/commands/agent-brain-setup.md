@@ -59,7 +59,40 @@ agent-brain init
 
 Creates `.claude/agent-brain/` directory with configuration files.
 
-### Step 4: Start Server
+### Step 4: PostgreSQL (Optional, Only When Backend Is Postgres)
+
+PostgreSQL setup is only required if the storage backend is `postgres`.
+
+Check backend selection (env override takes priority):
+
+```bash
+echo "Backend override: ${AGENT_BRAIN_STORAGE_BACKEND:-unset}"
+rg -n "storage:\n  backend:" ~/.agent-brain/config.yaml .claude/agent-brain/config.yaml 2>/dev/null
+```
+
+If the backend is `postgres`, confirm Docker and Docker Compose are available:
+
+```bash
+docker --version
+docker compose version
+```
+
+If Docker is available, offer to start the provided pgvector template:
+
+```bash
+docker compose -f agent-brain-plugin/templates/docker-compose.postgres.yml up -d
+```
+
+Verify PostgreSQL is ready:
+
+```bash
+docker compose -f agent-brain-plugin/templates/docker-compose.postgres.yml ps
+docker compose -f agent-brain-plugin/templates/docker-compose.postgres.yml exec -T postgres pg_isready -U agent_brain
+```
+
+If Docker is not available, pause and explain the user must install Docker or point `storage.postgres` to an existing PostgreSQL instance.
+
+### Step 5: Start Server
 
 ```bash
 agent-brain start
@@ -67,7 +100,7 @@ agent-brain start
 
 Starts the server in background mode.
 
-### Step 5: Verify Setup
+### Step 6: Verify Setup
 
 ```bash
 agent-brain status
