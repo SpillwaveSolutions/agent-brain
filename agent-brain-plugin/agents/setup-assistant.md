@@ -10,6 +10,14 @@ triggers:
     type: error_pattern
   - pattern: "OPENAI_API_KEY.*not set|missing.*api.*key"
     type: error_pattern
+  - pattern: "connection refused.*postgres|could not connect to server|postgres.*connection refused"
+    type: error_pattern
+  - pattern: "pgvector|extension \"vector\" does not exist|could not open extension control file"
+    type: error_pattern
+  - pattern: "QueuePool.*limit|pool.*exhausted|too many connections"
+    type: error_pattern
+  - pattern: "embedding dimension mismatch|dimension mismatch"
+    type: error_pattern
 skills:
   - configuring-agent-brain
 ---
@@ -235,6 +243,27 @@ When errors occur, provide clear recovery paths:
 2. Remove stale runtime files
 3. Verify initialization
 4. Check system resources
+
+### PostgreSQL Backend Errors
+
+**Connection refused / could not connect:**
+1. Ensure PostgreSQL is running (Docker Compose or managed instance)
+2. If using Docker: `docker compose -f agent-brain-plugin/templates/docker-compose.postgres.yml up -d`
+3. Verify readiness: `docker compose -f agent-brain-plugin/templates/docker-compose.postgres.yml exec -T postgres pg_isready -U agent_brain`
+4. Confirm `storage.postgres.host` and `storage.postgres.port` match the running instance
+
+**pgvector extension missing:**
+1. Use the pgvector image: `pgvector/pgvector:pg16`
+2. For managed Postgres, run: `CREATE EXTENSION IF NOT EXISTS vector;`
+3. Restart Agent Brain after installing the extension
+
+**Pool exhaustion / too many connections:**
+1. Increase `pool_size` and `pool_max_overflow` in `storage.postgres`
+2. Restart the server to apply pool changes
+
+**Embedding dimension mismatch:**
+1. If you changed embedding models, run: `agent-brain reset --yes`
+2. Re-index documents after reset
 
 ### Search Errors
 
