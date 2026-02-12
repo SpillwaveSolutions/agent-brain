@@ -6,7 +6,7 @@
 ## Milestones
 
 - ✅ **v3.0 Advanced RAG** — Phases 1-4 (shipped 2026-02-10)
-- ✅ **v5.0 PostgreSQL Backend** — Phases 5-8 (shipped 2026-02-12)
+- 🚧 **v6.0 PostgreSQL Backend** — Phases 5-10 (gap closure in progress)
 
 ## Phases
 
@@ -22,7 +22,7 @@
 
 </details>
 
-### 🚧 v5.0 PostgreSQL Backend (In Progress)
+### 🚧 v6.0 PostgreSQL Backend (Gap Closure)
 
 **Milestone Goal:** Add PostgreSQL as a configurable storage backend with pgvector for vector search and tsvector for full-text search, running alongside ChromaDB as a dual-backend architecture.
 
@@ -95,10 +95,36 @@ Plans:
 - [x] 08-01-PLAN.md — Plugin backend selection, setup flow updates, and v5.0.0 metadata bump
 - [x] 08-02-PLAN.md — PostgreSQL setup, configuration, and performance tradeoff documentation
 
+#### Phase 9: Runtime Backend Wiring
+**Goal**: Wire factory-selected storage backend into QueryService and IndexingService so backend selection controls runtime behavior
+**Depends on**: Phase 8
+**Requirements**: STOR-04 (services depend on protocol), CONF-03 (env var override works end-to-end)
+**Gap Closure**: Closes integration gap from v6.0 audit — storage backend selection was not driving runtime service wiring
+**Success Criteria** (what must be TRUE):
+  1. `main.py` lifespan passes `storage_backend` (from factory) to QueryService and IndexingService
+  2. When `AGENT_BRAIN_STORAGE_BACKEND=postgres`, QueryService uses PostgresBackend (not ChromaBackend)
+  3. Legacy `vector_store + bm25_manager` creation skipped when using non-chroma backend
+  4. Integration test verifies factory-selected backend is the instance used by services
+  5. All existing tests pass (`task before-push` clean)
+**Plans**: TBD
+
+#### Phase 10: Live PostgreSQL E2E Validation
+**Goal**: Validate end-to-end postgres-backed workflow with real database — index documents, query, verify hybrid search, exercise connection pool
+**Depends on**: Phase 9
+**Requirements**: Operational validation (tech debt from v6.0 audit)
+**Gap Closure**: Closes flow gap from v6.0 audit — configure backend -> setup postgres -> run server -> query must work
+**Success Criteria** (what must be TRUE):
+  1. E2E test: start Postgres (Docker Compose), switch `storage.backend: postgres`, index real documents, query returns results
+  2. Cross-backend consistency: hybrid top-5 results similar between ChromaDB and PostgreSQL for same corpus
+  3. Connection pool under load: 50 concurrent queries + background indexing without pool exhaustion
+  4. `/health/postgres` returns accurate pool metrics during load
+  5. All existing tests pass (`task before-push` clean)
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 5 → 6 → 7 → 8
+Phases execute in numeric order: 5 → 6 → 7 → 8 → 9 → 10
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -106,19 +132,21 @@ Phases execute in numeric order: 5 → 6 → 7 → 8
 | 2. Pluggable Providers | v3.0 | 4/4 | Complete | 2026-02-09 |
 | 3. Schema-Based GraphRAG | v3.0 | 2/2 | Complete | 2026-02-10 |
 | 4. Provider Integration Testing | v3.0 | 2/2 | Complete | 2026-02-10 |
-| 5. Storage Abstraction | v5.0 | 2/2 | Complete | 2026-02-10 |
-| 6. PostgreSQL Backend | v5.0 | 3/3 | Complete | 2026-02-11 |
-| 7. Testing & CI | v5.0 | 2/2 | Complete | 2026-02-12 |
-| 8. Plugin & Documentation | v5.0 | 2/2 | Complete | 2026-02-12 |
+| 5. Storage Abstraction | v6.0 | 2/2 | Complete | 2026-02-10 |
+| 6. PostgreSQL Backend | v6.0 | 3/3 | Complete | 2026-02-11 |
+| 7. Testing & CI | v6.0 | 2/2 | Complete | 2026-02-12 |
+| 8. Plugin & Documentation | v6.0 | 2/2 | Complete | 2026-02-12 |
+| 9. Runtime Backend Wiring | v6.0 | 0/0 | Not started | - |
+| 10. Live PostgreSQL E2E Validation | v6.0 | 0/0 | Not started | - |
 
 ## Future Phases
 
-### Phase 9+: AWS Bedrock Provider (Feature 105)
+### Phase 11+: AWS Bedrock Provider (Feature 105)
 
 - Bedrock embeddings (Titan, Cohere)
 - Bedrock summarization (Claude, Llama, Mistral)
 
-### Phase 10+: Vertex AI Provider (Feature 106)
+### Phase 12+: Vertex AI Provider (Feature 106)
 
 - Vertex embeddings (textembedding-gecko)
 - Vertex summarization (Gemini)
@@ -155,4 +183,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-02-12 — Phase 8 complete (2 plans in 2 waves)*
+*Last updated: 2026-02-12 — Added gap closure phases 9-10 from milestone audit*

@@ -1,29 +1,29 @@
 # Agent Brain — Project State
 **Last Updated:** 2026-02-12
-**Current Milestone:** v5.0 PostgreSQL Backend
-**Status:** Phase complete — ready for verification
-**Current Phase:** 8
-**Total Phases:** 8
-**Current Plan:** 2
-**Total Plans in Phase:** 2
+**Current Milestone:** v6.0 PostgreSQL Backend
+**Status:** Gap closure — Phases 9-10 added from milestone audit
+**Current Phase:** 9
+**Total Phases:** 10
+**Current Plan:** 0
+**Total Plans in Phase:** 0
 
 ## Current Position
-Phase: 8 of 8 (Plugin & Documentation) — IN PROGRESS
-Plan: 2 of 2 ready to execute
-Status: Phase 8 plan 2 ready to execute
-Last activity: 2026-02-12 — Phase 8 plan 1 complete
+Phase: 9 of 10 (Runtime Backend Wiring) — NOT STARTED
+Plan: 0 of 0 (needs planning)
+Status: Gap closure phases created from v6.0 audit
+Last activity: 2026-02-12 — Added gap closure phases 9-10
 
-**Progress:** [██████████] 100%
+**Progress:** [████████░░] 80%
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-10)
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Phase 8 Plugin & Documentation planning
+**Current focus:** Milestone v6.0 wrap-up
 
 ## Milestone Summary
 ```
 v3.0 Advanced RAG:     [██████████] 100% (shipped 2026-02-10)
-v5.0 PostgreSQL:       [██████----] Phase 7 complete (Plan 2/2 done)
+v6.0 PostgreSQL:       [██████████] Phase 8 complete (Plan 2/2 done)
 ```
 ## Performance Metrics
 **Velocity (v3.0 milestone):**
@@ -39,7 +39,7 @@ v5.0 PostgreSQL:       [██████----] Phase 7 complete (Plan 2/2 done)
 | Phase 3: Schema-Based GraphRAG | 2 | Complete |
 | Phase 4: Provider Integration Testing | 2 | Complete |
 
-**v5.0 milestone:**
+**v6.0 milestone:**
 - Total plans: TBD (Phase 5: 2 plans, Phases 6-8: TBD during planning)
 - Phase 5: 2/2 plans complete (05-01, 05-02)
 - Average duration: ~10 minutes per plan
@@ -80,7 +80,7 @@ v5.0 PostgreSQL:       [██████----] Phase 7 complete (Plan 2/2 done)
 - v3.0: Skill + CLI over MCP — simpler, less context overhead
 - v3.0: Dual-layer validation (startup warning + indexing error)
 - v3.0: CI matrix with conditional API key checks
-- v5.0: PostgreSQL as optional dual backend — ChromaDB remains default
+- v6.0: PostgreSQL as optional dual backend — ChromaDB remains default
 - 05-01: Protocol over ABC — structural subtyping, no inheritance required
 - 05-01: Normalize scores to 0-1 range — consistent across backends
 - 05-01: Singleton factory pattern — matches existing pattern
@@ -152,4 +152,4 @@ v5.0 PostgreSQL:       [██████----] Phase 7 complete (Plan 2/2 done)
 **Resume File:** None
 
 ---
-*State updated: 2026-02-11*
+*State updated: 2026-02-12*
