@@ -214,51 +214,60 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         project_root = state_dir.parent.parent.parent
 
     try:
-        # Determine persistence directories
-        chroma_dir = (
-            str(storage_paths["chroma_db"])
-            if storage_paths
-            else settings.CHROMA_PERSIST_DIR
-        )
-        bm25_dir = (
-            str(storage_paths["bm25_index"])
-            if storage_paths
-            else settings.BM25_INDEX_PATH
-        )
-
-        # Initialize services and store on app.state for DI
-        vector_store = VectorStoreManager(
-            persist_dir=chroma_dir,
-        )
-        await vector_store.initialize()
-        app.state.vector_store = vector_store
-        logger.info("Vector store initialized")
-
         # Initialize storage backend (Phase 5)
         backend_type = get_effective_backend_type()
         logger.info(f"Storage backend: {backend_type}")
 
-        # Get storage backend instance (wraps vector_store and bm25_manager)
+        # Get storage backend instance from factory
         storage_backend = get_storage_backend()
         await storage_backend.initialize()
         app.state.storage_backend = storage_backend
+        app.state.backend_type = backend_type
         logger.info("Storage backend initialized")
 
-        # Check embedding compatibility (PROV-07)
-        embedding_warning = await check_embedding_compatibility(vector_store)
-        if embedding_warning:
-            logger.warning(f"Embedding compatibility: {embedding_warning}")
-            # Store warning for health endpoint
-            app.state.embedding_warning = embedding_warning
-        else:
-            app.state.embedding_warning = None
+        # Conditional ChromaDB initialization (only when backend is chroma)
+        if backend_type == "chroma":
+            # Determine persistence directories
+            chroma_dir = (
+                str(storage_paths["chroma_db"])
+                if storage_paths
+                else settings.CHROMA_PERSIST_DIR
+            )
+            bm25_dir = (
+                str(storage_paths["bm25_index"])
+                if storage_paths
+                else settings.BM25_INDEX_PATH
+            )
 
-        bm25_manager = BM25IndexManager(
-            persist_dir=bm25_dir,
-        )
-        bm25_manager.initialize()
-        app.state.bm25_manager = bm25_manager
-        logger.info("BM25 index manager initialized")
+            # Initialize ChromaDB components
+            vector_store = VectorStoreManager(
+                persist_dir=chroma_dir,
+            )
+            await vector_store.initialize()
+            app.state.vector_store = vector_store
+            logger.info("Vector store initialized")
+
+            # Check embedding compatibility (PROV-07)
+            embedding_warning = await check_embedding_compatibility(vector_store)
+            if embedding_warning:
+                logger.warning(f"Embedding compatibility: {embedding_warning}")
+                # Store warning for health endpoint
+                app.state.embedding_warning = embedding_warning
+            else:
+                app.state.embedding_warning = None
+
+            bm25_manager = BM25IndexManager(
+                persist_dir=bm25_dir,
+            )
+            bm25_manager.initialize()
+            app.state.bm25_manager = bm25_manager
+            logger.info("BM25 index manager initialized")
+        else:
+            # PostgreSQL or other backend - no ChromaDB components needed
+            app.state.vector_store = None
+            app.state.bm25_manager = None
+            app.state.embedding_warning = None
+            logger.info(f"Skipping ChromaDB initialization (backend: {backend_type})")
 
         # Load project config for exclude patterns
         exclude_patterns = None
@@ -277,18 +286,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         document_loader = DocumentLoader(exclude_patterns=exclude_patterns)
 
-        # Create indexing service with injected deps
+        # Create indexing service with storage_backend (Phase 9)
         indexing_service = IndexingService(
-            vector_store=vector_store,
-            bm25_manager=bm25_manager,
+            storage_backend=storage_backend,
             document_loader=document_loader,
         )
         app.state.indexing_service = indexing_service
 
-        # Create query service with injected deps
+        # Create query service with storage_backend (Phase 9)
         query_service = QueryService(
-            vector_store=vector_store,
-            bm25_manager=bm25_manager,
+            storage_backend=storage_backend,
         )
         app.state.query_service = query_service
 
