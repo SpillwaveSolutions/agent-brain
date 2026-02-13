@@ -58,7 +58,7 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ### Active
 
-**Current Milestone: v5.0 PostgreSQL Backend**
+**Current Milestone: v6.0 PostgreSQL Backend**
 
 **Goal:** Add PostgreSQL as a configurable storage backend with pgvector for vector search and tsvector for full-text search, running alongside ChromaDB as a dual-backend architecture.
 
@@ -131,4 +131,4 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 | CI matrix with conditional API key checks | Tests skip gracefully, config tests always run | ✓ Good |
 
 ---
-*Last updated: 2026-02-10 after v5.0 milestone started*
+*Last updated: 2026-02-12 after v6.0 milestone started*

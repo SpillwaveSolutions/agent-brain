@@ -73,7 +73,16 @@
       "Bash(gh run list:*)",
       "Bash(git checkout:*)",
       "Bash(git pull:*)",
-      "Skill(gsd:plan-phase)"
+      "Skill(gsd:plan-phase)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh release view:*)",
+      "Bash(gh release edit:*)",
+      "Bash(gh run view:*)",
+      "Bash(poetry config:*)",
+      "Bash(twine:*)",
+      "Skill(gsd:plan-milestone-gaps)",
+      "Bash(python -m pytest:*)"
     ]
   },
   "sandbox": {

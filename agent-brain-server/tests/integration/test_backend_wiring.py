@@ -117,18 +117,22 @@ class TestBackendWiring:
         }
 
         # Patch the lazy imports inside the factory's postgres branch
-        with patch(
-            "agent_brain_server.storage.factory.get_effective_backend_type"
-        ) as mock_get_type, patch(
-            "agent_brain_server.storage.factory.load_provider_settings"
-        ) as mock_load_settings, patch.dict(
-            "sys.modules",
-            {
-                "agent_brain_server.storage.postgres": MagicMock(
-                    PostgresBackend=MagicMock(return_value=mock_postgres_backend),
-                    PostgresConfig=MagicMock(return_value=mock_postgres_config),
-                )
-            },
+        with (
+            patch(
+                "agent_brain_server.storage.factory.get_effective_backend_type"
+            ) as mock_get_type,
+            patch(
+                "agent_brain_server.storage.factory.load_provider_settings"
+            ) as mock_load_settings,
+            patch.dict(
+                "sys.modules",
+                {
+                    "agent_brain_server.storage.postgres": MagicMock(
+                        PostgresBackend=MagicMock(return_value=mock_postgres_backend),
+                        PostgresConfig=MagicMock(return_value=mock_postgres_config),
+                    )
+                },
+            ),
         ):
             # Setup mocks
             mock_get_type.return_value = "postgres"
