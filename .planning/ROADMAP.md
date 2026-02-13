@@ -6,7 +6,7 @@
 ## Milestones
 
 - ✅ **v3.0 Advanced RAG** — Phases 1-4 (shipped 2026-02-10)
-- 🚧 **v6.0 PostgreSQL Backend** — Phases 5-10 (gap closure in progress)
+- ✅ **v6.0 PostgreSQL Backend** — Phases 5-10 (shipped 2026-02-13)
 
 ## Phases
 
@@ -22,7 +22,7 @@
 
 </details>
 
-### 🚧 v6.0 PostgreSQL Backend (Gap Closure)
+### ✅ v6.0 PostgreSQL Backend — SHIPPED 2026-02-13
 
 **Milestone Goal:** Add PostgreSQL as a configurable storage backend with pgvector for vector search and tsvector for full-text search, running alongside ChromaDB as a dual-backend architecture.
 
@@ -190,4 +190,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-02-13 — Phase 10 planned (1 plan)*
+*Last updated: 2026-02-13 — v6.0 milestone completed (all 10 phases shipped)*
