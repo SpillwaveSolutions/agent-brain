@@ -40,7 +40,7 @@ async def health_check(request: Request) -> HealthStatus:
         - degraded: Server is up but some services are unavailable
         - unhealthy: Server is not operational
     """
-    vector_store = request.app.state.vector_store
+    vector_store = getattr(request.app.state, "vector_store", None)
     job_service = getattr(request.app.state, "job_service", None)
 
     # Determine status using queue service (non-blocking)
@@ -66,6 +66,15 @@ async def health_check(request: Request) -> HealthStatus:
     if is_indexing:
         status = "indexing"
         message = f"Indexing in progress: {current_folder or 'unknown'}"
+    elif vector_store is None:
+        # Non-chroma backend -- check storage_backend directly
+        storage_backend = getattr(request.app.state, "storage_backend", None)
+        if storage_backend and storage_backend.is_initialized:
+            status = "healthy"
+            message = "Server is running and ready for queries"
+        else:
+            status = "degraded"
+            message = "Storage backend not initialized"
     elif not vector_store.is_initialized:
         status = "degraded"
         message = "Vector store not initialized"
@@ -114,14 +123,19 @@ async def indexing_status(request: Request) -> IndexingStatus:
         - indexed_folders: List of folders that have been indexed
     """
     indexing_service = request.app.state.indexing_service
-    vector_store = request.app.state.vector_store
+    vector_store = getattr(request.app.state, "vector_store", None)
     job_service = getattr(request.app.state, "job_service", None)
 
     # Get vector store count (non-blocking read)
     try:
-        total_chunks = (
-            await vector_store.get_count() if vector_store.is_initialized else 0
-        )
+        if vector_store is not None and vector_store.is_initialized:
+            total_chunks = await vector_store.get_count()
+        else:
+            storage_backend = getattr(request.app.state, "storage_backend", None)
+            if storage_backend and storage_backend.is_initialized:
+                total_chunks = await storage_backend.get_count()
+            else:
+                total_chunks = 0
     except Exception:
         total_chunks = 0
 
@@ -152,6 +166,23 @@ async def indexing_status(request: Request) -> IndexingStatus:
     # Get indexing service status for historical data
     # This is read-only and non-blocking
     service_status = await indexing_service.get_status()
+
+    # Override graph index status when on non-chroma backend
+    backend_type = get_effective_backend_type()
+    graph_index_info = service_status.get("graph_index")
+    if backend_type != "chroma" and graph_index_info is not None:
+        reason_msg = (
+            f"Graph queries require ChromaDB backend (current: {backend_type})"
+        )
+        graph_index_info = {
+            "enabled": False,
+            "initialized": False,
+            "entity_count": 0,
+            "relationship_count": 0,
+            "store_type": "unavailable",
+            "reason": reason_msg,
+        }
+        service_status["graph_index"] = graph_index_info
 
     return IndexingStatus(
         total_documents=service_status.get("total_documents", 0),

@@ -452,8 +452,19 @@ class QueryService:
             List of QueryResult from graph retrieval.
 
         Raises:
-            ValueError: If GraphRAG is not enabled.
+            ValueError: If GraphRAG is not enabled or backend is incompatible.
         """
+        # Check backend compatibility for graph queries
+        from agent_brain_server.storage import get_effective_backend_type
+
+        backend_type = get_effective_backend_type()
+        if backend_type != "chroma":
+            raise ValueError(
+                f"Graph queries (mode='graph') require ChromaDB backend. "
+                f"Current backend: '{backend_type}'. "
+                f"To use graph queries, set AGENT_BRAIN_STORAGE_BACKEND=chroma."
+            )
+
         if not settings.ENABLE_GRAPH_INDEX:
             raise ValueError(
                 "GraphRAG not enabled. Set ENABLE_GRAPH_INDEX=true in environment."
@@ -554,13 +565,22 @@ class QueryService:
         vector_results = await self._execute_vector_query(request)
         bm25_results = await self._execute_bm25_query(request)
 
-        # Get graph results if enabled
+        # Get graph results if enabled and backend supports it
         graph_results: list[QueryResult] = []
-        if settings.ENABLE_GRAPH_INDEX:
+        from agent_brain_server.storage import get_effective_backend_type
+
+        backend_type = get_effective_backend_type()
+        if settings.ENABLE_GRAPH_INDEX and backend_type == "chroma":
             try:
                 graph_results = await self._execute_graph_query(request)
             except ValueError:
-                pass  # Graph not enabled, skip
+                pass  # Graph not enabled or not available, skip
+        elif backend_type != "chroma":
+            logger.info(
+                "Graph component skipped in multi-mode: "
+                "graph queries require ChromaDB backend "
+                f"(current: {backend_type})"
+            )
 
         # Apply Reciprocal Rank Fusion
         rrf_k = settings.GRAPH_RRF_K  # Typical value is 60
