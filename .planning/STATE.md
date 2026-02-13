@@ -1,19 +1,19 @@
 # Agent Brain — Project State
-**Last Updated:** 2026-02-12
+**Last Updated:** 2026-02-13
 **Current Milestone:** v6.0 PostgreSQL Backend
-**Status:** Gap closure — Phases 9-10 added from milestone audit
+**Status:** Gap closure — Phase 9 Plan 1 complete
 **Current Phase:** 9
 **Total Phases:** 10
-**Current Plan:** 0
-**Total Plans in Phase:** 0
+**Current Plan:** 1
+**Total Plans in Phase:** 1
 
 ## Current Position
-Phase: 9 of 10 (Runtime Backend Wiring) — NOT STARTED
-Plan: 0 of 0 (needs planning)
-Status: Gap closure phases created from v6.0 audit
-Last activity: 2026-02-12 — Added gap closure phases 9-10
+Phase: 9 of 10 (Runtime Backend Wiring) — IN PROGRESS
+Plan: 1 of 1 (runtime backend wiring complete)
+Status: Factory-driven service initialization and graph query validation complete
+Last activity: 2026-02-13 — Completed 09-01-PLAN.md
 
-**Progress:** [████████░░] 80%
+**Progress:** [████████░░] 85%
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-10)
@@ -61,6 +61,7 @@ v6.0 PostgreSQL:       [██████████] Phase 8 complete (Plan 2
 | Phase 07 P02 | 4 min | 3 tasks | 3 files |
 | Phase 08-plugin-documentation P01 | 1 min | 3 tasks | 4 files |
 | Phase 08-plugin-documentation P02 | 2 min | 2 tasks | 7 files |
+| Phase 09-runtime-backend-wiring P01 | 4 min | 3 tasks | 5 files modified |
 
 ## Accumulated Context
 ### From v3.0 Advanced RAG
@@ -104,6 +105,9 @@ v6.0 PostgreSQL:       [██████████] Phase 8 complete (Plan 2
 - [Phase 07]: Avoid updating Chroma hnsw:space metadata during embedding metadata writes.
 - [Phase 08-plugin-documentation]: Documented backend resolution order and reindex requirement in config flow
 - [Phase 08-plugin-documentation]: Standardized postgres local setup around docker-compose.postgres.yml
+- 09-01: Conditional ChromaDB initialization based on backend_type — avoids creating chroma directories on postgres
+- 09-01: Graph queries raise ValueError on postgres, multi-mode gracefully skips — graph is ChromaDB-only
+- 09-01: Health endpoints use getattr() for vector_store — handles None safely on postgres backend
 
 ### From Phase 6 Plan 03 (Integration)
 - Factory creates PostgresBackend from YAML config with DATABASE_URL env var override
@@ -147,9 +151,9 @@ v6.0 PostgreSQL:       [██████████] Phase 8 complete (Plan 2
 
 ## Session Continuity
 
-**Last Session:** 2026-02-12T17:29:53.164Z
-**Stopped At:** Completed 08-plugin-documentation-02-PLAN.md
+**Last Session:** 2026-02-13T02:04:02Z
+**Stopped At:** Completed 09-runtime-backend-wiring-01-PLAN.md
 **Resume File:** None
 
 ---
-*State updated: 2026-02-12*
+*State updated: 2026-02-13*
