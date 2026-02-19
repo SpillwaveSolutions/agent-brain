@@ -92,6 +92,7 @@ class Settings(BaseSettings):
         ],
         env_file_encoding="utf-8",
         case_sensitive=True,
+        extra="ignore",  # Ignore env vars not in this model (e.g. GEMINI_API_KEY)
     )
 
 
