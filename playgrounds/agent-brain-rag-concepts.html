@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Brain - RAG Concepts Map</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; height: 100vh; overflow: hidden; }
+
+  .layout { display: grid; grid-template-columns: 1fr 300px; grid-template-rows: 1fr 200px; height: 100vh; }
+
+  /* Canvas */
+  .canvas-wrap { position: relative; overflow: hidden; background: #0d1117; }
+  canvas { display: block; }
+  .tooltip { position: absolute; background: #1c2128; border: 1px solid #444c56; border-radius: 6px; padding: 12px 16px; font-size: 12px; pointer-events: none; z-index: 100; max-width: 360px; box-shadow: 0 4px 16px #000a; display: none; line-height: 1.5; }
+  .tooltip .tt-title { font-weight: 700; color: #58a6ff; font-size: 13px; margin-bottom: 4px; }
+  .tooltip .tt-file { font-family: monospace; color: #8b949e; font-size: 10px; margin-bottom: 6px; }
+  .tooltip .tt-desc { color: #c9d1d9; }
+  .tooltip .tt-formula { font-family: 'SF Mono', monospace; background: #161b22; padding: 6px 8px; border-radius: 4px; margin-top: 6px; font-size: 11px; color: #79c0ff; }
+
+  .canvas-controls { position: absolute; top: 12px; left: 12px; display: flex; gap: 6px; flex-wrap: wrap; max-width: 500px; }
+  .preset-btn { padding: 5px 10px; font-size: 11px; background: #21262d; border: 1px solid #30363d; color: #c9d1d9; border-radius: 4px; cursor: pointer; }
+  .preset-btn:hover { background: #30363d; border-color: #58a6ff; }
+  .preset-btn.active { background: #1f3a5f; border-color: #58a6ff; color: #58a6ff; }
+
+  .canvas-hint { position: absolute; bottom: 12px; left: 12px; font-size: 10px; color: #484f58; }
+
+  /* Sidebar */
+  .sidebar { background: #161b22; border-left: 1px solid #30363d; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+  .sidebar h2 { font-size: 14px; color: #58a6ff; margin-bottom: 2px; }
+  .sidebar .subtitle { font-size: 10px; color: #8b949e; margin-bottom: 8px; }
+
+  .section-title { font-size: 10px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+
+  /* Knowledge level legend */
+  .level-legend { display: flex; gap: 10px; margin-bottom: 4px; }
+  .level-item { display: flex; align-items: center; gap: 4px; font-size: 10px; cursor: pointer; }
+  .level-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .level-dot.know { background: #3fb950; }
+  .level-dot.fuzzy { background: #d29922; }
+  .level-dot.unknown { background: #f85149; }
+
+  /* Node list */
+  .node-list { flex: 1; overflow-y: auto; }
+  .node-item { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 4px; cursor: pointer; font-size: 11px; margin-bottom: 2px; }
+  .node-item:hover { background: #21262d; }
+  .node-item .level-indicator { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .node-item .node-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .node-item .cycle-btn { font-size: 9px; color: #8b949e; padding: 1px 4px; background: #21262d; border: 1px solid #30363d; border-radius: 3px; cursor: pointer; flex-shrink: 0; }
+  .node-item .cycle-btn:hover { color: #58a6ff; border-color: #58a6ff; }
+
+  .action-bar { display: flex; gap: 4px; flex-wrap: wrap; }
+  .action-btn { padding: 4px 8px; font-size: 10px; background: #21262d; border: 1px solid #30363d; color: #c9d1d9; border-radius: 4px; cursor: pointer; }
+  .action-btn:hover { background: #30363d; }
+
+  /* Prompt area */
+  .prompt-area { grid-column: 1 / 3; background: #161b22; border-top: 1px solid #30363d; padding: 12px 16px; overflow-y: auto; }
+  .prompt-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .prompt-label { font-size: 11px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
+  .copy-btn { padding: 4px 10px; font-size: 11px; background: #238636; border: none; color: #fff; border-radius: 4px; cursor: pointer; }
+  .copy-btn:hover { background: #2ea043; }
+  .copy-btn.copied { background: #1f6feb; }
+  .prompt-text { font-family: 'SF Mono', monospace; font-size: 11px; color: #c9d1d9; white-space: pre-wrap; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <div class="canvas-wrap">
+    <canvas id="canvas"></canvas>
+    <div class="canvas-controls" id="presets"></div>
+    <div class="tooltip" id="tooltip"></div>
+    <div class="canvas-hint">Drag nodes to rearrange. Click a node in the sidebar to cycle its knowledge level.</div>
+  </div>
+
+  <div class="sidebar">
+    <div>
+      <h2>RAG Concepts Map</h2>
+      <div class="subtitle">Agent Brain search & retrieval pipeline</div>
+    </div>
+
+    <div>
+      <div class="section-title">Knowledge Levels</div>
+      <div class="level-legend">
+        <div class="level-item"><div class="level-dot know"></div> I know this</div>
+        <div class="level-item"><div class="level-dot fuzzy"></div> Fuzzy</div>
+        <div class="level-item"><div class="level-dot unknown"></div> No idea</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Actions</div>
+      <div class="action-bar">
+        <button class="action-btn" onclick="autoLayout()">Auto Layout</button>
+        <button class="action-btn" onclick="markAllKnow()">All Known</button>
+        <button class="action-btn" onclick="markAllFuzzy()">All Fuzzy</button>
+        <button class="action-btn" onclick="markAllUnknown()">All Unknown</button>
+      </div>
+    </div>
+
+    <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+      <div class="section-title">Concepts (<span id="count-info"></span>)</div>
+      <div class="node-list" id="node-list"></div>
+    </div>
+  </div>
+
+  <div class="prompt-area">
+    <div class="prompt-header">
+      <span class="prompt-label">Generated Learning Prompt</span>
+      <button class="copy-btn" id="copy-btn" onclick="copyPrompt()">Copy</button>
+    </div>
+    <div class="prompt-text" id="prompt-output"></div>
+  </div>
+</div>
+
+<script>
+// ── Knowledge levels ──
+const LEVELS = { know: '#3fb950', fuzzy: '#d29922', unknown: '#f85149' };
+const LEVEL_ORDER = ['fuzzy', 'know', 'unknown'];
+
+// ── Category colors ──
+const CATS = {
+  'search-mode':  { color: '#58a6ff', label: 'Search Modes' },
+  'scoring':      { color: '#d2a8ff', label: 'Scoring & Fusion' },
+  'indexing':     { color: '#7ee787', label: 'Indexing Pipeline' },
+  'embedding':    { color: '#ffa657', label: 'Embeddings & Vectors' },
+  'storage':      { color: '#f778ba', label: 'Storage & Retrieval' },
+  'reranking':    { color: '#ff7b72', label: 'Reranking' },
+  'chunking':     { color: '#56d4dd', label: 'Chunking & Summaries' },
+  'graph':        { color: '#ffd700', label: 'GraphRAG' },
+};
+
+// ── Concepts (nodes) ──
+const NODES = [
+  // Search modes
+  { id: 'vector-search', label: 'Vector Search', cat: 'search-mode', level: 'fuzzy',
+    desc: 'Embeds the query into a high-dimensional vector and finds documents with the most similar vectors using cosine similarity. Good for semantic meaning and paraphrase matching. Latency: 800-1500ms.',
+    file: 'services/query_service.py',
+    formula: 'score = cosine_similarity(query_vec, doc_vec)  →  range [0, 1]' },
+
+  { id: 'bm25-search', label: 'BM25 Search', cat: 'search-mode', level: 'fuzzy',
+    desc: 'Best Match 25 — a TF-IDF variant that scores documents by term frequency, inverse document frequency, and document length normalization. Great for exact keyword matches, function names, class names. Latency: 10-50ms.',
+    file: 'indexing/bm25_index.py',
+    formula: 'score(q,d) = Σ IDF(qi) · (tf · (k1+1)) / (tf + k1 · (1 - b + b · |d|/avgdl))' },
+
+  { id: 'hybrid-search', label: 'Hybrid Search', cat: 'search-mode', level: 'fuzzy',
+    desc: 'Runs Vector + BM25 in parallel, then combines scores using Relative Score Fusion (RSF). The alpha parameter controls the blend: alpha=1.0 is pure vector, alpha=0.0 is pure BM25, default alpha=0.5 gives equal weight. This is the default search mode.',
+    file: 'services/query_service.py',
+    formula: 'hybrid_score = α · vector_score + (1 - α) · bm25_score    (α ∈ [0, 1])' },
+
+  { id: 'graph-search', label: 'Graph Search', cat: 'search-mode', level: 'fuzzy',
+    desc: 'Extracts entities from the query, traverses the property graph to find related entities and relationships, then looks up the associated document chunks. Falls back to vector search if no graph results. Requires ENABLE_GRAPH_INDEX=true.',
+    file: 'services/query_service.py' },
+
+  { id: 'multi-search', label: 'Multi-Mode Search', cat: 'search-mode', level: 'fuzzy',
+    desc: 'Runs Vector + BM25 + Graph all at once, then fuses results using Reciprocal Rank Fusion (RRF). Provides maximum coverage at the cost of higher latency (1.5-2.5s). Best when you want to catch everything.',
+    file: 'services/query_service.py' },
+
+  // Scoring & Fusion
+  { id: 'rsf', label: 'Relative Score Fusion', cat: 'scoring', level: 'fuzzy',
+    desc: 'Used by Hybrid mode. Normalizes each retriever\'s scores to [0,1] range, then blends with weighted sum. Alpha controls the weight — higher alpha means more trust in semantic similarity, lower means more trust in keyword matching.',
+    file: 'services/query_service.py',
+    formula: 'RSF(d) = α · norm(vector_score(d)) + (1-α) · norm(bm25_score(d))' },
+
+  { id: 'rrf', label: 'Reciprocal Rank Fusion', cat: 'scoring', level: 'fuzzy',
+    desc: 'Used by Multi mode. Fuses ranked lists by summing reciprocal ranks across retrievers. The constant k=60 prevents top-ranked items from dominating. Documents that appear in multiple lists get boosted. Rank-based, not score-based — more robust to score scale differences.',
+    file: 'services/query_service.py',
+    formula: 'RRF(d) = Σ 1/(k + rank_i(d))    where k=60, sum over all retrievers' },
+
+  { id: 'score-norm', label: 'Score Normalization', cat: 'scoring', level: 'fuzzy',
+    desc: 'All scores are normalized to [0,1] where higher = better match. Vector: cosine similarity already [0,1]. BM25: per-query max normalization (divide by highest BM25 score). PostgreSQL tsvector: same per-query normalization. This makes scores comparable across different retrieval methods.',
+    file: 'services/query_service.py' },
+
+  { id: 'top-k', label: 'Top-K & Threshold', cat: 'scoring', level: 'fuzzy',
+    desc: 'top_k controls how many results to return (default 5). similarity_threshold (default 0.7) filters out low-quality matches. With reranking enabled, Stage 1 fetches top_k × RERANKER_TOP_K_MULTIPLIER (default 10x = 50 candidates), then Stage 2 narrows back to top_k.',
+    file: 'services/query_service.py',
+    formula: 'Stage 1: fetch top_k × 10 candidates  →  Stage 2: rerank  →  return top_k' },
+
+  // Indexing pipeline
+  { id: 'ingestion-pipeline', label: 'Ingestion Pipeline', cat: 'indexing', level: 'fuzzy',
+    desc: 'The 6-step process: 1) Load files (SimpleDirectoryReader) → 2) Separate doc vs code → 3) Chunk with context awareness → 4) Generate embeddings → 5) Store in vector DB + build BM25 index → 6) Optionally build graph index. Orchestrated by IndexingService.',
+    file: 'services/indexing_service.py' },
+
+  { id: 'doc-vs-code', label: 'Doc vs Code Detection', cat: 'indexing', level: 'fuzzy',
+    desc: 'The DocumentLoader separates files into "doc" (Markdown, text, RST, HTML) and "code" (Python, TypeScript, JavaScript, Java, Go, Rust, C, C++). Each type gets a different chunking strategy — SentenceSplitter for docs, CodeSplitter with tree-sitter AST for code.',
+    file: 'indexing/document_loader.py' },
+
+  { id: 'job-queue', label: 'Async Job Queue', cat: 'indexing', level: 'fuzzy',
+    desc: 'Indexing is async — POST /index/ enqueues a job and returns immediately with a job_id. The JobWorker polls every 1s, processes 1 job at a time (concurrency=1), with 2h timeout and progress checkpoints every 50 files. Jobs are deduplicated by hash(path + operation + patterns).',
+    file: 'job_queue/job_worker.py' },
+
+  // Chunking & Summaries
+  { id: 'text-chunking', label: 'Text Chunking', cat: 'chunking', level: 'fuzzy',
+    desc: 'ContextAwareChunker uses LlamaIndex SentenceSplitter to break documents at sentence boundaries (chunk_size=512, overlap=50). But it does more than split — it extracts document structure (heading_path, section_title, content_type) and injects that context into each chunk\'s ChunkMetadata. This means each chunk knows where it sits in the document hierarchy.',
+    file: 'indexing/chunking.py:ContextAwareChunker',
+    formula: 'chunk_size=512 tokens, overlap=50 tokens  →  ~2-3 paragraphs per chunk' },
+
+  { id: 'context-injection', label: 'Context Injection', cat: 'chunking', level: 'fuzzy',
+    desc: 'When ContextAwareChunker processes a document, it tracks the current heading hierarchy (h1 > h2 > h3) and injects heading_path, section_title, and content_type into each chunk\'s metadata. For example, a chunk under "## API Reference > ### Authentication" gets heading_path="API Reference > Authentication". This structural context survives into search results, so retrieved chunks carry their document location.',
+    file: 'indexing/chunking.py:ContextAwareChunker' },
+
+  { id: 'chunk-metadata', label: 'ChunkMetadata Schema', cat: 'chunking', level: 'fuzzy',
+    desc: 'The unified metadata schema that both chunkers populate. Doc fields: heading_path, section_title, content_type, language. Code fields: symbol_name, symbol_kind, start_line, end_line, docstring, parameters, return_type, section_summary, prev_section_summary. Common fields: source_type, file_name, file_path. This schema is what gets stored alongside embeddings and drives filtered search.',
+    file: 'indexing/chunking.py:ChunkMetadata' },
+
+  { id: 'ast-chunking', label: 'AST Code Chunking', cat: 'chunking', level: 'fuzzy',
+    desc: 'CodeChunker uses tree-sitter to parse code into an AST, then splits at symbol boundaries (functions, classes, methods). Extracts rich metadata: symbol_name, symbol_kind, start_line, end_line, docstring, parameters, return_type, decorators, imports. This means search results can point to exact functions.',
+    file: 'indexing/chunking.py:CodeChunker' },
+
+  { id: 'code-summaries', label: 'LLM Code Summaries', cat: 'chunking', level: 'fuzzy',
+    desc: 'When generate_summaries=true, CodeChunker calls EmbeddingGenerator.generate_summary() for each code chunk. This invokes the active SummarizationProvider (Anthropic Haiku by default) to produce a natural language section_summary. The summary is stored in chunk metadata, making code searchable by what it does, not just its syntax.',
+    file: 'indexing/chunking.py + indexing/embedding.py' },
+
+  { id: 'prev-section-summary', label: 'Summary Chaining', cat: 'chunking', level: 'fuzzy',
+    desc: 'Each CodeChunk carries both section_summary (its own summary) and prev_section_summary (the previous chunk\'s summary). This creates context continuity — when you read a chunk, you also know what came before it. The chain of summaries helps the retriever understand code flow across chunk boundaries.',
+    file: 'indexing/chunking.py:ChunkMetadata' },
+
+  // Embeddings
+  { id: 'embeddings', label: 'Embeddings', cat: 'embedding', level: 'fuzzy',
+    desc: 'Text is converted into high-dimensional vectors (arrays of floats) that capture semantic meaning. Similar texts produce similar vectors. Agent Brain uses OpenAI text-embedding-3-large by default (3072 dimensions). Embeddings are generated in batches of 100 for efficiency.',
+    file: 'indexing/embedding.py',
+    formula: '"fix authentication bug" → [0.012, -0.034, 0.078, ...] (3072 floats)' },
+
+  { id: 'cosine-sim', label: 'Cosine Similarity', cat: 'embedding', level: 'fuzzy',
+    desc: 'Measures the angle between two vectors, ignoring magnitude. Returns a value in [-1, 1] where 1 = identical direction, 0 = orthogonal, -1 = opposite. In practice, embeddings cluster in [0.6, 1.0] range. ChromaDB and pgvector both support this as the default distance metric.',
+    file: 'storage/postgres/vector_ops.py',
+    formula: 'cos(A,B) = (A·B) / (|A| × |B|)    pgvector operator: <=>' },
+
+  { id: 'embed-dimensions', label: 'Embedding Dimensions', cat: 'embedding', level: 'fuzzy',
+    desc: '3072 dimensions for text-embedding-3-large. Each dimension captures a different aspect of meaning. More dimensions = more nuance but higher storage and compute costs. Dimensions must match between indexing and querying — the SchemaManager validates this on startup. Switching models requires re-indexing.',
+    file: 'config/settings.py' },
+
+  { id: 'provider-system', label: 'Pluggable Providers', cat: 'embedding', level: 'fuzzy',
+    desc: 'ProviderRegistry enables hot-swapping backends. Embedding: OpenAI, Ollama, Cohere. Summarization: Anthropic, OpenAI, Ollama, Gemini, Grok. Reranker: SentenceTransformers, Ollama. Providers are singletons cached per (type, model) key. Configured via config.yaml.',
+    file: 'providers/factory.py' },
+
+  // Storage
+  { id: 'chromadb', label: 'ChromaDB Backend', cat: 'storage', level: 'fuzzy',
+    desc: 'Default storage backend. Embedded vector database that persists to disk (.claude/agent-brain/data/chroma_db/). Handles vector similarity search natively. Documents upserted in batches of 40,000. Validates embedding metadata (provider, model, dimensions) on load.',
+    file: 'storage/chroma/backend.py' },
+
+  { id: 'pgvector', label: 'pgvector (PostgreSQL)', cat: 'storage', level: 'fuzzy',
+    desc: 'Alternative backend using PostgreSQL + pgvector extension. HNSW index for approximate nearest neighbor search (m=16, ef_construction=64). Supports cosine, L2, and inner product distance. Full-text search via tsvector with weighted fields (A=title, B=summary, C=body). Async via SQLAlchemy + asyncpg.',
+    file: 'storage/postgres/backend.py',
+    formula: 'HNSW index: O(log n) search, 90%+ recall at m=16, ef=64' },
+
+  { id: 'bm25-index', label: 'BM25 Disk Index', cat: 'storage', level: 'fuzzy',
+    desc: 'Persisted as retriever.json in .claude/agent-brain/data/bm25_index/. Built from all document nodes using LlamaIndex BM25Retriever. Loaded into memory on server startup. Must be rebuilt when documents change (happens automatically during indexing).',
+    file: 'indexing/bm25_index.py' },
+
+  { id: 'storage-protocol', label: 'Storage Protocol', cat: 'storage', level: 'fuzzy',
+    desc: 'StorageBackendProtocol defines the async interface: upsert_documents(), vector_search(), keyword_search(), delete_all(), get_document_count(), get_by_id(). Both ChromaBackend and PostgresBackend implement this, so the query service doesn\'t care which backend is active.',
+    file: 'storage/protocol.py' },
+
+  // Reranking
+  { id: 'two-stage', label: 'Two-Stage Retrieval', cat: 'reranking', level: 'fuzzy',
+    desc: 'Stage 1 (cheap): Fetch many candidates quickly using vector/BM25/hybrid (top_k × 10 = 50 by default). Stage 2 (expensive): Run each candidate through a CrossEncoder model that scores the (query, document) pair directly. This is more accurate than embedding similarity but too slow to run on the full index.',
+    file: 'services/query_service.py',
+    formula: 'Stage 1: 50 candidates (fast) → Stage 2: CrossEncoder rerank → top 5 (precise)' },
+
+  { id: 'cross-encoder', label: 'CrossEncoder Reranking', cat: 'reranking', level: 'fuzzy',
+    desc: 'Unlike bi-encoders (which embed query and doc separately), CrossEncoders process the (query, document) pair together through a transformer. This captures cross-attention between query and document tokens, producing much more accurate relevance scores. Default model: cross-encoder/ms-marco-MiniLM-L-6-v2 (runs locally).',
+    file: 'providers/reranker/sentence_transformers.py' },
+
+  // GraphRAG
+  { id: 'entity-extraction', label: 'Entity Extraction', cat: 'graph', level: 'fuzzy',
+    desc: 'During indexing, an LLM extracts named entities (functions, classes, modules, concepts) and relationships (calls, imports, depends_on, contains) from documents. These form nodes and edges in a property graph. Uses LlamaIndex graph extractors.',
+    file: 'indexing/graph_extractors.py' },
+
+  { id: 'property-graph', label: 'Property Graph Store', cat: 'graph', level: 'fuzzy',
+    desc: 'Stores entities and relationships. Two backends: SimplePropertyGraphStore (in-memory, default) or Kuzu (persistent on disk). Entities have types and properties. Relationships are typed and directed. Graph queries traverse edges to find related chunks.',
+    file: 'indexing/graph_index.py',
+    formula: 'Entity → [relationship] → Entity → lookup chunk IDs → return documents' },
+
+  { id: 'graph-fallback', label: 'Graph Fallback', cat: 'graph', level: 'fuzzy',
+    desc: 'If graph search finds no matching entities or relationships, it automatically falls back to vector search. This ensures the user always gets results even if the graph doesn\'t cover their query. Multi-mode uses graph results alongside vector and BM25 without fallback.',
+    file: 'services/query_service.py' },
+];
+
+// ── Edges (pre-drawn relationships) ──
+const EDGES = [
+  // Search mode relationships
+  { from: 'hybrid-search', to: 'vector-search', type: 'combines', label: 'runs in parallel' },
+  { from: 'hybrid-search', to: 'bm25-search', type: 'combines', label: 'runs in parallel' },
+  { from: 'hybrid-search', to: 'rsf', type: 'uses', label: 'fuses scores' },
+  { from: 'multi-search', to: 'vector-search', type: 'combines', label: '' },
+  { from: 'multi-search', to: 'bm25-search', type: 'combines', label: '' },
+  { from: 'multi-search', to: 'graph-search', type: 'combines', label: '' },
+  { from: 'multi-search', to: 'rrf', type: 'uses', label: 'fuses ranks' },
+
+  // Scoring
+  { from: 'rsf', to: 'score-norm', type: 'requires', label: 'needs [0,1] scores' },
+  { from: 'rrf', to: 'score-norm', type: 'avoids', label: 'rank-based, not score-based' },
+  { from: 'top-k', to: 'two-stage', type: 'feeds', label: 'expanded candidates' },
+
+  // Vector search path
+  { from: 'vector-search', to: 'embeddings', type: 'uses', label: 'embed query' },
+  { from: 'vector-search', to: 'cosine-sim', type: 'uses', label: 'distance metric' },
+  { from: 'embeddings', to: 'embed-dimensions', type: 'produces', label: '3072-dim vectors' },
+  { from: 'embeddings', to: 'provider-system', type: 'configured-by', label: '' },
+
+  // BM25 path
+  { from: 'bm25-search', to: 'bm25-index', type: 'reads', label: '' },
+
+  // Indexing
+  { from: 'ingestion-pipeline', to: 'doc-vs-code', type: 'step-1', label: '' },
+  { from: 'ingestion-pipeline', to: 'text-chunking', type: 'step-2a', label: 'docs' },
+  { from: 'ingestion-pipeline', to: 'ast-chunking', type: 'step-2b', label: 'code' },
+  { from: 'ingestion-pipeline', to: 'embeddings', type: 'step-3', label: '' },
+  { from: 'ingestion-pipeline', to: 'job-queue', type: 'orchestrated-by', label: '' },
+
+  // Chunking & summaries
+  { from: 'text-chunking', to: 'context-injection', type: 'triggers', label: 'extracts structure' },
+  { from: 'context-injection', to: 'chunk-metadata', type: 'populates', label: 'heading_path, section_title' },
+  { from: 'ast-chunking', to: 'chunk-metadata', type: 'populates', label: 'symbol_name, symbol_kind' },
+  { from: 'ast-chunking', to: 'code-summaries', type: 'triggers', label: 'if generate_summaries=true' },
+  { from: 'code-summaries', to: 'chunk-metadata', type: 'populates', label: 'section_summary' },
+  { from: 'code-summaries', to: 'prev-section-summary', type: 'produces', label: 'chain' },
+  { from: 'code-summaries', to: 'provider-system', type: 'uses', label: 'SummarizationProvider' },
+  { from: 'chunk-metadata', to: 'chromadb', type: 'stored-in', label: 'with embeddings' },
+  { from: 'chunk-metadata', to: 'pgvector', type: 'stored-in', label: 'with embeddings' },
+
+  // Storage
+  { from: 'vector-search', to: 'chromadb', type: 'queries', label: '' },
+  { from: 'vector-search', to: 'pgvector', type: 'queries', label: '' },
+  { from: 'chromadb', to: 'storage-protocol', type: 'implements', label: '' },
+  { from: 'pgvector', to: 'storage-protocol', type: 'implements', label: '' },
+  { from: 'bm25-index', to: 'chromadb', type: 'coexists', label: 'chroma backend' },
+  { from: 'pgvector', to: 'cosine-sim', type: 'uses', label: '<=> operator' },
+
+  // Reranking
+  { from: 'two-stage', to: 'cross-encoder', type: 'uses', label: 'Stage 2' },
+  { from: 'cross-encoder', to: 'provider-system', type: 'configured-by', label: '' },
+
+  // Graph
+  { from: 'graph-search', to: 'entity-extraction', type: 'queries', label: '' },
+  { from: 'entity-extraction', to: 'property-graph', type: 'builds', label: '' },
+  { from: 'graph-search', to: 'graph-fallback', type: 'on-empty', label: '' },
+  { from: 'graph-fallback', to: 'vector-search', type: 'falls-back-to', label: '' },
+];
+
+// ── Edge type styles ──
+const EDGE_STYLES = {
+  'combines':      { color: '#58a6ff', dash: [] },
+  'uses':          { color: '#3fb950', dash: [6, 3] },
+  'requires':      { color: '#d2a8ff', dash: [] },
+  'avoids':        { color: '#f85149', dash: [4, 4] },
+  'feeds':         { color: '#ffa657', dash: [] },
+  'configured-by': { color: '#8b949e', dash: [8, 4] },
+  'reads':         { color: '#56d4dd', dash: [] },
+  'produces':      { color: '#d2a8ff', dash: [6, 3] },
+  'step-1':        { color: '#7ee787', dash: [] },
+  'step-2a':       { color: '#7ee787', dash: [] },
+  'step-2b':       { color: '#7ee787', dash: [] },
+  'step-3':        { color: '#7ee787', dash: [] },
+  'orchestrated-by': { color: '#8b949e', dash: [4, 4] },
+  'triggers':      { color: '#ffd700', dash: [] },
+  'queries':       { color: '#58a6ff', dash: [] },
+  'implements':    { color: '#8b949e', dash: [6, 3] },
+  'coexists':      { color: '#8b949e', dash: [4, 4] },
+  'on-empty':      { color: '#f85149', dash: [4, 4] },
+  'falls-back-to': { color: '#f85149', dash: [] },
+  'builds':        { color: '#ffd700', dash: [] },
+  'populates':     { color: '#56d4dd', dash: [6, 3] },
+  'stored-in':     { color: '#f778ba', dash: [6, 3] },
+};
+
+// ── Presets ──
+const PRESETS = [
+  { id: 'all', label: 'All Concepts', filter: () => true },
+  { id: 'search', label: 'Search Modes', filter: n => ['search-mode', 'scoring'].includes(n.cat) },
+  { id: 'indexing', label: 'Indexing', filter: n => ['indexing', 'chunking'].includes(n.cat) },
+  { id: 'vectors', label: 'Vectors & Storage', filter: n => ['embedding', 'storage'].includes(n.cat) },
+  { id: 'graph', label: 'GraphRAG', filter: n => n.cat === 'graph' || n.id === 'graph-search' },
+  { id: 'rerank', label: 'Reranking', filter: n => ['reranking', 'scoring'].includes(n.cat) || n.id === 'vector-search' },
+];
+
+// ── State ──
+let canvas, ctx, W, H;
+let nodes = [];
+let dragging = null, dragOffX = 0, dragOffY = 0;
+let hoveredNode = null;
+let activePreset = 'all';
+
+function init() {
+  canvas = document.getElementById('canvas');
+  ctx = canvas.getContext('2d');
+  resize();
+
+  // Position nodes in a grid initially
+  const cols = 5;
+  const spacingX = 200, spacingY = 120;
+  const startX = 80, startY = 60;
+  nodes = NODES.map((n, i) => ({
+    ...n,
+    x: startX + (i % cols) * spacingX + (Math.random() - 0.5) * 30,
+    y: startY + Math.floor(i / cols) * spacingY + (Math.random() - 0.5) * 20,
+    r: 32,
+    visible: true,
+  }));
+
+  autoLayout();
+  buildPresets();
+  buildNodeList();
+  updatePrompt();
+
+  // Events
+  canvas.addEventListener('mousedown', onMouseDown);
+  canvas.addEventListener('mousemove', onMouseMove);
+  canvas.addEventListener('mouseup', onMouseUp);
+  canvas.addEventListener('mouseleave', () => { dragging = null; hoveredNode = null; hideTooltip(); });
+  window.addEventListener('resize', resize);
+
+  draw();
+}
+
+function resize() {
+  const wrap = canvas.parentElement;
+  W = wrap.clientWidth;
+  H = wrap.clientHeight;
+  canvas.width = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  draw();
+}
+
+// ── Drawing ──
+function draw() {
+  if (!ctx) return;
+  ctx.clearRect(0, 0, W, H);
+
+  // Draw edges
+  const visibleIds = new Set(nodes.filter(n => n.visible).map(n => n.id));
+  EDGES.forEach(e => {
+    const from = nodes.find(n => n.id === e.from);
+    const to = nodes.find(n => n.id === e.to);
+    if (!from || !to || !from.visible || !to.visible) return;
+    drawEdge(from, to, e);
+  });
+
+  // Draw nodes
+  nodes.filter(n => n.visible).forEach(n => drawNode(n));
+}
+
+function drawNode(n) {
+  const catColor = CATS[n.cat]?.color || '#8b949e';
+  const levelColor = LEVELS[n.level];
+
+  // Shadow
+  ctx.save();
+  ctx.shadowColor = '#00000044';
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetY = 2;
+
+  // Circle
+  ctx.beginPath();
+  ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+  ctx.fillStyle = '#161b22';
+  ctx.fill();
+  ctx.restore();
+
+  // Border = category color
+  ctx.beginPath();
+  ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+  ctx.strokeStyle = catColor;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Knowledge ring
+  ctx.beginPath();
+  ctx.arc(n.x, n.y, n.r + 4, 0, Math.PI * 2);
+  ctx.strokeStyle = levelColor;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Label
+  const words = n.label.split(' ');
+  ctx.fillStyle = '#e1e4e8';
+  ctx.font = '10px -apple-system, system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  if (words.length <= 2) {
+    ctx.fillText(n.label, n.x, n.y, n.r * 1.8);
+  } else {
+    const mid = Math.ceil(words.length / 2);
+    ctx.fillText(words.slice(0, mid).join(' '), n.x, n.y - 6, n.r * 1.8);
+    ctx.fillText(words.slice(mid).join(' '), n.x, n.y + 6, n.r * 1.8);
+  }
+}
+
+function drawEdge(from, to, edge) {
+  const style = EDGE_STYLES[edge.type] || { color: '#30363d', dash: [] };
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist < 1) return;
+
+  const ux = dx / dist, uy = dy / dist;
+  const sx = from.x + ux * (from.r + 5);
+  const sy = from.y + uy * (from.r + 5);
+  const ex = to.x - ux * (to.r + 8);
+  const ey = to.y - uy * (to.r + 8);
+
+  ctx.save();
+  ctx.strokeStyle = style.color + '88';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash(style.dash);
+
+  // Slight curve
+  const mx = (sx + ex) / 2 - (ey - sy) * 0.1;
+  const my = (sy + ey) / 2 + (ex - sx) * 0.1;
+
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  ctx.quadraticCurveTo(mx, my, ex, ey);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Arrowhead
+  const angle = Math.atan2(ey - my, ex - mx);
+  ctx.fillStyle = style.color + '88';
+  ctx.beginPath();
+  ctx.moveTo(ex, ey);
+  ctx.lineTo(ex - 8 * Math.cos(angle - 0.35), ey - 8 * Math.sin(angle - 0.35));
+  ctx.lineTo(ex - 8 * Math.cos(angle + 0.35), ey - 8 * Math.sin(angle + 0.35));
+  ctx.closePath();
+  ctx.fill();
+
+  // Label
+  if (edge.label) {
+    ctx.fillStyle = style.color + 'aa';
+    ctx.font = '9px -apple-system, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(edge.label, mx, my - 6);
+  }
+
+  ctx.restore();
+}
+
+// ── Interaction ──
+function hitTest(x, y) {
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const n = nodes[i];
+    if (!n.visible) continue;
+    const dx = x - n.x, dy = y - n.y;
+    if (dx * dx + dy * dy < (n.r + 4) * (n.r + 4)) return n;
+  }
+  return null;
+}
+
+function onMouseDown(e) {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left, y = e.clientY - rect.top;
+  const hit = hitTest(x, y);
+  if (hit) {
+    dragging = hit;
+    dragOffX = hit.x - x;
+    dragOffY = hit.y - y;
+    hideTooltip();
+  }
+}
+
+function onMouseMove(e) {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left, y = e.clientY - rect.top;
+
+  if (dragging) {
+    dragging.x = x + dragOffX;
+    dragging.y = y + dragOffY;
+    draw();
+    return;
+  }
+
+  const hit = hitTest(x, y);
+  if (hit !== hoveredNode) {
+    hoveredNode = hit;
+    if (hit) showTooltip(hit, e.clientX, e.clientY);
+    else hideTooltip();
+    canvas.style.cursor = hit ? 'grab' : 'default';
+  } else if (hit) {
+    positionTooltip(e.clientX, e.clientY);
+  }
+}
+
+function onMouseUp() { dragging = null; }
+
+// ── Tooltip ──
+function showTooltip(n, cx, cy) {
+  const tt = document.getElementById('tooltip');
+  let html = `<div class="tt-title">${n.label}</div>`;
+  if (n.file) html += `<div class="tt-file">${n.file}</div>`;
+  html += `<div class="tt-desc">${n.desc}</div>`;
+  if (n.formula) html += `<div class="tt-formula">${n.formula}</div>`;
+  tt.innerHTML = html;
+  tt.style.display = 'block';
+  positionTooltip(cx, cy);
+}
+
+function positionTooltip(cx, cy) {
+  const tt = document.getElementById('tooltip');
+  const wrap = canvas.parentElement.getBoundingClientRect();
+  let left = cx - wrap.left + 16;
+  let top = cy - wrap.top + 16;
+  if (left + 360 > wrap.width) left = cx - wrap.left - 370;
+  if (top + 150 > wrap.height) top = cy - wrap.top - 120;
+  tt.style.left = left + 'px';
+  tt.style.top = top + 'px';
+}
+
+function hideTooltip() { document.getElementById('tooltip').style.display = 'none'; }
+
+// ── Auto Layout (force-directed) ──
+function autoLayout() {
+  const visible = nodes.filter(n => n.visible);
+  const padding = 50;
+
+  // Initialize positions if off-screen
+  visible.forEach(n => {
+    if (n.x < padding || n.x > W - padding) n.x = padding + Math.random() * (W - 2 * padding);
+    if (n.y < padding || n.y > H - padding) n.y = padding + Math.random() * (H - 2 * padding);
+  });
+
+  for (let iter = 0; iter < 200; iter++) {
+    const damping = 0.95 - iter * 0.002;
+    const forces = new Map(visible.map(n => [n.id, { fx: 0, fy: 0 }]));
+
+    // Repulsion
+    for (let i = 0; i < visible.length; i++) {
+      for (let j = i + 1; j < visible.length; j++) {
+        const a = visible[i], b = visible[j];
+        let dx = b.x - a.x, dy = b.y - a.y;
+        let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const repulse = 8000 / (dist * dist);
+        const fx = (dx / dist) * repulse;
+        const fy = (dy / dist) * repulse;
+        forces.get(a.id).fx -= fx; forces.get(a.id).fy -= fy;
+        forces.get(b.id).fx += fx; forces.get(b.id).fy += fy;
+      }
+    }
+
+    // Attraction along edges
+    EDGES.forEach(e => {
+      const a = visible.find(n => n.id === e.from);
+      const b = visible.find(n => n.id === e.to);
+      if (!a || !b) return;
+      let dx = b.x - a.x, dy = b.y - a.y;
+      let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const attract = (dist - 140) * 0.02;
+      const fx = (dx / dist) * attract;
+      const fy = (dy / dist) * attract;
+      forces.get(a.id).fx += fx; forces.get(a.id).fy += fy;
+      forces.get(b.id).fx -= fx; forces.get(b.id).fy -= fy;
+    });
+
+    // Center gravity
+    const cx = W / 2, cy = H / 2;
+    visible.forEach(n => {
+      const f = forces.get(n.id);
+      f.fx += (cx - n.x) * 0.003;
+      f.fy += (cy - n.y) * 0.003;
+    });
+
+    // Apply
+    visible.forEach(n => {
+      const f = forces.get(n.id);
+      n.x += f.fx * damping;
+      n.y += f.fy * damping;
+      n.x = Math.max(padding, Math.min(W - padding, n.x));
+      n.y = Math.max(padding, Math.min(H - padding, n.y));
+    });
+  }
+
+  draw();
+}
+
+// ── Presets ──
+function buildPresets() {
+  const el = document.getElementById('presets');
+  PRESETS.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'preset-btn' + (p.id === 'all' ? ' active' : '');
+    btn.textContent = p.label;
+    btn.dataset.id = p.id;
+    btn.onclick = () => applyPreset(p.id);
+    el.appendChild(btn);
+  });
+}
+
+function applyPreset(id) {
+  activePreset = id;
+  const preset = PRESETS.find(p => p.id === id);
+  nodes.forEach(n => n.visible = preset.filter(n));
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.id === id));
+  autoLayout();
+  buildNodeList();
+  updatePrompt();
+}
+
+// ── Node list ──
+function buildNodeList() {
+  const list = document.getElementById('node-list');
+  const visible = nodes.filter(n => n.visible);
+  const counts = { know: 0, fuzzy: 0, unknown: 0 };
+  visible.forEach(n => counts[n.level]++);
+  document.getElementById('count-info').textContent = `${counts.know} known, ${counts.fuzzy} fuzzy, ${counts.unknown} unknown`;
+
+  list.innerHTML = visible.map(n => {
+    const catColor = CATS[n.cat]?.color || '#8b949e';
+    return `<div class="node-item" data-id="${n.id}">
+      <div class="level-indicator" style="background:${LEVELS[n.level]}"></div>
+      <span class="node-label" style="color:${catColor}">${n.label}</span>
+      <button class="cycle-btn" onclick="cycleLevel('${n.id}')">${n.level}</button>
+    </div>`;
+  }).join('');
+}
+
+function cycleLevel(id) {
+  const node = nodes.find(n => n.id === id);
+  const idx = LEVEL_ORDER.indexOf(node.level);
+  node.level = LEVEL_ORDER[(idx + 1) % LEVEL_ORDER.length];
+  buildNodeList();
+  updatePrompt();
+  draw();
+}
+
+function markAllKnow() { nodes.forEach(n => n.level = 'know'); refresh(); }
+function markAllFuzzy() { nodes.forEach(n => n.level = 'fuzzy'); refresh(); }
+function markAllUnknown() { nodes.forEach(n => n.level = 'unknown'); refresh(); }
+function refresh() { buildNodeList(); updatePrompt(); draw(); }
+
+// ── Prompt ──
+function updatePrompt() {
+  const visible = nodes.filter(n => n.visible);
+  const know = visible.filter(n => n.level === 'know').map(n => n.label);
+  const fuzzy = visible.filter(n => n.level === 'fuzzy').map(n => n.label);
+  const unknown = visible.filter(n => n.level === 'unknown').map(n => n.label);
+
+  const parts = [];
+  parts.push(`I'm learning the Agent Brain RAG system — a document indexing and semantic search system built with FastAPI, LlamaIndex, ChromaDB, and pgvector.`);
+
+  if (know.length > 0) parts.push(`\nI already understand: ${know.join(', ')}.`);
+  if (fuzzy.length > 0) parts.push(`\nI'm fuzzy on: ${fuzzy.join(', ')}.`);
+  if (unknown.length > 0) parts.push(`\nI have no idea about: ${unknown.join(', ')}.`);
+
+  // Include relevant edges for fuzzy/unknown concepts
+  const needsHelp = new Set([...fuzzy, ...unknown]);
+  const relevantEdges = EDGES.filter(e => {
+    const fromNode = nodes.find(n => n.id === e.from);
+    const toNode = nodes.find(n => n.id === e.to);
+    return fromNode && toNode && (needsHelp.has(fromNode.label) || needsHelp.has(toNode.label));
+  });
+
+  if (relevantEdges.length > 0) {
+    parts.push(`\nRelationships I want to understand:`);
+    const seen = new Set();
+    relevantEdges.forEach(e => {
+      const from = nodes.find(n => n.id === e.from)?.label;
+      const to = nodes.find(n => n.id === e.to)?.label;
+      const key = `${from}-${to}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        const label = e.label ? ` (${e.label})` : '';
+        parts.push(`- ${from} → [${e.type}] → ${to}${label}`);
+      }
+    });
+  }
+
+  if (fuzzy.length + unknown.length > 0) {
+    parts.push(`\nPlease explain the fuzzy and unknown concepts, building on what I already know. Use concrete code references to Agent Brain files. Include the key formulas where relevant.`);
+  } else {
+    parts.push(`\n(Mark concepts as "fuzzy" or "unknown" to generate a targeted learning prompt.)`);
+  }
+
+  document.getElementById('prompt-output').textContent = parts.join('\n');
+}
+
+function copyPrompt() {
+  const text = document.getElementById('prompt-output').textContent;
+  navigator.clipboard.writeText(text);
+  const btn = document.getElementById('copy-btn');
+  btn.textContent = 'Copied!';
+  btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+}
+
+init();
+</script>
+</body>
+</html>

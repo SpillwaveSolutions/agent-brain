@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Brain - Codebase Explorer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; height: 100vh; overflow: hidden; }
+
+  .layout { display: grid; grid-template-columns: 280px 1fr; grid-template-rows: 1fr auto; height: 100vh; }
+
+  /* Sidebar */
+  .sidebar { grid-row: 1 / 3; background: #161b22; border-right: 1px solid #30363d; overflow-y: auto; padding: 16px; }
+  .sidebar h1 { font-size: 16px; color: #58a6ff; margin-bottom: 4px; }
+  .sidebar .subtitle { font-size: 11px; color: #8b949e; margin-bottom: 16px; }
+
+  .section { margin-bottom: 20px; }
+  .section-title { font-size: 11px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+
+  /* Presets */
+  .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .preset-btn { padding: 6px 8px; font-size: 11px; background: #21262d; border: 1px solid #30363d; color: #c9d1d9; border-radius: 4px; cursor: pointer; text-align: center; transition: all 0.15s; }
+  .preset-btn:hover { background: #30363d; border-color: #58a6ff; }
+  .preset-btn.active { background: #1f3a5f; border-color: #58a6ff; color: #58a6ff; }
+
+  /* Layer toggles */
+  .layer-toggle { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; font-size: 12px; }
+  .layer-toggle input { display: none; }
+  .layer-swatch { width: 14px; height: 14px; border-radius: 3px; border: 2px solid transparent; transition: all 0.15s; }
+  .layer-toggle input:checked + .layer-swatch { border-color: #fff; }
+  .layer-toggle input:not(:checked) + .layer-swatch { opacity: 0.35; }
+  .layer-toggle span { flex: 1; }
+
+  /* Connection toggles */
+  .conn-toggle { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; font-size: 12px; }
+  .conn-toggle input { display: none; }
+  .conn-line { width: 20px; height: 2px; border-radius: 1px; }
+  .conn-toggle input:not(:checked) + .conn-line { opacity: 0.25; }
+
+  /* Comments */
+  .comment-list { max-height: 200px; overflow-y: auto; }
+  .comment-item { background: #21262d; border: 1px solid #30363d; border-radius: 4px; padding: 8px; margin-bottom: 6px; font-size: 11px; position: relative; }
+  .comment-item .comp-name { color: #58a6ff; font-weight: 600; }
+  .comment-item .comp-file { color: #8b949e; font-size: 10px; font-family: 'SF Mono', 'Fira Code', monospace; }
+  .comment-item .comp-text { color: #c9d1d9; margin-top: 4px; }
+  .comment-item .delete-btn { position: absolute; top: 4px; right: 6px; background: none; border: none; color: #f85149; cursor: pointer; font-size: 14px; line-height: 1; opacity: 0.6; }
+  .comment-item .delete-btn:hover { opacity: 1; }
+  .comment-count { color: #8b949e; font-size: 11px; }
+
+  /* Canvas */
+  .canvas-area { position: relative; overflow: hidden; background: #0d1117; }
+  svg { width: 100%; height: 100%; }
+  .node-group { cursor: grab; }
+  .node-group:active { cursor: grabbing; }
+  .zoom-controls { position: absolute; top: 12px; right: 12px; display: flex; gap: 4px; }
+  .zoom-btn { width: 28px; height: 28px; background: #21262d; border: 1px solid #30363d; color: #c9d1d9; border-radius: 4px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  .zoom-btn:hover { background: #30363d; }
+
+  /* Legend */
+  .drag-hint { position: absolute; top: 12px; left: 12px; font-size: 10px; color: #484f58; pointer-events: none; }
+  .legend { position: absolute; bottom: 12px; left: 12px; background: #161b22ee; border: 1px solid #30363d; border-radius: 6px; padding: 10px 14px; font-size: 10px; }
+  .legend-title { font-weight: 600; color: #8b949e; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .legend-items { display: flex; gap: 14px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+  .legend-line-wrap { width: 20px; height: 6px; display: flex; align-items: center; }
+  .legend-line { width: 100%; height: 2px; border-radius: 1px; }
+
+  /* Prompt output */
+  .prompt-area { background: #161b22; border-top: 1px solid #30363d; padding: 12px 16px; max-height: 200px; overflow-y: auto; }
+  .prompt-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .prompt-label { font-size: 11px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
+  .copy-btn { padding: 4px 10px; font-size: 11px; background: #238636; border: none; color: #fff; border-radius: 4px; cursor: pointer; }
+  .copy-btn:hover { background: #2ea043; }
+  .copy-btn.copied { background: #1f6feb; }
+  .prompt-text { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; color: #c9d1d9; white-space: pre-wrap; line-height: 1.5; }
+
+  /* Node tooltip */
+  .node-tooltip { position: absolute; background: #1c2128; border: 1px solid #444c56; border-radius: 6px; padding: 10px 14px; font-size: 11px; pointer-events: none; z-index: 100; max-width: 320px; box-shadow: 0 4px 12px #00000066; display: none; }
+  .node-tooltip .tt-title { font-weight: 600; color: #58a6ff; margin-bottom: 2px; }
+  .node-tooltip .tt-file { font-family: monospace; color: #8b949e; font-size: 10px; margin-bottom: 6px; }
+  .node-tooltip .tt-desc { color: #c9d1d9; line-height: 1.4; }
+
+  /* Comment modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: #00000088; z-index: 200; align-items: center; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; width: 400px; }
+  .modal h3 { font-size: 14px; color: #58a6ff; margin-bottom: 4px; }
+  .modal .modal-file { font-family: monospace; font-size: 11px; color: #8b949e; margin-bottom: 12px; }
+  .modal textarea { width: 100%; height: 80px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #c9d1d9; font-family: inherit; font-size: 12px; padding: 8px; resize: vertical; }
+  .modal textarea:focus { outline: none; border-color: #58a6ff; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+  .modal-actions button { padding: 6px 14px; border-radius: 4px; font-size: 12px; cursor: pointer; border: 1px solid #30363d; }
+  .modal-actions .cancel { background: #21262d; color: #c9d1d9; }
+  .modal-actions .save { background: #238636; color: #fff; border-color: #238636; }
+
+  /* Search */
+  .search-box { width: 100%; padding: 6px 8px; font-size: 12px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #c9d1d9; margin-bottom: 12px; }
+  .search-box:focus { outline: none; border-color: #58a6ff; }
+  .search-box::placeholder { color: #484f58; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <div class="sidebar">
+    <h1>Agent Brain Explorer</h1>
+    <div class="subtitle">RAG Document Search System</div>
+
+    <input type="text" class="search-box" placeholder="Search components..." oninput="filterNodes(this.value)">
+
+    <div class="section">
+      <div class="section-title">Views</div>
+      <div class="preset-grid" id="presets"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Layers</div>
+      <div id="layer-toggles"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Connections</div>
+      <div id="conn-toggles"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Comments <span class="comment-count" id="comment-count">(0)</span></div>
+      <div class="comment-list" id="comment-list"></div>
+    </div>
+  </div>
+
+  <div class="canvas-area" id="canvas-area">
+    <svg id="diagram" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="zoom-controls">
+      <button class="zoom-btn" onclick="zoom(1.15)">+</button>
+      <button class="zoom-btn" onclick="zoom(1/1.15)">&minus;</button>
+      <button class="zoom-btn" onclick="resetZoom()" style="font-size:11px">1:1</button>
+    </div>
+    <div class="drag-hint">Drag nodes to rearrange. Scroll to zoom. Click to comment.</div>
+    <div class="legend" id="legend"></div>
+    <div class="node-tooltip" id="tooltip"></div>
+  </div>
+
+  <div class="prompt-area">
+    <div class="prompt-header">
+      <span class="prompt-label">Generated Prompt</span>
+      <button class="copy-btn" id="copy-btn" onclick="copyPrompt()">Copy</button>
+    </div>
+    <div class="prompt-text" id="prompt-output"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <h3 id="modal-title"></h3>
+    <div class="modal-file" id="modal-file"></div>
+    <textarea id="modal-text" placeholder="Add your comment or question about this component..."></textarea>
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeModal()">Cancel</button>
+      <button class="save" onclick="saveComment()">Save Comment</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Layer definitions ──
+const LAYERS = {
+  plugin:    { label: 'Plugin/Skill',     color: '#56d4dd', fill: '#1a2a2e' },
+  cli:       { label: 'CLI (Click)',      color: '#7ee787', fill: '#1a3a1a' },
+  api:       { label: 'API (FastAPI)',     color: '#ffa657', fill: '#3a2a1a' },
+  services:  { label: 'Services',         color: '#d2a8ff', fill: '#2a1a3a' },
+  indexing:  { label: 'Indexing Pipeline', color: '#79c0ff', fill: '#1a2a3a' },
+  storage:   { label: 'Storage',          color: '#f778ba', fill: '#3a1a2a' },
+  postgres:  { label: 'PostgreSQL',       color: '#4b8bbe', fill: '#1a2030' },
+  providers: { label: 'Providers',        color: '#ffd700', fill: '#3a3a1a' },
+  jobs:      { label: 'Job Queue',        color: '#ff7b72', fill: '#3a1a1a' },
+  config:    { label: 'Config',           color: '#8b949e', fill: '#222' },
+};
+
+// ── Connection types ──
+const CONN_TYPES = {
+  'data-flow':  { label: 'Data Flow',   color: '#3b82f6', dash: '' },
+  'calls':      { label: 'Calls',       color: '#10b981', dash: '6,3' },
+  'uses':       { label: 'Uses/Reads',  color: '#f97316', dash: '8,4' },
+  'produces':   { label: 'Produces',    color: '#a855f7', dash: '4,4' },
+};
+
+// ── Nodes ──
+const NODES = [
+  // Plugin/Skill layer (y ~ -70) — top of diagram
+  { id: 'plugin-json', label: 'Plugin Manifest', subtitle: 'plugin/.claude-plugin/plugin.json', x: 80, y: -70, w: 150, h: 42, layer: 'plugin',
+    desc: 'Plugin v5.0.0 manifest. Declares 25 commands, 3 agents, 2 skills. Auto-discovered by Claude Code from ~/.claude/plugins/agent-brain/.' },
+  { id: 'plugin-cmds', label: '25 Commands', subtitle: 'plugin/commands/*.md', x: 260, y: -70, w: 140, h: 42, layer: 'plugin',
+    desc: 'Slash commands: 8 search modes (search, semantic, keyword, bm25, vector, hybrid, graph, multi), server mgmt (start/stop/status/list), data ops (index/reset), setup (init/install/setup/config/verify/providers).' },
+  { id: 'plugin-agents', label: '3 Agents', subtitle: 'plugin/agents/*.md', x: 430, y: -70, w: 130, h: 42, layer: 'plugin',
+    desc: 'search-assistant (proactive doc/code search), research-assistant (deep research), setup-assistant (guided install/config). Triggered by message patterns.' },
+  { id: 'skill-using', label: 'Using Skill', subtitle: 'skills/using-agent-brain/', x: 590, y: -70, w: 140, h: 42, layer: 'plugin',
+    desc: 'v4.0.0 skill for search operations. Covers 5 modes with latency profiles: BM25 (10-50ms), Vector (800-1500ms), Hybrid (1-1.8s), Graph (0.5-1.2s), Multi (1.5-2.5s). Mode selection guide.' },
+  { id: 'skill-config', label: 'Config Skill', subtitle: 'skills/configuring-agent-brain/', x: 760, y: -70, w: 150, h: 42, layer: 'plugin',
+    desc: 'v4.0.0 skill for installation/configuration. Option A: Local with Ollama (free). Option B: Cloud providers (OpenAI/Anthropic). Covers setup, troubleshooting, provider config.' },
+  { id: 'skill-refs', label: 'Reference Docs', subtitle: 'skills/*/references/', x: 940, y: -70, w: 140, h: 42, layer: 'plugin',
+    desc: 'API reference, search mode guides (vector, BM25, hybrid, graph), troubleshooting, provider config, installation, integration, server discovery docs.' },
+
+  // CLI layer (y ~ 30)
+  { id: 'cli-entry', label: 'CLI Entry', subtitle: 'agent_brain_cli/cli.py', x: 80, y: 30, w: 130, h: 42, layer: 'cli',
+    desc: 'Click CLI group. Registers all subcommands (init, start, stop, status, query, index, jobs, reset, config, list).' },
+  { id: 'cli-start', label: 'Start Command', subtitle: 'commands/start.py', x: 240, y: 30, w: 130, h: 42, layer: 'cli',
+    desc: 'Spawns uvicorn subprocess (daemonized). Sets AGENT_BRAIN_STATE_DIR env var. Writes runtime.json. Registers in ~/.agent-brain/registry.json.' },
+  { id: 'cli-query', label: 'Query Command', subtitle: 'commands/query.py', x: 400, y: 30, w: 130, h: 42, layer: 'cli',
+    desc: 'Accepts search text + mode flag. Calls POST /query/ via DocServeClient. Renders results as Rich panels.' },
+  { id: 'cli-index', label: 'Index Command', subtitle: 'commands/index.py', x: 560, y: 30, w: 130, h: 42, layer: 'cli',
+    desc: 'Accepts folder path + flags. Calls POST /index/ to enqueue indexing job. Returns job_id immediately.' },
+  { id: 'api-client', label: 'DocServeClient', subtitle: 'client/api_client.py', x: 720, y: 30, w: 140, h: 42, layer: 'cli',
+    desc: 'Synchronous httpx wrapper for all REST calls. URL resolved from: env var > runtime.json > config.yaml > default.' },
+  { id: 'cli-config', label: 'CLI Config', subtitle: 'agent_brain_cli/config.py', x: 890, y: 30, w: 120, h: 42, layer: 'config',
+    desc: 'YAML config loader with 6-location search. Pydantic models: ServerConfig, EmbeddingConfig, SummarizationConfig.' },
+
+  // API layer (y ~ 120)
+  { id: 'fastapi-app', label: 'FastAPI App', subtitle: 'api/main.py', x: 80, y: 120, w: 130, h: 42, layer: 'api',
+    desc: 'App entry point with async lifespan. Wires storage, services, providers at startup. Runs uvicorn server.' },
+  { id: 'health-router', label: 'Health Router', subtitle: 'api/routers/health.py', x: 240, y: 120, w: 130, h: 42, layer: 'api',
+    desc: 'GET /health/ (status check), /health/status (indexing details), /health/providers (provider status), /health/postgres.' },
+  { id: 'index-router', label: 'Index Router', subtitle: 'api/routers/index.py', x: 400, y: 120, w: 130, h: 42, layer: 'api',
+    desc: 'POST /index/ (enqueue indexing), POST /index/add (add docs), DELETE /index/ (reset). Returns 202 + job_id.' },
+  { id: 'query-router', label: 'Query Router', subtitle: 'api/routers/query.py', x: 560, y: 120, w: 130, h: 42, layer: 'api',
+    desc: 'POST /query/ (search), GET /query/count (doc count). Accepts mode, top_k, alpha, source_types, languages filters.' },
+  { id: 'jobs-router', label: 'Jobs Router', subtitle: 'api/routers/jobs.py', x: 720, y: 120, w: 130, h: 42, layer: 'api',
+    desc: 'GET /index/jobs/ (list), GET /index/jobs/{id} (detail), DELETE /index/jobs/{id} (cancel).' },
+  { id: 'settings', label: 'Server Settings', subtitle: 'config/settings.py', x: 890, y: 120, w: 130, h: 42, layer: 'config',
+    desc: 'Pydantic BaseSettings. 30+ env vars: API_HOST, API_PORT, OPENAI_API_KEY, EMBEDDING_MODEL, chunk sizes, reranker config.' },
+
+  // Services layer (y ~ 210)
+  { id: 'indexing-svc', label: 'Indexing Service', subtitle: 'services/indexing_service.py', x: 200, y: 210, w: 150, h: 42, layer: 'services',
+    desc: 'Orchestrates the full pipeline: load files -> chunk (doc/code) -> embed -> store in vector DB -> build BM25 -> optional graph.' },
+  { id: 'query-svc', label: 'Query Service', subtitle: 'services/query_service.py', x: 450, y: 210, w: 150, h: 42, layer: 'services',
+    desc: '5 search modes: vector, bm25, hybrid (RSF), graph, multi (RRF). Optional two-stage reranking. Post-filters by type/language/path.' },
+  { id: 'job-svc', label: 'Job Queue Service', subtitle: 'job_queue/job_service.py', x: 700, y: 210, w: 150, h: 42, layer: 'jobs',
+    desc: 'Enqueue with deduplication (hash of path+operation). List, get, cancel jobs. Max queue size: 100.' },
+
+  // Job Queue layer (y ~ 300)
+  { id: 'job-worker', label: 'Job Worker', subtitle: 'job_queue/job_worker.py', x: 700, y: 300, w: 150, h: 42, layer: 'jobs',
+    desc: 'Asyncio background task. Polls every 1s. Processes 1 job at a time. 2h timeout. Progress checkpoints every 50 files. Cancellation support.' },
+  { id: 'job-store', label: 'Job Store', subtitle: 'job_queue/job_store.py', x: 900, y: 300, w: 130, h: 42, layer: 'jobs',
+    desc: 'File-based persistence. Writes JSON job records to .claude/agent-brain/data/jobs/. Atomic reads/writes.' },
+
+  // Indexing pipeline (y ~ 300)
+  { id: 'doc-loader', label: 'Document Loader', subtitle: 'indexing/document_loader.py', x: 60, y: 300, w: 140, h: 42, layer: 'indexing',
+    desc: 'LlamaIndex SimpleDirectoryReader. Separates files into doc (Markdown, text) and code (Python, TS, etc). Language detection.' },
+  { id: 'doc-chunker', label: 'Doc Chunker', subtitle: 'indexing/chunking.py:ContextAwareChunker', x: 210, y: 300, w: 150, h: 42, layer: 'indexing',
+    desc: 'ContextAwareChunker: splits docs (Markdown, text) via LlamaIndex SentenceSplitter. chunk_size=512 tokens, overlap=50. Produces TextChunk with ChunkMetadata (source_type, language, file info).' },
+  { id: 'code-chunker', label: 'Code Chunker', subtitle: 'indexing/chunking.py:CodeChunker', x: 210, y: 390, w: 150, h: 42, layer: 'indexing',
+    desc: 'AST-aware code chunking via tree-sitter. Extracts symbol_name, symbol_kind, start/end_line, docstring, parameters, return_type, decorators, imports. When generate_summaries=true, calls EmbeddingGenerator.generate_summary() per chunk to create section_summary + prev_section_summary metadata.' },
+  { id: 'embedder', label: 'Embedding Gen', subtitle: 'indexing/embedding.py', x: 400, y: 300, w: 140, h: 42, layer: 'indexing',
+    desc: 'Wraps EmbeddingProvider + SummarizationProvider. embed_chunks() for batch embedding (batch_size=100, 3072-dim). generate_summary() delegates to the active SummarizationProvider for code chunk summaries.' },
+  { id: 'bm25-mgr', label: 'BM25 Index', subtitle: 'indexing/bm25_index.py', x: 400, y: 390, w: 130, h: 42, layer: 'indexing',
+    desc: 'BM25IndexManager. Builds LlamaIndex BM25Retriever from all nodes. Persists to disk as retriever.json.' },
+  { id: 'graph-mgr', label: 'Graph Index', subtitle: 'indexing/graph_index.py', x: 60, y: 390, w: 130, h: 42, layer: 'indexing',
+    desc: 'GraphIndexManager. Extracts entities + relationships via LLM. Stores in SimplePropertyGraphStore or Kuzu. Requires ENABLE_GRAPH_INDEX=true.' },
+
+  // Storage layer (y ~ 480)
+  { id: 'storage-proto', label: 'Storage Protocol', subtitle: 'storage/protocol.py', x: 80, y: 480, w: 150, h: 42, layer: 'storage',
+    desc: 'StorageBackendProtocol. Async interface: upsert_documents(), vector_search(), keyword_search(), delete_all(), get_document_count().' },
+  { id: 'storage-factory', label: 'Storage Factory', subtitle: 'storage/factory.py', x: 280, y: 480, w: 140, h: 42, layer: 'storage',
+    desc: 'Singleton get_storage_backend(). Returns ChromaBackend or PostgresBackend based on YAML config or env var.' },
+  { id: 'chroma-backend', label: 'Chroma Backend', subtitle: 'storage/chroma/backend.py', x: 60, y: 570, w: 150, h: 42, layer: 'storage',
+    desc: 'Wraps VectorStoreManager + BM25IndexManager. Writes to ChromaDB collection in batches of 40,000. Stores embedding metadata.' },
+  { id: 'vector-store', label: 'VectorStoreManager', subtitle: 'storage/vector_store.py', x: 250, y: 570, w: 160, h: 42, layer: 'storage',
+    desc: 'ChromaDB collection management. Handles upsert, query, delete. Validates embedding dimensions on load.' },
+
+  // PostgreSQL layer (y ~ 480-660) — dedicated layer
+  { id: 'pg-backend', label: 'Postgres Backend', subtitle: 'storage/postgres/backend.py', x: 500, y: 480, w: 160, h: 42, layer: 'postgres',
+    desc: 'Full async PostgreSQL backend (1599 LOC). Composes ConnectionManager + SchemaManager + VectorOps + KeywordOps. All exceptions wrapped in StorageError.' },
+  { id: 'pg-conn', label: 'Connection Mgr', subtitle: 'storage/postgres/connection.py', x: 470, y: 570, w: 150, h: 42, layer: 'postgres',
+    desc: 'Async SQLAlchemy engine with QueuePool. Pool size 10 + 10 overflow (20 max). Retry with exponential backoff (5 attempts, 1s-16s). Pre-ping validation. 3600s recycling.' },
+  { id: 'pg-schema', label: 'Schema Manager', subtitle: 'storage/postgres/schema.py', x: 660, y: 570, w: 150, h: 42, layer: 'postgres',
+    desc: 'Idempotent schema creation. Creates pgvector extension, documents table (text + vector + tsvector + JSONB metadata), HNSW index (m=16, ef=64), GIN indexes. Validates embedding dimensions.' },
+  { id: 'pg-vector', label: 'Vector Ops', subtitle: 'storage/postgres/vector_ops.py', x: 470, y: 660, w: 140, h: 42, layer: 'postgres',
+    desc: 'pgvector operations. Supports cosine (<=>), L2 (<->), inner product (<#>) distance metrics. Similarity search with score normalization to 0-1.' },
+  { id: 'pg-keyword', label: 'Keyword Ops', subtitle: 'storage/postgres/keyword_ops.py', x: 660, y: 660, w: 140, h: 42, layer: 'postgres',
+    desc: 'PostgreSQL tsvector full-text search. Weighted: A=title, B=summary, C=body. websearch_to_tsquery() for user-friendly syntax. Per-query max normalization.' },
+  { id: 'pg-config', label: 'Postgres Config', subtitle: 'storage/postgres/config.py', x: 850, y: 570, w: 140, h: 42, layer: 'postgres',
+    desc: 'Pydantic model. host/port/database/user/password. HNSW tuning (m=16, ef_construction=64). FTS language (english). from_database_url() parser.' },
+
+  // Providers (y ~ 480 right side)
+  { id: 'provider-reg', label: 'Provider Registry', subtitle: 'providers/factory.py', x: 750, y: 480, w: 150, h: 42, layer: 'providers',
+    desc: 'Central registry. Register/instantiate providers with singleton caching per (type, model) key. Discovers providers at import time.' },
+  { id: 'embed-openai', label: 'OpenAI Embed', subtitle: 'providers/embedding/openai.py', x: 940, y: 570, w: 130, h: 42, layer: 'providers',
+    desc: 'OpenAI text-embedding-3-large (default). Calls /embeddings API. 3072-dim vectors.' },
+  { id: 'embed-ollama', label: 'Ollama Embed', subtitle: 'providers/embedding/ollama.py', x: 1090, y: 570, w: 130, h: 42, layer: 'providers',
+    desc: 'Local Ollama embedding. Any Ollama embedding model. Runs locally, no API key needed.' },
+  { id: 'embed-cohere', label: 'Cohere Embed', subtitle: 'providers/embedding/cohere.py', x: 1240, y: 570, w: 130, h: 42, layer: 'providers',
+    desc: 'Cohere embedding provider. Calls Cohere /embed API. Alternative cloud embedding option.' },
+  { id: 'summ-anthropic', label: 'Anthropic Summ', subtitle: 'providers/summarization/anthropic.py', x: 870, y: 660, w: 140, h: 42, layer: 'providers',
+    desc: 'Claude Haiku (default). Generates code chunk summaries during ingestion. Called by EmbeddingGenerator.generate_summary().' },
+  { id: 'summ-openai', label: 'OpenAI Summ', subtitle: 'providers/summarization/openai.py', x: 1030, y: 660, w: 130, h: 42, layer: 'providers',
+    desc: 'OpenAI summarization. Alternative to Anthropic for code chunk summaries.' },
+  { id: 'summ-ollama', label: 'Ollama Summ', subtitle: 'providers/summarization/ollama.py', x: 870, y: 750, w: 130, h: 42, layer: 'providers',
+    desc: 'Local Ollama summarization. Free, no API key. Uses any Ollama chat model for code summaries.' },
+  { id: 'summ-gemini', label: 'Gemini Summ', subtitle: 'providers/summarization/gemini.py', x: 1020, y: 750, w: 130, h: 42, layer: 'providers',
+    desc: 'Google Gemini summarization via google-generativeai SDK. Alternative cloud provider for code summaries.' },
+  { id: 'summ-grok', label: 'Grok Summ', subtitle: 'providers/summarization/grok.py', x: 1170, y: 750, w: 130, h: 42, layer: 'providers',
+    desc: 'xAI Grok summarization via OpenAI-compatible API (https://api.x.ai/v1). Uses XAI_API_KEY env var.' },
+  { id: 'reranker', label: 'Reranker', subtitle: 'providers/reranker/', x: 1180, y: 660, w: 120, h: 42, layer: 'providers',
+    desc: 'Optional two-stage reranking. SentenceTransformers CrossEncoder (local) or Ollama. Expands candidates by 10x in Stage 1.' },
+  { id: 'provider-config', label: 'Provider Config', subtitle: 'config/provider_config.py', x: 940, y: 480, w: 150, h: 42, layer: 'config',
+    desc: 'YAML config model. ProviderSettings with EmbeddingConfig, SummarizationConfig, RerankerConfig, StorageConfig.' },
+
+  // Infrastructure
+  { id: 'runtime', label: 'Runtime State', subtitle: 'runtime.py', x: 560, y: 390, w: 130, h: 42, layer: 'config',
+    desc: 'RuntimeState Pydantic model. Read/write/delete runtime.json (pid, port, base_url, instance_id).' },
+  { id: 'locking', label: 'File Locking', subtitle: 'locking.py', x: 700, y: 390, w: 120, h: 42, layer: 'config',
+    desc: 'POSIX fcntl / Windows msvcrt file locking. Prevents duplicate server instances per project.' },
+  { id: 'storage-paths', label: 'Storage Paths', subtitle: 'storage_paths.py', x: 850, y: 390, w: 130, h: 42, layer: 'config',
+    desc: 'Resolves .claude/agent-brain/data/{chroma_db, bm25_index, graph_index, jobs, llamaindex}.' },
+];
+
+// ── Connections ──
+const CONNECTIONS = [
+  // Plugin -> CLI (plugin invokes CLI commands)
+  { from: 'plugin-cmds', to: 'cli-entry', type: 'calls', label: 'slash cmds' },
+  { from: 'plugin-agents', to: 'cli-entry', type: 'calls', label: 'auto-trigger' },
+  { from: 'skill-using', to: 'cli-query', type: 'calls', label: 'search guide' },
+  { from: 'skill-config', to: 'cli-start', type: 'calls', label: 'setup guide' },
+  { from: 'plugin-cmds', to: 'plugin-agents', type: 'uses', label: '' },
+  { from: 'skill-using', to: 'skill-refs', type: 'uses', label: '' },
+  { from: 'skill-config', to: 'skill-refs', type: 'uses', label: '' },
+
+  // CLI -> API Client
+  { from: 'cli-query', to: 'api-client', type: 'calls', label: '' },
+  { from: 'cli-index', to: 'api-client', type: 'calls', label: '' },
+  { from: 'cli-start', to: 'fastapi-app', type: 'calls', label: 'subprocess' },
+  { from: 'cli-entry', to: 'cli-config', type: 'uses', label: '' },
+
+  // API Client -> Routers
+  { from: 'api-client', to: 'query-router', type: 'data-flow', label: 'HTTP' },
+  { from: 'api-client', to: 'index-router', type: 'data-flow', label: 'HTTP' },
+  { from: 'api-client', to: 'health-router', type: 'data-flow', label: 'HTTP' },
+  { from: 'api-client', to: 'jobs-router', type: 'data-flow', label: 'HTTP' },
+
+  // App -> Routers
+  { from: 'fastapi-app', to: 'health-router', type: 'calls', label: '' },
+  { from: 'fastapi-app', to: 'index-router', type: 'calls', label: '' },
+  { from: 'fastapi-app', to: 'query-router', type: 'calls', label: '' },
+  { from: 'fastapi-app', to: 'jobs-router', type: 'calls', label: '' },
+  { from: 'fastapi-app', to: 'settings', type: 'uses', label: '' },
+
+  // Routers -> Services
+  { from: 'query-router', to: 'query-svc', type: 'calls', label: '' },
+  { from: 'index-router', to: 'job-svc', type: 'calls', label: 'enqueue' },
+  { from: 'jobs-router', to: 'job-svc', type: 'calls', label: '' },
+
+  // Job Queue
+  { from: 'job-svc', to: 'job-store', type: 'data-flow', label: 'persist' },
+  { from: 'job-worker', to: 'job-store', type: 'uses', label: 'poll' },
+  { from: 'job-worker', to: 'indexing-svc', type: 'calls', label: 'run pipeline' },
+
+  // Indexing pipeline
+  { from: 'indexing-svc', to: 'doc-loader', type: 'calls', label: '1. load' },
+  { from: 'indexing-svc', to: 'doc-chunker', type: 'calls', label: '2a. chunk docs' },
+  { from: 'indexing-svc', to: 'code-chunker', type: 'calls', label: '2b. chunk code' },
+  { from: 'code-chunker', to: 'embedder', type: 'calls', label: 'generate_summary()' },
+  { from: 'indexing-svc', to: 'embedder', type: 'calls', label: '3. embed' },
+  { from: 'indexing-svc', to: 'storage-proto', type: 'data-flow', label: '4. store' },
+  { from: 'indexing-svc', to: 'bm25-mgr', type: 'calls', label: '5. BM25' },
+  { from: 'indexing-svc', to: 'graph-mgr', type: 'calls', label: '6. graph' },
+
+  // Query service
+  { from: 'query-svc', to: 'embedder', type: 'calls', label: 'embed query' },
+  { from: 'query-svc', to: 'storage-proto', type: 'data-flow', label: 'vector search' },
+  { from: 'query-svc', to: 'bm25-mgr', type: 'calls', label: 'BM25 search' },
+  { from: 'query-svc', to: 'graph-mgr', type: 'calls', label: 'graph query' },
+  { from: 'query-svc', to: 'reranker', type: 'calls', label: 'rerank' },
+
+  // Storage
+  { from: 'storage-proto', to: 'storage-factory', type: 'uses', label: '' },
+  { from: 'storage-factory', to: 'chroma-backend', type: 'produces', label: 'chroma' },
+  { from: 'storage-factory', to: 'pg-backend', type: 'produces', label: 'postgres' },
+  { from: 'chroma-backend', to: 'vector-store', type: 'uses', label: '' },
+
+  // PostgreSQL internals
+  { from: 'pg-backend', to: 'pg-conn', type: 'uses', label: 'pool' },
+  { from: 'pg-backend', to: 'pg-schema', type: 'calls', label: 'init schema' },
+  { from: 'pg-backend', to: 'pg-vector', type: 'calls', label: 'vector search' },
+  { from: 'pg-backend', to: 'pg-keyword', type: 'calls', label: 'FTS search' },
+  { from: 'pg-backend', to: 'pg-config', type: 'uses', label: '' },
+  { from: 'pg-schema', to: 'pg-conn', type: 'uses', label: '' },
+  { from: 'pg-vector', to: 'pg-conn', type: 'uses', label: '' },
+  { from: 'pg-keyword', to: 'pg-conn', type: 'uses', label: '' },
+
+  // Providers — Embedding
+  { from: 'embedder', to: 'provider-reg', type: 'uses', label: '' },
+  { from: 'provider-reg', to: 'embed-openai', type: 'produces', label: '' },
+  { from: 'provider-reg', to: 'embed-ollama', type: 'produces', label: '' },
+  { from: 'provider-reg', to: 'embed-cohere', type: 'produces', label: '' },
+  // Providers — Summarization (used by CodeChunker via EmbeddingGenerator.generate_summary())
+  { from: 'provider-reg', to: 'summ-anthropic', type: 'produces', label: '' },
+  { from: 'provider-reg', to: 'summ-openai', type: 'produces', label: '' },
+  { from: 'provider-reg', to: 'summ-ollama', type: 'produces', label: '' },
+  { from: 'provider-reg', to: 'summ-gemini', type: 'produces', label: '' },
+  { from: 'provider-reg', to: 'summ-grok', type: 'produces', label: '' },
+  // Providers — Reranker
+  { from: 'provider-reg', to: 'reranker', type: 'produces', label: '' },
+  { from: 'provider-reg', to: 'provider-config', type: 'uses', label: '' },
+
+  // Config
+  { from: 'fastapi-app', to: 'runtime', type: 'uses', label: '' },
+  { from: 'fastapi-app', to: 'locking', type: 'uses', label: '' },
+  { from: 'fastapi-app', to: 'storage-paths', type: 'uses', label: '' },
+  { from: 'cli-start', to: 'runtime', type: 'data-flow', label: 'write' },
+  { from: 'settings', to: 'provider-config', type: 'uses', label: '' },
+];
+
+// ── State ──
+const state = {
+  layers: Object.fromEntries(Object.keys(LAYERS).map(k => [k, true])),
+  connTypes: Object.fromEntries(Object.keys(CONN_TYPES).map(k => [k, true])),
+  comments: [],
+  zoom: 1,
+  panX: 0, panY: 0,
+  searchFilter: '',
+  activePreset: 'full',
+  modalNodeId: null,
+};
+
+// ── Presets ──
+const PRESETS = {
+  full:     { label: 'Full System',    layers: Object.keys(LAYERS), desc: 'All components and connections' },
+  plugin:   { label: 'Plugin/Skill',   layers: ['plugin','cli','api'], desc: 'Claude Code plugin with 25 commands, 3 agents, 2 skills' },
+  ingest:   { label: 'Ingestion',      layers: ['cli','api','services','indexing','storage','postgres','providers','jobs'], desc: 'Document ingestion pipeline' },
+  query:    { label: 'Query Flow',     layers: ['cli','api','services','indexing','storage','postgres','providers'], desc: 'Query execution path' },
+  storage:  { label: 'Storage',        layers: ['storage','postgres','config'], desc: 'Chroma + PostgreSQL backends' },
+  provider: { label: 'Providers',      layers: ['providers','config','indexing'], desc: 'Pluggable provider system' },
+  postgres: { label: 'PostgreSQL',     layers: ['postgres','storage','config'], desc: 'Async PG backend: pgvector + tsvector + connection pooling' },
+  jobs:     { label: 'Job Queue',      layers: ['jobs','services','api','cli'], desc: 'Async job processing system' },
+};
+
+// ── Init UI ──
+function initUI() {
+  // Presets
+  const presetsEl = document.getElementById('presets');
+  Object.entries(PRESETS).forEach(([id, p]) => {
+    const btn = document.createElement('button');
+    btn.className = 'preset-btn' + (id === 'full' ? ' active' : '');
+    btn.textContent = p.label;
+    btn.title = p.desc;
+    btn.onclick = () => applyPreset(id);
+    btn.dataset.id = id;
+    presetsEl.appendChild(btn);
+  });
+
+  // Layer toggles
+  const layersEl = document.getElementById('layer-toggles');
+  Object.entries(LAYERS).forEach(([id, l]) => {
+    const label = document.createElement('label');
+    label.className = 'layer-toggle';
+    label.innerHTML = `<input type="checkbox" checked data-layer="${id}"><div class="layer-swatch" style="background:${l.color}"></div><span>${l.label}</span>`;
+    label.querySelector('input').onchange = (e) => { state.layers[id] = e.target.checked; render(); };
+    layersEl.appendChild(label);
+  });
+
+  // Connection toggles
+  const connEl = document.getElementById('conn-toggles');
+  Object.entries(CONN_TYPES).forEach(([id, c]) => {
+    const label = document.createElement('label');
+    label.className = 'conn-toggle';
+    label.innerHTML = `<input type="checkbox" checked data-conn="${id}"><div class="conn-line" style="background:${c.color}"></div><span>${c.label}</span>`;
+    label.querySelector('input').onchange = (e) => { state.connTypes[id] = e.target.checked; render(); };
+    connEl.appendChild(label);
+  });
+
+  // Legend
+  buildLegend();
+
+  // Pan/zoom + node drag
+  const canvas = document.getElementById('canvas-area');
+  let panning = false, lastX, lastY;
+  state.dragNode = null;
+  state.dragStartX = 0;
+  state.dragStartY = 0;
+  state.didDrag = false;
+
+  canvas.addEventListener('mousedown', (e) => {
+    const nodeGroup = e.target.closest('.node-group');
+    if (nodeGroup) {
+      // Start dragging a node
+      const id = nodeGroup.dataset.id;
+      const node = NODES.find(n => n.id === id);
+      if (node) {
+        state.dragNode = node;
+        state.didDrag = false;
+        // Convert mouse position to SVG coordinates
+        const svgPt = screenToSVG(e.clientX, e.clientY);
+        state.dragStartX = svgPt.x - node.x;
+        state.dragStartY = svgPt.y - node.y;
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+    }
+    // Otherwise pan
+    if (e.target === canvas || e.target.tagName === 'svg' || e.target.closest('.pan-area')) {
+      panning = true; lastX = e.clientX; lastY = e.clientY;
+    }
+  });
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (state.dragNode) {
+      const svgPt = screenToSVG(e.clientX, e.clientY);
+      state.dragNode.x = svgPt.x - state.dragStartX;
+      state.dragNode.y = svgPt.y - state.dragStartY;
+      state.didDrag = true;
+      render();
+      document.getElementById('tooltip').style.display = 'none';
+      return;
+    }
+    if (panning) {
+      state.panX += e.clientX - lastX; state.panY += e.clientY - lastY;
+      lastX = e.clientX; lastY = e.clientY; updateTransform();
+    }
+  });
+
+  canvas.addEventListener('mouseup', () => { state.dragNode = null; panning = false; });
+  canvas.addEventListener('mouseleave', () => { state.dragNode = null; panning = false; });
+  canvas.addEventListener('wheel', (e) => { e.preventDefault(); zoom(e.deltaY < 0 ? 1.08 : 1/1.08); }, { passive: false });
+
+  render();
+}
+
+function buildLegend() {
+  const el = document.getElementById('legend');
+  let html = '<div class="legend-title">Legend</div><div class="legend-items">';
+  Object.entries(LAYERS).forEach(([, l]) => {
+    html += `<div class="legend-item"><div class="legend-dot" style="background:${l.color}"></div>${l.label}</div>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function applyPreset(id) {
+  state.activePreset = id;
+  const p = PRESETS[id];
+  Object.keys(LAYERS).forEach(l => { state.layers[l] = p.layers.includes(l); });
+  // Update checkboxes
+  document.querySelectorAll('[data-layer]').forEach(cb => { cb.checked = state.layers[cb.dataset.layer]; });
+  // Update preset buttons
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.id === id));
+  render();
+}
+
+// ── Render ──
+function render() {
+  const svg = document.getElementById('diagram');
+  const ns = 'http://www.w3.org/2000/svg';
+
+  // Build SVG content
+  let svgContent = '';
+
+  // Arrow markers
+  Object.entries(CONN_TYPES).forEach(([id, c]) => {
+    svgContent += `<marker id="arrow-${id}" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="${c.color}"/></marker>`;
+  });
+
+  const visibleNodes = NODES.filter(n => state.layers[n.layer] && matchesSearch(n));
+  const visibleIds = new Set(visibleNodes.map(n => n.id));
+
+  // Draw connections
+  CONNECTIONS.forEach(c => {
+    if (!state.connTypes[c.type]) return;
+    if (!visibleIds.has(c.from) || !visibleIds.has(c.to)) return;
+    const from = NODES.find(n => n.id === c.from);
+    const to = NODES.find(n => n.id === c.to);
+    if (!from || !to) return;
+
+    const ct = CONN_TYPES[c.type];
+    // Smart edge routing: connect from nearest edges
+    const fcx = from.x + from.w/2, fcy = from.y + from.h/2;
+    const tcx = to.x + to.w/2, tcy = to.y + to.h/2;
+    const dx = tcx - fcx, dy = tcy - fcy;
+    let fx, fy, tx, ty;
+    if (Math.abs(dy) > Math.abs(dx) * 0.5) {
+      // Mostly vertical: connect bottom-to-top or top-to-bottom
+      if (dy > 0) { fx = fcx; fy = from.y + from.h; tx = tcx; ty = to.y; }
+      else { fx = fcx; fy = from.y; tx = tcx; ty = to.y + to.h; }
+    } else {
+      // Mostly horizontal: connect right-to-left or left-to-right
+      if (dx > 0) { fx = from.x + from.w; fy = fcy; tx = to.x; ty = tcy; }
+      else { fx = from.x; fy = fcy; tx = to.x + to.w; ty = tcy; }
+    }
+
+    // Bezier curve
+    const adx = Math.abs(tx - fx), ady = Math.abs(ty - fy);
+    const cp = Math.max(Math.max(ady, adx) * 0.35, 20);
+    let d;
+    if (Math.abs(ty - fy) > Math.abs(tx - fx) * 0.5) {
+      d = `M${fx},${fy} C${fx},${fy + (ty > fy ? cp : -cp)} ${tx},${ty + (ty > fy ? -cp : cp)} ${tx},${ty}`;
+    } else {
+      d = `M${fx},${fy} C${fx + (tx > fx ? cp : -cp)},${fy} ${tx + (tx > fx ? -cp : cp)},${ty} ${tx},${ty}`;
+    }
+
+    svgContent += `<path d="${d}" stroke="${ct.color}" stroke-width="1.5" fill="none" marker-end="url(#arrow-${c.type})" ${ct.dash ? `stroke-dasharray="${ct.dash}"` : ''} opacity="0.6"/>`;
+
+    // Label
+    if (c.label) {
+      const mx = (fx + tx) / 2, my = (fy + ty) / 2;
+      svgContent += `<text x="${mx}" y="${my - 4}" text-anchor="middle" fill="${ct.color}" font-size="9" opacity="0.7">${c.label}</text>`;
+    }
+  });
+
+  // Draw nodes
+  visibleNodes.forEach(n => {
+    const layer = LAYERS[n.layer];
+    const hasComment = state.comments.some(c => c.target === n.id);
+    const borderColor = hasComment ? '#58a6ff' : layer.color + '66';
+    const borderWidth = hasComment ? 2 : 1;
+
+    svgContent += `<g class="node-group" data-id="${n.id}" style="cursor:pointer">`;
+    svgContent += `<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="6" fill="${layer.fill}" stroke="${borderColor}" stroke-width="${borderWidth}"/>`;
+    svgContent += `<text x="${n.x + n.w/2}" y="${n.y + 17}" text-anchor="middle" fill="${layer.color}" font-size="11" font-weight="600">${n.label}</text>`;
+    svgContent += `<text x="${n.x + n.w/2}" y="${n.y + 30}" text-anchor="middle" fill="#8b949e" font-size="8" font-family="monospace">${n.subtitle}</text>`;
+    if (hasComment) {
+      svgContent += `<circle cx="${n.x + n.w - 6}" cy="${n.y + 6}" r="4" fill="#58a6ff"/>`;
+    }
+    svgContent += `</g>`;
+  });
+
+  // Pan area for background clicks
+  const bgRect = `<rect class="pan-area" x="-2000" y="-2000" width="6000" height="4000" fill="transparent"/>`;
+  svg.innerHTML = `<defs>${svgContent.match(/<marker[^]*?<\/marker>/g)?.join('') || ''}</defs><g id="transform-group">${bgRect}${svgContent.replace(/<marker[^]*?<\/marker>/g, '')}</g>`;
+
+  updateTransform();
+  bindNodeEvents();
+  updatePrompt();
+}
+
+function matchesSearch(node) {
+  if (!state.searchFilter) return true;
+  const q = state.searchFilter.toLowerCase();
+  return node.label.toLowerCase().includes(q) || node.subtitle.toLowerCase().includes(q) || node.desc.toLowerCase().includes(q);
+}
+
+function filterNodes(val) {
+  state.searchFilter = val;
+  render();
+}
+
+function updateTransform() {
+  const g = document.getElementById('transform-group');
+  if (g) g.setAttribute('transform', `translate(${state.panX},${state.panY}) scale(${state.zoom})`);
+}
+
+function zoom(factor) {
+  state.zoom = Math.max(0.3, Math.min(3, state.zoom * factor));
+  updateTransform();
+}
+
+function resetZoom() {
+  state.zoom = 1; state.panX = 0; state.panY = 0;
+  updateTransform();
+}
+
+function screenToSVG(clientX, clientY) {
+  const rect = document.getElementById('canvas-area').getBoundingClientRect();
+  return {
+    x: (clientX - rect.left - state.panX) / state.zoom,
+    y: (clientY - rect.top - state.panY) / state.zoom,
+  };
+}
+
+// ── Node interaction ──
+function bindNodeEvents() {
+  const tooltip = document.getElementById('tooltip');
+
+  document.querySelectorAll('.node-group').forEach(g => {
+    const id = g.dataset.id;
+    const node = NODES.find(n => n.id === id);
+
+    g.addEventListener('mouseenter', (e) => {
+      tooltip.innerHTML = `<div class="tt-title">${node.label}</div><div class="tt-file">${node.subtitle}</div><div class="tt-desc">${node.desc}</div>`;
+      tooltip.style.display = 'block';
+      const rect = document.getElementById('canvas-area').getBoundingClientRect();
+      tooltip.style.left = (e.clientX - rect.left + 12) + 'px';
+      tooltip.style.top = (e.clientY - rect.top + 12) + 'px';
+    });
+
+    g.addEventListener('mousemove', (e) => {
+      const rect = document.getElementById('canvas-area').getBoundingClientRect();
+      let left = e.clientX - rect.left + 12;
+      let top = e.clientY - rect.top + 12;
+      if (left + 320 > rect.width) left = e.clientX - rect.left - 330;
+      if (top + 100 > rect.height) top = e.clientY - rect.top - 80;
+      tooltip.style.left = left + 'px';
+      tooltip.style.top = top + 'px';
+    });
+
+    g.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+
+    g.addEventListener('click', () => { if (!state.didDrag) openModal(id); });
+  });
+}
+
+// ── Comment system ──
+function openModal(nodeId) {
+  const node = NODES.find(n => n.id === nodeId);
+  state.modalNodeId = nodeId;
+  document.getElementById('modal-title').textContent = node.label;
+  document.getElementById('modal-file').textContent = node.subtitle;
+  document.getElementById('modal-text').value = '';
+  document.getElementById('modal-overlay').classList.add('show');
+  setTimeout(() => document.getElementById('modal-text').focus(), 50);
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('show');
+  state.modalNodeId = null;
+}
+
+function saveComment() {
+  const text = document.getElementById('modal-text').value.trim();
+  if (!text) { closeModal(); return; }
+  const node = NODES.find(n => n.id === state.modalNodeId);
+  state.comments.push({
+    id: Date.now(),
+    target: node.id,
+    targetLabel: node.label,
+    targetFile: node.subtitle,
+    text: text,
+  });
+  closeModal();
+  renderComments();
+  render();
+}
+
+function deleteComment(id) {
+  state.comments = state.comments.filter(c => c.id !== id);
+  renderComments();
+  render();
+}
+
+function renderComments() {
+  const list = document.getElementById('comment-list');
+  document.getElementById('comment-count').textContent = `(${state.comments.length})`;
+
+  if (state.comments.length === 0) {
+    list.innerHTML = '<div style="font-size:11px;color:#484f58;padding:4px 0">Click any component to add a comment</div>';
+    return;
+  }
+
+  list.innerHTML = state.comments.map(c => `
+    <div class="comment-item">
+      <button class="delete-btn" onclick="deleteComment(${c.id})">&times;</button>
+      <div class="comp-name">${c.targetLabel}</div>
+      <div class="comp-file">${c.targetFile}</div>
+      <div class="comp-text">${c.text}</div>
+    </div>
+  `).join('');
+}
+
+// ── Prompt output ──
+function updatePrompt() {
+  const el = document.getElementById('prompt-output');
+  const parts = [];
+
+  // Active view
+  const activePreset = PRESETS[state.activePreset];
+  const visibleLayers = Object.entries(state.layers).filter(([,v]) => v).map(([k]) => LAYERS[k].label);
+
+  parts.push(`This is the Agent Brain architecture — a RAG-based document indexing and semantic search system.`);
+
+  if (state.activePreset !== 'full') {
+    parts.push(`Currently viewing: ${activePreset.label} (${activePreset.desc}).`);
+  }
+
+  if (visibleLayers.length < Object.keys(LAYERS).length) {
+    parts.push(`Visible layers: ${visibleLayers.join(', ')}.`);
+  }
+
+  // Comments
+  if (state.comments.length > 0) {
+    parts.push('');
+    parts.push('Feedback on specific components:');
+    state.comments.forEach(c => {
+      parts.push('');
+      parts.push(`**${c.targetLabel}** (${c.targetFile}):`);
+      parts.push(c.text);
+    });
+  }
+
+  if (state.comments.length === 0) {
+    parts.push('');
+    parts.push('(Click any component in the diagram to add a comment or question. Your comments will appear here as a prompt you can copy.)');
+  }
+
+  el.textContent = parts.join('\n');
+}
+
+function copyPrompt() {
+  const text = document.getElementById('prompt-output').textContent;
+  navigator.clipboard.writeText(text);
+  const btn = document.getElementById('copy-btn');
+  btn.textContent = 'Copied!';
+  btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+}
+
+// Close modal on overlay click or Escape
+document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+// ── Init ──
+renderComments();
+initUI();
+</script>
+</body>
+</html>

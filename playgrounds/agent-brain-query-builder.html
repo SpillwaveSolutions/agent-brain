@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Brain - Query Builder</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; height: 100vh; overflow: hidden; }
+  .layout { display: grid; grid-template-columns: 340px 1fr; grid-template-rows: 1fr; height: 100vh; }
+
+  /* Sidebar */
+  .sidebar { background: #161b22; border-right: 1px solid #30363d; overflow-y: auto; padding: 16px; }
+  .sidebar h1 { font-size: 16px; color: #58a6ff; margin-bottom: 2px; }
+  .sidebar .subtitle { font-size: 11px; color: #8b949e; margin-bottom: 16px; }
+
+  .section { margin-bottom: 18px; }
+  .section-title { font-size: 10px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .section-hint { font-size: 10px; color: #484f58; font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+  /* Query input */
+  .query-input { width: 100%; padding: 8px 10px; font-size: 13px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; resize: none; font-family: inherit; }
+  .query-input:focus { outline: none; border-color: #58a6ff; }
+  .query-input::placeholder { color: #484f58; }
+
+  /* Mode cards */
+  .mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .mode-card { padding: 8px; background: #21262d; border: 1px solid #30363d; border-radius: 6px; cursor: pointer; transition: all 0.15s; text-align: center; }
+  .mode-card:hover { border-color: #58a6ff; }
+  .mode-card.active { background: #1f3a5f; border-color: #58a6ff; }
+  .mode-card .mode-name { font-size: 12px; font-weight: 600; color: #c9d1d9; }
+  .mode-card .mode-desc { font-size: 9px; color: #8b949e; margin-top: 2px; }
+  .mode-card .mode-latency { font-size: 9px; color: #484f58; margin-top: 1px; }
+  .mode-card.active .mode-name { color: #58a6ff; }
+
+  /* Sliders */
+  .slider-row { margin-bottom: 10px; }
+  .slider-label { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; }
+  .slider-label .val { color: #58a6ff; font-family: monospace; }
+  input[type="range"] { width: 100%; height: 4px; -webkit-appearance: none; background: #30363d; border-radius: 2px; outline: none; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: #58a6ff; border-radius: 50%; cursor: pointer; }
+
+  /* Chips */
+  .chip-group { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { padding: 3px 8px; font-size: 11px; background: #21262d; border: 1px solid #30363d; border-radius: 12px; cursor: pointer; transition: all 0.12s; user-select: none; }
+  .chip:hover { border-color: #58a6ff; }
+  .chip.active { background: #1f3a5f; border-color: #58a6ff; color: #58a6ff; }
+
+  /* Filter rows */
+  .filter-row { display: flex; gap: 4px; margin-bottom: 6px; align-items: center; }
+  .filter-input { flex: 1; padding: 4px 8px; font-size: 11px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #c9d1d9; font-family: monospace; }
+  .filter-input:focus { outline: none; border-color: #58a6ff; }
+  .filter-input::placeholder { color: #484f58; }
+  .add-btn { padding: 3px 8px; font-size: 11px; background: #238636; border: none; color: #fff; border-radius: 4px; cursor: pointer; }
+  .add-btn:hover { background: #2ea043; }
+  .remove-btn { padding: 2px 6px; font-size: 12px; background: none; border: 1px solid #30363d; color: #f85149; border-radius: 4px; cursor: pointer; line-height: 1; }
+  .remove-btn:hover { border-color: #f85149; }
+
+  /* Presets */
+  .preset-row { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px; }
+  .preset-btn { padding: 4px 8px; font-size: 10px; background: #21262d; border: 1px solid #30363d; color: #8b949e; border-radius: 4px; cursor: pointer; }
+  .preset-btn:hover { border-color: #58a6ff; color: #c9d1d9; }
+
+  /* Right panel */
+  .right-panel { display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Preview */
+  .preview-area { flex: 1; background: #0d1117; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+  .preview-section { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
+  .preview-header { padding: 8px 14px; background: #21262d; font-size: 11px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; }
+  .preview-body { padding: 14px; }
+
+  /* JSON preview */
+  .json-preview { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; line-height: 1.6; white-space: pre-wrap; }
+  .json-key { color: #79c0ff; }
+  .json-str { color: #a5d6ff; }
+  .json-num { color: #d2a8ff; }
+  .json-bool { color: #ff7b72; }
+  .json-null { color: #8b949e; }
+  .json-bracket { color: #e1e4e8; }
+  .json-comma { color: #6e7681; }
+
+  /* curl preview */
+  .curl-preview { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
+  .curl-cmd { color: #7ee787; }
+  .curl-flag { color: #ffa657; }
+  .curl-url { color: #a5d6ff; text-decoration: underline; }
+  .curl-str { color: #a5d6ff; }
+
+  /* Scoring explanation */
+  .scoring-box { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 12px; margin-top: 8px; }
+  .scoring-title { font-size: 11px; font-weight: 600; color: #d2a8ff; margin-bottom: 6px; }
+  .scoring-formula { font-family: monospace; font-size: 12px; color: #79c0ff; margin-bottom: 4px; }
+  .scoring-desc { font-size: 11px; color: #8b949e; line-height: 1.4; }
+
+  /* Visual pipeline */
+  .pipeline { display: flex; align-items: center; gap: 0; flex-wrap: wrap; padding: 4px 0; }
+  .pipe-step { padding: 6px 12px; font-size: 10px; font-weight: 600; border-radius: 4px; white-space: nowrap; }
+  .pipe-arrow { color: #30363d; font-size: 16px; padding: 0 4px; }
+  .pipe-step.active { border: 1px solid; }
+  .pipe-step.inactive { background: #21262d; color: #484f58; border: 1px solid #30363d; }
+
+  /* Prompt area */
+  .prompt-area { background: #161b22; border-top: 1px solid #30363d; padding: 12px 16px; max-height: 180px; overflow-y: auto; }
+  .prompt-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .prompt-label { font-size: 11px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
+  .copy-btn { padding: 4px 10px; font-size: 11px; background: #238636; border: none; color: #fff; border-radius: 4px; cursor: pointer; }
+  .copy-btn:hover { background: #2ea043; }
+  .copy-btn.copied { background: #1f6feb; }
+  .prompt-text { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; color: #c9d1d9; white-space: pre-wrap; line-height: 1.5; }
+
+  /* Copy mini buttons */
+  .copy-mini { padding: 2px 6px; font-size: 9px; background: #21262d; border: 1px solid #30363d; color: #8b949e; border-radius: 3px; cursor: pointer; }
+  .copy-mini:hover { color: #58a6ff; border-color: #58a6ff; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <div class="sidebar">
+    <h1>Query Builder</h1>
+    <div class="subtitle">Build Agent Brain search requests interactively</div>
+
+    <div class="preset-row">
+      <button class="preset-btn" onclick="applyPreset('semantic')">Semantic</button>
+      <button class="preset-btn" onclick="applyPreset('exact')">Exact Match</button>
+      <button class="preset-btn" onclick="applyPreset('code-search')">Code Search</button>
+      <button class="preset-btn" onclick="applyPreset('docs-only')">Docs Only</button>
+      <button class="preset-btn" onclick="applyPreset('full-coverage')">Full Coverage</button>
+      <button class="preset-btn" onclick="applyPreset('reranked')">Reranked</button>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Query Text</div>
+      <textarea class="query-input" id="query-text" rows="2" placeholder="e.g. How does hybrid search scoring work?" oninput="update()"></textarea>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Search Mode</div>
+      <div class="mode-grid" id="mode-grid"></div>
+    </div>
+
+    <div class="section" id="alpha-section">
+      <div class="slider-row">
+        <div class="slider-label"><span>Alpha (vector vs BM25 weight)</span><span class="val" id="alpha-val">0.50</span></div>
+        <input type="range" id="alpha-slider" min="0" max="100" value="50" oninput="state.alpha=this.value/100; update()">
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:#484f58;margin-top:-4px">
+        <span>BM25 only</span><span>Balanced</span><span>Vector only</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="slider-row">
+        <div class="slider-label"><span>Top K (results)</span><span class="val" id="topk-val">5</span></div>
+        <input type="range" id="topk-slider" min="1" max="50" value="5" oninput="state.topK=+this.value; update()">
+      </div>
+      <div class="slider-row">
+        <div class="slider-label"><span>Similarity Threshold</span><span class="val" id="thresh-val">0.30</span></div>
+        <input type="range" id="thresh-slider" min="0" max="100" value="30" oninput="state.threshold=this.value/100; update()">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Source Types <span class="section-hint">(click to toggle)</span></div>
+      <div class="chip-group" id="source-chips"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Languages <span class="section-hint">(code filter)</span></div>
+      <div class="chip-group" id="lang-chips"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">File Path Filters <span class="section-hint">(glob patterns)</span></div>
+      <div id="file-filters"></div>
+      <div class="filter-row">
+        <input class="filter-input" id="new-file-filter" placeholder="e.g. docs/**/*.md" onkeydown="if(event.key==='Enter')addFileFilter()">
+        <button class="add-btn" onclick="addFileFilter()">Add</button>
+      </div>
+    </div>
+
+    <div class="section" id="graph-section" style="display:none">
+      <div class="section-title">Graph Filters</div>
+      <div class="chip-group" id="entity-chips" style="margin-bottom:8px"></div>
+      <div class="section-title" style="margin-top:6px">Relationship Types</div>
+      <div class="chip-group" id="rel-chips"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Reranking</div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
+        <input type="checkbox" id="rerank-toggle" onchange="state.reranking=this.checked; update()"> Enable two-stage reranking
+      </label>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <div class="preview-area" id="preview-area"></div>
+    <div class="prompt-area">
+      <div class="prompt-header">
+        <span class="prompt-label">Generated Prompt</span>
+        <button class="copy-btn" id="copy-prompt-btn" onclick="copyText('prompt-output','copy-prompt-btn')">Copy</button>
+      </div>
+      <div class="prompt-text" id="prompt-output"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Mode definitions ──
+const MODES = [
+  { id: 'vector', name: 'Vector', desc: 'Semantic similarity', latency: '800-1500ms', color: '#58a6ff' },
+  { id: 'bm25', name: 'BM25', desc: 'Exact keywords', latency: '10-50ms', color: '#7ee787' },
+  { id: 'hybrid', name: 'Hybrid', desc: 'Vector + BM25 fused', latency: '1-1.8s', color: '#d2a8ff' },
+  { id: 'graph', name: 'Graph', desc: 'Entity relationships', latency: '500-1200ms', color: '#ffd700' },
+  { id: 'multi', name: 'Multi', desc: 'All modes + RRF', latency: '1.5-2.5s', color: '#f778ba' },
+];
+
+const SOURCE_TYPES = ['doc', 'code', 'test'];
+const LANGUAGES = ['python', 'typescript', 'javascript', 'java', 'go', 'rust', 'c', 'cpp'];
+const ENTITY_TYPES = ['Class', 'Function', 'Module', 'Package', 'Variable', 'Interface'];
+const REL_TYPES = ['calls', 'imports', 'extends', 'contains', 'depends_on', 'implements'];
+
+// ── State ──
+const state = {
+  query: '',
+  mode: 'hybrid',
+  alpha: 0.5,
+  topK: 5,
+  threshold: 0.3,
+  sourceTypes: [],
+  languages: [],
+  filePaths: [],
+  entityTypes: [],
+  relTypes: [],
+  reranking: false,
+};
+
+// ── Presets ──
+const PRESETS = {
+  'semantic': { mode: 'vector', alpha: 0.5, topK: 5, threshold: 0.3, sourceTypes: [], languages: [], reranking: false, query: 'How does authentication work?' },
+  'exact': { mode: 'bm25', alpha: 0.5, topK: 10, threshold: 0.1, sourceTypes: [], languages: [], reranking: false, query: 'IndexingService._run_indexing_pipeline' },
+  'code-search': { mode: 'hybrid', alpha: 0.3, topK: 10, threshold: 0.3, sourceTypes: ['code'], languages: ['python'], reranking: false, query: 'query service hybrid search' },
+  'docs-only': { mode: 'hybrid', alpha: 0.7, topK: 5, threshold: 0.3, sourceTypes: ['doc'], languages: [], reranking: false, query: 'How to configure providers' },
+  'full-coverage': { mode: 'multi', alpha: 0.5, topK: 20, threshold: 0.2, sourceTypes: [], languages: [], reranking: false, query: 'error handling patterns' },
+  'reranked': { mode: 'hybrid', alpha: 0.5, topK: 5, threshold: 0.3, sourceTypes: [], languages: [], reranking: true, query: 'best practices for chunking code' },
+};
+
+function applyPreset(id) {
+  const p = PRESETS[id];
+  state.mode = p.mode; state.alpha = p.alpha; state.topK = p.topK;
+  state.threshold = p.threshold; state.sourceTypes = [...p.sourceTypes];
+  state.languages = [...p.languages]; state.reranking = p.reranking;
+  state.query = p.query; state.filePaths = []; state.entityTypes = []; state.relTypes = [];
+  syncUI();
+  update();
+}
+
+function syncUI() {
+  document.getElementById('query-text').value = state.query;
+  document.getElementById('alpha-slider').value = state.alpha * 100;
+  document.getElementById('topk-slider').value = state.topK;
+  document.getElementById('thresh-slider').value = state.threshold * 100;
+  document.getElementById('rerank-toggle').checked = state.reranking;
+  document.querySelectorAll('.mode-card').forEach(c => c.classList.toggle('active', c.dataset.mode === state.mode));
+  rebuildChips();
+}
+
+// ── Init ──
+function init() {
+  // Mode cards
+  const grid = document.getElementById('mode-grid');
+  MODES.forEach(m => {
+    const card = document.createElement('div');
+    card.className = 'mode-card' + (m.id === state.mode ? ' active' : '');
+    card.dataset.mode = m.id;
+    card.innerHTML = `<div class="mode-name">${m.name}</div><div class="mode-desc">${m.desc}</div><div class="mode-latency">${m.latency}</div>`;
+    card.onclick = () => { state.mode = m.id; document.querySelectorAll('.mode-card').forEach(c => c.classList.toggle('active', c.dataset.mode === m.id)); update(); };
+    grid.appendChild(card);
+  });
+
+  rebuildChips();
+  update();
+}
+
+function rebuildChips() {
+  buildChips('source-chips', SOURCE_TYPES, state.sourceTypes, v => { toggleArray(state.sourceTypes, v); update(); });
+  buildChips('lang-chips', LANGUAGES, state.languages, v => { toggleArray(state.languages, v); update(); });
+  buildChips('entity-chips', ENTITY_TYPES, state.entityTypes, v => { toggleArray(state.entityTypes, v); update(); });
+  buildChips('rel-chips', REL_TYPES, state.relTypes, v => { toggleArray(state.relTypes, v); update(); });
+}
+
+function buildChips(containerId, items, activeList, onClick) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = items.map(item =>
+    `<span class="chip ${activeList.includes(item) ? 'active' : ''}" onclick="this.classList.toggle('active')">${item}</span>`
+  ).join('');
+  el.querySelectorAll('.chip').forEach((chip, i) => {
+    chip.onclick = () => { onClick(items[i]); };
+  });
+}
+
+function toggleArray(arr, val) {
+  const idx = arr.indexOf(val);
+  if (idx >= 0) arr.splice(idx, 1); else arr.push(val);
+}
+
+function addFileFilter() {
+  const input = document.getElementById('new-file-filter');
+  const val = input.value.trim();
+  if (val && !state.filePaths.includes(val)) {
+    state.filePaths.push(val);
+    input.value = '';
+    update();
+  }
+}
+
+function removeFileFilter(idx) {
+  state.filePaths.splice(idx, 1);
+  update();
+}
+
+// ── Update everything ──
+function update() {
+  state.query = document.getElementById('query-text').value;
+
+  // Show/hide alpha section (only for hybrid)
+  document.getElementById('alpha-section').style.display = state.mode === 'hybrid' ? '' : 'none';
+  // Show/hide graph filters
+  document.getElementById('graph-section').style.display = (state.mode === 'graph' || state.mode === 'multi') ? '' : 'none';
+
+  // Update value displays
+  document.getElementById('alpha-val').textContent = state.alpha.toFixed(2);
+  document.getElementById('topk-val').textContent = state.topK;
+  document.getElementById('thresh-val').textContent = state.threshold.toFixed(2);
+
+  // File filter pills
+  const ffEl = document.getElementById('file-filters');
+  ffEl.innerHTML = state.filePaths.map((p, i) =>
+    `<div class="filter-row"><span class="filter-input" style="border:none;padding:2px 0">${p}</span><button class="remove-btn" onclick="removeFileFilter(${i})">&times;</button></div>`
+  ).join('');
+
+  rebuildChips();
+  renderPreview();
+  updatePrompt();
+}
+
+// ── Build request body ──
+function buildRequestBody() {
+  const body = { query: state.query || '(your query here)', top_k: state.topK, similarity_threshold: state.threshold, mode: state.mode };
+  if (state.mode === 'hybrid') body.alpha = state.alpha;
+  if (state.sourceTypes.length > 0) body.source_types = state.sourceTypes;
+  if (state.languages.length > 0) body.languages = state.languages;
+  if (state.filePaths.length > 0) body.file_paths = state.filePaths;
+  if ((state.mode === 'graph' || state.mode === 'multi') && state.entityTypes.length > 0) body.entity_types = state.entityTypes;
+  if ((state.mode === 'graph' || state.mode === 'multi') && state.relTypes.length > 0) body.relationship_types = state.relTypes;
+  return body;
+}
+
+// ── Render preview ──
+function renderPreview() {
+  const area = document.getElementById('preview-area');
+  const body = buildRequestBody();
+
+  let html = '';
+
+  // 1. Visual pipeline
+  html += `<div class="preview-section">
+    <div class="preview-header">Query Pipeline</div>
+    <div class="preview-body">${renderPipeline()}</div>
+  </div>`;
+
+  // 2. JSON request body
+  html += `<div class="preview-section">
+    <div class="preview-header"><span>POST /query/</span><button class="copy-mini" onclick="copyText('json-body','this')">Copy JSON</button></div>
+    <div class="preview-body"><div class="json-preview" id="json-body">${syntaxHighlightJSON(body)}</div></div>
+  </div>`;
+
+  // 3. curl command
+  const curl = buildCurl(body);
+  html += `<div class="preview-section">
+    <div class="preview-header"><span>curl Command</span><button class="copy-mini" onclick="copyText('curl-body','this')">Copy curl</button></div>
+    <div class="preview-body"><div class="curl-preview" id="curl-body">${curl}</div></div>
+  </div>`;
+
+  // 4. Scoring explanation
+  html += `<div class="preview-section">
+    <div class="preview-header">How Scoring Works</div>
+    <div class="preview-body">${renderScoringExplanation()}</div>
+  </div>`;
+
+  // 5. CLI equivalent
+  html += `<div class="preview-section">
+    <div class="preview-header"><span>CLI Equivalent</span><button class="copy-mini" onclick="copyText('cli-body','this')">Copy</button></div>
+    <div class="preview-body"><div class="curl-preview" id="cli-body">${renderCLI()}</div></div>
+  </div>`;
+
+  // 6. Plugin slash commands
+  html += `<div class="preview-section">
+    <div class="preview-header">Plugin Slash Commands</div>
+    <div class="preview-body">${renderSlashCommands()}</div>
+  </div>`;
+
+  area.innerHTML = html;
+}
+
+function renderPipeline() {
+  const mode = MODES.find(m => m.id === state.mode);
+  const steps = [];
+
+  // Step 1: Query
+  steps.push({ label: 'Query', color: '#58a6ff', active: true });
+
+  // Step 2: Embed (for vector, hybrid, multi)
+  const needsEmbed = ['vector', 'hybrid', 'multi'].includes(state.mode);
+  steps.push({ label: 'Embed Query', color: '#ffa657', active: needsEmbed });
+
+  // Step 3: Retrievers
+  if (state.mode === 'vector') {
+    steps.push({ label: 'Vector Search', color: '#58a6ff', active: true });
+  } else if (state.mode === 'bm25') {
+    steps.push({ label: 'BM25 Search', color: '#7ee787', active: true });
+  } else if (state.mode === 'hybrid') {
+    steps.push({ label: 'Vector + BM25', color: '#d2a8ff', active: true });
+  } else if (state.mode === 'graph') {
+    steps.push({ label: 'Graph Traversal', color: '#ffd700', active: true });
+  } else if (state.mode === 'multi') {
+    steps.push({ label: 'Vec + BM25 + Graph', color: '#f778ba', active: true });
+  }
+
+  // Step 4: Fusion
+  if (state.mode === 'hybrid') {
+    steps.push({ label: `RSF (α=${state.alpha.toFixed(1)})`, color: '#d2a8ff', active: true });
+  } else if (state.mode === 'multi') {
+    steps.push({ label: 'RRF (k=60)', color: '#f778ba', active: true });
+  }
+
+  // Step 5: Reranking
+  steps.push({ label: 'CrossEncoder', color: '#ff7b72', active: state.reranking });
+
+  // Step 6: Filters
+  const hasFilters = state.sourceTypes.length > 0 || state.languages.length > 0 || state.filePaths.length > 0;
+  steps.push({ label: 'Filter', color: '#56d4dd', active: hasFilters });
+
+  // Step 7: Results
+  steps.push({ label: `Top ${state.topK}`, color: '#3fb950', active: true });
+
+  return `<div class="pipeline">${steps.map((s, i) =>
+    `${i > 0 ? '<span class="pipe-arrow">→</span>' : ''}<span class="pipe-step ${s.active ? 'active' : 'inactive'}" style="${s.active ? `background:${s.color}22;color:${s.color};border-color:${s.color}` : ''}">${s.label}</span>`
+  ).join('')}</div>`;
+}
+
+function renderScoringExplanation() {
+  const mode = state.mode;
+  let html = '';
+
+  if (mode === 'vector') {
+    html = `<div class="scoring-box">
+      <div class="scoring-title">Vector (Cosine Similarity)</div>
+      <div class="scoring-formula">score = cos(embed(query), embed(doc))  ∈ [0, 1]</div>
+      <div class="scoring-desc">The query is embedded into a 3072-dim vector. Each stored chunk's embedding is compared via cosine similarity. Higher score = more semantically similar. Good for paraphrases and conceptual matches.</div>
+    </div>`;
+  } else if (mode === 'bm25') {
+    html = `<div class="scoring-box">
+      <div class="scoring-title">BM25 (Term Frequency + Inverse Document Frequency)</div>
+      <div class="scoring-formula">score = Σ IDF(qi) · (tf·(k1+1)) / (tf + k1·(1-b+b·|d|/avgdl))</div>
+      <div class="scoring-desc">Scores each chunk by how many query terms appear, weighted by how rare those terms are across all chunks. Normalized to [0,1] via per-query max. Fast (10-50ms). Best for function names, class names, exact terms.</div>
+    </div>`;
+  } else if (mode === 'hybrid') {
+    const vw = (state.alpha * 100).toFixed(0), bw = ((1 - state.alpha) * 100).toFixed(0);
+    html = `<div class="scoring-box">
+      <div class="scoring-title">Hybrid (Relative Score Fusion)</div>
+      <div class="scoring-formula">score = ${state.alpha.toFixed(2)} × vector_score + ${(1-state.alpha).toFixed(2)} × bm25_score</div>
+      <div class="scoring-desc">Runs Vector and BM25 in parallel. Normalizes both to [0,1], then blends with alpha. Current setting: <strong>${vw}% semantic + ${bw}% keyword</strong>. ${state.alpha > 0.7 ? 'Heavily favoring semantic meaning — good for conceptual queries.' : state.alpha < 0.3 ? 'Heavily favoring exact matches — good for code identifiers.' : 'Balanced blend — good general purpose.'}</div>
+    </div>`;
+  } else if (mode === 'graph') {
+    html = `<div class="scoring-box">
+      <div class="scoring-title">Graph (Entity Traversal + Fallback)</div>
+      <div class="scoring-formula">query → extract entities → traverse graph → lookup chunks</div>
+      <div class="scoring-desc">Extracts entities from your query, finds them in the property graph, traverses relationships to discover related entities, then looks up the associated document chunks. Falls back to vector search if no graph results found. Requires ENABLE_GRAPH_INDEX=true.</div>
+    </div>`;
+  } else if (mode === 'multi') {
+    html = `<div class="scoring-box">
+      <div class="scoring-title">Multi-Mode (Reciprocal Rank Fusion)</div>
+      <div class="scoring-formula">RRF(d) = Σ 1/(60 + rank_i(d))  over vector, BM25, graph</div>
+      <div class="scoring-desc">Runs all three retrievers, ranks results from each, then fuses using RRF with k=60. Documents appearing in multiple lists get boosted. Rank-based (not score-based), so robust to scale differences. Maximum coverage at highest latency.</div>
+    </div>`;
+  }
+
+  if (state.reranking) {
+    html += `<div class="scoring-box" style="margin-top:8px">
+      <div class="scoring-title">+ Two-Stage Reranking (CrossEncoder)</div>
+      <div class="scoring-formula">Stage 1: fetch ${state.topK} × 10 = ${state.topK * 10} candidates → Stage 2: rerank → return top ${state.topK}</div>
+      <div class="scoring-desc">Stage 1 over-fetches ${state.topK * 10} candidates using the mode above. Stage 2 runs each (query, document) pair through a CrossEncoder transformer (ms-marco-MiniLM-L-6-v2) that scores cross-attention. Much more accurate but slower. Final top ${state.topK} are returned.</div>
+    </div>`;
+  }
+
+  return html;
+}
+
+function renderCLI() {
+  let cmd = `<span class="curl-cmd">agent-brain query</span> <span class="curl-str">"${escapeHtml(state.query || '(your query)')}"</span>`;
+  cmd += ` <span class="curl-flag">--mode</span> ${state.mode}`;
+  if (state.topK !== 5) cmd += ` <span class="curl-flag">--top-k</span> ${state.topK}`;
+  return cmd;
+}
+
+// ── Slash commands ──
+const SLASH_COMMANDS = {
+  vector:  { primary: '/agent-brain-vector',   alias: '/agent-brain-semantic', params: ['query', 'top-k', 'threshold'] },
+  bm25:    { primary: '/agent-brain-bm25',     alias: '/agent-brain-keyword',  params: ['query', 'top-k', 'threshold'] },
+  hybrid:  { primary: '/agent-brain-hybrid',   alias: '/agent-brain-search',   params: ['query', 'top-k', 'threshold', 'alpha'] },
+  graph:   { primary: '/agent-brain-graph',     alias: null,                   params: ['query', 'top-k', 'threshold'] },
+  multi:   { primary: '/agent-brain-multi',     alias: null,                   params: ['query', 'top-k', 'threshold'] },
+};
+
+const ALL_SLASH = [
+  { cmd: '/agent-brain-search',   mode: 'hybrid', desc: 'Default hybrid search (BM25 + semantic)', params: 'query, top-k, threshold, alpha' },
+  { cmd: '/agent-brain-hybrid',   mode: 'hybrid', desc: 'Hybrid with explicit alpha tuning', params: 'query, alpha, top-k, threshold' },
+  { cmd: '/agent-brain-vector',   mode: 'vector', desc: 'Pure semantic vector similarity', params: 'query, top-k, threshold' },
+  { cmd: '/agent-brain-semantic', mode: 'vector', desc: 'Alias for vector search', params: 'query, top-k, threshold' },
+  { cmd: '/agent-brain-bm25',     mode: 'bm25',   desc: 'Pure BM25 keyword matching', params: 'query, top-k, threshold' },
+  { cmd: '/agent-brain-keyword',  mode: 'bm25',   desc: 'Alias for BM25 search', params: 'query, top-k, threshold' },
+  { cmd: '/agent-brain-graph',    mode: 'graph',  desc: 'GraphRAG relationship queries', params: 'query, top-k, threshold' },
+  { cmd: '/agent-brain-multi',    mode: 'multi',  desc: 'All modes fused with RRF', params: 'query, top-k, threshold' },
+];
+
+function renderSlashCommands() {
+  const sc = SLASH_COMMANDS[state.mode];
+  const q = escapeHtml(state.query || 'your query here');
+
+  // Build the recommended command invocation
+  let invocation = `<span class="curl-cmd">${sc.primary}</span> <span class="curl-str">${q}</span>`;
+  if (state.mode === 'hybrid' && state.alpha !== 0.5) {
+    invocation += `\n\n<span style="color:#8b949e">// With alpha tuning, use:</span>\n<span class="curl-cmd">/agent-brain-hybrid</span> <span class="curl-str">${q}</span>`;
+    invocation += `\n<span style="color:#8b949e">// Then specify alpha=${state.alpha.toFixed(2)} when prompted</span>`;
+  }
+
+  // Alias note
+  let aliasNote = '';
+  if (sc.alias) {
+    aliasNote = `<div style="font-size:10px;color:#8b949e;margin-top:6px">Alias: <code style="color:#58a6ff">${sc.alias}</code> does the same thing</div>`;
+  }
+
+  // Build the full command table
+  let tableRows = ALL_SLASH.map(c => {
+    const isActive = c.mode === state.mode;
+    const rowStyle = isActive ? 'background:#1f3a5f22' : '';
+    const cmdColor = isActive ? '#58a6ff' : '#8b949e';
+    const marker = isActive ? ' ◀' : '';
+    return `<tr style="${rowStyle}">
+      <td style="padding:3px 8px;font-family:monospace;font-size:11px;color:${cmdColor};white-space:nowrap">${c.cmd}${marker}</td>
+      <td style="padding:3px 8px;font-size:10px;color:#c9d1d9">${c.desc}</td>
+      <td style="padding:3px 8px;font-size:10px;color:#8b949e;font-family:monospace">${c.params}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:600;color:#7ee787;margin-bottom:6px">Recommended for your ${state.mode} query:</div>
+      <div class="curl-preview" style="background:#0d1117;padding:10px;border-radius:4px;border:1px solid #30363d">${invocation}</div>
+      ${aliasNote}
+    </div>
+    <div style="font-size:11px;font-weight:600;color:#8b949e;margin-bottom:6px">All 8 Search Commands</div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead>
+          <tr style="border-bottom:1px solid #30363d">
+            <th style="padding:4px 8px;text-align:left;color:#8b949e;font-size:10px">Command</th>
+            <th style="padding:4px 8px;text-align:left;color:#8b949e;font-size:10px">Description</th>
+            <th style="padding:4px 8px;text-align:left;color:#8b949e;font-size:10px">Parameters</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>
+    <div style="margin-top:10px;font-size:10px;color:#484f58;line-height:1.5">
+      <strong style="color:#8b949e">Usage:</strong> Type the command in Claude Code (e.g. <code style="color:#58a6ff">/agent-brain-search</code>).
+      Parameters are passed as arguments or prompted interactively.
+      All commands invoke the <code style="color:#d2a8ff">using-agent-brain</code> skill for guided search.
+    </div>`;
+}
+
+// ── JSON syntax highlighting ──
+function syntaxHighlightJSON(obj) {
+  const json = JSON.stringify(obj, null, 2);
+  return json
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:')
+    .replace(/: "([^"]*)"/g, ': <span class="json-str">"$1"</span>')
+    .replace(/: (\d+\.?\d*)/g, ': <span class="json-num">$1</span>')
+    .replace(/: (true|false)/g, ': <span class="json-bool">$1</span>')
+    .replace(/: (null)/g, ': <span class="json-null">$1</span>')
+    .replace(/"([^"]*)"(?=[,\]\n])/g, '<span class="json-str">"$1"</span>');
+}
+
+// ── curl builder ──
+function buildCurl(body) {
+  const jsonStr = JSON.stringify(body, null, 2);
+  return `<span class="curl-cmd">curl</span> <span class="curl-flag">-X POST</span> <span class="curl-url">http://127.0.0.1:8000/query/</span> \\
+  <span class="curl-flag">-H</span> <span class="curl-str">"Content-Type: application/json"</span> \\
+  <span class="curl-flag">-d</span> <span class="curl-str">'${escapeHtml(JSON.stringify(body))}'</span>`;
+}
+
+function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── Prompt ──
+function updatePrompt() {
+  const parts = [];
+  parts.push(`Write an Agent Brain search query that:`);
+
+  if (state.query) parts.push(`- Searches for: "${state.query}"`);
+  parts.push(`- Uses ${state.mode} mode${state.mode === 'hybrid' ? ` with alpha=${state.alpha.toFixed(2)} (${(state.alpha*100).toFixed(0)}% semantic, ${((1-state.alpha)*100).toFixed(0)}% keyword)` : ''}`);
+  parts.push(`- Returns top ${state.topK} results with similarity threshold ${state.threshold.toFixed(2)}`);
+
+  if (state.sourceTypes.length > 0) parts.push(`- Filters to source types: ${state.sourceTypes.join(', ')}`);
+  if (state.languages.length > 0) parts.push(`- Filters to languages: ${state.languages.join(', ')}`);
+  if (state.filePaths.length > 0) parts.push(`- Filters to file paths: ${state.filePaths.join(', ')}`);
+  if (state.entityTypes.length > 0) parts.push(`- Filters graph entities: ${state.entityTypes.join(', ')}`);
+  if (state.relTypes.length > 0) parts.push(`- Filters graph relationships: ${state.relTypes.join(', ')}`);
+  if (state.reranking) parts.push(`- Enables two-stage reranking (fetches ${state.topK * 10} candidates, reranks to top ${state.topK})`);
+
+  parts.push('');
+  parts.push(`API: POST /query/ on the Agent Brain server.`);
+  parts.push(`Schema: QueryRequest with fields: query, top_k, similarity_threshold, mode, alpha, source_types, languages, file_paths, entity_types, relationship_types.`);
+
+  document.getElementById('prompt-output').textContent = parts.join('\n');
+}
+
+function copyText(elId, btnRef) {
+  const el = document.getElementById(elId);
+  const text = el.textContent || el.innerText;
+  navigator.clipboard.writeText(text);
+  // Flash feedback
+  if (typeof btnRef === 'string') {
+    const btn = document.getElementById(btnRef);
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1200);
+  }
+}
+
+init();
+</script>
+</body>
+</html>

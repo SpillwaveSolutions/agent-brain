@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Brain Setup Wizard Playground</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2333;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --accent3: #d2a8ff;
+    --accent4: #f0883e;
+    --accent5: #f778ba;
+    --danger: #f85149;
+    --code-bg: #0d1117;
+    --tag-bg: #1f2937;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 24px; }
+
+  /* Header */
+  .header {
+    text-align: center;
+    padding: 40px 0 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+  }
+  .header h1 {
+    font-size: 2.2em;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 6px;
+  }
+  .header p { color: var(--text-muted); font-size: 1.05em; }
+
+  /* Wizard Selector */
+  .wizard-selector {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+  .wizard-btn {
+    flex: 1;
+    min-width: 200px;
+    padding: 20px;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+  }
+  .wizard-btn:hover {
+    border-color: var(--accent);
+    background: var(--surface2);
+  }
+  .wizard-btn.active {
+    border-color: var(--accent);
+    background: var(--surface2);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  .wizard-btn .cmd {
+    font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
+    color: var(--accent);
+    font-size: 0.9em;
+    margin-bottom: 4px;
+  }
+  .wizard-btn .label {
+    font-weight: 600;
+    font-size: 1.05em;
+    margin-bottom: 4px;
+  }
+  .wizard-btn .desc {
+    font-size: 0.85em;
+    color: var(--text-muted);
+  }
+
+  /* Progress Bar */
+  .progress-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 28px;
+    align-items: center;
+  }
+  .progress-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 0.82em;
+    color: var(--text-muted);
+    white-space: nowrap;
+    transition: all 0.3s;
+  }
+  .progress-step.active {
+    background: var(--surface2);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .progress-step.done {
+    background: rgba(63, 185, 80, 0.1);
+    border-color: var(--accent2);
+    color: var(--accent2);
+  }
+  .progress-step .num {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75em;
+    font-weight: 700;
+    background: var(--border);
+    color: var(--text);
+  }
+  .progress-step.active .num { background: var(--accent); color: #fff; }
+  .progress-step.done .num { background: var(--accent2); color: #fff; }
+  .progress-arrow {
+    color: var(--border);
+    font-size: 0.9em;
+  }
+
+  /* Wizard Panel */
+  .wizard-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .wizard-header {
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .wizard-header h2 {
+    font-size: 1.3em;
+    margin-bottom: 4px;
+  }
+  .wizard-header p {
+    color: var(--text-muted);
+    font-size: 0.9em;
+  }
+  .wizard-body {
+    padding: 28px;
+    min-height: 300px;
+  }
+
+  /* AskUserQuestion simulation */
+  .ask-question {
+    margin-bottom: 20px;
+  }
+  .ask-question .question-text {
+    font-size: 1.05em;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .ask-question .question-chip {
+    display: inline-block;
+    padding: 2px 10px;
+    background: var(--tag-bg);
+    border-radius: 12px;
+    font-size: 0.75em;
+    color: var(--accent3);
+    margin-bottom: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .option-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .option-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 18px;
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .option-card:hover {
+    border-color: var(--accent);
+    background: rgba(88, 166, 255, 0.04);
+  }
+  .option-card.selected {
+    border-color: var(--accent);
+    background: rgba(88, 166, 255, 0.08);
+  }
+  .option-card.recommended {
+    border-color: var(--accent2);
+  }
+  .option-card.recommended:hover,
+  .option-card.recommended.selected {
+    border-color: var(--accent2);
+    background: rgba(63, 185, 80, 0.08);
+  }
+  .option-radio {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+    transition: all 0.15s;
+  }
+  .option-card.selected .option-radio {
+    border-color: var(--accent);
+  }
+  .option-card.selected .option-radio::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .option-card.recommended.selected .option-radio {
+    border-color: var(--accent2);
+  }
+  .option-card.recommended.selected .option-radio::after {
+    background: var(--accent2);
+  }
+  .option-info { flex: 1; }
+  .option-label {
+    font-weight: 600;
+    font-size: 0.95em;
+    margin-bottom: 2px;
+  }
+  .option-desc {
+    font-size: 0.83em;
+    color: var(--text-muted);
+  }
+  .option-badge {
+    font-size: 0.7em;
+    padding: 2px 8px;
+    border-radius: 8px;
+    font-weight: 600;
+    margin-left: 8px;
+  }
+  .badge-rec {
+    background: rgba(63, 185, 80, 0.15);
+    color: var(--accent2);
+  }
+  .badge-free {
+    background: rgba(210, 168, 255, 0.15);
+    color: var(--accent3);
+  }
+
+  /* Terminal output */
+  .terminal {
+    background: #000;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+    font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+    font-size: 0.85em;
+    line-height: 1.7;
+    overflow-x: auto;
+    position: relative;
+  }
+  .terminal .prompt { color: var(--accent2); }
+  .terminal .cmd-text { color: #fff; }
+  .terminal .output { color: #999; }
+  .terminal .success { color: var(--accent2); }
+  .terminal .error { color: var(--danger); }
+  .terminal .info { color: var(--accent); }
+  .terminal .warn { color: var(--accent4); }
+  .terminal-label {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    font-size: 0.7em;
+    color: #555;
+    font-family: -apple-system, sans-serif;
+  }
+
+  /* Config preview */
+  .config-preview {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+    font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
+    font-size: 0.85em;
+    line-height: 1.6;
+    position: relative;
+  }
+  .config-preview .yaml-key { color: var(--accent); }
+  .config-preview .yaml-val { color: var(--accent2); }
+  .config-preview .yaml-comment { color: #555; }
+  .config-label {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    font-size: 0.7em;
+    color: var(--text-muted);
+    background: var(--surface);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  /* Navigation */
+  .wizard-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 28px;
+    border-top: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .nav-btn {
+    padding: 10px 24px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+  .nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .nav-btn.primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .nav-btn.primary:hover { background: #4996e6; }
+  .nav-btn.primary:disabled { background: #2a4a6e; border-color: #2a4a6e; }
+
+  /* Success card */
+  .success-card {
+    background: rgba(63, 185, 80, 0.08);
+    border: 1px solid var(--accent2);
+    border-radius: 10px;
+    padding: 24px;
+    margin: 16px 0;
+  }
+  .success-card h3 {
+    color: var(--accent2);
+    margin-bottom: 12px;
+    font-size: 1.15em;
+  }
+  .success-card .next-steps {
+    list-style: none;
+    padding: 0;
+  }
+  .success-card .next-steps li {
+    padding: 6px 0;
+    padding-left: 24px;
+    position: relative;
+    color: var(--text-muted);
+  }
+  .success-card .next-steps li::before {
+    content: attr(data-num);
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 0.85em;
+  }
+  .success-card code {
+    background: rgba(0,0,0,0.3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    color: var(--accent3);
+  }
+
+  /* Info box */
+  .info-box {
+    background: rgba(88, 166, 255, 0.06);
+    border: 1px solid rgba(88, 166, 255, 0.2);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 12px 0;
+    font-size: 0.88em;
+    color: var(--text-muted);
+  }
+  .info-box strong { color: var(--accent); }
+  .info-box.warn {
+    background: rgba(240, 136, 62, 0.06);
+    border-color: rgba(240, 136, 62, 0.2);
+  }
+  .info-box.warn strong { color: var(--accent4); }
+
+  /* Comparison table */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 0.85em;
+  }
+  .compare-table th {
+    text-align: left;
+    padding: 8px 12px;
+    background: var(--surface2);
+    color: var(--text-muted);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+  }
+  .compare-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Reset button */
+  .reset-link {
+    color: var(--text-muted);
+    font-size: 0.82em;
+    cursor: pointer;
+    text-decoration: underline;
+    transition: color 0.15s;
+  }
+  .reset-link:hover { color: var(--accent); }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .wizard-selector { flex-direction: column; }
+    .progress-bar { flex-wrap: wrap; }
+    .progress-arrow { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>Agent Brain Setup Wizard</h1>
+    <p>Interactive simulation of the plugin's guided setup commands</p>
+  </div>
+
+  <!-- Wizard Selector -->
+  <div class="wizard-selector" id="wizardSelector">
+    <button class="wizard-btn active" onclick="selectWizard('install')">
+      <div class="cmd">/agent-brain-install</div>
+      <div class="label">Install</div>
+      <div class="desc">Choose install method, resolve version, install packages</div>
+    </button>
+    <button class="wizard-btn" onclick="selectWizard('config')">
+      <div class="cmd">/agent-brain-config</div>
+      <div class="label">Configure</div>
+      <div class="desc">Provider, storage backend, indexing excludes</div>
+    </button>
+    <button class="wizard-btn" onclick="selectWizard('setup')">
+      <div class="cmd">/agent-brain-setup</div>
+      <div class="label">Full Setup</div>
+      <div class="desc">Orchestrates install + config + init + verify</div>
+    </button>
+  </div>
+
+  <!-- Progress Bar -->
+  <div class="progress-bar" id="progressBar"></div>
+
+  <!-- Wizard Panel -->
+  <div class="wizard-panel">
+    <div class="wizard-header" id="wizardHeader">
+      <h2 id="stepTitle">Step 1: Choose Installation Method</h2>
+      <p id="stepSubtitle">Select how you'd like to install Agent Brain</p>
+    </div>
+    <div class="wizard-body" id="wizardBody"></div>
+    <div class="wizard-nav">
+      <div>
+        <button class="nav-btn" id="backBtn" onclick="goBack()" disabled>Back</button>
+        <span class="reset-link" style="margin-left:16px" onclick="resetWizard()">Start over</span>
+      </div>
+      <button class="nav-btn primary" id="nextBtn" onclick="goNext()" disabled>Continue</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =========================================================
+// WIZARD STATE
+// =========================================================
+let currentWizard = 'install';
+let currentStep = 0;
+let selections = {};
+
+// =========================================================
+// WIZARD DEFINITIONS
+// =========================================================
+const wizards = {
+
+  // ------- INSTALL WIZARD -------
+  install: {
+    steps: [
+      {
+        id: 'method',
+        title: 'Step 1: Choose Installation Method',
+        subtitle: 'Select how you\'d like to install Agent Brain',
+        type: 'ask',
+        chip: 'Install via',
+        question: 'Which installation method do you prefer for Agent Brain?',
+        options: [
+          { key: 'pipx', label: 'pipx', desc: 'Install globally in an isolated environment. No activation needed.', recommended: true },
+          { key: 'uv', label: 'uv', desc: 'Fast, modern Python tool installer. Good for power users.' },
+          { key: 'pip', label: 'pip (venv)', desc: 'Install into a local virtual environment. Requires activation.' },
+          { key: 'conda', label: 'conda', desc: 'For conda users. Creates a conda environment with pip inside.' }
+        ]
+      },
+      {
+        id: 'version',
+        title: 'Step 1.5: Select Version',
+        subtitle: 'Choose which version to install',
+        type: 'version_resolve'
+      },
+      {
+        id: 'python_check',
+        title: 'Step 2: Python Version Check',
+        subtitle: 'Verifying Python 3.10+ is available',
+        type: 'terminal_check'
+      },
+      {
+        id: 'execute',
+        title: 'Step 3: Install Agent Brain',
+        subtitle: 'Running installation commands',
+        type: 'install_execute'
+      },
+      {
+        id: 'success',
+        title: 'Installation Complete',
+        subtitle: 'Agent Brain is ready to configure',
+        type: 'install_success'
+      }
+    ]
+  },
+
+  // ------- CONFIG WIZARD -------
+  config: {
+    steps: [
+      {
+        id: 'detect',
+        title: 'Step 1: Detect Configuration',
+        subtitle: 'Checking for existing config files',
+        type: 'config_detect'
+      },
+      {
+        id: 'ollama_check',
+        title: 'Step 2: Check Ollama Status',
+        subtitle: 'Detecting local Ollama installation',
+        type: 'ollama_check'
+      },
+      {
+        id: 'provider',
+        title: 'Step 3: Choose Provider',
+        subtitle: 'Select your embedding and summarization provider',
+        type: 'ask',
+        chip: 'Provider',
+        question: 'Which provider setup would you like for Agent Brain?',
+        options: [
+          { key: 'ollama', label: 'Ollama (Local)', desc: 'FREE, no API keys required. Uses nomic-embed-text + llama3.2', badge: 'FREE', badgeClass: 'badge-free' },
+          { key: 'openai_anthropic', label: 'OpenAI + Anthropic', desc: 'Best quality cloud providers. Requires OPENAI_API_KEY and ANTHROPIC_API_KEY', recommended: true },
+          { key: 'gemini', label: 'Google Gemini', desc: 'Google\'s models. Requires GOOGLE_API_KEY' },
+          { key: 'ollama_mistral', label: 'Ollama + Mistral', desc: 'FREE, uses nomic-embed-text + mistral-small3.2 (better summarization)', badge: 'FREE', badgeClass: 'badge-free' }
+        ]
+      },
+      {
+        id: 'provider_setup',
+        title: 'Step 4: Provider Setup',
+        subtitle: 'Configure your selected provider',
+        type: 'provider_detail'
+      },
+      {
+        id: 'storage',
+        title: 'Step 5: Storage Backend',
+        subtitle: 'Choose where to store your indexed data',
+        type: 'ask',
+        chip: 'Storage',
+        question: 'Which storage backend would you like to use?',
+        options: [
+          { key: 'chroma', label: 'ChromaDB (Default)', desc: 'Local-first, zero ops, best for small to medium projects. Embedded database.', recommended: true },
+          { key: 'postgres', label: 'PostgreSQL + pgvector', desc: 'Best for larger datasets. Requires Docker. Supports full-text + vector search.' }
+        ]
+      },
+      {
+        id: 'storage_setup',
+        title: 'Step 5b: Storage Configuration',
+        subtitle: 'Setting up your storage backend',
+        type: 'storage_detail'
+      },
+      {
+        id: 'excludes',
+        title: 'Step 6: Indexing Excludes',
+        subtitle: 'Configure which directories to skip during indexing',
+        type: 'ask',
+        chip: 'Excludes',
+        question: 'How would you like to configure indexing excludes?',
+        options: [
+          { key: 'defaults', label: 'Use defaults', desc: 'Exclude node_modules, .venv, __pycache__, .git, dist, build, target', recommended: true },
+          { key: 'custom', label: 'Add custom patterns', desc: 'I have additional directories to exclude from indexing' },
+          { key: 'skip', label: 'Skip for now', desc: 'I\'ll configure exclude patterns manually later' }
+        ]
+      },
+      {
+        id: 'config_summary',
+        title: 'Configuration Complete',
+        subtitle: 'Your Agent Brain configuration is ready',
+        type: 'config_success'
+      }
+    ]
+  },
+
+  // ------- FULL SETUP WIZARD -------
+  setup: {
+    steps: [
+      {
+        id: 'check_install',
+        title: 'Step 1: Check Installation',
+        subtitle: 'Verifying Agent Brain is installed',
+        type: 'setup_check_install'
+      },
+      {
+        id: 'check_config',
+        title: 'Step 2: Check Provider Configuration',
+        subtitle: 'Detecting provider and API key setup',
+        type: 'setup_check_config'
+      },
+      {
+        id: 'init_project',
+        title: 'Step 3: Initialize Project',
+        subtitle: 'Creating .claude/agent-brain/ directory',
+        type: 'setup_init'
+      },
+      {
+        id: 'postgres_check',
+        title: 'Step 4: PostgreSQL Setup',
+        subtitle: 'Conditional: only when backend is postgres',
+        type: 'setup_postgres'
+      },
+      {
+        id: 'start_server',
+        title: 'Step 5: Start Server',
+        subtitle: 'Launching the Agent Brain server',
+        type: 'setup_start'
+      },
+      {
+        id: 'verify',
+        title: 'Step 6: Verify Setup',
+        subtitle: 'Running health checks',
+        type: 'setup_verify'
+      }
+    ]
+  }
+};
+
+// =========================================================
+// RENDER ENGINE
+// =========================================================
+
+function selectWizard(name) {
+  currentWizard = name;
+  currentStep = 0;
+  selections = {};
+  document.querySelectorAll('.wizard-btn').forEach((b, i) => {
+    b.classList.toggle('active', ['install','config','setup'][i] === name);
+  });
+  renderStep();
+}
+
+function renderStep() {
+  const wizard = wizards[currentWizard];
+  const step = wizard.steps[currentStep];
+
+  // Progress bar
+  renderProgress(wizard.steps);
+
+  // Header
+  document.getElementById('stepTitle').textContent = step.title;
+  document.getElementById('stepSubtitle').textContent = step.subtitle;
+
+  // Body
+  const body = document.getElementById('wizardBody');
+  body.innerHTML = '';
+
+  switch(step.type) {
+    case 'ask': renderAskQuestion(body, step); break;
+    case 'version_resolve': renderVersionResolve(body); break;
+    case 'terminal_check': renderPythonCheck(body); break;
+    case 'install_execute': renderInstallExecute(body); break;
+    case 'install_success': renderInstallSuccess(body); break;
+    case 'config_detect': renderConfigDetect(body); break;
+    case 'ollama_check': renderOllamaCheck(body); break;
+    case 'provider_detail': renderProviderDetail(body); break;
+    case 'storage_detail': renderStorageDetail(body); break;
+    case 'config_success': renderConfigSuccess(body); break;
+    case 'setup_check_install': renderSetupCheckInstall(body); break;
+    case 'setup_check_config': renderSetupCheckConfig(body); break;
+    case 'setup_init': renderSetupInit(body); break;
+    case 'setup_postgres': renderSetupPostgres(body); break;
+    case 'setup_start': renderSetupStart(body); break;
+    case 'setup_verify': renderSetupVerify(body); break;
+  }
+
+  // Navigation
+  document.getElementById('backBtn').disabled = currentStep === 0;
+  updateNextBtn();
+}
+
+function renderProgress(steps) {
+  const bar = document.getElementById('progressBar');
+  bar.innerHTML = '';
+  steps.forEach((s, i) => {
+    if (i > 0) {
+      const arrow = document.createElement('span');
+      arrow.className = 'progress-arrow';
+      arrow.textContent = '\u203A';
+      bar.appendChild(arrow);
+    }
+    const el = document.createElement('div');
+    el.className = 'progress-step' + (i === currentStep ? ' active' : (i < currentStep ? ' done' : ''));
+    const shortLabel = s.title.replace(/^Step \d+[a-z]?:\s*/, '').replace(/^(Check |Choose |Select )/, '');
+    el.innerHTML = `<span class="num">${i < currentStep ? '\u2713' : i+1}</span> ${shortLabel}`;
+    el.style.cursor = 'pointer';
+    el.onclick = () => { if (i < currentStep) { currentStep = i; renderStep(); } };
+    bar.appendChild(el);
+  });
+}
+
+// =========================================================
+// ASK USER QUESTION (reusable)
+// =========================================================
+function renderAskQuestion(body, step) {
+  const div = document.createElement('div');
+  div.className = 'ask-question';
+  div.innerHTML = `<div class="question-chip">${step.chip}</div>
+    <div class="question-text">${step.question}</div>`;
+
+  const grid = document.createElement('div');
+  grid.className = 'option-grid';
+  step.options.forEach(opt => {
+    const card = document.createElement('div');
+    card.className = 'option-card' + (opt.recommended ? ' recommended' : '') + (selections[step.id] === opt.key ? ' selected' : '');
+    card.innerHTML = `<div class="option-radio"></div>
+      <div class="option-info">
+        <div class="option-label">${opt.label}${opt.recommended ? '<span class="option-badge badge-rec">Recommended</span>' : ''}${opt.badge ? '<span class="option-badge '+opt.badgeClass+'">'+opt.badge+'</span>' : ''}</div>
+        <div class="option-desc">${opt.desc}</div>
+      </div>`;
+    card.onclick = () => {
+      selections[step.id] = opt.key;
+      grid.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      updateNextBtn();
+    };
+    grid.appendChild(card);
+  });
+  div.appendChild(grid);
+
+  // Add comparison table for provider selection
+  if (step.id === 'provider') {
+    div.appendChild(makeProviderTable());
+  }
+  if (step.id === 'storage') {
+    div.appendChild(makeStorageTable());
+  }
+  if (step.id === 'method') {
+    div.appendChild(makeInstallTable());
+  }
+
+  body.appendChild(div);
+}
+
+function makeProviderTable() {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `<table class="compare-table" style="margin-top:20px">
+    <tr><th>Provider</th><th>Embedding</th><th>Summarization</th><th>Cost</th><th>Quality</th></tr>
+    <tr><td>Ollama</td><td>nomic-embed-text (768d)</td><td>llama3.2</td><td style="color:var(--accent2)">Free</td><td>Good</td></tr>
+    <tr><td>Ollama + Mistral</td><td>nomic-embed-text (768d)</td><td>mistral-small3.2</td><td style="color:var(--accent2)">Free</td><td>Better</td></tr>
+    <tr><td>OpenAI + Anthropic</td><td>text-embedding-3-large (3072d)</td><td>claude-haiku-4-5</td><td style="color:var(--accent4)">$$</td><td style="color:var(--accent2)">Best</td></tr>
+    <tr><td>Google Gemini</td><td>text-embedding-004</td><td>gemini-2.0-flash</td><td style="color:var(--accent4)">$$</td><td>Good</td></tr>
+  </table>`;
+  return wrap;
+}
+function makeStorageTable() {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `<table class="compare-table" style="margin-top:20px">
+    <tr><th>Backend</th><th>Setup</th><th>Scale</th><th>Full-Text</th><th>Best For</th></tr>
+    <tr><td>ChromaDB</td><td style="color:var(--accent2)">Zero config</td><td>Small-Medium</td><td>BM25 (disk)</td><td>Single dev, local projects</td></tr>
+    <tr><td>PostgreSQL</td><td>Docker required</td><td style="color:var(--accent2)">Large</td><td style="color:var(--accent2)">tsvector (native)</td><td>Teams, large codebases</td></tr>
+  </table>`;
+  return wrap;
+}
+function makeInstallTable() {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `<table class="compare-table" style="margin-top:20px">
+    <tr><th>Method</th><th>Global?</th><th>Isolated?</th><th>Activation?</th></tr>
+    <tr><td>pipx</td><td style="color:var(--accent2)">Yes</td><td style="color:var(--accent2)">Yes</td><td style="color:var(--accent2)">No</td></tr>
+    <tr><td>uv</td><td style="color:var(--accent2)">Yes</td><td style="color:var(--accent2)">Yes</td><td style="color:var(--accent2)">No</td></tr>
+    <tr><td>pip (venv)</td><td>No</td><td style="color:var(--accent2)">Yes</td><td style="color:var(--accent4)">Yes</td></tr>
+    <tr><td>conda</td><td>No</td><td style="color:var(--accent2)">Yes</td><td style="color:var(--accent4)">Yes</td></tr>
+  </table>`;
+  return wrap;
+}
+
+// =========================================================
+// INSTALL WIZARD STEPS
+// =========================================================
+
+function renderVersionResolve(body) {
+  const v = '6.0.2';
+  body.innerHTML = `
+    <div class="terminal">
+      <span class="terminal-label">PyPI Version Resolution</span>
+      <div><span class="prompt">$</span> <span class="cmd-text">curl -sf https://pypi.org/pypi/agent-brain-rag/json | python3 -c "..."</span></div>
+      <div><span class="success">Latest available: ${v}</span></div>
+    </div>
+    <div class="ask-question">
+      <div class="question-chip">Version</div>
+      <div class="question-text">Which version of Agent Brain do you want to install?</div>
+      <div class="option-grid">
+        <div class="option-card recommended ${selections.version === 'latest' ? 'selected' : ''}" onclick="selectVersion('latest')">
+          <div class="option-radio"></div>
+          <div class="option-info">
+            <div class="option-label">Latest (${v}) <span class="option-badge badge-rec">Recommended</span></div>
+            <div class="option-desc">Install the latest stable release from PyPI.</div>
+          </div>
+        </div>
+        <div class="option-card ${selections.version === 'specific' ? 'selected' : ''}" onclick="selectVersion('specific')">
+          <div class="option-radio"></div>
+          <div class="option-info">
+            <div class="option-label">Specific version</div>
+            <div class="option-desc">Choose from available versions: 6.0.2, 6.0.1, 6.0.0, 5.0.0, 4.0.0, ...</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  updateNextBtn();
+}
+function selectVersion(v) {
+  selections.version = v;
+  renderStep();
+}
+
+function renderPythonCheck(body) {
+  selections.python_ok = true; // auto-pass
+  body.innerHTML = `
+    <div class="terminal">
+      <span class="terminal-label">Python Check</span>
+      <div><span class="prompt">$</span> <span class="cmd-text">python3 --version</span></div>
+      <div><span class="success">Python 3.12.4</span></div>
+      <div style="margin-top:8px"><span class="success">\u2713 Python 3.10+ requirement satisfied</span></div>
+    </div>
+    <div class="info-box">
+      <strong>Requirement:</strong> Agent Brain requires Python 3.10 or higher. Your system has Python 3.12.4.
+    </div>`;
+  updateNextBtn();
+}
+
+function renderInstallExecute(body) {
+  const method = selections.method || 'pipx';
+  const v = '6.0.2';
+  const commands = {
+    pipx: [
+      { cmd: 'pipx --version 2>/dev/null', out: '1.4.3' },
+      { cmd: `pipx install agent-brain-cli==${v}`, out: `  installed package agent-brain-cli ${v}\n  These apps are now globally available\n    - agent-brain` },
+      { cmd: 'agent-brain --version', out: v, success: true }
+    ],
+    uv: [
+      { cmd: 'uv --version', out: 'uv 0.5.14' },
+      { cmd: `uv tool install agent-brain-cli==${v}`, out: `Resolved 47 packages in 3.2s\nInstalled agent-brain-cli==${v}\n  + agent-brain` },
+      { cmd: 'agent-brain --version', out: v, success: true }
+    ],
+    pip: [
+      { cmd: 'python3 -m venv .venv', out: '' },
+      { cmd: 'source .venv/bin/activate', out: '' },
+      { cmd: `pip install agent-brain-rag==${v} agent-brain-cli==${v}`, out: `Successfully installed agent-brain-cli-${v} agent-brain-rag-${v}` },
+      { cmd: 'agent-brain --version', out: v, success: true }
+    ],
+    conda: [
+      { cmd: 'conda create -n agent-brain python=3.12 -y', out: 'Solving environment: done\n# ... packages installed' },
+      { cmd: 'conda activate agent-brain', out: '' },
+      { cmd: `pip install agent-brain-rag==${v} agent-brain-cli==${v}`, out: `Successfully installed agent-brain-cli-${v} agent-brain-rag-${v}` },
+      { cmd: 'agent-brain --version', out: v, success: true }
+    ]
+  };
+  const cmds = commands[method];
+  let html = `<div class="terminal"><span class="terminal-label">${method} install</span>`;
+  cmds.forEach(c => {
+    html += `<div><span class="prompt">$</span> <span class="cmd-text">${c.cmd}</span></div>`;
+    if (c.out) html += `<div><span class="${c.success ? 'success' : 'output'}">${c.out}</span></div>`;
+  });
+  html += '</div>';
+
+  if (method === 'pip') {
+    html += '<div class="info-box warn"><strong>Note:</strong> You must run <code>source .venv/bin/activate</code> before using agent-brain in each new terminal session.</div>';
+  }
+  if (method === 'conda') {
+    html += '<div class="info-box warn"><strong>Note:</strong> You must run <code>conda activate agent-brain</code> before using agent-brain in each new terminal session.</div>';
+  }
+
+  selections.install_done = true;
+  body.innerHTML = html;
+  updateNextBtn();
+}
+
+function renderInstallSuccess(body) {
+  const method = selections.method || 'pipx';
+  const labels = { pipx: 'pipx (global, isolated)', uv: 'uv (global, isolated)', pip: 'pip (venv)', conda: 'conda environment' };
+  body.innerHTML = `
+    <div class="success-card">
+      <h3>\u2713 Agent Brain Installation Complete</h3>
+      <div class="terminal" style="margin:12px 0">
+        <div><span class="output">Install Method:</span> <span class="info">${labels[method]}</span></div>
+        <div><span class="output">Installed Version:</span> <span class="success">6.0.2</span></div>
+        <div><span class="output">Resolved from:</span> <span class="info">PyPI (${selections.version === 'specific' ? 'user-specified' : 'latest'})</span></div>
+      </div>
+      <ul class="next-steps">
+        <li data-num="1.">Configure providers: <code>/agent-brain-config</code></li>
+        <li data-num="2.">Initialize project: <code>/agent-brain-init</code></li>
+        <li data-num="3.">Start server: <code>/agent-brain-start</code></li>
+      </ul>
+    </div>
+    <div class="info-box">
+      <strong>Tip:</strong> Run <code>/agent-brain-setup</code> for a complete guided setup that covers all these steps automatically.
+    </div>`;
+  document.getElementById('nextBtn').textContent = 'Done';
+  document.getElementById('nextBtn').disabled = false;
+}
+
+// =========================================================
+// CONFIG WIZARD STEPS
+// =========================================================
+
+function renderConfigDetect(body) {
+  selections.config_detected = true;
+  body.innerHTML = `
+    <div class="terminal">
+      <span class="terminal-label">Config Detection</span>
+      <div><span class="prompt">$</span> <span class="cmd-text">echo "=== Config File Detection ==="</span></div>
+      <div><span class="output">=== Config File Detection ===</span></div>
+      <div><span class="prompt">$</span> <span class="cmd-text">ls .claude/agent-brain/config.yaml 2>/dev/null</span></div>
+      <div><span class="output">PROJECT config: .claude/agent-brain/config.yaml [NOT FOUND]</span></div>
+      <div><span class="prompt">$</span> <span class="cmd-text">ls ~/.agent-brain/config.yaml 2>/dev/null</span></div>
+      <div><span class="output">USER config: ~/.agent-brain/config.yaml [NOT FOUND]</span></div>
+    </div>
+    <div class="info-box">
+      <strong>Config file priority:</strong><br>
+      1. Project-level: <code>.claude/agent-brain/config.yaml</code> (highest priority)<br>
+      2. User-level: <code>~/.agent-brain/config.yaml</code> (fallback)<br><br>
+      No config found &mdash; we'll create one in the next steps.
+    </div>`;
+  updateNextBtn();
+}
+
+function renderOllamaCheck(body) {
+  selections.ollama_checked = true;
+  body.innerHTML = `
+    <div class="terminal">
+      <span class="terminal-label">Ollama Detection</span>
+      <div><span class="prompt">$</span> <span class="cmd-text">curl -s --connect-timeout 3 http://localhost:11434/</span></div>
+      <div><span class="success">Ollama is running</span></div>
+      <div><span class="prompt">$</span> <span class="cmd-text">ollama list 2>/dev/null | head -10</span></div>
+      <div><span class="output">NAME                       ID           SIZE    MODIFIED</span></div>
+      <div><span class="output">nomic-embed-text:latest    0a109f422b47 274 MB  2 weeks ago</span></div>
+      <div><span class="output">mistral-small3.2:latest    6b11bc382e1c 2.0 GB  3 days ago</span></div>
+      <div><span class="output">llama3.2:latest            a80c4f17acd5 2.0 GB  2 weeks ago</span></div>
+    </div>
+    <div class="info-box">
+      <strong>Ollama detected:</strong> Running locally with embedding and summarization models available. You can use Ollama for free, local inference &mdash; or choose a cloud provider instead.
+    </div>`;
+  updateNextBtn();
+}
+
+function renderProviderDetail(body) {
+  const provider = selections.provider || 'ollama';
+  const configs = {
+    ollama: {
+      label: 'Ollama (Local, Free)',
+      terminal: [
+        { cmd: 'ollama pull nomic-embed-text', out: 'pulling manifest... done' },
+        { cmd: 'ollama pull llama3.2', out: 'pulling manifest... done' }
+      ],
+      yaml: `<span class="yaml-key">embedding</span>:
+  <span class="yaml-key">provider</span>: <span class="yaml-val">"ollama"</span>
+  <span class="yaml-key">model</span>: <span class="yaml-val">"nomic-embed-text"</span>
+  <span class="yaml-key">base_url</span>: <span class="yaml-val">"http://localhost:11434/v1"</span>
+
+<span class="yaml-key">summarization</span>:
+  <span class="yaml-key">provider</span>: <span class="yaml-val">"ollama"</span>
+  <span class="yaml-key">model</span>: <span class="yaml-val">"llama3.2"</span>
+  <span class="yaml-key">base_url</span>: <span class="yaml-val">"http://localhost:11434/v1"</span>`,
+      note: 'No API keys needed. Runs entirely on your machine.'
+    },
+    ollama_mistral: {
+      label: 'Ollama + Mistral (Local, Free)',
+      terminal: [
+        { cmd: 'ollama pull nomic-embed-text', out: 'pulling manifest... done' },
+        { cmd: 'ollama pull mistral-small3.2:latest', out: 'pulling manifest... done' }
+      ],
+      yaml: `<span class="yaml-key">embedding</span>:
+  <span class="yaml-key">provider</span>: <span class="yaml-val">"ollama"</span>
+  <span class="yaml-key">model</span>: <span class="yaml-val">"nomic-embed-text"</span>
+  <span class="yaml-key">base_url</span>: <span class="yaml-val">"http://localhost:11434/v1"</span>
+
+<span class="yaml-key">summarization</span>:
+  <span class="yaml-key">provider</span>: <span class="yaml-val">"ollama"</span>
+  <span class="yaml-key">model</span>: <span class="yaml-val">"mistral-small3.2:latest"</span>
+  <span class="yaml-key">base_url</span>: <span class="yaml-val">"http://localhost:11434/v1"</span>`,
+      note: 'No API keys needed. Mistral-small3.2 provides better summarization quality than llama3.2.'
+    },
+    openai_anthropic: {
+      label: 'OpenAI + Anthropic (Cloud)',
+      terminal: [
+        { cmd: 'echo "OPENAI_API_KEY: ${OPENAI_API_KEY:+SET}"', out: 'OPENAI_API_KEY: SET' },
+        { cmd: 'echo "ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:+SET}"', out: 'ANTHROPIC_API_KEY: SET' }
+      ],
+      yaml: `<span class="yaml-key">embedding</span>:
+  <span class="yaml-key">provider</span>: <span class="yaml-val">"openai"</span>
+  <span class="yaml-key">model</span>: <span class="yaml-val">"text-embedding-3-large"</span>
+  <span class="yaml-comment"># api_key from OPENAI_API_KEY env var</span>
+
+<span class="yaml-key">summarization</span>:
+  <span class="yaml-key">provider</span>: <span class="yaml-val">"anthropic"</span>
+  <span class="yaml-key">model</span>: <span class="yaml-val">"claude-haiku-4-5-20251001"</span>
+  <span class="yaml-comment"># api_key from ANTHROPIC_API_KEY env var</span>`,
+      note: 'Best quality. Requires OPENAI_API_KEY and ANTHROPIC_API_KEY environment variables.',
+      warn: true
+    },
+    gemini: {
+      label: 'Google Gemini (Cloud)',
+      terminal: [
+        { cmd: 'echo "GOOGLE_API_KEY: ${GOOGLE_API_KEY:+SET}"', out: 'GOOGLE_API_KEY: SET' }
+      ],
+      yaml: `<span class="yaml-key">embedding</span>:
+  <span class="yaml-key">provider</span>: <span class="yaml-val">"gemini"</span>
+  <span class="yaml-key">model</span>: <span class="yaml-val">"text-embedding-004"</span>
+
+<span class="yaml-key">summarization</span>:
+  <span class="yaml-key">provider</span>: <span class="yaml-val">"gemini"</span>
+  <span class="yaml-key">model</span>: <span class="yaml-val">"gemini-2.0-flash"</span>`,
+      note: 'Requires GOOGLE_API_KEY environment variable.',
+      warn: true
+    }
+  };
+  const cfg = configs[provider];
+  selections.provider_configured = true;
+
+  let html = `<h3 style="color:var(--accent3);margin-bottom:12px">${cfg.label}</h3>`;
+
+  if (cfg.terminal.length) {
+    html += '<div class="terminal"><span class="terminal-label">Setup Commands</span>';
+    cfg.terminal.forEach(c => {
+      html += `<div><span class="prompt">$</span> <span class="cmd-text">${c.cmd}</span></div>`;
+      html += `<div><span class="success">${c.out}</span></div>`;
+    });
+    html += '</div>';
+  }
+
+  html += `<div class="config-preview"><span class="config-label">config.yaml</span>${cfg.yaml}</div>`;
+  html += `<div class="info-box${cfg.warn ? ' warn' : ''}"><strong>${cfg.warn ? 'Requires API keys:' : 'Note:'}</strong> ${cfg.note}</div>`;
+
+  body.innerHTML = html;
+  updateNextBtn();
+}
+
+function renderStorageDetail(body) {
+  const storage = selections.storage || 'chroma';
+  selections.storage_configured = true;
+
+  if (storage === 'chroma') {
+    body.innerHTML = `
+      <h3 style="color:var(--accent3);margin-bottom:12px">ChromaDB (Embedded, Zero Config)</h3>
+      <div class="config-preview"><span class="config-label">config.yaml</span><span class="yaml-comment"># ChromaDB is the default &mdash; no storage section needed!</span>
+<span class="yaml-comment"># Data stored in: .claude/agent-brain/chroma_db/</span>
+
+<span class="yaml-comment"># Optional: explicit config</span>
+<span class="yaml-key">storage</span>:
+  <span class="yaml-key">backend</span>: <span class="yaml-val">"chroma"</span></div>
+      <div class="info-box">
+        <strong>Zero setup required.</strong> ChromaDB runs embedded in the server process. Data is stored locally in the project's <code>.claude/agent-brain/</code> directory. No Docker, no database server, no configuration needed.
+      </div>`;
+  } else {
+    body.innerHTML = `
+      <h3 style="color:var(--accent3);margin-bottom:12px">PostgreSQL + pgvector (Docker)</h3>
+      <div class="terminal"><span class="terminal-label">Port Auto-Discovery</span>
+<div><span class="prompt">$</span> <span class="cmd-text"># Scan for a free port in 5432-5442</span></div>
+<div><span class="warn">Port 5432 in use, trying next...</span></div>
+<div><span class="success">Found available port: 5433</span></div>
+<div><span class="info">PostgreSQL will use port: 5433</span></div>
+</div>
+      <div class="terminal"><span class="terminal-label">Docker Compose</span>
+<div><span class="prompt">$</span> <span class="cmd-text">POSTGRES_PORT=5433 docker compose -f templates/docker-compose.postgres.yml up -d</span></div>
+<div><span class="output">[+] Running 1/1</span></div>
+<div><span class="success"> \u2713 Container agent-brain-postgres  Started</span></div>
+<div style="margin-top:6px"><span class="prompt">$</span> <span class="cmd-text">docker exec agent-brain-postgres pg_isready -U agent_brain -d agent_brain</span></div>
+<div><span class="success">/var/run/postgresql:5432 - accepting connections</span></div>
+</div>
+      <div class="config-preview"><span class="config-label">config.yaml</span><span class="yaml-key">storage</span>:
+  <span class="yaml-key">backend</span>: <span class="yaml-val">"postgres"</span>
+  <span class="yaml-key">postgres</span>:
+    <span class="yaml-key">host</span>: <span class="yaml-val">"localhost"</span>
+    <span class="yaml-key">port</span>: <span class="yaml-val">5433</span>  <span class="yaml-comment"># auto-discovered</span>
+    <span class="yaml-key">database</span>: <span class="yaml-val">"agent_brain"</span>
+    <span class="yaml-key">user</span>: <span class="yaml-val">"agent_brain"</span>
+    <span class="yaml-key">password</span>: <span class="yaml-val">"agent_brain_dev"</span>
+    <span class="yaml-key">pool_size</span>: <span class="yaml-val">10</span>
+    <span class="yaml-key">pool_max_overflow</span>: <span class="yaml-val">10</span>
+    <span class="yaml-key">language</span>: <span class="yaml-val">"english"</span></div>
+      <div class="info-box warn">
+        <strong>Requires Docker.</strong> The port auto-discovery scans 5432-5442 to find a free port. The same port is used in both the Docker Compose command and config.yaml to ensure consistency. Switching from ChromaDB to PostgreSQL requires re-indexing.
+      </div>`;
+  }
+  updateNextBtn();
+}
+
+function renderConfigSuccess(body) {
+  const provider = selections.provider || 'ollama';
+  const storage = selections.storage || 'chroma';
+  const providerLabels = { ollama: 'Ollama (nomic-embed-text + llama3.2)', ollama_mistral: 'Ollama (nomic-embed-text + mistral-small3.2)', openai_anthropic: 'OpenAI + Anthropic', gemini: 'Google Gemini' };
+  const storageLabels = { chroma: 'ChromaDB (embedded)', postgres: 'PostgreSQL + pgvector (port 5433)' };
+
+  // Build full config YAML
+  const providerYaml = {
+    ollama: `embedding:\n  provider: "ollama"\n  model: "nomic-embed-text"\n  base_url: "http://localhost:11434/v1"\n\nsummarization:\n  provider: "ollama"\n  model: "llama3.2"\n  base_url: "http://localhost:11434/v1"`,
+    ollama_mistral: `embedding:\n  provider: "ollama"\n  model: "nomic-embed-text"\n  base_url: "http://localhost:11434/v1"\n\nsummarization:\n  provider: "ollama"\n  model: "mistral-small3.2:latest"\n  base_url: "http://localhost:11434/v1"`,
+    openai_anthropic: `embedding:\n  provider: "openai"\n  model: "text-embedding-3-large"\n\nsummarization:\n  provider: "anthropic"\n  model: "claude-haiku-4-5-20251001"`,
+    gemini: `embedding:\n  provider: "gemini"\n  model: "text-embedding-004"\n\nsummarization:\n  provider: "gemini"\n  model: "gemini-2.0-flash"`
+  };
+  const storageYaml = storage === 'postgres' ? `\n\nstorage:\n  backend: "postgres"\n  postgres:\n    host: "localhost"\n    port: 5433\n    database: "agent_brain"\n    user: "agent_brain"\n    password: "agent_brain_dev"` : '';
+
+  body.innerHTML = `
+    <div class="success-card">
+      <h3>\u2713 Configuration Complete</h3>
+      <div class="terminal" style="margin:12px 0">
+        <div><span class="output">Provider:</span> <span class="info">${providerLabels[provider]}</span></div>
+        <div><span class="output">Storage:</span> <span class="info">${storageLabels[storage]}</span></div>
+        <div><span class="output">Excludes:</span> <span class="info">${selections.excludes === 'custom' ? 'Custom patterns' : 'Defaults (node_modules, .venv, .git, ...)'}</span></div>
+        <div><span class="output">Config file:</span> <span class="info">.claude/agent-brain/config.yaml</span></div>
+      </div>
+    </div>
+    <div class="config-preview" style="white-space:pre;font-size:0.82em"><span class="config-label">Generated config.yaml</span>${escapeHtml(providerYaml[provider] + storageYaml)}</div>
+    <div class="success-card" style="margin-top:16px">
+      <h3>Next Steps</h3>
+      <ul class="next-steps">
+        <li data-num="1.">Initialize project: <code>agent-brain init</code></li>
+        <li data-num="2.">Start server: <code>agent-brain start</code></li>
+        <li data-num="3.">Index documents: <code>agent-brain index ./src</code></li>
+        <li data-num="4.">Search: <code>agent-brain query "your question"</code></li>
+      </ul>
+    </div>`;
+  document.getElementById('nextBtn').textContent = 'Done';
+  document.getElementById('nextBtn').disabled = false;
+}
+
+// =========================================================
+// FULL SETUP WIZARD STEPS
+// =========================================================
+
+function renderSetupCheckInstall(body) {
+  selections.setup_install_ok = true;
+  body.innerHTML = `
+    <div class="terminal"><span class="terminal-label">Installation Check</span>
+<div><span class="prompt">[1/6]</span> <span class="cmd-text">Checking installation...</span></div>
+<div><span class="prompt">$</span> <span class="cmd-text">agent-brain --version</span></div>
+<div><span class="success">6.0.2</span></div>
+<div style="margin-top:4px">
+<div><span class="output">      agent-brain-cli:</span> <span class="success">6.0.2 [OK]</span></div>
+<div><span class="output">      agent-brain-rag:</span> <span class="success">6.0.2 [OK]</span></div>
+</div>
+</div>
+    <div class="info-box">
+      <strong>Agent Brain is installed.</strong> If it wasn't, the wizard would invoke <code>/agent-brain-install</code> automatically to guide you through installation.
+    </div>`;
+  updateNextBtn();
+}
+
+function renderSetupCheckConfig(body) {
+  selections.setup_config_ok = true;
+  body.innerHTML = `
+    <div class="terminal"><span class="terminal-label">Provider Check</span>
+<div><span class="prompt">[2/6]</span> <span class="cmd-text">Checking provider configuration...</span></div>
+<div><span class="prompt">$</span> <span class="cmd-text">ls .claude/agent-brain/config.yaml ~/.agent-brain/config.yaml 2>/dev/null</span></div>
+<div><span class="output">.claude/agent-brain/config.yaml</span></div>
+<div><span class="prompt">$</span> <span class="cmd-text">grep provider .claude/agent-brain/config.yaml</span></div>
+<div><span class="output">  provider: ollama</span></div>
+<div><span class="output">  provider: ollama</span></div>
+<div style="margin-top:4px">
+<div><span class="output">      Config file:</span> <span class="success">.claude/agent-brain/config.yaml [FOUND]</span></div>
+<div><span class="output">      Embedding:</span> <span class="success">ollama/nomic-embed-text [OK]</span></div>
+<div><span class="output">      Summarization:</span> <span class="success">ollama/mistral-small3.2 [OK]</span></div>
+</div>
+</div>
+    <div class="info-box">
+      <strong>Provider configured.</strong> If no config was found, the wizard would invoke <code>/agent-brain-config</code> to walk you through provider selection (Ollama, OpenAI, Gemini, etc.).
+    </div>`;
+  updateNextBtn();
+}
+
+function renderSetupInit(body) {
+  selections.setup_init_ok = true;
+  body.innerHTML = `
+    <div class="terminal"><span class="terminal-label">Project Initialization</span>
+<div><span class="prompt">[3/6]</span> <span class="cmd-text">Initializing project...</span></div>
+<div><span class="prompt">$</span> <span class="cmd-text">agent-brain init</span></div>
+<div><span class="output">Creating .claude/agent-brain/ directory...</span></div>
+<div><span class="success">      Created: .claude/agent-brain/config.json [OK]</span></div>
+</div>
+    <div class="info-box">
+      <strong>Project initialized.</strong> The <code>.claude/agent-brain/</code> directory stores runtime config, indexing state, and (for ChromaDB) the vector database.
+    </div>`;
+  updateNextBtn();
+}
+
+function renderSetupPostgres(body) {
+  selections.setup_postgres_ok = true;
+  body.innerHTML = `
+    <div class="terminal"><span class="terminal-label">PostgreSQL Setup (Conditional)</span>
+<div><span class="prompt">[4/6]</span> <span class="cmd-text">PostgreSQL Setup</span></div>
+<div><span class="output">      Checking storage backend...</span></div>
+<div><span class="prompt">$</span> <span class="cmd-text">grep -A1 "storage:" .claude/agent-brain/config.yaml</span></div>
+<div><span class="output">storage:</span></div>
+<div><span class="output">  backend: postgres</span></div>
+<div style="margin-top:8px"><span class="info">PostgreSQL backend detected. Running Docker setup...</span></div>
+</div>
+
+    <div class="terminal"><span class="terminal-label">4a: Check existing container</span>
+<div><span class="prompt">$</span> <span class="cmd-text">docker ps --filter name=agent-brain-postgres --format '{{.Ports}}'</span></div>
+<div><span class="output">(no output - not running)</span></div>
+</div>
+
+    <div class="terminal"><span class="terminal-label">4b: Find available port</span>
+<div><span class="prompt">$</span> <span class="cmd-text">for port in $(seq 5432 5442); do ...</span></div>
+<div><span class="warn">Port 5432 in use, trying next...</span></div>
+<div><span class="success">Found available port: 5433</span></div>
+</div>
+
+    <div class="terminal"><span class="terminal-label">4c: Start Docker Compose</span>
+<div><span class="prompt">$</span> <span class="cmd-text">POSTGRES_PORT=5433 docker compose -f templates/docker-compose.postgres.yml up -d</span></div>
+<div><span class="output">[+] Running 1/1</span></div>
+<div><span class="success"> \u2713 Container agent-brain-postgres  Started</span></div>
+</div>
+
+    <div class="terminal"><span class="terminal-label">4d: Update config.yaml</span>
+<div><span class="output">Updated storage.postgres.port = 5433 in config.yaml</span></div>
+</div>
+
+    <div class="terminal"><span class="terminal-label">4e: Verify PostgreSQL</span>
+<div><span class="prompt">$</span> <span class="cmd-text">docker exec agent-brain-postgres pg_isready -U agent_brain -d agent_brain</span></div>
+<div><span class="success">/var/run/postgresql:5432 - accepting connections</span></div>
+</div>
+
+    <div class="info-box">
+      <strong>Sub-steps 4a-4e:</strong> The wizard checks for an existing container, auto-discovers a free port, starts Docker, updates config.yaml, and verifies the database is ready. If ChromaDB is the backend, this entire step is skipped.
+    </div>`;
+  updateNextBtn();
+}
+
+function renderSetupStart(body) {
+  selections.setup_start_ok = true;
+  body.innerHTML = `
+    <div class="terminal"><span class="terminal-label">Server Start</span>
+<div><span class="prompt">[5/6]</span> <span class="cmd-text">Starting server...</span></div>
+<div><span class="prompt">$</span> <span class="cmd-text">agent-brain start</span></div>
+<div><span class="output">Starting Agent Brain server...</span></div>
+<div><span class="output">Using config: .claude/agent-brain/config.yaml</span></div>
+<div><span class="output">Embedding: ollama/nomic-embed-text</span></div>
+<div><span class="output">Summarization: ollama/mistral-small3.2:latest</span></div>
+<div><span class="output">Storage: postgres (localhost:5433)</span></div>
+<div><span class="success">      Server started on port 49321 [OK]</span></div>
+</div>`;
+  updateNextBtn();
+}
+
+function renderSetupVerify(body) {
+  body.innerHTML = `
+    <div class="terminal"><span class="terminal-label">Verification</span>
+<div><span class="prompt">[6/6]</span> <span class="cmd-text">Verifying setup...</span></div>
+<div><span class="prompt">$</span> <span class="cmd-text">agent-brain status</span></div>
+<div><span class="output">Agent Brain Status</span></div>
+<div><span class="output">\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501</span></div>
+<div><span class="output">  Server:      </span><span class="success">running (port 49321)</span></div>
+<div><span class="output">  Health:      </span><span class="success">healthy</span></div>
+<div><span class="output">  Backend:     </span><span class="info">postgres (localhost:5433)</span></div>
+<div><span class="output">  Embedding:   </span><span class="info">ollama/nomic-embed-text</span></div>
+<div><span class="output">  Summarizer:  </span><span class="info">ollama/mistral-small3.2</span></div>
+<div><span class="output">  Documents:   </span><span class="output">0 (ready to index)</span></div>
+</div>
+
+    <div class="success-card">
+      <h3>\u2713 Setup Complete</h3>
+      <p style="color:var(--text-muted);margin:8px 0">Agent Brain is ready to use. All checks passed.</p>
+      <ul class="next-steps">
+        <li data-num="1.">Index documents: <code>agent-brain index ./docs</code></li>
+        <li data-num="2.">Search: <code>agent-brain query "authentication"</code></li>
+        <li data-num="3.">Or use plugin commands: <code>/agent-brain-search "query"</code></li>
+      </ul>
+    </div>
+
+    <div class="info-box">
+      <strong>Search modes available:</strong><br>
+      &bull; <code>--mode bm25</code> &mdash; Keyword search (fast, tsvector/BM25)<br>
+      &bull; <code>--mode vector</code> &mdash; Semantic similarity (embedding-based)<br>
+      &bull; <code>--mode hybrid</code> &mdash; Combined BM25 + semantic with RRF fusion
+    </div>`;
+  document.getElementById('nextBtn').textContent = 'Done';
+  document.getElementById('nextBtn').disabled = false;
+}
+
+// =========================================================
+// NAVIGATION
+// =========================================================
+
+function canAdvance() {
+  const wizard = wizards[currentWizard];
+  const step = wizard.steps[currentStep];
+
+  // AskUserQuestion steps need a selection
+  if (step.type === 'ask') return !!selections[step.id];
+
+  // Version step needs selection
+  if (step.type === 'version_resolve') return !!selections.version;
+
+  // Terminal/info steps auto-advance
+  if (['terminal_check', 'install_execute', 'config_detect', 'ollama_check',
+       'provider_detail', 'storage_detail',
+       'setup_check_install', 'setup_check_config', 'setup_init',
+       'setup_postgres', 'setup_start'].includes(step.type)) return true;
+
+  // Success steps
+  if (['install_success', 'config_success', 'setup_verify'].includes(step.type)) return false;
+
+  return false;
+}
+
+function updateNextBtn() {
+  const btn = document.getElementById('nextBtn');
+  const wizard = wizards[currentWizard];
+  const step = wizard.steps[currentStep];
+  const isLast = currentStep >= wizard.steps.length - 1 ||
+    ['install_success', 'config_success', 'setup_verify'].includes(step.type);
+
+  btn.disabled = !canAdvance() && !isLast;
+  btn.textContent = isLast ? 'Done' : 'Continue';
+
+  if (isLast) {
+    btn.onclick = () => resetWizard();
+  } else {
+    btn.onclick = () => goNext();
+  }
+}
+
+function goNext() {
+  const wizard = wizards[currentWizard];
+  if (currentStep < wizard.steps.length - 1 && canAdvance()) {
+    currentStep++;
+    renderStep();
+    // Scroll to top of wizard panel
+    document.querySelector('.wizard-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function goBack() {
+  if (currentStep > 0) {
+    currentStep--;
+    renderStep();
+  }
+}
+
+function resetWizard() {
+  currentStep = 0;
+  selections = {};
+  renderStep();
+}
+
+function escapeHtml(text) {
+  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// =========================================================
+// INIT
+// =========================================================
+renderStep();
+</script>
+</body>
+</html>
