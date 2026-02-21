@@ -279,7 +279,7 @@ tests = ["mypy (>=1.14.0)", "pytest", "pytest-asyncio"]
 name = "async-timeout"
 version = "5.0.1"
 description = "Timeout context manager for asyncio programs"
-optional = true
+optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "python_version < \"3.12\" and (extra == \"postgres\" or extra == \"graphrag\" or extra == \"graphrag-all\") or extra == \"graphrag\" or extra == \"graphrag-all\" or python_version == \"3.10\""
@@ -292,7 +292,7 @@ files = [
 name = "asyncpg"
 version = "0.29.0"
 description = "An asyncio PostgreSQL driver"
-optional = true
+optional = false
 python-versions = ">=3.8.0"
 groups = ["main"]
 markers = "extra == \"postgres\""
@@ -7638,4 +7638,4 @@ postgres = ["asyncpg", "sqlalchemy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "d2960a9d7548d667b83bbcb6572df93ab6053feab057d1f02d51c73169e480e5"
+content-hash = "18dfdbef75ec39c434b95958c191f1843d4d192ab0e0fab280ab2415ce1b55ec"

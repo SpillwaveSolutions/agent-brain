@@ -11,6 +11,15 @@ from llama_index.core import Document, SimpleDirectoryReader
 
 logger = logging.getLogger(__name__)
 
+# Check for optional docx support
+_DOCX_AVAILABLE = False
+try:
+    import docx2txt  # noqa: F401
+
+    _DOCX_AVAILABLE = True
+except ImportError:
+    pass
+
 
 @dataclass
 class LoadedDocument:
@@ -238,8 +247,12 @@ class DocumentLoader:
     .java, .go, .rs, .swift
     """
 
-    # Document formats
-    DOCUMENT_EXTENSIONS: set[str] = {".txt", ".md", ".pdf", ".docx", ".html", ".rst"}
+    # Document formats (.docx requires optional docx2txt package)
+    DOCUMENT_EXTENSIONS: set[str] = (
+        {".txt", ".md", ".pdf", ".docx", ".html", ".rst"}
+        if _DOCX_AVAILABLE
+        else {".txt", ".md", ".pdf", ".html", ".rst"}
+    )
 
     # Code formats (supported by tree-sitter)
     CODE_EXTENSIONS: set[str] = {
@@ -289,6 +302,8 @@ class DocumentLoader:
         "**/.tox/**",
         "**/egg-info/**",
         "**/*.egg-info/**",
+        "**/.claude/**",
+        "**/.claude-plugin/**",
     ]
 
     def __init__(

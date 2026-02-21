@@ -27,7 +27,7 @@ class JobWorker:
     - Timeout support with configurable MAX_RUNTIME_SECONDS
     - Cancellation via cancel_requested flag on JobRecord
     - Progress updates at configurable intervals
-    - Verifies ChromaDB has chunks after indexing before marking DONE
+    - Verifies storage backend has chunks after indexing before marking DONE
 
     Example:
         worker = JobWorker(job_store, indexing_service)
@@ -249,9 +249,9 @@ class JobWorker:
             # Get chunk count before indexing for delta verification
             count_before = 0
             try:
-                vector_store = self._indexing_service.vector_store
-                if vector_store.is_initialized:
-                    count_before = await vector_store.get_count()
+                storage = self._indexing_service.storage_backend
+                if storage.is_initialized:
+                    count_before = await storage.get_count()
             except Exception as e:
                 logger.warning(f"Could not get count before indexing: {e}")
 
@@ -397,8 +397,8 @@ class JobWorker:
             True if verification passed (new chunks added), False otherwise.
         """
         try:
-            vector_store = self._indexing_service.vector_store
-            count_after = await vector_store.get_count()
+            storage = self._indexing_service.storage_backend
+            count_after = await storage.get_count()
             delta = count_after - count_before
 
             if delta > 0:

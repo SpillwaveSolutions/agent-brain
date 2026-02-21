@@ -313,6 +313,14 @@ Next steps:
 3. Start server: /agent-brain-start
 ```
 
+**Note:** Configuration is loaded once at server startup. After changing
+`config.yaml` or environment variables, restart the server for changes to
+take effect:
+
+```
+agent-brain stop && agent-brain start
+```
+
 ## Error Handling
 
 ### Ollama Not Installed

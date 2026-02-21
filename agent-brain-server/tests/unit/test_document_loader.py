@@ -1,6 +1,12 @@
-"""Tests for LanguageDetector C# support in document_loader.py."""
+"""Tests for DocumentLoader and LanguageDetector in document_loader.py."""
 
-from agent_brain_server.indexing.document_loader import LanguageDetector
+from unittest.mock import patch
+
+from agent_brain_server.indexing.document_loader import (
+    _DOCX_AVAILABLE,
+    DocumentLoader,
+    LanguageDetector,
+)
 
 
 class TestCSharpExtensionDetection:
@@ -88,3 +94,60 @@ namespace MyApp {
         # Should detect as csharp from content (or None if threshold not met)
         # The important thing is it doesn't crash
         assert result is None or result == "csharp"
+
+
+class TestDocxGracefulSkip:
+    """Tests for graceful .docx handling when docx2txt is unavailable."""
+
+    def test_docx_excluded_when_unavailable(self) -> None:
+        """When docx2txt is not installed, .docx is not in extensions."""
+        # Reload the module with docx2txt unavailable
+        with patch.dict("sys.modules", {"docx2txt": None}):
+
+            import agent_brain_server.indexing.document_loader as dl
+
+            # Save originals
+            orig_avail = dl._DOCX_AVAILABLE
+
+            # Simulate unavailable
+            dl._DOCX_AVAILABLE = False
+            loader = DocumentLoader(
+                supported_extensions=({".txt", ".md", ".pdf", ".html", ".rst"})
+            )
+            assert ".docx" not in loader.extensions
+
+            # Restore
+            dl._DOCX_AVAILABLE = orig_avail
+
+    def test_docx_included_when_available(self) -> None:
+        """When docx2txt is installed, .docx is in extensions."""
+        if _DOCX_AVAILABLE:
+            loader = DocumentLoader()
+            assert ".docx" in loader.DOCUMENT_EXTENSIONS
+        else:
+            loader = DocumentLoader()
+            assert ".docx" not in loader.DOCUMENT_EXTENSIONS
+
+
+class TestDefaultExcludePatterns:
+    """Tests for default exclude patterns."""
+
+    def test_claude_directory_excluded(self) -> None:
+        """.claude/ directories should be excluded by default."""
+        loader = DocumentLoader()
+        assert "**/.claude/**" in loader.exclude_patterns
+
+    def test_claude_plugin_directory_excluded(self) -> None:
+        """.claude-plugin/ directories should be excluded by default."""
+        loader = DocumentLoader()
+        assert "**/.claude-plugin/**" in loader.exclude_patterns
+
+    def test_node_modules_excluded(self) -> None:
+        """node_modules should still be excluded."""
+        loader = DocumentLoader()
+        assert "**/node_modules/**" in loader.exclude_patterns
+
+    def test_git_excluded(self) -> None:
+        """.git should still be excluded."""
+        loader = DocumentLoader()
+        assert "**/.git/**" in loader.exclude_patterns

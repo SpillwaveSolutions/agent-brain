@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agent-brain-rag"
-version = "6.0.2"
+version = "6.0.3"
 description = "Agent Brain RAG - Intelligent document indexing and semantic search server that gives AI agents long-term memory"
 authors = ["Spillwave Solutions"]
 readme = "README.md"
@@ -53,9 +53,9 @@ sentence-transformers = "^3.4.0"
 langextract = {version = "^1.0.0", optional = true}
 llama-index-graph-stores-kuzu = {version = "^0.9.0", optional = true}
 
-# Optional PostgreSQL dependencies (Phase 6)
-asyncpg = {version = "^0.29.0", optional = true}
-sqlalchemy = {version = "^2.0.0", extras = ["asyncio"], optional = true}
+# PostgreSQL dependencies (Phase 6)
+asyncpg = "^0.29.0"
+sqlalchemy = {version = "^2.0.0", extras = ["asyncio"]}
 
 [tool.poetry.extras]
 graphrag = ["langextract"]

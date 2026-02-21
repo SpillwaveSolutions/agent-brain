@@ -1,7 +1,7 @@
 {
   "name": "agent-brain",
   "description": "Document search with hybrid BM25/semantic retrieval, GraphRAG knowledge graphs, and pluggable providers for Claude Code. Index documentation and code, then search using keyword matching, semantic similarity, graph relationships, or comprehensive multi-mode fusion.",
-  "version": "6.0.2",
+  "version": "6.0.3",
   "author": {
     "name": "Spillwave Solutions",
     "email": "rick@spillwave.com"
