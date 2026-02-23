@@ -50,7 +50,7 @@
 <details open>
 <summary>🔵 v7.0 Index Management & Content Pipeline (Phases 12-14) — IN PROGRESS</summary>
 
-- [ ] Phase 12: Folder Management & File Type Presets — FOLD-01..10, FTYPE-01..07
+- [ ] Phase 12: Folder Management & File Type Presets (0/3 plans) — FOLD-01..10, FTYPE-01..07
 - [ ] Phase 13: Content Injection Pipeline — INJECT-01..08
 - [ ] Phase 14: Manifest Tracking & Chunk Eviction — EVICT-01..10
 
@@ -63,6 +63,13 @@
 **Goal:** Users can list, add, and remove indexed folders via CLI/API/plugin, and use shorthand file type presets instead of manual glob patterns.
 
 **Requirements:** FOLD-01..10, FTYPE-01..07 (17 requirements)
+
+**Plans:** 3 plans
+
+Plans:
+- [ ] 12-01-PLAN.md — Server foundation: FolderManager, FileTypePresetResolver, models, protocol extension
+- [ ] 12-02-PLAN.md — API endpoints + server integration: folders router, lifespan wiring, include_types
+- [ ] 12-03-PLAN.md — CLI commands + plugin: folders, types, --include-type flag, plugin commands
 
 **Success Criteria:**
 1. `agent-brain folders list` shows all indexed folders with chunk counts
@@ -80,8 +87,6 @@
 - CLI flag: `--include-type` on `agent-brain index`
 
 **Research Flags:** ChromaDB `where` filter performance on large collections, path normalization strategy
-
-**Estimated Plans:** 2-3
 
 ---
 
@@ -154,7 +159,7 @@ Phases execute in numeric order: 12 → 13 → 14
 | 9. Runtime Backend Wiring | v6.0 | 2/2 | Complete | 2026-02-12 |
 | 10. Live PostgreSQL E2E Validation | v6.0 | 1/1 | Complete | 2026-02-12 |
 | 11. Plugin Port Discovery & Install Fix | v6.0.4 | 1/1 | Complete | 2026-02-22 |
-| 12. Folder Management & File Type Presets | v7.0 | 0/? | Not Started | — |
+| 12. Folder Management & File Type Presets | v7.0 | 0/3 | Planned | — |
 | 13. Content Injection Pipeline | v7.0 | 0/? | Not Started | — |
 | 14. Manifest Tracking & Chunk Eviction | v7.0 | 0/? | Not Started | — |
 
@@ -202,4 +207,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-02-23 — v7.0 milestone started (Phases 12-14)*
+*Last updated: 2026-02-23 — Phase 12 planned (3 plans in 3 waves)*
