@@ -129,7 +129,7 @@ Plans:
 Plans:
 - [x] 10-01-PLAN.md — Full-stack E2E tests with live PostgreSQL, cross-backend consistency validation, pool metrics verification
 
-### v6.0.2 Plugin & Install Fixes — IN PROGRESS
+### ✅ v6.0.2 Plugin & Install Fixes — SHIPPED 2026-02-22
 
 **Milestone Goal:** Fix install.sh path, add PostgreSQL port auto-discovery to plugin, validate full E2E workflow with local install.
 
@@ -148,7 +148,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 11-01-PLAN.md — Documentation path cleanup, version verification, requirement closure
+- [x] 11-01-PLAN.md — Documentation path cleanup, version verification, requirement closure
 
 ## Progress
 
@@ -167,7 +167,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9 → 10 → 11
 | 8. Plugin & Documentation | v6.0 | 2/2 | Complete | 2026-02-12 |
 | 9. Runtime Backend Wiring | v6.0 | 2/2 | Complete | 2026-02-12 |
 | 10. Live PostgreSQL E2E Validation | v6.0 | 1/1 | Complete | 2026-02-12 |
-| 11. Plugin Port Discovery & Install Fix | v6.0.2 | 0/1 | In Progress | — |
+| 11. Plugin Port Discovery & Install Fix | v6.0.2 | 1/1 | Complete | 2026-02-22 |
 
 ## Future Phases
 
@@ -213,4 +213,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-02-22 — Phase 11 planned, v6.0.3 verified*
+*Last updated: 2026-02-22 — Phase 11 complete, v6.0.2 milestone shipped*
