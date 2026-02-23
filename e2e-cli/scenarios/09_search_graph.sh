@@ -13,14 +13,14 @@ scenario_run() {
     # Graph query — relationship-based
     local output
     output=$(adapter_invoke "$workspace" \
-        "Run this exact shell command and show me the output: curl -s -X POST http://127.0.0.1:${SERVER_PORT}/query -H 'Content-Type: application/json' -d '{\"query\": \"calculator divide function\", \"mode\": \"graph\", \"top_k\": 5}'" \
+        "Run this exact shell command and show me the output: curl -sL -X POST http://127.0.0.1:${SERVER_PORT}/query/ -H 'Content-Type: application/json' -d '{\"query\": \"calculator divide function\", \"mode\": \"graph\", \"top_k\": 5}'" \
         60)
 
     assert_success "graph search returned output" test -n "$output"
 
     # Verify via direct call — graph may return empty if no graph index
     local results
-    results=$(curl -sf -X POST "http://127.0.0.1:${SERVER_PORT}/query" \
+    results=$(curl -sfL -X POST "http://127.0.0.1:${SERVER_PORT}/query/" \
         -H "Content-Type: application/json" \
         -d '{"query": "calculator divide function", "mode": "graph", "top_k": 5}' 2>/dev/null || echo "{}")
 

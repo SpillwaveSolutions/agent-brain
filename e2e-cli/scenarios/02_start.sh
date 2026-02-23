@@ -15,10 +15,10 @@ scenario_run() {
     # Server should already be running (started by harness)
     # Verify health endpoint responds
     local health
-    health=$(curl -sf "http://127.0.0.1:${SERVER_PORT}/health" 2>/dev/null || echo "")
+    health=$(curl -sfL "http://127.0.0.1:${SERVER_PORT}/health" 2>/dev/null || echo "")
 
     echo "$health" | assert_contains "health endpoint responds" "status" || true
-    assert_success "server port is open" curl -sf "http://127.0.0.1:${SERVER_PORT}/health"
+    assert_success "server port is open" curl -sfL "http://127.0.0.1:${SERVER_PORT}/health"
 
     assert_all_passed
 }

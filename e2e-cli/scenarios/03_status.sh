@@ -13,7 +13,7 @@ scenario_run() {
     # Ask Claude to check status
     local output
     output=$(adapter_invoke "$workspace" \
-        "Run this exact shell command and show me the output: curl -s http://127.0.0.1:${SERVER_PORT}/health" \
+        "Run this exact shell command and show me the output: curl -sL http://127.0.0.1:${SERVER_PORT}/health" \
         60)
 
     # Verify we got status information
@@ -21,8 +21,8 @@ scenario_run() {
 
     # Also verify via direct HTTP call
     local health
-    health=$(curl -sf "http://127.0.0.1:${SERVER_PORT}/health" 2>/dev/null)
-    echo "$health" | assert_contains "health shows ok status" "status" || true
+    health=$(curl -sfL "http://127.0.0.1:${SERVER_PORT}/health" 2>/dev/null)
+    echo "$health" | assert_contains "health shows status field" "status" || true
 
     assert_all_passed
 }

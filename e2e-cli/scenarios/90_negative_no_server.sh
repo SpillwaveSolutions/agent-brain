@@ -12,23 +12,23 @@ scenario_run() {
 
     # Try to query a port where no server is running
     local bad_port=19999
-    local output
-    output=$(adapter_invoke "$workspace" \
-        "Run this exact shell command and show me the output: curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:${bad_port}/query -H 'Content-Type: application/json' -d '{\"query\": \"test\", \"mode\": \"hybrid\"}' --connect-timeout 5 || echo 'CONNECTION_REFUSED'" \
-        30)
 
-    # Should show connection refused or error
-    assert_success "got output from failed connection attempt" test -n "$output"
-
-    # Verify direct: curl to a bad port should fail
-    local http_code
-    http_code=$(curl -s -o /dev/null -w '%{http_code}' \
-        -X POST "http://127.0.0.1:${bad_port}/query" \
+    # Verify direct: curl to a bad port should fail (exit code 7 = connection refused)
+    local exit_code=0
+    curl -sL -X POST "http://127.0.0.1:${bad_port}/query/" \
         -H "Content-Type: application/json" \
         -d '{"query": "test"}' \
-        --connect-timeout 5 2>/dev/null || echo "000")
+        --connect-timeout 5 > /dev/null 2>&1 || exit_code=$?
 
-    assert_success "connection refused returns error code" test "$http_code" = "000"
+    assert_success "curl to dead port returns non-zero exit" test "$exit_code" -ne 0
+
+    # Also verify via adapter — should indicate error
+    local output
+    output=$(adapter_invoke "$workspace" \
+        "Run this exact shell command and show me the output: curl -sL --connect-timeout 5 http://127.0.0.1:${bad_port}/health || echo 'CONNECTION_FAILED'" \
+        30)
+
+    assert_success "adapter reports connection issue" test -n "$output"
 
     assert_all_passed
 }

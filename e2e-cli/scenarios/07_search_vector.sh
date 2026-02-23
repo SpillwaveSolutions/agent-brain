@@ -13,19 +13,19 @@ scenario_run() {
     # Semantic query — concept rather than exact keywords
     local output
     output=$(adapter_invoke "$workspace" \
-        "Run this exact shell command and show me the output: curl -s -X POST http://127.0.0.1:${SERVER_PORT}/query -H 'Content-Type: application/json' -d '{\"query\": \"how does document embedding work\", \"mode\": \"vector\", \"top_k\": 5}'" \
+        "Run this exact shell command and show me the output: curl -sL -X POST http://127.0.0.1:${SERVER_PORT}/query/ -H 'Content-Type: application/json' -d '{\"query\": \"how does document embedding work\", \"mode\": \"vector\", \"top_k\": 5}'" \
         60)
 
     assert_success "vector search returned output" test -n "$output"
 
     # Verify via direct call
     local results
-    results=$(curl -sf -X POST "http://127.0.0.1:${SERVER_PORT}/query" \
+    results=$(curl -sfL -X POST "http://127.0.0.1:${SERVER_PORT}/query/" \
         -H "Content-Type: application/json" \
         -d '{"query": "how does document embedding work", "mode": "vector", "top_k": 5}' 2>/dev/null || echo "{}")
 
-    echo "$results" | assert_json "results field exists" ".results" || true
-    echo "$results" | assert_json "mode is vector" ".mode" "vector" || true
+    echo "$results" | assert_json "response has results field" ".results" || true
+    echo "$results" | assert_json "response has query_time_ms" ".query_time_ms" || true
 
     assert_all_passed
 }

@@ -10,19 +10,20 @@ scenario_run() {
     local workspace="$1"
     assert_reset
 
-    # Reset index via API
-    local output
-    output=$(adapter_invoke "$workspace" \
-        "Run this exact shell command and show me the output: curl -s -X DELETE http://127.0.0.1:${SERVER_PORT}/index" \
-        60)
+    # Reset index via direct API call
+    local http_code
+    http_code=$(curl -sL -o /dev/null -w '%{http_code}' \
+        -X DELETE "http://127.0.0.1:${SERVER_PORT}/index/" 2>/dev/null)
 
-    assert_success "reset command produced output" test -n "$output"
+    assert_success "reset returns success (got ${http_code})" test "$http_code" = "200"
+
+    # Wait for reset to take effect — the server reinitializes storage
+    sleep 5
 
     # Verify document count is 0
-    sleep 2  # Give server a moment to process
     local count
     count=$(get_doc_count)
-    assert_success "document count is zero after reset" test "$count" -eq 0
+    assert_success "document count is zero after reset (got ${count})" test "$count" -eq 0
 
     assert_all_passed
 }
