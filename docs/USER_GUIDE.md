@@ -432,7 +432,7 @@ Agent Brain supports multiple isolated instances for different projects.
 /agent-brain-init
 ```
 
-Creates `.claude/doc-serve/` with project-specific configuration.
+Creates `.claude/agent-brain/` with project-specific configuration.
 
 ### Start Project Server
 

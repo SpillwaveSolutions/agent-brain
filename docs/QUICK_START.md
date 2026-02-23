@@ -50,7 +50,7 @@ Initialize Agent Brain for your current project:
 /agent-brain-init
 ```
 
-This creates a `.claude/doc-serve/` directory with project-specific configuration.
+This creates a `.claude/agent-brain/` directory with project-specific configuration.
 
 ## Step 5: Start the Server
 

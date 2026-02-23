@@ -14,7 +14,7 @@ Automatic discovery and management of Agent Brain instances.
 
 ## Runtime File
 
-Agent Brain writes connection details to `.claude/doc-serve/runtime.json`:
+Agent Brain writes connection details to `.claude/agent-brain/runtime.json`:
 
 ```json
 {
@@ -42,7 +42,7 @@ Agent Brain writes connection details to `.claude/doc-serve/runtime.json`:
 ## Discovery Process
 
 1. **Project Root Resolution**: `git rev-parse --show-toplevel` or marker files (`.claude/`, `pyproject.toml`)
-2. **Runtime File Check**: Look for `.claude/doc-serve/runtime.json`
+2. **Runtime File Check**: Look for `.claude/agent-brain/runtime.json`
 3. **Health Validation**: Verify server via `/health/` endpoint
 4. **URL Extraction**: Use `base_url` for API calls
 
@@ -73,7 +73,7 @@ def discover_server():
         project_root = Path.cwd()
 
     # Check for runtime.json
-    runtime_path = project_root / ".claude" / "doc-serve" / "runtime.json"
+    runtime_path = project_root / ".claude" / "agent-brain" / "runtime.json"
     if not runtime_path.exists():
         return None
 
@@ -166,7 +166,7 @@ Warning: Server not responding, cleaning up stale state
 
 **Solution**: CLI auto-cleans stale files. Manual cleanup:
 ```bash
-rm .claude/doc-serve/runtime.json
+rm .claude/agent-brain/runtime.json
 agent-brain start
 ```
 
@@ -182,7 +182,7 @@ Lock file prevents double-start. If blocked, run `agent-brain status` to discove
 
 ```bash
 agent-brain status                              # Recommended
-cat .claude/doc-serve/runtime.json | jq '.port' # Direct read
+cat .claude/agent-brain/runtime.json | jq '.port' # Direct read
 agent-brain list                                # All instances
 ```
 

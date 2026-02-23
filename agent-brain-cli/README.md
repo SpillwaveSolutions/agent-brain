@@ -83,7 +83,7 @@ agent-brain --url http://localhost:8000 status
 
 | Command | Description |
 |---------|-------------|
-| `init` | Initialize project for Agent Brain (creates `.claude/doc-serve/`) |
+| `init` | Initialize project for Agent Brain (creates `.claude/agent-brain/`) |
 | `start` | Start the Agent Brain server for current project |
 | `stop` | Stop the running server |
 | `list` | List all running Agent Brain instances |

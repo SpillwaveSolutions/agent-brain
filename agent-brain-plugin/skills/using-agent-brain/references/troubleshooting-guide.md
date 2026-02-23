@@ -246,7 +246,7 @@ agent-brain status
 **Verify port from runtime.json:**
 ```bash
 # Check what port was assigned
-cat .claude/doc-serve/runtime.json | jq '.port'
+cat .claude/agent-brain/runtime.json | jq '.port'
 ```
 
 **List all running instances:**
@@ -312,9 +312,9 @@ agent-brain start
 **Manual cleanup:**
 ```bash
 # Remove stale state files
-rm .claude/doc-serve/runtime.json
-rm .claude/doc-serve/lock.json
-rm .claude/doc-serve/pid
+rm .claude/agent-brain/runtime.json
+rm .claude/agent-brain/lock.json
+rm .claude/agent-brain/pid
 
 # Start fresh
 agent-brain start
@@ -342,7 +342,7 @@ agent-brain start
 ```bash
 # Manual lock cleanup (only if process is truly dead)
 ps aux | grep agent-brain  # Verify no process running
-rm .claude/doc-serve/lock.json
+rm .claude/agent-brain/lock.json
 agent-brain start
 ```
 

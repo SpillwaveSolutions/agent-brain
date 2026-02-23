@@ -259,7 +259,7 @@ Initialize project directory.
 /agent-brain-init
 ```
 
-Creates `.claude/doc-serve/` with project configuration.
+Creates `.claude/agent-brain/` with project configuration.
 
 ### `/agent-brain-config`
 
@@ -524,7 +524,7 @@ import json
 from pathlib import Path
 
 # Discover server
-runtime = json.loads(Path(".claude/doc-serve/runtime.json").read_text())
+runtime = json.loads(Path(".claude/agent-brain/runtime.json").read_text())
 base_url = runtime["base_url"]
 
 # Query

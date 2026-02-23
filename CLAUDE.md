@@ -157,7 +157,7 @@ doc-serve/
 
 | Command | Description |
 |---------|-------------|
-| `agent-brain init` | Initialize project for Agent Brain (creates .claude/doc-serve/) |
+| `agent-brain init` | Initialize project for Agent Brain (creates .claude/agent-brain/) |
 | `agent-brain start` | Start Agent Brain server for current project |
 | `agent-brain stop` | Stop the running server |
 | `agent-brain list` | List all running Agent Brain instances |

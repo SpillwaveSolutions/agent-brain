@@ -197,12 +197,12 @@ Agent Brain supports running multiple concurrent instances with per-project isol
 
 ### State Directory Structure
 
-Each project stores its state in `.claude/doc-serve/`:
+Each project stores its state in `.claude/agent-brain/`:
 
 ```
 <project-root>/
 └── .claude/
-    └── doc-serve/
+    └── agent-brain/
         ├── config.json      # Project configuration (optional, can be committed)
         ├── runtime.json     # Runtime state (DO NOT commit - add to .gitignore)
         ├── doc-serve.lock   # Lock file for preventing double-start
@@ -252,7 +252,7 @@ Settings are resolved in order (first wins):
 
 1. Command-line flags (`--port 8080`)
 2. Environment variables (`DOC_SERVE_STATE_DIR`, `DOC_SERVE_MODE`)
-3. Project config (`.claude/doc-serve/config.json`)
+3. Project config (`.claude/agent-brain/config.json`)
 4. Global config (`~/.doc-serve/config.json`)
 5. Built-in defaults
 
