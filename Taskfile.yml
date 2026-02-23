@@ -253,3 +253,8 @@ tasks:
     desc: Run quick start guide validation
     cmds:
       - ./scripts/quick_start_guide.sh
+
+  e2e-cli:
+    desc: Run CLI E2E tests (requires claude CLI and API keys)
+    cmds:
+      - ./e2e-cli/run.sh {{.CLI_ARGS}}

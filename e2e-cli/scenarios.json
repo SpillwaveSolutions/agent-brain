@@ -1,0 +1,124 @@
+{
+  "scenarios": [
+    {
+      "file": "01_init.sh",
+      "name": "init",
+      "description": "Initialize Agent Brain project",
+      "requires_hooks": false,
+      "requires_server": false,
+      "timeout": 60
+    },
+    {
+      "file": "02_start.sh",
+      "name": "start",
+      "description": "Verify server is running and healthy",
+      "requires_hooks": false,
+      "requires_server": true,
+      "timeout": 30
+    },
+    {
+      "file": "03_status.sh",
+      "name": "status",
+      "description": "Check server status via Claude",
+      "requires_hooks": false,
+      "requires_server": true,
+      "timeout": 60
+    },
+    {
+      "file": "04_index_docs.sh",
+      "name": "index-docs",
+      "description": "Index documentation files",
+      "requires_hooks": false,
+      "requires_server": true,
+      "timeout": 120
+    },
+    {
+      "file": "05_index_code.sh",
+      "name": "index-code",
+      "description": "Index code files with AST parsing",
+      "requires_hooks": false,
+      "requires_server": true,
+      "timeout": 120
+    },
+    {
+      "file": "06_search_bm25.sh",
+      "name": "search-bm25",
+      "description": "BM25 keyword search",
+      "requires_hooks": false,
+      "requires_server": true,
+      "timeout": 60
+    },
+    {
+      "file": "07_search_vector.sh",
+      "name": "search-vector",
+      "description": "Vector semantic search",
+      "requires_hooks": false,
+      "requires_server": true,
+      "timeout": 60
+    },
+    {
+      "file": "08_search_hybrid.sh",
+      "name": "search-hybrid",
+      "description": "Hybrid BM25+Vector search",
+      "requires_hooks": false,
+      "requires_server": true,
+      "timeout": 60
+    },
+    {
+      "file": "09_search_graph.sh",
+      "name": "search-graph",
+      "description": "Graph relationship search",
+      "requires_hooks": false,
+      "requires_server": true,
+      "timeout": 60
+    },
+    {
+      "file": "10_search_multi.sh",
+      "name": "search-multi",
+      "description": "Multi-mode fusion search",
+      "requires_hooks": false,
+      "requires_server": true,
+      "timeout": 90
+    },
+    {
+      "file": "11_reset.sh",
+      "name": "reset",
+      "description": "Reset index and verify empty",
+      "requires_hooks": false,
+      "requires_server": true,
+      "timeout": 60
+    },
+    {
+      "file": "12_stop.sh",
+      "name": "stop",
+      "description": "Verify server before shutdown",
+      "requires_hooks": false,
+      "requires_server": true,
+      "timeout": 30
+    },
+    {
+      "file": "90_negative_no_server.sh",
+      "name": "negative-no-server",
+      "description": "Search with no server running",
+      "requires_hooks": false,
+      "requires_server": false,
+      "timeout": 30
+    },
+    {
+      "file": "91_negative_bad_path.sh",
+      "name": "negative-bad-path",
+      "description": "Index nonexistent path",
+      "requires_hooks": false,
+      "requires_server": true,
+      "timeout": 60
+    },
+    {
+      "file": "92_negative_empty_query.sh",
+      "name": "negative-empty-query",
+      "description": "Search with missing query field",
+      "requires_hooks": false,
+      "requires_server": true,
+      "timeout": 60
+    }
+  ]
+}
