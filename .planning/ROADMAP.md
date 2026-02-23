@@ -8,6 +8,7 @@
 - ✅ **v3.0 Advanced RAG** — Phases 1-4 (shipped 2026-02-10)
 - ✅ **v6.0 PostgreSQL Backend** — Phases 5-10 (shipped 2026-02-13)
 - ✅ **v6.0.4 Plugin & Install Fixes** — Phase 11 (shipped 2026-02-22)
+- 🔵 **v7.0 Index Management & Content Pipeline** — Phases 12-14 (started 2026-02-23)
 
 ## Phases
 
@@ -46,10 +47,99 @@
 
 </details>
 
+<details open>
+<summary>🔵 v7.0 Index Management & Content Pipeline (Phases 12-14) — IN PROGRESS</summary>
+
+- [ ] Phase 12: Folder Management & File Type Presets — FOLD-01..10, FTYPE-01..07
+- [ ] Phase 13: Content Injection Pipeline — INJECT-01..08
+- [ ] Phase 14: Manifest Tracking & Chunk Eviction — EVICT-01..10
+
+</details>
+
+---
+
+## Phase 12: Folder Management & File Type Presets
+
+**Goal:** Users can list, add, and remove indexed folders via CLI/API/plugin, and use shorthand file type presets instead of manual glob patterns.
+
+**Requirements:** FOLD-01..10, FTYPE-01..07 (17 requirements)
+
+**Success Criteria:**
+1. `agent-brain folders list` shows all indexed folders with chunk counts
+2. `agent-brain folders remove /path` deletes all chunks for that folder
+3. `agent-brain index /path --include-type python,docs` indexes only matching file types
+4. Indexed folders persist across server restarts
+5. All commands work with both ChromaDB and PostgreSQL backends
+6. Plugin slash commands mirror CLI folder management
+
+**Key Components:**
+- `FolderManager` service — persist/list/remove indexed folders (JSONL storage)
+- `FileTypePresetResolver` — map preset names to glob patterns
+- API endpoints: `GET /index/folders`, `DELETE /index/folders`
+- CLI commands: `agent-brain folders list|add|remove`, `agent-brain types list`
+- CLI flag: `--include-type` on `agent-brain index`
+
+**Research Flags:** ChromaDB `where` filter performance on large collections, path normalization strategy
+
+**Estimated Plans:** 2-3
+
+---
+
+## Phase 13: Content Injection Pipeline
+
+**Goal:** Users can enrich chunks with custom metadata during indexing via Python scripts or folder-level JSON metadata.
+
+**Requirements:** INJECT-01..08 (8 requirements)
+
+**Success Criteria:**
+1. `agent-brain inject --script enrich.py /path` applies custom metadata to chunks
+2. `--folder-metadata metadata.json` merges static metadata into all chunks from a folder
+3. Injector exceptions don't crash the indexing job (per-chunk error handling)
+4. `--dry-run` mode validates script without indexing
+5. Injector protocol documented with example scripts
+
+**Key Components:**
+- Content injector callable protocol (`process_chunk(chunk: dict) -> dict`)
+- Dynamic script loading with validation
+- Folder-level JSON metadata merge
+- Integration into IndexingService pipeline (post-chunk, pre-embed)
+
+**Research Flags:** Standard patterns, unlikely to need deep research
+
+**Estimated Plans:** 1-2
+
+---
+
+## Phase 14: Manifest Tracking & Chunk Eviction
+
+**Goal:** Automatically detect file changes, evict stale chunks, and only reindex modified files — enabling efficient incremental updates.
+
+**Requirements:** EVICT-01..10 (10 requirements)
+
+**Success Criteria:**
+1. Reindexing a folder only processes changed/new files (unchanged files skipped)
+2. Deleted files' chunks automatically evicted from index
+3. Changed files' old chunks replaced with new ones
+4. `--force` bypasses manifest for full reindex
+5. CLI shows eviction summary (added/changed/deleted counts)
+6. StorageBackendProtocol extended with `delete_by_ids()` method
+
+**Key Components:**
+- `ManifestTracker` — per-folder manifest (file_path → checksum + mtime + chunk_ids)
+- `ChunkEvictionService` — detect changes, bulk delete stale chunks
+- Manifest storage in `.agent-brain/manifests/<hash>.json`
+- Integration with IndexingService for incremental pipeline
+
+**Research Flags:** Manifest storage scalability, checksum vs mtime tradeoffs, chunk ID retrieval from ChromaDB
+
+**Estimated Plans:** 2-3
+
+---
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 5 → 6 → 7 → 8 → 9 → 10 → 11
+Phases execute in numeric order: 12 → 13 → 14
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -64,15 +154,18 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9 → 10 → 11
 | 9. Runtime Backend Wiring | v6.0 | 2/2 | Complete | 2026-02-12 |
 | 10. Live PostgreSQL E2E Validation | v6.0 | 1/1 | Complete | 2026-02-12 |
 | 11. Plugin Port Discovery & Install Fix | v6.0.4 | 1/1 | Complete | 2026-02-22 |
+| 12. Folder Management & File Type Presets | v7.0 | 0/? | Not Started | — |
+| 13. Content Injection Pipeline | v7.0 | 0/? | Not Started | — |
+| 14. Manifest Tracking & Chunk Eviction | v7.0 | 0/? | Not Started | — |
 
 ## Future Phases
 
-### Phase 11+: AWS Bedrock Provider (Feature 105)
+### Phase 15+: AWS Bedrock Provider (Feature 105)
 
 - Bedrock embeddings (Titan, Cohere)
 - Bedrock summarization (Claude, Llama, Mistral)
 
-### Phase 12+: Vertex AI Provider (Feature 106)
+### Phase 16+: Vertex AI Provider (Feature 106)
 
 - Vertex embeddings (textembedding-gecko)
 - Vertex summarization (Gemini)
@@ -109,4 +202,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-02-22 — All milestones complete (v3.0, v6.0, v6.0.4)*
+*Last updated: 2026-02-23 — v7.0 milestone started (Phases 12-14)*

@@ -1,44 +1,33 @@
-# Feature Landscape: PostgreSQL Backend with pgvector + tsvector
+# Feature Landscape
 
-**Domain:** RAG storage backend with PostgreSQL
-**Researched:** 2026-02-10
-**Confidence:** HIGH (Context7 + Official Docs + Recent Community Sources)
+**Domain:** RAG system for local code and documentation indexing
+**Researched:** 2026-02-23
 
 ## Table Stakes
 
-Features users expect from a PostgreSQL RAG backend. Missing = product feels incomplete.
+Features users expect in index management systems. Missing = product feels incomplete.
 
-| Feature | Why Expected | Complexity | Dependencies | Notes |
-|---------|--------------|------------|--------------|-------|
-| **pgvector vector storage** | Core capability, users choosing PostgreSQL want pgvector | Low | Add pgvector extension, SQLAlchemy integration | Official pgvector extension widely adopted |
-| **Cosine distance search** | Industry standard for normalized embeddings (OpenAI, etc.) | Low | Existing embedding pipeline | ChromaDB already uses cosine, direct mapping |
-| **L2 (Euclidean) distance** | Expected for completeness, some models use it | Low | Same as cosine | Common alternative to cosine |
-| **Inner product distance** | Best performance for normalized vectors | Low | Same as cosine | Most efficient for pre-normalized embeddings |
-| **tsvector full-text search** | PostgreSQL's native FTS, users expect it | Medium | PostgreSQL built-in, no external deps | Alternative to BM25 disk index |
-| **GIN index for tsvector** | Required for performant FTS at scale | Low | PostgreSQL built-in | Standard optimization pattern |
-| **HNSW index for vectors** | Modern ANN index, expected for production use | Medium | pgvector 0.5.0+, careful tuning | Balances query speed and build time |
-| **IVFFlat index option** | Faster build times for batch workloads | Low | pgvector built-in | Alternative to HNSW for different use cases |
-| **Storage backend abstraction** | Users need to select ChromaDB vs PostgreSQL | Medium | Refactor VectorStoreManager to interface | Enables backend selection without code changes |
-| **Backend config in YAML** | Standard expectation for service configuration | Low | Existing config infrastructure | Extends current config patterns |
-| **Docker Compose setup** | Dev environment standard for databases | Low | Docker only, no code changes | pgvector/pgvector:pg17 image available |
-| **Hybrid RRF fusion** | Existing feature, must work with PostgreSQL | High | Existing RRF logic, adapt for PG queries | Already implemented for ChromaDB + BM25 |
-| **Language configuration** | tsvector expects language-aware stemming | Medium | PostgreSQL text search config | english/simple/etc., affects ranking quality |
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| List indexed folders | Users need visibility into what's indexed | Low | Already exists in health status, needs CLI command |
+| Remove specific folder's chunks | Only way to clean up without full reset | Medium | ChromaDB `delete()` with `where` filter on `source` field |
+| Persist indexed folder list | Survives restarts | Low | Already tracked in-memory in `_indexed_folders`, needs file persistence |
+| File type presets (common languages) | Users expect shortcuts like "python" not "*.py,*.pyi" | Low | Map presets to glob patterns (ripgrep model: `-tpy`, `-tjs`, `-tgo`) |
+| Incremental folder reindex | Re-scan folder without duplicating unchanged files | Medium | Requires manifest tracking (checksums/mtimes) |
+| Content type detection | Distinguish doc vs code automatically | Low | Already implemented via `source_type` metadata |
 
 ## Differentiators
 
-Features that set the PostgreSQL backend apart. Not expected, but valued.
+Features that set product apart. Not expected, but valued.
 
-| Feature | Value Proposition | Complexity | Dependencies | Notes |
-|---------|-------------------|------------|--------------|-------|
-| **BM25 via pg_textsearch** | True BM25 ranking vs ts_rank | Medium-High | pg_textsearch extension (Timescale, new) | Native PostgreSQL lacks BM25, ts_rank is weaker |
-| **Hybrid search in single query** | PostgreSQL can do vector + FTS in one SQL call | Medium | SQL query expertise | ChromaDB + disk BM25 requires separate queries |
-| **Transactional consistency** | ACID guarantees for index updates | Low (built-in) | None, PostgreSQL native | ChromaDB lacks strong consistency |
-| **SQL-based filtering** | WHERE clauses on metadata before vector search | Medium | SQLAlchemy query builder | More flexible than ChromaDB metadata filters |
-| **DiskANN index support** | pgvectorscale extension for faster, lower-memory ANN | High | pgvectorscale (Timescale extension) | Recent 2026 option, balances HNSW/IVFFlat tradeoffs |
-| **Statistical Binary Quantization** | Reduce vector storage size, faster similarity | Medium-High | pgvectorscale extension | Advanced optimization, not table stakes |
-| **Graph + vector in one DB** | Store GraphRAG + vectors + FTS in PostgreSQL | Medium | Existing GraphStoreManager, PG schema | Simplifies deployment vs multi-DB setup |
-| **Backup/restore ecosystem** | pg_dump, pg_restore, replication tools | Low (built-in) | None, PostgreSQL tooling | Operations advantage vs ChromaDB snapshots |
-| **Multi-tenancy with schemas** | Isolate collections per tenant/project | Medium | PostgreSQL schemas, security model | Better than collection-based isolation |
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| Chunk eviction by staleness | Remove chunks from deleted/moved files automatically | Medium | Track file→chunk IDs in manifest, detect missing files, bulk delete orphans |
+| Content injection during indexing | Enrich chunks with custom metadata (tags, annotations) | Medium | Plugin/hook system: process chunks before embedding |
+| Smart file type presets | Presets for ecosystems: `web` (html/css/js), `python-project` (py/toml/md) | Low | Predefined preset definitions, user-customizable |
+| Manifest-based change detection | Only reindex changed files (checksum/mtime comparison) | Medium-High | Manifest file per indexed folder, track file_path→checksum→chunk_ids |
+| Folder-level metadata injection | Apply metadata to all chunks from a folder (e.g., "internal-docs", "third-party") | Low | Folder config file or CLI flag, merge into chunk metadata |
+| Live reindex on folder remove/add | Automatically update index when folder list changes | Medium | Depends on chunk eviction + incremental reindex |
 
 ## Anti-Features
 
@@ -46,279 +35,201 @@ Features to explicitly NOT build.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| **Replace ChromaDB entirely** | ChromaDB is simpler for local-first, no DB setup | Keep ChromaDB as default, PostgreSQL as optional backend |
-| **Auto-migration ChromaDB → PostgreSQL** | Complex, error-prone, users can rebuild index | Document manual migration: export → rebuild → verify |
-| **PostgreSQL-only deployment** | Breaks local-first promise, requires DB management | PostgreSQL is opt-in, ChromaDB remains default |
-| **Build custom BM25 in Python** | Reinventing wheel, pg_textsearch/VectorChord-BM25 exist | Use tsvector ts_rank for MVP, document BM25 extension option |
-| **Support all pgvector distance metrics** | Cosine/L2/inner product cover 99% of use cases | Skip hamming, jaccard unless user demand emerges |
-| **Real-time index updates** | PostgreSQL HNSW build is slow (32x IVFFlat), batching preferred | Design for batch reindexing, not per-document updates |
-| **Automatic index type selection** | HNSW vs IVFFlat depends on workload, user must decide | Provide clear guidance in docs, sensible defaults |
+| Automatic file watching | Adds complexity (inotify/FSEvents), resource usage, permission issues | Manual reindex via CLI or API (users control timing) |
+| Git-aware indexing | Tight coupling to git, breaks for non-git projects | Simple file-based approach, let users exclude `.git/` via patterns |
+| Regex-based content injection | Fragile, hard to debug, users write brittle patterns | Provide structured metadata fields + optional CLI script hook |
+| Auto-delete old versions | Risk of data loss, unclear "old" definition | Manual chunk eviction with manifest diff, user-controlled |
+| Multi-level folder hierarchy tracking | Over-engineering, adds state management complexity | Flat list of indexed folders (normalized to absolute paths) |
 
 ## Feature Dependencies
 
 ```
-Storage Backend Abstraction
-  ├─> PostgreSQL Vector Storage (pgvector)
-  │    ├─> HNSW Index (production)
-  │    ├─> IVFFlat Index (batch workloads)
-  │    └─> Distance Metrics (cosine/L2/inner)
-  ├─> PostgreSQL Full-Text Search (tsvector)
-  │    ├─> GIN Index
-  │    └─> Language Configuration
-  └─> Hybrid RRF Fusion (existing)
-       └─> Adapts to PostgreSQL queries
+Content injection (Phase 1)
+  → Requires: Chunk metadata schema (already exists: ChunkMetadata)
 
-Backend Selection Config
-  └─> YAML config (backend: chromadb|postgresql)
+File type presets (Phase 1)
+  → Requires: Include/exclude pattern system (already exists: IndexRequest)
 
-Docker Development Setup
-  └─> docker-compose.yml with pgvector/pgvector:pg17
+List/Add/Remove folders (Phase 1)
+  → Requires: Persistent indexed folder tracking (needs persistence layer)
+  → Requires: ChromaDB `where` filter deletion (already available)
 
-Optional Enhancements:
-  ├─> BM25 (pg_textsearch extension)
-  ├─> DiskANN (pgvectorscale extension)
-  └─> Graph + Vector co-location
+Manifest tracking (Phase 2)
+  → Requires: Folder metadata persistence
+  → Requires: File checksum/mtime calculation
+
+Chunk eviction (Phase 2)
+  → Requires: Manifest tracking (file→chunk mapping)
+  → Requires: Bulk delete by chunk IDs (ChromaDB supports this)
+
+Incremental reindex (Phase 2)
+  → Requires: Manifest tracking (change detection)
+  → Requires: Chunk eviction (remove old chunks before adding new)
+
+Live reindex (Phase 3 — optional)
+  → Requires: Chunk eviction (remove old folder chunks)
+  → Requires: Incremental reindex (re-add updated chunks)
 ```
 
 ## MVP Recommendation
 
-**Prioritize (Phase 1):**
-1. **Storage backend abstraction layer** — Interface for VectorStoreManager, swappable implementations
-2. **pgvector vector storage** — Cosine/L2/inner product, HNSW index, basic CRUD
-3. **tsvector full-text search** — GIN index, language config (english default), ts_rank scoring
-4. **Backend selection via YAML** — `storage.backend: chromadb|postgresql`, connection config
-5. **Docker Compose setup** — pgvector/pgvector:pg17, volume mounts, init scripts
-6. **Hybrid RRF adaptation** — Modify existing RRF to work with PostgreSQL result sets
+Prioritize:
+1. **List indexed folders** — Visibility into current state (table stakes)
+2. **Remove specific folder** — Unblock cleanup without full reset (table stakes)
+3. **File type presets** — Dramatically improves UX over manual glob patterns (differentiator)
+4. **Content injection CLI** — Enables metadata enrichment use cases (differentiator)
 
-**Defer to Phase 2+:**
-- **BM25 via pg_textsearch** — Requires extension management, may not be available in all PG instances
-- **DiskANN/pgvectorscale** — Advanced optimization, not needed for initial validation
-- **Multi-tenancy with schemas** — Complex security model, single-tenant is simpler MVP
-- **SQL-based metadata filtering** — Nice-to-have, ChromaDB parity is metadata dict filtering
-- **Graph co-location** — Existing GraphStoreManager is separate, no urgency to merge
+Defer:
+- **Manifest tracking + chunk eviction**: Complex, requires persistent manifest store per folder
+- **Incremental reindex**: Depends on manifest tracking
+- **Live reindex**: Nice-to-have, users can manually reindex after folder changes
 
-**Defer indefinitely (anti-features):**
-- Auto-migration ChromaDB → PostgreSQL
-- PostgreSQL-only deployment
-- Custom BM25 implementation
-- Real-time per-document index updates
+## Implementation Patterns from Research
 
-## Implementation Notes
+### Indexed Folder Management
 
-### pgvector Index Selection
+**Pattern (RLAMA)**: Exclude directories with `--exclude-dir=node_modules,tmp`, track watched folders.
 
-**HNSW (default for production):**
-- Query speed: 15.5x faster than IVFFlat (40.5 QPS vs 2.6 QPS)
-- Build time: 32x slower than IVFFlat (4065s vs 128s)
-- Index size: 2.8x larger (729MB vs 257MB)
-- Use when: Latency-critical, read-heavy workloads, high recall requirements
+**Pattern (LangChain RecordManager)**: Track indexed documents, enable cleanup of deleted files, process only changed documents.
 
-**IVFFlat (batch workloads):**
-- Build time: 32x faster than HNSW
-- Index size: 2.8x smaller
-- Query speed: 15.5x slower
-- Use when: Batch reindexing, periodic updates, storage-constrained environments
-- Caveat: Not resilient to updates (centroids not recalculated)
+**Agent Brain approach**:
+- Persist `indexed_folders` list to `.agent-brain/indexed_folders.json`
+- Normalize all paths to absolute before storing (avoid duplicates)
+- CLI commands: `agent-brain folders list`, `agent-brain folders remove /path`
+- API: `DELETE /index/folder` with `{"folder_path": "/abs/path"}`
 
-**Recommendation:** Default to HNSW for Agent Brain's interactive query use case, document IVFFlat for users who batch-rebuild indexes overnight.
+### File Type Presets
 
-### tsvector vs BM25
+**Pattern (ripgrep)**: Pre-defined types via `--type-list`, e.g., `-tpy` for Python, `-tjs` for JavaScript. Custom types via `--type-add 'web:*.{html,css,js}'`.
 
-**tsvector with ts_rank (MVP):**
-- Built-in PostgreSQL, no extensions required
-- Weaker ranking: linear TF weighting, no IDF, no doc-length normalization
-- GIN index for performance
-- Language-aware stemming (english, simple, etc.)
-- Good enough for MVP, widely deployed
+**Pattern (VS Code)**: Document selectors by language, file patterns like `**/*.py`.
 
-**BM25 extensions (future enhancement):**
-- **pg_textsearch** (Timescale): OSS, true BM25, hybrid search support
-- **VectorChord-BM25** (TensorChord): 3x faster than Elasticsearch claim
-- **ParadeDB**: Commercial-friendly OSS, BM25 + hybrid search
-- Requires extension installation, may not be available in managed PostgreSQL
+**Agent Brain approach**:
+- Define presets in `config/file_type_presets.py`:
+  ```python
+  PRESETS = {
+      "python": ["*.py", "*.pyi", "*.pyx"],
+      "javascript": ["*.js", "*.jsx", "*.mjs"],
+      "typescript": ["*.ts", "*.tsx"],
+      "web": ["*.html", "*.css", "*.js", "*.jsx"],
+      "docs": ["*.md", "*.mdx", "*.rst", "*.txt"],
+      # ...
+  }
+  ```
+- CLI: `agent-brain index /path --include-type python,docs`
+- API: `POST /index` with `include_types: ["python", "docs"]`
+- Expand to glob patterns before passing to DocumentLoader
 
-**MVP decision:** Use tsvector + ts_rank, document BM25 extension path for users who need it.
+### Chunk Eviction & Manifest Tracking
 
-### Hybrid Search Implementation
+**Pattern (CocoIndex)**: Near-real-time incremental indexing, track file changes, reprocess only modified files.
 
-**Existing (ChromaDB + disk BM25):**
-1. Vector query → ChromaDB (cosine similarity)
-2. BM25 query → disk index (rank-bm25 library)
-3. RRF fusion in Python (combine rankings, re-score)
+**Pattern (mcp-rag-server)**: Manifest file (`.manifest.json`) with metadata (version, chunk params, model) + list of data files. On startup, load from manifest if metadata matches.
 
-**PostgreSQL approach:**
-1. Vector query → pgvector (CTE or subquery)
-2. FTS query → tsvector (CTE or subquery)
-3. RRF fusion in SQL or Python
-   - **SQL approach:** Single query with UNION ALL + RRF formula
-   - **Python approach:** Separate queries, existing RRF logic
+**Pattern (Azure AI Search)**: Delta indexing processes only new/modified data, track changes via checksums or timestamps.
 
-**Recommendation:** Start with Python RRF (reuse existing code), optimize to SQL later if performance demands.
+**Agent Brain approach**:
+- Manifest per indexed folder: `.agent-brain/manifests/<hash_of_folder_path>.json`
+- Manifest schema:
+  ```json
+  {
+    "folder_path": "/abs/path",
+    "indexed_at": "2026-02-23T12:00:00Z",
+    "file_manifest": {
+      "/abs/path/file.py": {
+        "checksum": "abc123...",
+        "mtime": "2026-02-20T10:00:00Z",
+        "chunk_ids": ["chunk_abc123", "chunk_def456"]
+      }
+    }
+  }
+  ```
+- On reindex: Compare current files to manifest
+  - Deleted files → bulk delete chunk IDs via ChromaDB `delete(ids=[...])`
+  - Changed files → delete old chunks + reindex file
+  - New files → index normally
+- Store manifests to disk, load on startup
 
-### Storage Abstraction Pattern
+### Content Injection
 
-**Interface (ABC):**
-```python
-class VectorStoreBackend(ABC):
-    @abstractmethod
-    async def initialize(self) -> None: ...
-    @abstractmethod
-    async def add_chunks(self, chunks, embeddings, metadatas) -> None: ...
-    @abstractmethod
-    async def similarity_search(self, embedding, top_k, threshold) -> list[SearchResult]: ...
-    @abstractmethod
-    async def count_chunks(self) -> int: ...
-    @abstractmethod
-    async def clear(self) -> None: ...
-```
+**Pattern (Amazon Kendra CDE)**: Create, modify, or delete document attributes during ingestion. Automate via basic operations (inline lambda, S3 script).
 
-**Implementations:**
-- `ChromaDBBackend` (existing VectorStoreManager logic)
-- `PostgreSQLBackend` (new, pgvector + SQLAlchemy)
+**Pattern (LlamaIndex)**: Custom metadata extractors, supplement built-in parsers with domain-specific metadata.
 
-**Selection:**
-```yaml
-# config.yaml
-storage:
-  backend: postgresql  # or chromadb (default)
-  postgresql:
-    host: localhost
-    port: 5432
-    database: agent_brain
-    user: postgres
-    password: secret
-    vector_index: hnsw  # or ivfflat
-    fts_language: english
-```
+**Pattern (Haystack)**: Automated structured metadata enrichment during preprocessing.
 
-### Distance Metric Mapping
+**Agent Brain approach**:
+- CLI injector script: `agent-brain inject --script enrich.py /path`
+- Script receives chunks before embedding:
+  ```python
+  # enrich.py
+  def process_chunk(chunk: dict) -> dict:
+      # Add custom metadata
+      chunk["metadata"]["team"] = "backend"
+      chunk["metadata"]["sensitivity"] = "internal"
+      return chunk
+  ```
+- Injector protocol:
+  - Script exports `process_chunk(chunk: dict) -> dict` function
+  - Called for each chunk before embedding generation
+  - Metadata merged into `ChunkMetadata.extra`
+- Alternative: JSON metadata file per folder
+  ```json
+  {
+    "folder_metadata": {
+      "team": "backend",
+      "project": "api-service"
+    }
+  }
+  ```
 
-**Current (ChromaDB):**
-- Cosine distance (default)
+## Complexity Assessment
 
-**PostgreSQL pgvector:**
-- `<=>` cosine distance (1 - cosine similarity)
-- `<->` L2 (Euclidean) distance
-- `<#>` negative inner product (max inner product = min negative)
+| Feature | Complexity | Reason |
+|---------|-----------|--------|
+| List indexed folders | **Low** | Read from persisted list, format output |
+| Persist indexed folders | **Low** | JSON file write on index complete |
+| Remove folder's chunks | **Medium** | ChromaDB `where` filter on `source` field (supports prefix matching), needs careful filter construction |
+| File type presets | **Low** | Static map, pattern expansion logic |
+| Content injection via script | **Medium** | Dynamic import, function call protocol, error handling |
+| Content injection via folder metadata | **Low** | JSON file read, metadata merge |
+| Manifest tracking | **Medium-High** | Checksum calculation, diff logic, persistent storage per folder |
+| Chunk eviction | **Medium** | Depends on manifest, bulk delete by IDs |
+| Incremental reindex | **High** | Orchestrates manifest diff + chunk eviction + selective reindexing |
 
-**Recommendation:** Default to cosine (`<=>`), expose all three in config for advanced users.
+## Known Limitations from Research
 
-### Docker Compose Structure
-
-```yaml
-services:
-  postgres:
-    image: pgvector/pgvector:pg17
-    environment:
-      POSTGRES_USER: agent_brain
-      POSTGRES_PASSWORD: dev_password
-      POSTGRES_DB: agent_brain
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U agent_brain"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-```
-
-**init.sql:**
-```sql
-CREATE EXTENSION IF NOT EXISTS vector;
-CREATE TABLE IF NOT EXISTS chunks (
-  id TEXT PRIMARY KEY,
-  embedding vector(3072),  -- EMBEDDING_DIMENSIONS
-  text TEXT NOT NULL,
-  metadata JSONB,
-  tsvector_content tsvector
-);
-CREATE INDEX ON chunks USING HNSW (embedding vector_cosine_ops);
-CREATE INDEX ON chunks USING GIN (tsvector_content);
-```
-
-## Comparison: ChromaDB vs PostgreSQL
-
-| Aspect | ChromaDB | PostgreSQL + pgvector | Winner |
-|--------|----------|----------------------|--------|
-| **Setup complexity** | Zero config, local files | Docker/managed DB required | ChromaDB |
-| **Query latency (single)** | Very fast (~ms) | Very fast (~ms), close to ChromaDB | Tie |
-| **Query latency (concurrent)** | Degrades (23.08s avg under load) | Better (9.81s avg under load) | PostgreSQL |
-| **Index build time** | Fast | Slow (HNSW 32x slower than IVFFlat) | ChromaDB |
-| **Consistency** | Eventual | ACID transactions | PostgreSQL |
-| **Hybrid search** | Separate BM25 index + fusion | Single DB, single query option | PostgreSQL |
-| **Operational maturity** | Young project, limited tooling | pg_dump, replication, monitoring | PostgreSQL |
-| **Scalability (vectors)** | Millions-billions optimized | Thousands-millions (pgvectorscale extends) | ChromaDB |
-| **RAG use case fit** | Purpose-built, excellent | General-purpose, very good | ChromaDB |
-| **Agent Brain fit (local-first)** | Perfect, no setup | Requires DB, more complex | ChromaDB |
-
-**Verdict:** ChromaDB remains best default for Agent Brain's local-first philosophy. PostgreSQL is valuable optional backend for users who:
-- Already run PostgreSQL infrastructure
-- Need ACID consistency for production apps
-- Want unified DB for vectors + relational data + graph
-- Require enterprise ops tooling (backup/restore/replication)
-
-## Confidence Assessment
-
-| Finding | Level | Source |
-|---------|-------|--------|
-| pgvector capabilities | HIGH | Official pgvector GitHub, PostgreSQL docs |
-| HNSW vs IVFFlat performance | HIGH | AWS Deep Dive (2025), multiple benchmarks |
-| tsvector vs BM25 ranking | HIGH | ParadeDB blog, Timescale pg_textsearch docs |
-| Hybrid search patterns | MEDIUM | Community blogs (2025-2026), verified patterns |
-| ChromaDB vs PostgreSQL perf | MEDIUM | Multiple benchmarks, 2026 comparisons (varied workloads) |
-| Docker setup | HIGH | Official pgvector/pgvector Docker Hub image |
-| Storage abstraction pattern | HIGH | Python repository pattern (standard practice) |
-| RRF implementation | HIGH | ParadeDB guide, DBI Services RAG series |
-| BM25 extension options | MEDIUM | New 2025-2026 extensions, less mature than pgvector |
+1. **ChromaDB batch limits**: Max 41,666 items per operation (Agent Brain already handles via batching)
+2. **Metadata filtering performance**: `where` filters on large collections can be slow; ChromaDB doesn't index metadata by default
+3. **Manifest storage**: File-per-folder approach scales to ~1,000 folders before needing database
+4. **Checksum overhead**: Hashing large codebases (100K+ files) takes time; mtime comparison faster but less reliable
+5. **Delete by source prefix**: ChromaDB `where` doesn't support regex; need exact match or `$in` for multiple sources
 
 ## Sources
 
-### pgvector and Vector Search
-- [GitHub - pgvector/pgvector](https://github.com/pgvector/pgvector)
-- [pgvector: Embeddings and vector similarity | Supabase Docs](https://supabase.com/docs/guides/database/extensions/pgvector)
-- [pgvector: Key features, tutorial, and pros and cons [2026 guide]](https://www.instaclustr.com/education/vector-database/pgvector-key-features-tutorial-and-pros-and-cons-2026-guide/)
-- [PostgreSQL + pgvector specifically for your RAG use case | Medium](https://medium.com/@TechSnazAI/postgresql-pgvector-specifically-for-your-rag-use-case-dbbaf41d5822)
-- [Optimize generative AI applications with pgvector indexing | AWS](https://aws.amazon.com/blogs/database/optimize-generative-ai-applications-with-pgvector-indexing-a-deep-dive-into-ivfflat-and-hnsw-techniques/)
-- [Choosing your Index with PGVector | PIXION Blog](https://pixion.co/blog/choosing-your-index-with-pg-vector-flat-vs-hnsw-vs-ivfflat)
-- [PGVector: HNSW vs IVFFlat | Medium](https://medium.com/@bavalpreetsinghh/pgvector-hnsw-vs-ivfflat-a-comprehensive-study-21ce0aaab931)
+**Indexed Folder Management:**
+- [RLAMA RAG Pipeline with Directory Watching](https://rlama.dev/blog/directory-watching)
+- [Building a Production-Ready RAG System with Incremental Indexing](https://dev.to/guptaaayush8/building-a-production-ready-rag-system-with-incremental-indexing-4bme)
+- [LangChain: Delete all vectors by source document (Qdrant)](https://github.com/langchain-ai/langchain/discussions/19903)
 
-### tsvector and Full-Text Search
-- [PostgreSQL: Documentation: Text Search](https://www.postgresql.org/docs/current/textsearch-controls.html)
-- [PostgreSQL BM25 Full-Text Search | VectorChord](https://blog.vectorchord.ai/postgresql-full-text-search-fast-when-done-right-debunking-the-slow-myth)
-- [From ts_rank to BM25. Introducing pg_textsearch | Tiger Data](https://www.tigerdata.com/blog/introducing-pg_textsearch-true-bm25-ranking-hybrid-retrieval-postgres)
-- [GitHub - timescale/pg_textsearch](https://github.com/timescale/pg_textsearch)
-- [GitHub - tensorchord/VectorChord-bm25](https://github.com/tensorchord/VectorChord-bm25)
-- [Implementing BM25 in PostgreSQL | ParadeDB](https://www.paradedb.com/learn/search-in-postgresql/bm25)
+**File Type Filtering:**
+- [ripgrep User Guide](https://github.com/BurntSushi/ripgrep/blob/master/GUIDE.md)
+- [VS Code: Support Search profiles for predetermined file extensions](https://github.com/microsoft/vscode/issues/101481)
+- [Sourcegraph Search Query Syntax](https://docs.sourcegraph.com/code_search/reference/queries)
 
-### Hybrid Search and RRF
-- [Hybrid Search in PostgreSQL: The Missing Manual | ParadeDB](https://www.paradedb.com/blog/hybrid-search-in-postgresql-the-missing-manual)
-- [RAG Series - Hybrid Search with Re-ranking](https://www.dbi-services.com/blog/rag-series-hybrid-search-with-re-ranking/)
-- [Hybrid search with PostgreSQL and pgvector | Jonathan Katz](https://jkatz05.com/post/postgres/hybrid-search-postgres-pgvector/)
-- [pgvector Hybrid Search: Benefits, Use Cases, and Quick Tutorial](https://www.instaclustr.com/education/vector-database/pgvector-hybrid-search-benefits-use-cases-and-quick-tutorial/)
+**Chunk Eviction & Manifest Tracking:**
+- [CocoIndex: Realtime Codebase Indexing](https://github.com/cocoindex-io/realtime-codebase-indexing)
+- [mcp-rag-server: Manifest-based RAG](https://github.com/Daniel-Barta/mcp-rag-server)
+- [Incremental Updates in RAG Systems (2026)](https://dasroot.net/posts/2026/01/incremental-updates-rag-dynamic-documents/)
+- [Azure AI Search: Incrementally Indexing Documents](https://medium.com/microsoftazure/incrementally-indexing-documents-with-azureai-search-integrated-vectorization-6f7150556f62)
 
-### ChromaDB vs PostgreSQL Comparisons
-- [Pgvector vs Chroma DB Which Works Better for RAG | Medium](https://medium.com/@mysterious_obscure/pgvector-vs-chroma-db-which-works-better-for-rag-based-applications-3df813ad7307)
-- [Chroma vs pgvector | Vector Database Comparison](https://zilliz.com/comparison/chroma-vs-pgvector)
-- [ChromaDB vs PGVector: The Epic Battle | Medium](https://dev523.medium.com/chromadb-vs-pgvector-the-epic-battle-of-vector-databases-a43216772b34)
-- [Best vector databases for production RAG in 2026](https://engineersguide.substack.com/p/best-vector-databases-rag)
+**Content Injection:**
+- [Amazon Kendra: Custom Document Enrichment](https://docs.aws.amazon.com/kendra/latest/dg/custom-document-enrichment.html)
+- [Haystack: Automated Structured Metadata Enrichment](https://haystack.deepset.ai/cookbook/metadata_enrichment)
+- [deepset: Leveraging Metadata in RAG Customization](https://www.deepset.ai/blog/leveraging-metadata-in-rag-customization)
+- [deepset: The Role of Data Preprocessing in RAG](https://www.deepset.ai/blog/preprocessing-rag)
 
-### Docker and Development Setup
-- [Setting Up PostgreSQL with pgvector in Docker | Medium](https://medium.com/@adarsh.ajay/setting-up-postgresql-with-pgvector-in-docker-a-step-by-step-guide-d4203f6456bd)
-- [Docker with postgres and pgvector extension](https://www.thestupidprogrammer.com/blog/docker-with-postgres-and-pgvector-extension/)
-- [pgvector/pgvector - Docker Image](https://hub.docker.com/r/pgvector/pgvector)
-- [Setting up Postgres and pgvector with Docker for RAG | UserJot](https://userjot.com/blog/setting-up-postgres-pgvector-docker-rag)
-
-### Python Integration
-- [GitHub - pgvector/pgvector-python](https://github.com/pgvector/pgvector-python)
-- [Postgres Vector Store | LlamaIndex Python Documentation](https://developers.llamaindex.ai/python/examples/vector_stores/postgres/)
-- [Detailed Walkthrough of Llama Index with PostgreSQL | Medium](https://medium.com/@vg-shyamala/detailed-walkthrough-of-a-python-code-integrating-llama-index-with-postgresql-and-pgvectorstore-2e07d387bdf2)
-- [Repository Pattern - Cosmic Python](https://www.cosmicpython.com/book/chapter_02_repository.html)
-- [The Repository Pattern in Python | Medium](https://medium.com/@kmuhsinn/the-repository-pattern-in-python-write-flexible-testable-code-with-fastapi-examples-aa0105e40776)
-
-### GIN Indexes
-- [PostgreSQL: Documentation: GIN Indexes](https://www.postgresql.org/docs/current/gin.html)
-- [Understanding Postgres GIN Indexes | pganalyze](https://pganalyze.com/blog/gin-index)
-- [How to Build Full-Text Search with GIN Indexes | OneUpTime](https://oneuptime.com/blog/post/2026-01-25-full-text-search-gin-postgresql/view)
+**Vector Database Management:**
+- [ChromaDB Tutorial: Delete Data](https://docs.trychroma.com/docs/collections/delete-data)
+- [LlamaIndex: Document Management](https://docs.llamaindex.ai/en/stable/module_guides/indexing/document_management/)
+- [Efficient Document Embedding Management with ChromaDB](https://blog.gopenai.com/efficient-document-embedding-management-with-chromadb-deleting-resetting-and-more-dac0e70e713b)
