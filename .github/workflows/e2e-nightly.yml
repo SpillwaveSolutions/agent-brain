@@ -1,0 +1,98 @@
+# E2E CLI Test Harness — Nightly Schedule
+# Runs Agent Brain plugin E2E tests through Claude Code headless mode.
+# Advisory only — does not block PRs.
+
+name: E2E CLI Tests (Nightly)
+
+on:
+  schedule:
+    # Run at 6:00 AM UTC daily
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      adapter:
+        description: 'CLI adapter to test'
+        required: false
+        default: 'claude'
+        type: choice
+        options:
+          - claude
+      scenario:
+        description: 'Single scenario to run (blank = all)'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  e2e-cli:
+    name: E2E CLI Tests
+    runs-on: ubuntu-latest
+    environment: ci-testing
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.7.1
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.43.3
+
+      - name: Cache Poetry dependencies (server)
+        uses: actions/cache@v4
+        with:
+          path: agent-brain-server/.venv
+          key: server-venv-${{ runner.os }}-${{ hashFiles('agent-brain-server/poetry.lock') }}
+
+      - name: Install server dependencies
+        run: |
+          cd agent-brain-server
+          poetry install
+
+      - name: Install CLI dependencies
+        run: |
+          cd agent-brain-cli
+          sed -i 's|agent-brain-rag = "^[0-9]*\.[0-9]*\.[0-9]*"|agent-brain-rag = {path = "../agent-brain-server", develop = false}|' pyproject.toml
+          poetry lock
+          poetry install
+          git checkout pyproject.toml
+
+      - name: Install Claude Code CLI
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude --version
+
+      - name: Run E2E CLI tests
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          ARGS=""
+          if [ -n "${{ inputs.adapter }}" ]; then
+            ARGS="--adapter ${{ inputs.adapter }}"
+          fi
+          if [ -n "${{ inputs.scenario }}" ]; then
+            ARGS="$ARGS --scenario ${{ inputs.scenario }}"
+          fi
+          ./e2e-cli/run.sh $ARGS --keep || true
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-cli-results
+          path: e2e-cli/.runs/
+          retention-days: 7
