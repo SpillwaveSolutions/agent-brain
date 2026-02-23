@@ -96,7 +96,15 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ### Active
 
-(No active requirements — planning next milestone)
+#### Current Milestone: v7.0 Index Management & Content Pipeline
+
+**Goal:** Give users full control over what gets indexed, how folders are managed, and how content is enriched — eliminating ghost chunks, enabling smart file type selection, and adding optional LLM-powered chunk enrichment.
+
+**Target features:**
+- Indexed Folder Management — list, add, remove indexed folders via CLI and plugin
+- Smart Include Filtering — file type presets (e.g., "markdown,text,pdf") instead of manual glob patterns
+- Chunk Eviction & Live Reindex — auto-remove stale chunks when files change, delete, or rename
+- Content Injector CLI — optional LLM-based chunk enrichment during indexing pipeline
 
 ### Out of Scope
 
@@ -170,4 +178,4 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 | Structural verification only for Phase 11 requirements | Functional correctness already validated in Phase 10 | ✓ Good |
 
 ---
-*Last updated: 2026-02-22 after v6.0.4 milestone*
+*Last updated: 2026-02-23 after v7.0 milestone started*
