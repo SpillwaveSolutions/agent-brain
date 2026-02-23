@@ -68,11 +68,11 @@ Requirements for PostgreSQL Backend milestone. Each maps to roadmap phases.
 ## v6.0.2 Requirements
 
 ### Plugin Enhancements
-- [ ] **PLUG-07**: /agent-brain-setup and /agent-brain-config auto-discover free PostgreSQL port (scan 5432-5442)
-- [ ] **PLUG-08**: Plugin version bumped to v6.0.2 with updated metadata
+- [x] **PLUG-07**: /agent-brain-setup and /agent-brain-config auto-discover free PostgreSQL port (scan 5432-5442)
+- [x] **PLUG-08**: Plugin version bumped to v6.0.2 with updated metadata
 
 ### Infrastructure Fix
-- [ ] **INFRA-06**: install.sh REPO_ROOT path corrected (doc-serve → agent-brain)
+- [x] **INFRA-06**: install.sh REPO_ROOT path corrected (doc-serve → agent-brain)
 
 ## Future Requirements
 
@@ -153,9 +153,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DOCS-02 | Phase 8 | Done |
 | DOCS-03 | Phase 8 | Done |
 
-| PLUG-07 | Phase 11 | Pending |
-| PLUG-08 | Phase 11 | Pending |
-| INFRA-06 | Phase 11 | Pending |
+| PLUG-07 | Phase 11 | Done |
+| PLUG-08 | Phase 11 | Done |
+| INFRA-06 | Phase 11 | Done |
 
 **Coverage:**
 - v6.0 requirements: 34 total (all done)
