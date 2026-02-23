@@ -134,21 +134,21 @@ Plans:
 **Milestone Goal:** Fix install.sh path, add PostgreSQL port auto-discovery to plugin, validate full E2E workflow with local install.
 
 #### Phase 11: Plugin Port Discovery & Install Fix
-**Goal**: Add port auto-discovery to plugin commands, fix install.sh repo path, validate E2E with PostgreSQL backend
+**Goal**: Verify port auto-discovery, install.sh paths, and version alignment; clean up stale doc-serve references in documentation
 **Depends on**: Phase 10 (v6.0 completed)
 **Requirements**: PLUG-07, PLUG-08, INFRA-06
 **Success Criteria**:
   1. Plugin setup/config commands auto-discover a free PostgreSQL port (5432-5442 range)
   2. Discovered port is used in both Docker Compose startup AND config.yaml
   3. install.sh uses correct REPO_ROOT path (agent-brain, not doc-serve)
-  4. Plugin version bumped to 6.0.2
-  5. Local install works: `agent-brain --version` returns 6.0.2
+  4. Plugin version at 6.0.3 (exceeds 6.0.2 target)
+  5. Local install works: `agent-brain --version` returns 6.0.3
   6. PostgreSQL E2E: index 4 directories, all 3 search modes return results
-  7. v6.0.2 released to PyPI
+  7. v6.0.3 released to PyPI (supersedes 6.0.2)
 **Plans**: 1 plan
 
 Plans:
-- [ ] 11-01-PLAN.md — install.sh fix, version bumps, port auto-discovery in plugin commands, local install, E2E validation, release
+- [ ] 11-01-PLAN.md — Documentation path cleanup, version verification, requirement closure
 
 ## Progress
 
@@ -213,4 +213,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-02-19 — v6.0.2 Plugin & Install Fixes in progress (Phase 11)*
+*Last updated: 2026-02-22 — Phase 11 planned, v6.0.3 verified*
