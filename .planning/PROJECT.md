@@ -90,10 +90,13 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 - ✓ **DOCS-01**: PostgreSQL setup guide — v6.0
 - ✓ **DOCS-02**: Full configuration reference — v6.0
 - ✓ **DOCS-03**: ChromaDB vs PostgreSQL performance tradeoffs guide — v6.0
+- ✓ **PLUG-07**: Port auto-discovery for PostgreSQL (5432-5442 range) — v6.0.4
+- ✓ **PLUG-08**: Plugin version bumped to v6.0.3 — v6.0.4
+- ✓ **INFRA-06**: install.sh REPO_ROOT path corrected (doc-serve to agent-brain) — v6.0.4
 
 ### Active
 
-v6.0.2 Plugin & Install Fixes — Phase 11 (Plugin Port Discovery & Install Fix)
+(No active requirements — planning next milestone)
 
 ### Out of Scope
 
@@ -109,14 +112,16 @@ v6.0.2 Plugin & Install Fixes — Phase 11 (Plugin Port Discovery & Install Fix)
 
 ## Context
 
-**Current State (v6.0 completed 2026-02-13):**
+**Current State (v6.0.4 completed 2026-02-22):**
 - ~3,200 lines PostgreSQL backend code across 12+ files
-- 675 tests passing (153 PostgreSQL-specific), 73% server coverage
+- 772 tests passing (686 server + 86 CLI), 74% server / 54% CLI coverage
 - Dual-backend architecture: ChromaDB (default) + PostgreSQL (optional)
 - pgvector for vector search, tsvector for full-text search
 - 7 embedding/summarization/reranking providers supported
 - Full GraphRAG with schema-based entity types (ChromaDB only)
 - CI with provider matrix testing + PostgreSQL service container
+- All documentation references updated to `.claude/agent-brain/` paths
+- Plugin v6.0.3 with port auto-discovery for PostgreSQL
 
 **Technology Stack:**
 - Python 3.10+ with Poetry packaging
@@ -161,6 +166,8 @@ v6.0.2 Plugin & Install Fixes — Phase 11 (Plugin Port Discovery & Install Fix)
 | RRF fusion for PostgreSQL hybrid search | Same algorithm as ChromaDB, consistent cross-backend behavior | ✓ Good |
 | GraphRAG stays ChromaDB-only | Avoids complexity, deferred to future milestone | ✓ Good |
 | Conditional ChromaDB init in main.py lifespan | PostgreSQL backend skips ChromaDB setup entirely | ✓ Good |
+| Exclude historical files from doc-serve path cleanup | Legacy/planning files document what was true at the time | ✓ Good |
+| Structural verification only for Phase 11 requirements | Functional correctness already validated in Phase 10 | ✓ Good |
 
 ---
-*Last updated: 2026-02-19 — v6.0.2 Plugin & Install Fixes in progress*
+*Last updated: 2026-02-22 after v6.0.4 milestone*
