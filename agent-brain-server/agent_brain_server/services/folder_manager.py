@@ -13,7 +13,6 @@ import logging
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -193,7 +192,7 @@ class FolderManager:
         """
         records: dict[str, FolderRecord] = {}
 
-        with open(self.jsonl_path, "r", encoding="utf-8") as f:
+        with open(self.jsonl_path, encoding="utf-8") as f:
             for line_num, line in enumerate(f, start=1):
                 line = line.strip()
                 if not line:

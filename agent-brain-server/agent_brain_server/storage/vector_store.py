@@ -413,6 +413,48 @@ class VectorStoreManager:
 
             return None
 
+    async def delete_by_where(self, where: dict[str, Any]) -> int:
+        """Delete documents matching a metadata filter and return count.
+
+        Queries the collection with the given ``where`` filter to discover
+        matching IDs, then deletes those IDs.  This two-step approach is
+        required because ChromaDB's ``collection.delete(where=...)`` does
+        not return the number of documents deleted.
+
+        CRITICAL GUARD: If the resulting ID list is empty, this method
+        returns 0 immediately.  Passing ``ids=[]`` to
+        ``collection.delete()`` in ChromaDB wipes the **entire** collection,
+        which is almost never what the caller wants.
+
+        Args:
+            where: ChromaDB ``where`` metadata filter.
+
+        Returns:
+            Number of documents deleted (0 if no matching documents).
+
+        Raises:
+            RuntimeError: If the vector store is not initialized.
+        """
+        if not self.is_initialized:
+            raise RuntimeError("Vector store not initialized. Call initialize() first.")
+
+        async with self._lock:
+            assert self._collection is not None
+
+            # Step 1: Find matching IDs
+            results = self._collection.get(where=where, include=[])
+            matching_ids: list[str] = results.get("ids", []) or []
+
+            # Step 2: CRITICAL GUARD — never pass empty ids to delete()
+            if not matching_ids:
+                return 0
+
+            # Step 3: Delete by IDs
+            self._collection.delete(ids=matching_ids)
+
+        logger.debug(f"Deleted {len(matching_ids)} documents matching where={where}")
+        return len(matching_ids)
+
     async def delete_collection(self) -> None:
         """
         Delete the entire collection.

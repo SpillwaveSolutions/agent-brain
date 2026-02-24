@@ -87,8 +87,7 @@ def resolve_file_types(preset_names: list[str]) -> list[str]:
     for name in preset_names:
         if name not in FILE_TYPE_PRESETS:
             raise ValueError(
-                f"Unknown file type preset '{name}'. "
-                f"Valid presets: {valid_presets}"
+                f"Unknown file type preset '{name}'. " f"Valid presets: {valid_presets}"
             )
 
     # Resolve all patterns, maintaining insertion order + deduplication

@@ -341,6 +341,34 @@ class ChromaBackend:
                 backend="chroma",
             ) from e
 
+    async def delete_by_metadata(
+        self,
+        where: dict[str, Any],
+    ) -> int:
+        """Delete documents matching a metadata filter.
+
+        Delegates to VectorStoreManager.delete_by_where which queries for
+        matching IDs then deletes them.  The two-step approach avoids the
+        ChromaDB pitfall of wiping the entire collection when
+        ``ids=[]`` is passed to ``collection.delete()``.
+
+        Args:
+            where: ChromaDB ``where`` metadata filter dict.
+
+        Returns:
+            Number of documents deleted.
+
+        Raises:
+            StorageError: If the delete operation fails.
+        """
+        try:
+            return await self.vector_store.delete_by_where(where=where)
+        except Exception as e:
+            raise StorageError(
+                f"Delete by metadata failed: {e}",
+                backend="chroma",
+            ) from e
+
     def validate_embedding_compatibility(
         self,
         provider: str,

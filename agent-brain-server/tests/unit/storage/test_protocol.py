@@ -211,6 +211,12 @@ class MockCompleteBackend:
     ) -> None:
         pass
 
+    async def delete_by_metadata(
+        self,
+        where: dict[str, any],
+    ) -> int:
+        return 0
+
 
 def test_protocol_complete_implementation() -> None:
     """Test that mock class with all methods satisfies protocol."""

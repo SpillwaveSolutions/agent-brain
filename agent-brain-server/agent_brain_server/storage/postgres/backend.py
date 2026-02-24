@@ -505,6 +505,54 @@ class PostgresBackend:
                 backend="postgres",
             ) from e
 
+    async def delete_by_metadata(
+        self,
+        where: dict[str, Any],
+    ) -> int:
+        """Delete documents matching a metadata JSONB filter.
+
+        Executes a ``DELETE ... RETURNING`` statement with a JSONB
+        containment filter so that the count of deleted rows is returned
+        without a separate ``SELECT COUNT`` round-trip.
+
+        Args:
+            where: Metadata filter dict.  Applied as a JSONB containment
+                query: ``metadata @> :filter_json::jsonb``.
+
+        Returns:
+            Number of documents deleted.
+
+        Raises:
+            StorageError: If the delete operation fails.
+        """
+        engine = self.connection_manager.engine
+        try:
+            sql = text(
+                """
+                DELETE FROM documents
+                WHERE metadata @> CAST(:filter_json AS jsonb)
+                RETURNING chunk_id
+                """
+            )
+            async with engine.begin() as conn:
+                result = await conn.execute(
+                    sql,
+                    {"filter_json": json.dumps(where)},
+                )
+                rows = result.fetchall()
+            deleted_count = len(rows)
+            logger.debug(
+                "Deleted %d documents matching metadata filter %r",
+                deleted_count,
+                where,
+            )
+            return deleted_count
+        except Exception as e:
+            raise StorageError(
+                f"Delete by metadata failed: {e}",
+                backend="postgres",
+            ) from e
+
     def validate_embedding_compatibility(
         self,
         provider: str,

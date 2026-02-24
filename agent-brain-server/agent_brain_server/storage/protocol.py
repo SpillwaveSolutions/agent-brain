@@ -288,3 +288,29 @@ class StorageBackendProtocol(Protocol):
             ProviderMismatchError: If dimensions or provider/model don't match
         """
         ...
+
+    async def delete_by_metadata(
+        self,
+        where: dict[str, Any],
+    ) -> int:
+        """Delete documents matching a metadata filter.
+
+        Used for targeted folder removal: delete all chunks whose metadata
+        matches the given filter (e.g., ``{"source": "/path/to/folder"}``).
+
+        IMPORTANT for ChromaDB callers: always guard against empty ``where``
+        dicts — passing an empty filter may delete the entire collection on
+        some backends.
+
+        Args:
+            where: Metadata filter dict. For ChromaDB uses native ``where``
+                syntax (e.g., ``{"source": {"$contains": "/path"}}``).
+                For PostgreSQL uses JSONB containment.
+
+        Returns:
+            Number of documents deleted.
+
+        Raises:
+            StorageError: If the delete operation fails.
+        """
+        ...
