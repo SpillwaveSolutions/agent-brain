@@ -1,5 +1,11 @@
 """Pydantic models for request/response handling."""
 
+from .folders import (
+    FolderDeleteRequest,
+    FolderDeleteResponse,
+    FolderInfo,
+    FolderListResponse,
+)
 from .graph import (
     CODE_ENTITY_TYPES,
     DOC_ENTITY_TYPES,
@@ -34,6 +40,11 @@ from .job import (
 from .query import QueryMode, QueryRequest, QueryResponse, QueryResult
 
 __all__ = [
+    # Folder management models (Feature 12)
+    "FolderInfo",
+    "FolderListResponse",
+    "FolderDeleteRequest",
+    "FolderDeleteResponse",
     # Query models
     "QueryMode",
     "QueryRequest",
