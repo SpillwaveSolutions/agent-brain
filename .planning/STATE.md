@@ -1,19 +1,19 @@
 # Agent Brain — Project State
-**Last Updated:** 2026-02-24
+**Last Updated:** 2026-02-25
 **Current Milestone:** v7.0 Index Management & Content Pipeline
-**Status:** Ready to execute
+**Status:** Phase 12 complete — all 3 plans done
 **Current Phase:** 12 (Folder Management & File Type Presets)
 **Total Phases:** 3 (Phases 12-14)
-**Current Plan:** 3
+**Current Plan:** 3 (COMPLETE)
 **Total Plans in Phase:** 3
 
 ## Current Position
 Phase: 12 — Folder Management & File Type Presets
-Plan: 01 complete, ready for 02
-Status: Plan 01 done — FolderManager, FileTypePresets, delete_by_metadata implemented
-Last activity: 2026-02-24 — Plan 01 complete
+Plan: 03 complete — CLI folders/types commands, --include-type flag, plugin slash commands
+Status: ALL PLANS COMPLETE — Phase 12 done
+Last activity: 2026-02-25 — Plan 03 complete
 
-**Progress:** [██████████] 97%
+**Progress:** [██████████] 100%
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-23)
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-02-23)
 v3.0 Advanced RAG:          [██████████] 100% (shipped 2026-02-10)
 v6.0 PostgreSQL Backend:    [██████████] 100% (shipped 2026-02-13)
 v6.0.4 Plugin & Install:   [██████████] 100% (shipped 2026-02-22)
-v7.0 Index Mgmt & Pipeline: [░░░░░░░░░░]   0% (started 2026-02-23)
+v7.0 Index Mgmt & Pipeline: [███░░░░░░░]  33% (Phase 12 done 2026-02-25)
 ```
 ## Performance Metrics
 **Velocity (v3.0 milestone):**
@@ -69,6 +69,7 @@ v7.0 Index Mgmt & Pipeline: [░░░░░░░░░░]   0% (started 2026-
 | Phase 11 P01 | 3 | 3 tasks | 9 files |
 | Phase 12 P01 | 35 | 3 tasks | 11 files |
 | Phase 12 P02 | 55 | 2 tasks | 12 files |
+| Phase 12 P03 | 10 | 3 tasks | 6 files created, 8 modified |
 
 ## Accumulated Context
 ### From v3.0 Advanced RAG
@@ -126,6 +127,9 @@ v7.0 Index Mgmt & Pipeline: [░░░░░░░░░░]   0% (started 2026-
 - [Phase 12]: Added delete_by_ids to StorageBackendProtocol: chunk metadata stores file paths not folder paths, so targeted ID-based deletion is required for correct folder removal
 - [Phase 12]: FOLD-07 check uses job_service.store.get_running_job() for efficient single-job lookup instead of list_jobs()
 - [Phase 12]: FolderManager uses temp dir fallback when no state_dir configured for backward compat with single-instance mode
+- [Phase 12 P03]: Hardcode FILE_TYPE_PRESETS in CLI to avoid agent-brain-server cross-package dependency
+- [Phase 12 P03]: folders add is alias for index (idempotent re-indexing per FOLD-09)
+- [Phase 12 P03]: folder_path for remove uses type=str not click.Path to allow non-existent disk paths
 
 ### From Phase 6 Plan 03 (Integration)
 - Factory creates PostgresBackend from YAML config with DATABASE_URL env var override
@@ -172,10 +176,10 @@ All 6 PostgreSQL integration testing bugs resolved in v6.0.3.
 
 ## Session Continuity
 
-**Last Session:** 2026-02-25T03:46:19.182Z
-**Stopped At:** Completed 12-02-PLAN.md
+**Last Session:** 2026-02-25T04:17:32Z
+**Stopped At:** Completed 12-03-PLAN.md (Phase 12 COMPLETE)
 **Resume File:** None
-**Next Action:** `/gsd:plan-phase 12` to create executable plans
+**Next Action:** Phase 13 planning when ready
 
 ---
-*State updated: 2026-02-23*
+*State updated: 2026-02-25*
