@@ -1,19 +1,19 @@
 # Agent Brain — Project State
-**Last Updated:** 2026-02-23
+**Last Updated:** 2026-02-24
 **Current Milestone:** v7.0 Index Management & Content Pipeline
-**Status:** Ready to plan Phase 12
+**Status:** In Progress — Phase 12 Plan 01 Complete
 **Current Phase:** 12 (Folder Management & File Type Presets)
 **Total Phases:** 3 (Phases 12-14)
-**Current Plan:** —
-**Total Plans in Phase:** TBD (needs planning)
+**Current Plan:** 02
+**Total Plans in Phase:** 3
 
 ## Current Position
 Phase: 12 — Folder Management & File Type Presets
-Plan: Not yet planned
-Status: Requirements defined, roadmap created, ready for `/gsd:plan-phase 12`
-Last activity: 2026-02-23 — Requirements + roadmap defined
+Plan: 01 complete, ready for 02
+Status: Plan 01 done — FolderManager, FileTypePresets, delete_by_metadata implemented
+Last activity: 2026-02-24 — Plan 01 complete
 
-**Progress:** [░░░░░░░░░░] 0%
+**Progress:** [█████████░] 94%
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-23)
@@ -67,6 +67,7 @@ v7.0 Index Mgmt & Pipeline: [░░░░░░░░░░]   0% (started 2026-
 | Phase 09-runtime-backend-wiring P02 | 5 | 2 tasks | 1 files |
 | Phase 10-live-postgres-e2e P01 | 3.5 | 2 tasks | 1 files |
 | Phase 11 P01 | 3 | 3 tasks | 9 files |
+| Phase 12 P01 | 35 | 3 tasks | 11 files |
 
 ## Accumulated Context
 ### From v3.0 Advanced RAG
@@ -118,6 +119,9 @@ v7.0 Index Mgmt & Pipeline: [░░░░░░░░░░]   0% (started 2026-
 - [Phase 11]: Excluded historical/legacy files from path updates (.speckit/, docs/roadmaps/, docs/MIGRATION.md, docs/design/)
 - [Phase 11]: Excluded .planning/ internal records from path cleanup (intentional historical reference)
 - [Phase 11]: Structural verification only for requirements (functional correctness already validated in Phase 10)
+- [Phase 12]: Atomic JSONL writes via temp + Path.replace() — POSIX atomic, safe for process crashes during write
+- [Phase 12]: Two-step ChromaDB delete (query IDs then delete by IDs) — guards against empty ids=[] collection wipe bug
+- [Phase 12]: DELETE...RETURNING for PostgreSQL delete_by_metadata — single round-trip to delete and count
 
 ### From Phase 6 Plan 03 (Integration)
 - Factory creates PostgresBackend from YAML config with DATABASE_URL env var override
@@ -164,8 +168,8 @@ All 6 PostgreSQL integration testing bugs resolved in v6.0.3.
 
 ## Session Continuity
 
-**Last Session:** 2026-02-23
-**Stopped At:** Requirements + roadmap defined for v7.0
+**Last Session:** 2026-02-25T01:16:47.517Z
+**Stopped At:** Completed 12-01-PLAN.md
 **Resume File:** None
 **Next Action:** `/gsd:plan-phase 12` to create executable plans
 
