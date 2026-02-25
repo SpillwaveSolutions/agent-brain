@@ -1,12 +1,17 @@
 """Indexing service that orchestrates the document indexing pipeline."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import os
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from agent_brain_server.services.folder_manager import FolderManager
 
 from llama_index.core.schema import TextNode
 
@@ -56,6 +61,7 @@ class IndexingService:
         bm25_manager: BM25IndexManager | None = None,
         graph_index_manager: GraphIndexManager | None = None,
         storage_backend: StorageBackendProtocol | None = None,
+        folder_manager: FolderManager | None = None,
     ):
         """
         Initialize the indexing service.
@@ -70,6 +76,7 @@ class IndexingService:
                 (for backward compat).
             graph_index_manager: Graph index manager instance (Feature 113).
             storage_backend: Storage backend implementing protocol (preferred).
+            folder_manager: Optional folder manager for indexed folder tracking.
         """
         # Resolve storage_backend with backward compatibility
         if storage_backend is not None:
@@ -101,6 +108,7 @@ class IndexingService:
         self.chunker = chunker or ContextAwareChunker()
         self.embedding_generator = embedding_generator or EmbeddingGenerator()
         self.graph_index_manager = graph_index_manager or get_graph_index_manager()
+        self.folder_manager = folder_manager
 
         # Internal state
         self._state = IndexingState(
@@ -255,6 +263,24 @@ class IndexingService:
             logger.info(
                 f"Normalizing indexing path: {request.folder_path} -> {abs_folder_path}"
             )
+
+            # Resolve file type presets to glob patterns (FTYPE-03, FTYPE-06)
+            effective_include_patterns = list(request.include_patterns or [])
+            if request.include_types:
+                from agent_brain_server.services.file_type_presets import (
+                    resolve_file_types,
+                )
+
+                preset_patterns = resolve_file_types(request.include_types)
+                # Union of preset patterns and explicit include_patterns
+                for pattern in preset_patterns:
+                    if pattern not in effective_include_patterns:
+                        effective_include_patterns.append(pattern)
+                logger.info(
+                    f"Resolved include_types {request.include_types} to "
+                    f"{len(preset_patterns)} patterns, "
+                    f"{len(effective_include_patterns)} total effective patterns"
+                )
 
             documents = await self.document_loader.load_files(
                 abs_folder_path,
@@ -502,6 +528,19 @@ class IndexingService:
             self._state.is_indexing = False
             self._indexed_folders.add(abs_folder_path)
 
+            # Register folder with FolderManager for persistent tracking (Phase 12)
+            if self.folder_manager is not None:
+                chunk_ids = [chunk.chunk_id for chunk in chunks]
+                await self.folder_manager.add_folder(
+                    folder_path=abs_folder_path,
+                    chunk_count=len(chunks),
+                    chunk_ids=chunk_ids,
+                )
+                logger.info(
+                    f"Registered folder {abs_folder_path} with FolderManager "
+                    f"({len(chunks)} chunks)"
+                )
+
             if progress_callback:
                 await progress_callback(100, 100, "Indexing complete!")
 
@@ -541,6 +580,13 @@ class IndexingService:
         # Get graph index status (Feature 113)
         graph_status = self.graph_index_manager.get_status()
 
+        # Use FolderManager for persistent folder list if available (Phase 12)
+        if self.folder_manager is not None:
+            folder_records = await self.folder_manager.list_folders()
+            indexed_folders: list[str] = [r.folder_path for r in folder_records]
+        else:
+            indexed_folders = sorted(self._indexed_folders)
+
         return {
             "status": self._state.status.value,
             "is_indexing": self._state.is_indexing,
@@ -562,7 +608,7 @@ class IndexingService:
                 else None
             ),
             "error": self._state.error,
-            "indexed_folders": sorted(self._indexed_folders),
+            "indexed_folders": indexed_folders,
             # Graph index status (Feature 113)
             "graph_index": {
                 "enabled": graph_status.enabled,
@@ -584,6 +630,9 @@ class IndexingService:
             self.bm25_manager.reset()
             # Clear graph index (Feature 113)
             self.graph_index_manager.clear()
+            # Clear folder manager records (Phase 12)
+            if self.folder_manager is not None:
+                await self.folder_manager.clear()
             self._state = IndexingState(
                 current_job_id="",
                 folder_path="",

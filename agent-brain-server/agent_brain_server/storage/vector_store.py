@@ -455,6 +455,35 @@ class VectorStoreManager:
         logger.debug(f"Deleted {len(matching_ids)} documents matching where={where}")
         return len(matching_ids)
 
+    async def delete_by_ids(self, ids: list[str]) -> int:
+        """Delete documents by their chunk IDs and return count.
+
+        Guards against empty ID list to prevent accidental bulk deletion.
+        Passing ``ids=[]`` to ChromaDB's ``collection.delete()`` wipes the
+        entire collection.
+
+        Args:
+            ids: List of chunk IDs to delete. Returns 0 immediately if empty.
+
+        Returns:
+            Number of documents deleted (0 if ids is empty).
+
+        Raises:
+            RuntimeError: If the vector store is not initialized.
+        """
+        if not ids:
+            return 0
+
+        if not self.is_initialized:
+            raise RuntimeError("Vector store not initialized. Call initialize() first.")
+
+        async with self._lock:
+            assert self._collection is not None
+            self._collection.delete(ids=ids)
+
+        logger.debug(f"Deleted {len(ids)} documents by IDs")
+        return len(ids)
+
     async def delete_collection(self) -> None:
         """
         Delete the entire collection.

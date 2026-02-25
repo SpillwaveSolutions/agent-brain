@@ -553,6 +553,51 @@ class PostgresBackend:
                 backend="postgres",
             ) from e
 
+    async def delete_by_ids(
+        self,
+        ids: list[str],
+    ) -> int:
+        """Delete documents by their chunk IDs.
+
+        Guards against empty ID list. Executes a parameterized DELETE with
+        an IN clause and returns the number of rows deleted.
+
+        Args:
+            ids: List of chunk IDs to delete. Returns 0 immediately if empty.
+
+        Returns:
+            Number of documents deleted.
+
+        Raises:
+            StorageError: If the delete operation fails.
+        """
+        if not ids:
+            return 0
+
+        engine = self.connection_manager.engine
+        try:
+            sql = text(
+                """
+                DELETE FROM documents
+                WHERE chunk_id = ANY(CAST(:ids AS text[]))
+                RETURNING chunk_id
+                """
+            )
+            async with engine.begin() as conn:
+                result = await conn.execute(sql, {"ids": ids})
+                rows = result.fetchall()
+            deleted_count = len(rows)
+            logger.debug(
+                "Deleted %d documents by IDs",
+                deleted_count,
+            )
+            return deleted_count
+        except Exception as e:
+            raise StorageError(
+                f"Delete by IDs failed: {e}",
+                backend="postgres",
+            ) from e
+
     def validate_embedding_compatibility(
         self,
         provider: str,

@@ -314,3 +314,23 @@ class StorageBackendProtocol(Protocol):
             StorageError: If the delete operation fails.
         """
         ...
+
+    async def delete_by_ids(
+        self,
+        ids: list[str],
+    ) -> int:
+        """Delete documents by their chunk IDs.
+
+        Used for precise folder chunk removal when chunk IDs are known.
+        Guards against empty ID lists to prevent accidental bulk deletion.
+
+        Args:
+            ids: List of chunk IDs to delete. If empty, returns 0 immediately.
+
+        Returns:
+            Number of documents deleted.
+
+        Raises:
+            StorageError: If the delete operation fails.
+        """
+        ...

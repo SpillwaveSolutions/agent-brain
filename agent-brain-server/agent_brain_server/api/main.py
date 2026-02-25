@@ -39,7 +39,7 @@ from agent_brain_server.locking import (
 )
 from agent_brain_server.project_root import resolve_project_root
 from agent_brain_server.runtime import RuntimeState, delete_runtime, write_runtime
-from agent_brain_server.services import IndexingService, QueryService
+from agent_brain_server.services import FolderManager, IndexingService, QueryService
 from agent_brain_server.storage import (
     VectorStoreManager,
     get_effective_backend_type,
@@ -47,7 +47,13 @@ from agent_brain_server.storage import (
 )
 from agent_brain_server.storage_paths import resolve_state_dir, resolve_storage_paths
 
-from .routers import health_router, index_router, jobs_router, query_router
+from .routers import (
+    folders_router,
+    health_router,
+    index_router,
+    jobs_router,
+    query_router,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -281,6 +287,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                     f"Using exclude patterns from config: {exclude_patterns[:3]}..."
                 )
 
+        # Initialize FolderManager for indexed folder tracking (Phase 12)
+        if state_dir is not None:
+            folder_manager_dir = state_dir
+        else:
+            # No state directory — use a temp dir (in-memory equivalent)
+            import tempfile
+
+            folder_manager_dir = Path(tempfile.mkdtemp(prefix="agent-brain-folders-"))
+        folder_manager = FolderManager(state_dir=folder_manager_dir)
+        await folder_manager.initialize()
+        app.state.folder_manager = folder_manager
+        logger.info("Folder manager initialized")
+
         # Create document loader with exclude patterns
         from agent_brain_server.indexing import DocumentLoader
 
@@ -290,6 +309,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         indexing_service = IndexingService(
             storage_backend=storage_backend,
             document_loader=document_loader,
+            folder_manager=folder_manager,
         )
         app.state.indexing_service = indexing_service
 
@@ -413,6 +433,7 @@ app.add_middleware(
 # Include routers
 app.include_router(health_router, prefix="/health", tags=["Health"])
 app.include_router(index_router, prefix="/index", tags=["Indexing"])
+app.include_router(folders_router, prefix="/index/folders", tags=["Folders"])
 app.include_router(jobs_router, prefix="/index/jobs", tags=["Jobs"])
 app.include_router(query_router, prefix="/query", tags=["Querying"])
 

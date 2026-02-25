@@ -217,6 +217,12 @@ class MockCompleteBackend:
     ) -> int:
         return 0
 
+    async def delete_by_ids(
+        self,
+        ids: list[str],
+    ) -> int:
+        return len(ids)
+
 
 def test_protocol_complete_implementation() -> None:
     """Test that mock class with all methods satisfies protocol."""
