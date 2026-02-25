@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from agent_brain_server.services.folder_manager import FolderManager, FolderRecord
+from agent_brain_server.services.folder_manager import FolderManager
 
 
 @pytest.mark.asyncio
@@ -231,10 +231,7 @@ async def test_concurrent_adds_dont_corrupt(tmp_path: Path) -> None:
     await manager.initialize()
 
     # Add 10 folders concurrently
-    tasks = [
-        manager.add_folder(f"/path/{i}", i, [f"chunk{i}"])
-        for i in range(10)
-    ]
+    tasks = [manager.add_folder(f"/path/{i}", i, [f"chunk{i}"]) for i in range(10)]
     await asyncio.gather(*tasks)
 
     # Verify all were added
@@ -242,7 +239,7 @@ async def test_concurrent_adds_dont_corrupt(tmp_path: Path) -> None:
     assert len(folders) == 10
 
     # Verify JSONL file is valid
-    with open(manager.jsonl_path, "r", encoding="utf-8") as f:
+    with open(manager.jsonl_path, encoding="utf-8") as f:
         lines = f.readlines()
         assert len(lines) == 10
         for line in lines:
@@ -260,12 +257,17 @@ async def test_load_jsonl_handles_corrupt_lines(tmp_path: Path) -> None:
     # Create JSONL with mix of valid and corrupt lines
     with open(jsonl_path, "w", encoding="utf-8") as f:
         # Valid line
-        f.write(json.dumps({
-            "folder_path": "/valid/path",
-            "chunk_count": 10,
-            "last_indexed": "2026-01-01T00:00:00Z",
-            "chunk_ids": ["chunk1"],
-        }) + "\n")
+        f.write(
+            json.dumps(
+                {
+                    "folder_path": "/valid/path",
+                    "chunk_count": 10,
+                    "last_indexed": "2026-01-01T00:00:00Z",
+                    "chunk_ids": ["chunk1"],
+                }
+            )
+            + "\n"
+        )
         # Corrupt JSON
         f.write("{invalid json\n")
         # Missing required field
@@ -273,12 +275,17 @@ async def test_load_jsonl_handles_corrupt_lines(tmp_path: Path) -> None:
         # Empty line
         f.write("\n")
         # Another valid line
-        f.write(json.dumps({
-            "folder_path": "/valid/path2",
-            "chunk_count": 20,
-            "last_indexed": "2026-01-02T00:00:00Z",
-            "chunk_ids": ["chunk2"],
-        }) + "\n")
+        f.write(
+            json.dumps(
+                {
+                    "folder_path": "/valid/path2",
+                    "chunk_count": 20,
+                    "last_indexed": "2026-01-02T00:00:00Z",
+                    "chunk_ids": ["chunk2"],
+                }
+            )
+            + "\n"
+        )
 
     # Initialize and verify only valid records loaded
     manager = FolderManager(state_dir=tmp_path)

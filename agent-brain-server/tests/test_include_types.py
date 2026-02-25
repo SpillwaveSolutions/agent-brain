@@ -184,7 +184,6 @@ class TestIndexingServiceFolderManagerIntegration:
     @pytest.mark.asyncio
     async def test_indexing_service_accepts_folder_manager_param(self) -> None:
         """IndexingService can be instantiated with folder_manager parameter."""
-        from pathlib import Path
         from unittest.mock import AsyncMock, MagicMock
 
         from agent_brain_server.services.folder_manager import FolderManager

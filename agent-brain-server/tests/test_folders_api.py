@@ -5,12 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from agent_brain_server.api.routers.folders import router
-from agent_brain_server.models.folders import FolderInfo
 from agent_brain_server.services.folder_manager import FolderRecord
 
 
@@ -195,7 +193,6 @@ class TestRemoveFolder:
         )
 
         assert response.status_code == 200
-        data = response.json()
         # delete_by_ids should NOT have been called (empty chunk_ids)
         app.state.storage_backend.delete_by_ids.assert_not_called()
         # delete_by_metadata should have been called
