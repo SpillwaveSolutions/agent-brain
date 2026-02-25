@@ -1,10 +1,10 @@
 # Agent Brain — Project State
 **Last Updated:** 2026-02-24
 **Current Milestone:** v7.0 Index Management & Content Pipeline
-**Status:** In Progress — Phase 12 Plan 01 Complete
+**Status:** Ready to execute
 **Current Phase:** 12 (Folder Management & File Type Presets)
 **Total Phases:** 3 (Phases 12-14)
-**Current Plan:** 02
+**Current Plan:** 3
 **Total Plans in Phase:** 3
 
 ## Current Position
@@ -13,7 +13,7 @@ Plan: 01 complete, ready for 02
 Status: Plan 01 done — FolderManager, FileTypePresets, delete_by_metadata implemented
 Last activity: 2026-02-24 — Plan 01 complete
 
-**Progress:** [█████████░] 94%
+**Progress:** [██████████] 97%
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-23)
@@ -68,6 +68,7 @@ v7.0 Index Mgmt & Pipeline: [░░░░░░░░░░]   0% (started 2026-
 | Phase 10-live-postgres-e2e P01 | 3.5 | 2 tasks | 1 files |
 | Phase 11 P01 | 3 | 3 tasks | 9 files |
 | Phase 12 P01 | 35 | 3 tasks | 11 files |
+| Phase 12 P02 | 55 | 2 tasks | 12 files |
 
 ## Accumulated Context
 ### From v3.0 Advanced RAG
@@ -122,6 +123,9 @@ v7.0 Index Mgmt & Pipeline: [░░░░░░░░░░]   0% (started 2026-
 - [Phase 12]: Atomic JSONL writes via temp + Path.replace() — POSIX atomic, safe for process crashes during write
 - [Phase 12]: Two-step ChromaDB delete (query IDs then delete by IDs) — guards against empty ids=[] collection wipe bug
 - [Phase 12]: DELETE...RETURNING for PostgreSQL delete_by_metadata — single round-trip to delete and count
+- [Phase 12]: Added delete_by_ids to StorageBackendProtocol: chunk metadata stores file paths not folder paths, so targeted ID-based deletion is required for correct folder removal
+- [Phase 12]: FOLD-07 check uses job_service.store.get_running_job() for efficient single-job lookup instead of list_jobs()
+- [Phase 12]: FolderManager uses temp dir fallback when no state_dir configured for backward compat with single-instance mode
 
 ### From Phase 6 Plan 03 (Integration)
 - Factory creates PostgresBackend from YAML config with DATABASE_URL env var override
@@ -168,8 +172,8 @@ All 6 PostgreSQL integration testing bugs resolved in v6.0.3.
 
 ## Session Continuity
 
-**Last Session:** 2026-02-25T01:16:47.517Z
-**Stopped At:** Completed 12-01-PLAN.md
+**Last Session:** 2026-02-25T03:46:19.182Z
+**Stopped At:** Completed 12-02-PLAN.md
 **Resume File:** None
 **Next Action:** `/gsd:plan-phase 12` to create executable plans
 
