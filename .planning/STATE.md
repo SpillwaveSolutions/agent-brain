@@ -172,7 +172,8 @@ v7.0 Index Mgmt & Pipeline: [███░░░░░░░]  33% (Phase 12 done
 - Documentation must clarify no auto-migration tool (users rebuild from source)
 
 ### Pending Todos
-All 6 PostgreSQL integration testing bugs resolved in v6.0.3.
+1 pending todo:
+- **Fix include_types pipeline plumbing** (area: api) — 3 breakpoints in JobRecord→worker→DocumentLoader pipeline silently drop preset filtering + missing unknown-preset validation
 
 ## Session Continuity
 
