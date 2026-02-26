@@ -176,6 +176,7 @@ class JobQueueService:
             generate_summaries=request.generate_summaries,
             supported_languages=request.supported_languages,
             include_patterns=request.include_patterns,
+            include_types=request.include_types,
             exclude_patterns=request.exclude_patterns,
             status=JobStatus.PENDING,
             enqueued_at=datetime.now(timezone.utc),

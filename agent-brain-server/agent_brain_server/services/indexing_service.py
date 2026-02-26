@@ -286,6 +286,7 @@ class IndexingService:
                 abs_folder_path,
                 recursive=request.recursive,
                 include_code=request.include_code,
+                include_patterns=effective_include_patterns or None,
             )
 
             self._state.total_documents = len(documents)

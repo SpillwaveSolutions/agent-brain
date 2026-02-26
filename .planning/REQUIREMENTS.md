@@ -10,7 +10,7 @@ Give users full control over what gets indexed, how folders are managed, and how
 ## Folder Management
 
 - [ ] **FOLD-01**: List all indexed folders via CLI (`agent-brain folders list`) showing path, chunk count, and last indexed time
-- [ ] **FOLD-02**: List all indexed folders via API (`GET /index/folders`) returning JSON array with folder metadata
+- [ ] **FOLD-02**: List all indexed folders via API (`GET /index/folders`) returning JSON object with folders array and total count
 - [ ] **FOLD-03**: Remove a specific folder's chunks via CLI (`agent-brain folders remove /path`) with confirmation
 - [ ] **FOLD-04**: Remove a specific folder's chunks via API (`DELETE /index/folders` with folder_path body)
 - [ ] **FOLD-05**: Persist indexed folder list to disk (`indexed_folders.jsonl`) — survives server restarts

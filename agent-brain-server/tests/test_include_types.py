@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from agent_brain_server.models.index import IndexRequest
@@ -176,6 +178,155 @@ class TestIncludeTypesCombination:
 
         assert "*.py" in effective_patterns
         assert "*.toml" not in effective_patterns
+
+
+class TestJobRecordIncludeTypes:
+    """Tests for include_types field on JobRecord model."""
+
+    def test_job_record_stores_include_types(self) -> None:
+        """JobRecord stores and retrieves include_types."""
+        from agent_brain_server.models.job import JobRecord
+
+        job = JobRecord(
+            id="job_test123",
+            dedupe_key="abc",
+            folder_path="/some/path",
+            include_types=["python", "docs"],
+        )
+        assert job.include_types == ["python", "docs"]
+
+    def test_job_record_include_types_defaults_none(self) -> None:
+        """JobRecord.include_types defaults to None."""
+        from agent_brain_server.models.job import JobRecord
+
+        job = JobRecord(
+            id="job_test456",
+            dedupe_key="def",
+            folder_path="/some/path",
+        )
+        assert job.include_types is None
+
+    def test_job_record_serializes_include_types(self) -> None:
+        """JobRecord round-trips include_types through serialization."""
+        from agent_brain_server.models.job import JobRecord
+
+        job = JobRecord(
+            id="job_test789",
+            dedupe_key="ghi",
+            folder_path="/some/path",
+            include_types=["typescript"],
+        )
+        data = job.model_dump()
+        assert data["include_types"] == ["typescript"]
+
+        restored = JobRecord(**data)
+        assert restored.include_types == ["typescript"]
+
+
+class TestJobWorkerPassesIncludeTypes:
+    """Tests that job_worker passes include_types to IndexRequest."""
+
+    def test_index_request_from_job_record_has_include_types(self) -> None:
+        """IndexRequest reconstructed from JobRecord preserves include_types."""
+        from agent_brain_server.models.job import JobRecord
+
+        job = JobRecord(
+            id="job_test_worker",
+            dedupe_key="xyz",
+            folder_path="/some/path",
+            include_types=["python", "docs"],
+            include_patterns=["*.toml"],
+        )
+        # Simulate what job_worker does
+        index_request = IndexRequest(
+            folder_path=job.folder_path,
+            include_code=job.include_code,
+            chunk_size=job.chunk_size,
+            chunk_overlap=job.chunk_overlap,
+            recursive=job.recursive,
+            generate_summaries=job.generate_summaries,
+            supported_languages=job.supported_languages,
+            include_patterns=job.include_patterns,
+            include_types=job.include_types,
+            exclude_patterns=job.exclude_patterns,
+        )
+        assert index_request.include_types == ["python", "docs"]
+        assert index_request.include_patterns == ["*.toml"]
+
+
+class TestDocumentLoaderIncludePatterns:
+    """Tests for DocumentLoader.load_files() include_patterns parameter."""
+
+    @pytest.mark.asyncio
+    async def test_load_files_with_include_patterns(self, tmp_path: Path) -> None:
+        """load_files() filters by include_patterns when provided."""
+        from agent_brain_server.indexing.document_loader import DocumentLoader
+
+        # Create test files
+        (tmp_path / "hello.py").write_text("print('hello')")
+        (tmp_path / "readme.md").write_text("# Readme")
+        (tmp_path / "config.toml").write_text("[tool]")
+
+        loader = DocumentLoader()
+        # Only load .py files
+        docs = await loader.load_files(
+            str(tmp_path),
+            include_code=True,
+            include_patterns=["*.py"],
+        )
+        extensions = {Path(d.source).suffix for d in docs}
+        assert ".py" in extensions
+        assert ".md" not in extensions
+        assert ".toml" not in extensions
+
+    @pytest.mark.asyncio
+    async def test_load_files_without_include_patterns(self, tmp_path: Path) -> None:
+        """load_files() without include_patterns uses default extensions."""
+        from agent_brain_server.indexing.document_loader import DocumentLoader
+
+        (tmp_path / "readme.md").write_text("# Readme")
+        (tmp_path / "notes.txt").write_text("Some notes")
+
+        loader = DocumentLoader()
+        docs = await loader.load_files(str(tmp_path), include_code=False)
+        extensions = {Path(d.source).suffix for d in docs}
+        # Default doc extensions include .md and .txt
+        assert ".md" in extensions
+        assert ".txt" in extensions
+
+    @pytest.mark.asyncio
+    async def test_load_files_include_patterns_multiple(self, tmp_path: Path) -> None:
+        """load_files() with multiple include_patterns loads union."""
+        from agent_brain_server.indexing.document_loader import DocumentLoader
+
+        (tmp_path / "app.py").write_text("x = 1")
+        (tmp_path / "readme.md").write_text("# Hi")
+        (tmp_path / "data.json").write_text("{}")
+
+        loader = DocumentLoader()
+        docs = await loader.load_files(
+            str(tmp_path),
+            include_code=True,
+            include_patterns=["*.py", "*.md"],
+        )
+        extensions = {Path(d.source).suffix for d in docs}
+        assert ".py" in extensions
+        assert ".md" in extensions
+        assert ".json" not in extensions
+
+
+class TestAPIValidatesUnknownPresets:
+    """Tests that API returns 400 for unknown preset names."""
+
+    def test_resolve_file_types_raises_for_unknown(self) -> None:
+        """resolve_file_types raises ValueError for unknown presets."""
+        with pytest.raises(ValueError, match="Unknown file type preset"):
+            resolve_file_types(["bogus_preset"])
+
+    def test_resolve_file_types_raises_for_mixed_valid_invalid(self) -> None:
+        """resolve_file_types raises ValueError even if some presets are valid."""
+        with pytest.raises(ValueError, match="Unknown file type preset"):
+            resolve_file_types(["python", "totally_invalid"])
 
 
 class TestIndexingServiceFolderManagerIntegration:

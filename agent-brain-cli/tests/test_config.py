@@ -135,9 +135,12 @@ class TestLoadConfig:
 class TestGetServerUrl:
     """Tests for get_server_url function."""
 
-    def test_default_url(self) -> None:
+    def test_default_url(self, tmp_path: Path) -> None:
         """Test default URL when nothing configured."""
-        with patch.dict(os.environ, {}, clear=True):
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch("agent_brain_cli.config.get_state_dir", return_value=tmp_path),
+        ):
             url = get_server_url()
             assert url == "http://127.0.0.1:8000"
 
