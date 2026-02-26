@@ -24,7 +24,7 @@ scenario_run() {
         -H "Content-Type: application/json" \
         -d "{\"folder_path\": \"${code_path}\", \"include_code\": true}" 2>/dev/null || echo "{}")
 
-    echo "$index_response" | assert_contains "index code job queued" "job_id" || true
+    assert_contains "index code job queued" "job_id" "$index_response"
 
     # Wait for indexing
     wait_for_indexing 60

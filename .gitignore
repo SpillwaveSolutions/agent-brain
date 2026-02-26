@@ -120,6 +120,9 @@ data/
 indexed_docs/
 test_output/
 e2e/tmp/
+tmp/
+.tmp-*/
+*.bak
 !CLAUDE.md
 !AGENTS.md
 !.claude/
@@ -128,6 +131,7 @@ e2e/tmp/
 !CLAUDE.md
 !AGENTS.md
 
-# Doc-serve per-project state directories
+# Agent Brain per-project runtime state
+.claude/agent-brain/
 .claude/doc-serve/
 .claude/settings.local.json

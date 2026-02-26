@@ -18,15 +18,22 @@ scenario_run() {
 
     assert_success "graph search returned output" test -n "$output"
 
-    # Verify via direct call — graph may return empty if no graph index
-    local results
-    results=$(curl -sfL -X POST "http://127.0.0.1:${SERVER_PORT}/query/" \
+    # Verify via direct call — graph may return error if GraphRAG not enabled
+    local results http_code
+    http_code=$(curl -sL -o /dev/null -w "%{http_code}" -X POST "http://127.0.0.1:${SERVER_PORT}/query/" \
+        -H "Content-Type: application/json" \
+        -d '{"query": "calculator divide function", "mode": "graph", "top_k": 5}' 2>/dev/null || echo "000")
+    results=$(curl -sL -X POST "http://127.0.0.1:${SERVER_PORT}/query/" \
         -H "Content-Type: application/json" \
         -d '{"query": "calculator divide function", "mode": "graph", "top_k": 5}' 2>/dev/null || echo "{}")
 
-    # Graph mode might not have results if graph indexing isn't enabled
-    # but the API should still respond without error
-    echo "$results" | assert_json "response has results field" ".results" || true
+    # Graph mode returns .results if enabled, or .detail error if disabled (500)
+    # Both are valid — the API should respond coherently either way
+    if [[ "$http_code" == "200" ]]; then
+        assert_json "response has results field" ".results" "" "$results"
+    else
+        assert_json "graph-disabled returns error detail" ".detail" "" "$results"
+    fi
 
     assert_all_passed
 }

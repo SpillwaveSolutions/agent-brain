@@ -17,7 +17,7 @@ scenario_run() {
     local health
     health=$(curl -sfL "http://127.0.0.1:${SERVER_PORT}/health" 2>/dev/null || echo "")
 
-    echo "$health" | assert_contains "health endpoint responds" "status" || true
+    assert_contains "health endpoint responds" "status" "$health"
     assert_success "server port is open" curl -sfL "http://127.0.0.1:${SERVER_PORT}/health"
 
     assert_all_passed

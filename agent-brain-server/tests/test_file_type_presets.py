@@ -52,7 +52,15 @@ class TestResolveFileTypes:
     def test_python_and_docs_combined(self) -> None:
         """Test combining python and docs presets."""
         result = resolve_file_types(["python", "docs"])
-        expected_patterns = ["*.py", "*.pyi", "*.pyw", "*.md", "*.txt", "*.rst", "*.pdf"]
+        expected_patterns = [
+            "*.py",
+            "*.pyi",
+            "*.pyw",
+            "*.md",
+            "*.txt",
+            "*.rst",
+            "*.pdf",
+        ]
         assert result == expected_patterns
 
     def test_unknown_preset_raises_value_error(self) -> None:
@@ -108,9 +116,9 @@ class TestResolveFileTypes:
     def test_code_preset_deduplicated(self) -> None:
         """Test that 'code' preset has no duplicate patterns."""
         code_patterns = resolve_file_types(["code"])
-        assert len(code_patterns) == len(set(code_patterns)), (
-            "Code preset contains duplicate patterns"
-        )
+        assert len(code_patterns) == len(
+            set(code_patterns)
+        ), "Code preset contains duplicate patterns"
 
     def test_text_preset_patterns(self) -> None:
         """Test the 'text' preset patterns."""
@@ -211,6 +219,6 @@ class TestListPresets:
         for name, patterns in presets.items():
             assert isinstance(patterns, list), f"Preset '{name}' value is not a list"
             for pattern in patterns:
-                assert isinstance(pattern, str), (
-                    f"Pattern '{pattern}' in preset '{name}' is not a string"
-                )
+                assert isinstance(
+                    pattern, str
+                ), f"Pattern '{pattern}' in preset '{name}' is not a string"

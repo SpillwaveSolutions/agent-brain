@@ -22,7 +22,7 @@ scenario_run() {
     # Also verify via direct HTTP call
     local health
     health=$(curl -sfL "http://127.0.0.1:${SERVER_PORT}/health" 2>/dev/null)
-    echo "$health" | assert_contains "health shows status field" "status" || true
+    assert_contains "health shows status field" "status" "$health"
 
     assert_all_passed
 }
