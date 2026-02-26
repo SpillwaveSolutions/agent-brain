@@ -173,14 +173,17 @@ v7.0 Index Mgmt & Pipeline: [███░░░░░░░]  33% (Phase 12 done
 
 ### Pending Todos
 1 pending todo:
-- **Fix include_types pipeline plumbing** (area: api) — 3 breakpoints in JobRecord→worker→DocumentLoader pipeline silently drop preset filtering + missing unknown-preset validation
+- **Update agent plugin and skills for latest features** (area: plugin) — Plugin/skill packages behind Phase 12 CLI/server features (folders, types, include-type flag)
+
+### Done Todos
+- ~~Fix include_types pipeline plumbing~~ (area: api) — Resolved 2026-02-26, merged PR #113
 
 ## Session Continuity
 
-**Last Session:** 2026-02-25T04:17:32Z
-**Stopped At:** Completed 12-03-PLAN.md (Phase 12 COMPLETE)
+**Last Session:** 2026-02-26
+**Stopped At:** Merged PR #113 (include_types fix), added plugin/skills update todo
 **Resume File:** None
-**Next Action:** Phase 13 planning when ready
+**Next Action:** Phase 13 planning or plugin/skills update
 
 ---
-*State updated: 2026-02-25*
+*State updated: 2026-02-26*
