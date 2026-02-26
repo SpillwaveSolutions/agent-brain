@@ -74,6 +74,15 @@ class QueryResponse:
 
 
 @dataclass
+class FolderInfo:
+    """Indexed folder information."""
+
+    folder_path: str
+    chunk_count: int
+    last_indexed: str
+
+
+@dataclass
 class IndexResponse:
     """Indexing operation response."""
 
@@ -277,6 +286,7 @@ class DocServeClient:
         code_chunk_strategy: str = "ast_aware",
         include_patterns: list[str] | None = None,
         exclude_patterns: list[str] | None = None,
+        include_types: list[str] | None = None,
         generate_summaries: bool = False,
         force: bool = False,
         allow_external: bool = False,
@@ -294,6 +304,7 @@ class DocServeClient:
             code_chunk_strategy: Strategy for code chunking.
             include_patterns: Additional include patterns.
             exclude_patterns: Additional exclude patterns.
+            include_types: File type preset names (e.g., ["python", "docs"]).
             generate_summaries: Generate LLM summaries for code chunks.
             force: Bypass deduplication and force a new job.
             allow_external: Allow paths outside the project directory.
@@ -301,22 +312,26 @@ class DocServeClient:
         Returns:
             IndexResponse with job ID and queue status.
         """
+        body: dict[str, Any] = {
+            "folder_path": folder_path,
+            "chunk_size": chunk_size,
+            "chunk_overlap": chunk_overlap,
+            "recursive": recursive,
+            "include_code": include_code,
+            "supported_languages": supported_languages,
+            "code_chunk_strategy": code_chunk_strategy,
+            "include_patterns": include_patterns,
+            "exclude_patterns": exclude_patterns,
+            "generate_summaries": generate_summaries,
+            "force": force,
+        }
+        if include_types is not None:
+            body["include_types"] = include_types
+
         data = self._request(
             "POST",
             "/index/",
-            json={
-                "folder_path": folder_path,
-                "chunk_size": chunk_size,
-                "chunk_overlap": chunk_overlap,
-                "recursive": recursive,
-                "include_code": include_code,
-                "supported_languages": supported_languages,
-                "code_chunk_strategy": code_chunk_strategy,
-                "include_patterns": include_patterns,
-                "exclude_patterns": exclude_patterns,
-                "generate_summaries": generate_summaries,
-                "force": force,
-            },
+            json=body,
             params={"force": force, "allow_external": allow_external},
         )
 
@@ -325,6 +340,41 @@ class DocServeClient:
             status=data["status"],
             message=data.get("message"),
         )
+
+    def list_folders(self) -> list[FolderInfo]:
+        """
+        List all indexed folders.
+
+        Returns:
+            List of FolderInfo objects sorted by folder path.
+        """
+        data = self._request("GET", "/index/folders/")
+        folders: list[FolderInfo] = [
+            FolderInfo(
+                folder_path=f["folder_path"],
+                chunk_count=f["chunk_count"],
+                last_indexed=f["last_indexed"],
+            )
+            for f in data.get("folders", [])
+        ]
+        return folders
+
+    def delete_folder(self, folder_path: str) -> dict[str, Any]:
+        """
+        Delete all indexed chunks for a folder.
+
+        Args:
+            folder_path: Absolute path to the folder to remove.
+
+        Returns:
+            Response dict with folder_path, chunks_deleted, and message.
+        """
+        result: dict[str, Any] = self._request(
+            "DELETE",
+            "/index/folders/",
+            json={"folder_path": folder_path},
+        )
+        return result
 
     def reset(self) -> IndexResponse:
         """

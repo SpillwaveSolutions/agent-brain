@@ -24,7 +24,7 @@ scenario_run() {
         -H "Content-Type: application/json" \
         -d '{"query": "search modes hybrid retrieval", "mode": "multi", "top_k": 5}' 2>/dev/null || echo "{}")
 
-    echo "$results" | assert_json "response has results field" ".results" || true
+    assert_json "response has results field" ".results" "" "$results"
 
     assert_all_passed
 }

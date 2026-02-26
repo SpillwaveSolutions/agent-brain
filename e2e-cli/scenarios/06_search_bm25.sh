@@ -24,8 +24,8 @@ scenario_run() {
         -H "Content-Type: application/json" \
         -d '{"query": "ChromaDB vector store", "mode": "bm25", "top_k": 5}' 2>/dev/null || echo "{}")
 
-    echo "$results" | assert_json "response has results field" ".results" || true
-    echo "$results" | assert_json "response has total_results" ".total_results" || true
+    assert_json "response has results field" ".results" "" "$results"
+    assert_json "response has total_results" ".total_results" "" "$results"
 
     assert_all_passed
 }

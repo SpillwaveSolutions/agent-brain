@@ -56,6 +56,15 @@ console = Console()
     help="Comma-separated additional include patterns (wildcards supported)",
 )
 @click.option(
+    "--include-type",
+    "include_type",
+    help=(
+        "Comma-separated file type presets to include "
+        "(e.g., python,docs,typescript). "
+        "Use 'agent-brain types list' to see all available presets."
+    ),
+)
+@click.option(
     "--exclude-patterns",
     help="Comma-separated additional exclude patterns (wildcards supported)",
 )
@@ -85,6 +94,7 @@ def index_command(
     languages: str | None,
     code_strategy: str,
     include_patterns: str | None,
+    include_type: str | None,
     exclude_patterns: str | None,
     generate_summaries: bool,
     force: bool,
@@ -110,6 +120,9 @@ def index_command(
         if include_patterns
         else None
     )
+    include_types_list = (
+        [t.strip() for t in include_type.split(",")] if include_type else None
+    )
     exclude_patterns_list = (
         [pat.strip() for pat in exclude_patterns.split(",")]
         if exclude_patterns
@@ -127,6 +140,7 @@ def index_command(
                 supported_languages=languages_list,
                 code_chunk_strategy=code_strategy,
                 include_patterns=include_patterns_list,
+                include_types=include_types_list,
                 exclude_patterns=exclude_patterns_list,
                 generate_summaries=generate_summaries,
                 force=force,
@@ -149,6 +163,8 @@ def index_command(
             console.print(f"[bold]Job ID:[/] {response.job_id}")
             console.print(f"[bold]Folder:[/] {folder}")
             console.print(f"[bold]Status:[/] {response.status}")
+            if include_type:
+                console.print(f"[bold]Include Types:[/] {include_type}")
             if response.message:
                 # Check for duplicate detection message
                 if "Duplicate" in (response.message or ""):

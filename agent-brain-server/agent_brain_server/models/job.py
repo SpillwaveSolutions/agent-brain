@@ -65,6 +65,9 @@ class JobRecord(BaseModel):
     include_patterns: list[str] | None = Field(
         default=None, description="File patterns to include"
     )
+    include_types: list[str] | None = Field(
+        default=None, description="File type preset names to include"
+    )
     exclude_patterns: list[str] | None = Field(
         default=None, description="File patterns to exclude"
     )

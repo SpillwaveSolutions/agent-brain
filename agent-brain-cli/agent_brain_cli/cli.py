@@ -9,6 +9,7 @@ import click
 from . import __version__
 from .commands import (
     config_group,
+    folders_group,
     index_command,
     init_command,
     jobs_command,
@@ -18,6 +19,7 @@ from .commands import (
     start_command,
     status_command,
     stop_command,
+    types_group,
 )
 
 
@@ -45,13 +47,25 @@ def cli() -> None:
       reset    Clear all indexed documents
 
     \b
+    Folder Commands:
+      folders  Manage indexed folders (list, add, remove)
+
+    \b
+    File Type Commands:
+      types    List available file type presets
+
+    \b
     Examples:
-      agent-brain init                      # Initialize project
-      agent-brain start                     # Start server
-      agent-brain status                    # Check server status
-      agent-brain query "how to use python" # Search documents
-      agent-brain index ./docs              # Index documents
-      agent-brain stop                      # Stop server
+      agent-brain init                                # Initialize project
+      agent-brain start                               # Start server
+      agent-brain status                              # Check server status
+      agent-brain query "how to use python"           # Search documents
+      agent-brain index ./docs                        # Index documents
+      agent-brain index ./src --include-type python   # Index with preset
+      agent-brain folders list                        # List indexed folders
+      agent-brain folders remove ./docs --yes         # Remove folder chunks
+      agent-brain types list                          # Show file type presets
+      agent-brain stop                                # Stop server
 
     \b
     Environment Variables:
@@ -73,6 +87,8 @@ cli.add_command(index_command, name="index")
 cli.add_command(jobs_command, name="jobs")
 cli.add_command(reset_command, name="reset")
 cli.add_command(config_group, name="config")
+cli.add_command(folders_group, name="folders")
+cli.add_command(types_group, name="types")
 
 
 if __name__ == "__main__":

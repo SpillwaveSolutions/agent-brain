@@ -76,6 +76,15 @@ class IndexRequest(BaseModel):
         description="Additional file patterns to include (supports wildcards)",
         examples=[["*.md", "*.py"], ["docs/**/*.md", "src/**/*.py"]],
     )
+    include_types: list[str] | None = Field(
+        default=None,
+        description=(
+            "File type presets to include (e.g., ['python', 'docs']). "
+            "Resolved to glob patterns before indexing. "
+            "Can be combined with include_patterns (union of both)."
+        ),
+        examples=[["python", "docs"], ["code"], ["typescript", "web"]],
+    )
     exclude_patterns: list[str] | None = Field(
         default=None,
         description="Additional file patterns to exclude (supports wildcards)",
@@ -107,6 +116,11 @@ class IndexRequest(BaseModel):
                     "include_code": True,
                     "supported_languages": ["java", "kotlin"],
                     "code_chunk_strategy": "ast_aware",
+                },
+                {
+                    "folder_path": "/path/to/project",
+                    "include_types": ["python", "docs"],
+                    "recursive": True,
                 },
             ]
         }

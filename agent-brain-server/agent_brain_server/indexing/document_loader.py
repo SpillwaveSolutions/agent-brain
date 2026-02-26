@@ -483,6 +483,7 @@ class DocumentLoader:
         folder_path: str,
         recursive: bool = True,
         include_code: bool = False,
+        include_patterns: list[str] | None = None,
     ) -> list[LoadedDocument]:
         """
         Load documents and optionally code files from a folder.
@@ -491,6 +492,11 @@ class DocumentLoader:
             folder_path: Path to the folder containing files to load.
             recursive: Whether to scan subdirectories recursively.
             include_code: Whether to include source code files alongside documents.
+            include_patterns: Optional glob patterns (e.g. ``["*.py", "*.md"]``)
+                that restrict which files are loaded.  When provided, patterns
+                like ``*.py`` are converted to extensions (``.py``) and used as
+                the effective extension set via
+                ``SimpleDirectoryReader(required_exts=...)``.
 
         Returns:
             List of LoadedDocument objects with proper metadata.
@@ -499,8 +505,24 @@ class DocumentLoader:
             ValueError: If folder path is invalid.
             FileNotFoundError: If folder doesn't exist.
         """
-        # Configure extensions based on include_code flag
-        if include_code:
+        # If explicit include_patterns provided, derive extensions from them
+        if include_patterns:
+            effective_extensions = set()
+            for pattern in include_patterns:
+                # Convert glob pattern like "*.py" → ".py"
+                if pattern.startswith("*."):
+                    ext = pattern[1:]  # "*.py" → ".py"
+                    effective_extensions.add(ext)
+                elif pattern.startswith("."):
+                    effective_extensions.add(pattern)
+            if not effective_extensions:
+                # Patterns didn't yield any extensions; fall through to default
+                effective_extensions = (
+                    self.SUPPORTED_EXTENSIONS
+                    if include_code
+                    else self.DOCUMENT_EXTENSIONS
+                )
+        elif include_code:
             # Use all supported extensions (docs + code)
             effective_extensions = self.SUPPORTED_EXTENSIONS
         else:

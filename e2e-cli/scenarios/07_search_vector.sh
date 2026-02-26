@@ -24,8 +24,8 @@ scenario_run() {
         -H "Content-Type: application/json" \
         -d '{"query": "how does document embedding work", "mode": "vector", "top_k": 5}' 2>/dev/null || echo "{}")
 
-    echo "$results" | assert_json "response has results field" ".results" || true
-    echo "$results" | assert_json "response has query_time_ms" ".query_time_ms" || true
+    assert_json "response has results field" ".results" "" "$results"
+    assert_json "response has query_time_ms" ".query_time_ms" "" "$results"
 
     assert_all_passed
 }

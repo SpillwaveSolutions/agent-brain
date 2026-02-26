@@ -19,7 +19,7 @@ scenario_run() {
     # Verify the health endpoint returns valid JSON with status field
     local health
     health=$(curl -sfL "http://127.0.0.1:${SERVER_PORT}/health" 2>/dev/null)
-    echo "$health" | assert_json "health has status field" ".status" || true
+    assert_json "health has status field" ".status" "" "$health"
 
     # Note: actual server stop is handled by the harness at the end of the run
     assert_all_passed

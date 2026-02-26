@@ -217,6 +217,7 @@ class JobWorker:
                 generate_summaries=job.generate_summaries,
                 supported_languages=job.supported_languages,
                 include_patterns=job.include_patterns,
+                include_types=job.include_types,
                 exclude_patterns=job.exclude_patterns,
             )
 

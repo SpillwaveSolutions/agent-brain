@@ -139,6 +139,18 @@ async def index_documents(
             detail=f"Cannot read folder: {request_body.folder_path}",
         )
 
+    # Validate include_types presets early (before enqueueing)
+    if request_body.include_types is not None:
+        from agent_brain_server.services.file_type_presets import resolve_file_types
+
+        try:
+            resolve_file_types(request_body.include_types)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e),
+            ) from e
+
     # Get job service from app state
     job_service = request.app.state.job_service
 
@@ -164,6 +176,7 @@ async def index_documents(
             supported_languages=request_body.supported_languages,
             code_chunk_strategy=request_body.code_chunk_strategy,
             include_patterns=request_body.include_patterns,
+            include_types=request_body.include_types,
             exclude_patterns=request_body.exclude_patterns,
             generate_summaries=request_body.generate_summaries,
             force=request_body.force,
@@ -246,6 +259,18 @@ async def add_documents(
             detail=f"Path is not a directory: {request_body.folder_path}",
         )
 
+    # Validate include_types presets early (before enqueueing)
+    if request_body.include_types is not None:
+        from agent_brain_server.services.file_type_presets import resolve_file_types
+
+        try:
+            resolve_file_types(request_body.include_types)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e),
+            ) from e
+
     # Get job service from app state
     job_service = request.app.state.job_service
 
@@ -269,6 +294,7 @@ async def add_documents(
             supported_languages=request_body.supported_languages,
             code_chunk_strategy=request_body.code_chunk_strategy,
             include_patterns=request_body.include_patterns,
+            include_types=request_body.include_types,
             exclude_patterns=request_body.exclude_patterns,
             force=request_body.force,
         )

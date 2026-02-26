@@ -1,29 +1,31 @@
 # Agent Brain — Project State
-**Last Updated:** 2026-02-22
-**Current Milestone:** All milestones complete (v3.0, v6.0, v6.0.4)
-**Status:** Between milestones — planning next
-**Current Phase:** —
-**Total Phases:** 11 (all complete)
-**Current Plan:** —
-**Total Plans in Phase:** —
+**Last Updated:** 2026-02-25
+**Current Milestone:** v7.0 Index Management & Content Pipeline
+**Status:** Phase 12 complete — all 3 plans done
+**Current Phase:** 12 (Folder Management & File Type Presets)
+**Total Phases:** 3 (Phases 12-14)
+**Current Plan:** 3 (COMPLETE)
+**Total Plans in Phase:** 3
 
 ## Current Position
-All 11 phases across 3 milestones complete.
-Last milestone: v6.0.4 Plugin & Install Fixes (shipped 2026-02-22)
-Last activity: 2026-02-22 — v6.0.4 milestone archived
+Phase: 12 — Folder Management & File Type Presets
+Plan: 03 complete — CLI folders/types commands, --include-type flag, plugin slash commands
+Status: ALL PLANS COMPLETE — Phase 12 done
+Last activity: 2026-02-25 — Plan 03 complete
 
 **Progress:** [██████████] 100%
 
 ## Project Reference
-See: .planning/PROJECT.md (updated 2026-02-22)
+See: .planning/PROJECT.md (updated 2026-02-23)
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Planning next milestone
+**Current focus:** v7.0 Index Management & Content Pipeline
 
 ## Milestone Summary
 ```
 v3.0 Advanced RAG:          [██████████] 100% (shipped 2026-02-10)
 v6.0 PostgreSQL Backend:    [██████████] 100% (shipped 2026-02-13)
 v6.0.4 Plugin & Install:   [██████████] 100% (shipped 2026-02-22)
+v7.0 Index Mgmt & Pipeline: [███░░░░░░░]  33% (Phase 12 done 2026-02-25)
 ```
 ## Performance Metrics
 **Velocity (v3.0 milestone):**
@@ -65,6 +67,9 @@ v6.0.4 Plugin & Install:   [██████████] 100% (shipped 2026-0
 | Phase 09-runtime-backend-wiring P02 | 5 | 2 tasks | 1 files |
 | Phase 10-live-postgres-e2e P01 | 3.5 | 2 tasks | 1 files |
 | Phase 11 P01 | 3 | 3 tasks | 9 files |
+| Phase 12 P01 | 35 | 3 tasks | 11 files |
+| Phase 12 P02 | 55 | 2 tasks | 12 files |
+| Phase 12 P03 | 10 | 3 tasks | 6 files created, 8 modified |
 
 ## Accumulated Context
 ### From v3.0 Advanced RAG
@@ -116,6 +121,15 @@ v6.0.4 Plugin & Install:   [██████████] 100% (shipped 2026-0
 - [Phase 11]: Excluded historical/legacy files from path updates (.speckit/, docs/roadmaps/, docs/MIGRATION.md, docs/design/)
 - [Phase 11]: Excluded .planning/ internal records from path cleanup (intentional historical reference)
 - [Phase 11]: Structural verification only for requirements (functional correctness already validated in Phase 10)
+- [Phase 12]: Atomic JSONL writes via temp + Path.replace() — POSIX atomic, safe for process crashes during write
+- [Phase 12]: Two-step ChromaDB delete (query IDs then delete by IDs) — guards against empty ids=[] collection wipe bug
+- [Phase 12]: DELETE...RETURNING for PostgreSQL delete_by_metadata — single round-trip to delete and count
+- [Phase 12]: Added delete_by_ids to StorageBackendProtocol: chunk metadata stores file paths not folder paths, so targeted ID-based deletion is required for correct folder removal
+- [Phase 12]: FOLD-07 check uses job_service.store.get_running_job() for efficient single-job lookup instead of list_jobs()
+- [Phase 12]: FolderManager uses temp dir fallback when no state_dir configured for backward compat with single-instance mode
+- [Phase 12 P03]: Hardcode FILE_TYPE_PRESETS in CLI to avoid agent-brain-server cross-package dependency
+- [Phase 12 P03]: folders add is alias for index (idempotent re-indexing per FOLD-09)
+- [Phase 12 P03]: folder_path for remove uses type=str not click.Path to allow non-existent disk paths
 
 ### From Phase 6 Plan 03 (Integration)
 - Factory creates PostgresBackend from YAML config with DATABASE_URL env var override
@@ -158,15 +172,15 @@ v6.0.4 Plugin & Install:   [██████████] 100% (shipped 2026-0
 - Documentation must clarify no auto-migration tool (users rebuild from source)
 
 ### Pending Todos
-All 6 PostgreSQL integration testing bugs resolved in v6.0.3.
+1 pending todo:
+- **Fix include_types pipeline plumbing** (area: api) — 3 breakpoints in JobRecord→worker→DocumentLoader pipeline silently drop preset filtering + missing unknown-preset validation
 
 ## Session Continuity
 
-**Last Session:** 2026-02-22
-**Stopped At:** v6.0.4 milestone archived — all milestones complete
+**Last Session:** 2026-02-25T04:17:32Z
+**Stopped At:** Completed 12-03-PLAN.md (Phase 12 COMPLETE)
 **Resume File:** None
-**Next Action:** `/gsd:new-milestone` to start next milestone
+**Next Action:** Phase 13 planning when ready
 
 ---
-*State updated: 2026-02-22*
-*State updated: 2026-02-20*
+*State updated: 2026-02-25*
