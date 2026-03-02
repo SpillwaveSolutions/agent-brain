@@ -37,8 +37,10 @@ class LanguageDetector:
     """
     Utility for detecting programming languages from file paths and content.
 
-    Supports the 10 languages with tree-sitter parsers:
-    - Python, TypeScript, JavaScript, Kotlin, C, C++, Java, Go, Rust, Swift
+    Supports languages with tree-sitter parsers (AST-aware chunking):
+    - Python, TypeScript, JavaScript, Go, Rust, Java, C, C++, C#, Pascal
+
+    Also detects Kotlin and Swift by extension/content (no AST chunking).
     """
 
     # Language detection by file extension
@@ -76,6 +78,11 @@ class LanguageDetector:
         # C#
         ".cs": "csharp",
         ".csx": "csharp",
+        # Object Pascal / Delphi / Free Pascal / Lazarus
+        ".pas": "pascal",
+        ".pp": "pascal",
+        ".lpr": "pascal",
+        ".dpr": "pascal",
     }
 
     # Language detection by content patterns (fallback)
@@ -140,6 +147,17 @@ class LanguageDetector:
                 r"^\s*public\s+(class|interface|struct|record|enum)\s+\w+",
                 re.MULTILINE,
             ),
+        ],
+        "pascal": [
+            re.compile(
+                r"^\s*(unit|program|library)\s+\w+\s*;",
+                re.MULTILINE | re.IGNORECASE,
+            ),
+            re.compile(
+                r"^\s*(procedure|function)\s+\w+",
+                re.MULTILINE | re.IGNORECASE,
+            ),
+            re.compile(r"\bbegin\b", re.MULTILINE | re.IGNORECASE),
         ],
     }
 
@@ -280,6 +298,10 @@ class DocumentLoader:
         ".swift",  # Swift
         ".cs",
         ".csx",  # C#
+        ".pas",
+        ".pp",
+        ".lpr",
+        ".dpr",  # Object Pascal / Delphi / Free Pascal
     }
 
     SUPPORTED_EXTENSIONS: set[str] = DOCUMENT_EXTENSIONS | CODE_EXTENSIONS
