@@ -300,3 +300,153 @@ namespace MyApp {
     # Check that symbols are found across chunks
     symbol_names = [c.metadata.symbol_name for c in chunks if c.metadata.symbol_name]
     assert "Calculator" in symbol_names or "Add" in symbol_names
+
+
+# --- Pascal Code Chunker Tests ---
+
+
+def test_pascal_code_chunker_initialization() -> None:
+    """Test CodeChunker can be initialized for pascal."""
+    chunker = CodeChunker(language="pascal")
+    assert chunker.language == "pascal"
+    assert chunker.ts_language is not None
+
+
+def test_pascal_symbol_extraction_basic() -> None:
+    """Test symbol extraction from basic Pascal code (standalone routines)."""
+    chunker = CodeChunker(language="pascal")
+    code = """program TestProgs;
+procedure HelloWorld;
+begin
+  WriteLn('Hello');
+end;
+function AddNumbers(A, B: Integer): Integer;
+begin
+  Result := A + B;
+end;
+begin
+end.
+"""
+    symbols = chunker._get_symbols(code)
+    symbol_names = [s["name"] for s in symbols]
+    assert "HelloWorld" in symbol_names
+    assert "AddNumbers" in symbol_names
+
+
+def test_pascal_symbol_extraction_class() -> None:
+    """Test symbol extraction finds class type declarations and methods."""
+    chunker = CodeChunker(language="pascal")
+    code = """unit TestUnit;
+interface
+type
+  TGreeter = class
+    procedure Greet(const Name: string);
+    function GetGreeting: string;
+  end;
+  TPoint = record
+    X: Integer;
+    Y: Integer;
+  end;
+implementation
+procedure TGreeter.Greet(const Name: string);
+begin WriteLn(Name); end;
+function TGreeter.GetGreeting: string;
+begin Result := 'hello'; end;
+end.
+"""
+    symbols = chunker._get_symbols(code)
+    symbol_names = [s["name"] for s in symbols]
+    symbol_kinds = [s["kind"] for s in symbols]
+
+    # Type declarations
+    assert "TGreeter" in symbol_names
+    assert "TPoint" in symbol_names
+    # Method implementations (qualified names resolve to the method part)
+    assert "Greet" in symbol_names
+    assert "GetGreeting" in symbol_names
+
+    # Verify kind strings match actual grammar node names
+    assert "declType" in symbol_kinds
+    assert "defProc" in symbol_kinds
+
+
+def test_pascal_fixture_file_symbols() -> None:
+    """Test symbol extraction from the sample.pas fixture file."""
+    fixture_path = FIXTURES_DIR / "sample.pas"
+    if not fixture_path.exists():
+        pytest.skip("sample.pas fixture not found")
+
+    code = fixture_path.read_text()
+    chunker = CodeChunker(language="pascal")
+    symbols = chunker._get_symbols(code)
+    symbol_names = [s["name"] for s in symbols]
+
+    # Type declarations from the interface section
+    assert "TShape" in symbol_names
+    assert "TCircle" in symbol_names
+    assert "TPoint" in symbol_names
+
+    # Method implementations from the implementation section
+    assert "Create" in symbol_names
+    assert "Draw" in symbol_names
+    assert "GetColor" in symbol_names
+    assert "SetColor" in symbol_names
+
+    # Standalone routines
+    assert "CalculateDistance" in symbol_names
+    assert "PrintPoint" in symbol_names
+
+
+@pytest.mark.asyncio
+async def test_pascal_code_chunker_chunking() -> None:
+    """Test full chunking pipeline for Pascal code."""
+    code = (
+        """unit TestUnit;
+interface
+type
+  TShape = class
+    procedure Draw;
+    function GetColor: string;
+  end;
+implementation
+procedure TShape.Draw;
+begin
+  WriteLn('Drawing');
+end;
+function TShape.GetColor: string;
+begin
+  Result := 'red';
+end;
+{ padding }
+"""
+        + ("{ padding line }\n" * 30)
+        + """
+procedure StandaloneProc;
+begin
+  WriteLn('standalone');
+end;
+end.
+"""
+    )
+    doc = LoadedDocument(
+        text=code,
+        source="test.pas",
+        file_name="test.pas",
+        file_path="test.pas",
+        file_size=len(code),
+        metadata={"source_type": "code", "language": "pascal"},
+    )
+
+    chunker = CodeChunker(language="pascal", chunk_lines=5, max_chars=200)
+    chunks = await chunker.chunk_code_document(doc)
+
+    assert len(chunks) > 0
+
+    # At least one chunk should have a non-None symbol_name
+    symbol_names = [c.metadata.symbol_name for c in chunks if c.metadata.symbol_name]
+    assert len(symbol_names) > 0
+    assert (
+        "Draw" in symbol_names
+        or "TShape" in symbol_names
+        or "StandaloneProc" in symbol_names
+    )
