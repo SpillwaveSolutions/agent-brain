@@ -93,18 +93,15 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 - ✓ **PLUG-07**: Port auto-discovery for PostgreSQL (5432-5442 range) — v6.0.4
 - ✓ **PLUG-08**: Plugin version bumped to v6.0.3 — v6.0.4
 - ✓ **INFRA-06**: install.sh REPO_ROOT path corrected (doc-serve to agent-brain) — v6.0.4
+- ✓ **FOLD-01..10**: Folder management — list, add, remove indexed folders via CLI/API — v7.0
+- ✓ **FTYPE-01..07**: File type presets — `--include-type` shorthand for glob patterns — v7.0
+- ✓ **INJECT-01..08**: Content injection pipeline — custom scripts and folder-level JSON metadata — v7.0
+- ✓ **EVICT-01..10**: Manifest tracking and chunk eviction — incremental indexing with stale chunk removal — v7.0
+- ✓ **XCUT-01..06**: Cross-cutting quality (dual-backend, atomic writes, --help, OpenAPI, >70% coverage, before-push) — v7.0
 
 ### Active
 
-#### Current Milestone: v7.0 Index Management & Content Pipeline
-
-**Goal:** Give users full control over what gets indexed, how folders are managed, and how content is enriched — eliminating ghost chunks, enabling smart file type selection, and adding optional LLM-powered chunk enrichment.
-
-**Target features:**
-- Indexed Folder Management — list, add, remove indexed folders via CLI and plugin
-- Smart Include Filtering — file type presets (e.g., "markdown,text,pdf") instead of manual glob patterns
-- Chunk Eviction & Live Reindex — auto-remove stale chunks when files change, delete, or rename
-- Content Injector CLI — optional LLM-based chunk enrichment during indexing pipeline
+(No active milestone — v7.0 shipped)
 
 ### Out of Scope
 
@@ -120,16 +117,16 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ## Context
 
-**Current State (v6.0.4 completed 2026-02-22):**
-- ~3,200 lines PostgreSQL backend code across 12+ files
-- 772 tests passing (686 server + 86 CLI), 74% server / 54% CLI coverage
+**Current State (v7.0 shipped 2026-03-05):**
+- 829 tests passing (77% server coverage)
 - Dual-backend architecture: ChromaDB (default) + PostgreSQL (optional)
-- pgvector for vector search, tsvector for full-text search
+- Folder management: list, add, remove indexed folders via CLI/API
+- File type presets: 11 built-in presets for `--include-type` shorthand
+- Content injection: custom Python scripts and folder-level JSON metadata
+- Manifest-based incremental indexing: only processes changed/new files
+- Chunk eviction: automatic stale chunk removal for deleted/changed files
 - 7 embedding/summarization/reranking providers supported
 - Full GraphRAG with schema-based entity types (ChromaDB only)
-- CI with provider matrix testing + PostgreSQL service container
-- All documentation references updated to `.claude/agent-brain/` paths
-- Plugin v6.0.3 with port auto-discovery for PostgreSQL
 
 **Technology Stack:**
 - Python 3.10+ with Poetry packaging
@@ -176,6 +173,13 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 | Conditional ChromaDB init in main.py lifespan | PostgreSQL backend skips ChromaDB setup entirely | ✓ Good |
 | Exclude historical files from doc-serve path cleanup | Legacy/planning files document what was true at the time | ✓ Good |
 | Structural verification only for Phase 11 requirements | Functional correctness already validated in Phase 10 | ✓ Good |
+| Atomic JSONL writes via temp + Path.replace() | POSIX atomic, safe for process crashes during write | ✓ Good |
+| Two-step ChromaDB delete (query IDs then delete) | Guards against empty ids=[] collection wipe bug | ✓ Good |
+| Hardcode FILE_TYPE_PRESETS in CLI | Avoid cross-package dependency on server | ✓ Good |
+| ContentInjector writes only to chunk.metadata.extra | Prevents injectors from overwriting schema fields | ✓ Good |
+| ManifestTracker SHA-256 keyed manifest paths | Flat directory, no path-separator issues across OS | ✓ Good |
+| mtime fast-path before SHA-256 checksum | O(1) for ~95% of unchanged files | ✓ Good |
+| eviction_summary as dict[str, Any] on JobRecord | Pydantic-friendly serialization, no server import in CLI | ✓ Good |
 
 ---
-*Last updated: 2026-02-23 after v7.0 milestone started*
+*Last updated: 2026-03-05 after v7.0 milestone shipped*

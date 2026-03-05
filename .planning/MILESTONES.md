@@ -51,3 +51,22 @@
 
 ---
 
+
+## v7.0 Index Management & Content Pipeline (Shipped: 2026-03-05)
+
+**Phases completed:** 3 phases (12-14), 7 plans
+**Tests:** 829 passing (77% server coverage)
+
+**Key accomplishments:**
+1. Folder management via CLI/API — list, add, remove indexed folders with chunk counts and last-indexed time
+2. File type presets — `--include-type python,docs` shorthand replacing manual glob patterns (11 built-in presets)
+3. Content injection pipeline — custom Python scripts and folder-level JSON metadata enrichment during indexing
+4. Manifest-based incremental indexing — per-folder SHA-256 manifests, mtime fast-path, only processes changed/new files
+5. Chunk eviction — automatic stale chunk removal for deleted/changed files via bulk `delete_by_ids`
+6. CLI eviction summary — colored display of added/changed/deleted/unchanged file counts and chunk metrics
+7. Force reindex bypass — `--force` flag clears manifest and re-indexes all files from scratch
+
+**Archive:** [v7.0-ROADMAP.md](milestones/v7.0-ROADMAP.md) | [v7.0-REQUIREMENTS.md](milestones/v7.0-REQUIREMENTS.md)
+
+---
+
