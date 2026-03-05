@@ -1,4 +1,4 @@
-"""Unit tests for ManifestTracker, FileRecord, FolderManifest, and compute_file_checksum."""
+"""Unit tests for ManifestTracker, FileRecord, FolderManifest, compute_file_checksum."""
 
 from __future__ import annotations
 
@@ -14,7 +14,6 @@ from agent_brain_server.services.manifest_tracker import (
     ManifestTracker,
     compute_file_checksum,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -10,12 +10,10 @@ import pytest
 
 from agent_brain_server.services.chunk_eviction_service import ChunkEvictionService
 from agent_brain_server.services.manifest_tracker import (
-    EvictionSummary,
     FileRecord,
     FolderManifest,
     ManifestTracker,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -106,11 +104,13 @@ async def test_incremental_no_changes_all_unchanged(tmp_path: Path) -> None:
     # Mock os.stat to return the same mtime as in the manifest
     def fake_stat(fp: str) -> os.stat_result:  # type: ignore[override]
         mtime = 100.0 if fp == file_a else 200.0
-        result = os.stat_result((0, 0, 0, 0, 0, 0, 0, 0, int(mtime), 0))
         # Override st_mtime to be float
         return type("FakeStat", (), {"st_mtime": mtime})()  # type: ignore[return-value]
 
-    with patch("agent_brain_server.services.chunk_eviction_service.os.stat", side_effect=fake_stat):
+    with patch(
+        "agent_brain_server.services.chunk_eviction_service.os.stat",
+        side_effect=fake_stat,
+    ):
         summary, files_to_index = await service.compute_diff_and_evict(
             folder_path=folder_path,
             current_files=current_files,
@@ -142,7 +142,9 @@ async def test_incremental_deleted_file_chunks_evicted(tmp_path: Path) -> None:
         folder_path=folder_path,
         files={
             file_a: make_file_record(checksum="aaa", mtime=100.0, chunk_ids=["c1"]),
-            file_b: make_file_record(checksum="bbb", mtime=200.0, chunk_ids=["c2", "c3"]),
+            file_b: make_file_record(
+                checksum="bbb", mtime=200.0, chunk_ids=["c2", "c3"]
+            ),
         },
     )
     tracker = await make_tracker_with_manifest(tmp_path, folder_path, prior)
@@ -155,7 +157,10 @@ async def test_incremental_deleted_file_chunks_evicted(tmp_path: Path) -> None:
     def fake_stat(fp: str) -> object:
         return type("FakeStat", (), {"st_mtime": 100.0})()
 
-    with patch("agent_brain_server.services.chunk_eviction_service.os.stat", side_effect=fake_stat):
+    with patch(
+        "agent_brain_server.services.chunk_eviction_service.os.stat",
+        side_effect=fake_stat,
+    ):
         summary, files_to_index = await service.compute_diff_and_evict(
             folder_path=folder_path,
             current_files=current_files,

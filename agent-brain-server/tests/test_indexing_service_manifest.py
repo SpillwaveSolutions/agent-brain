@@ -17,15 +17,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from agent_brain_server.models import IndexRequest
-from agent_brain_server.models import IndexingStatusEnum
+from agent_brain_server.models import IndexingStatusEnum, IndexRequest
 from agent_brain_server.services.indexing_service import IndexingService
 from agent_brain_server.services.manifest_tracker import (
     FileRecord,
     FolderManifest,
     ManifestTracker,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -348,8 +346,9 @@ async def test_zero_change_run_succeeds(tmp_path: Path) -> None:
     manifests_dir = tmp_path / "manifests"
     tracker = ManifestTracker(manifests_dir=manifests_dir)
 
-    from agent_brain_server.services.manifest_tracker import compute_file_checksum
     import os
+
+    from agent_brain_server.services.manifest_tracker import compute_file_checksum
 
     checksum = await asyncio.to_thread(compute_file_checksum, file1)
     mtime = os.stat(file1).st_mtime

@@ -17,7 +17,6 @@ import pytest
 from agent_brain_server.job_queue.job_worker import JobWorker
 from agent_brain_server.models.job import JobProgress, JobRecord, JobStatus
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -223,9 +222,7 @@ async def test_job_worker_stores_eviction_summary_on_success() -> None:
 
     mock_indexing_service = MagicMock()
     mock_indexing_service.storage_backend = mock_storage
-    mock_indexing_service._run_indexing_pipeline = AsyncMock(
-        return_value=eviction_data
-    )
+    mock_indexing_service._run_indexing_pipeline = AsyncMock(return_value=eviction_data)
     mock_indexing_service.get_status = AsyncMock(
         return_value={"total_chunks": 5, "total_documents": 1}
     )
@@ -235,9 +232,7 @@ async def test_job_worker_stores_eviction_summary_on_success() -> None:
     updated_jobs: list[JobRecord] = []
 
     mock_job_store = AsyncMock()
-    mock_job_store.update_job = AsyncMock(
-        side_effect=lambda j: updated_jobs.append(j)
-    )
+    mock_job_store.update_job = AsyncMock(side_effect=lambda j: updated_jobs.append(j))
     mock_job_store.get_job = AsyncMock(return_value=None)
 
     worker = JobWorker(
