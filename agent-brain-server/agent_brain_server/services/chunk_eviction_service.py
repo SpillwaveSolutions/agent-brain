@@ -45,7 +45,7 @@ class ChunkEvictionService:
     def __init__(
         self,
         manifest_tracker: ManifestTracker,
-        storage_backend: "StorageBackendProtocol",
+        storage_backend: StorageBackendProtocol,
     ) -> None:
         """Initialize ChunkEvictionService.
 
@@ -96,9 +96,7 @@ class ChunkEvictionService:
                 list(current_files),
             )
 
-        return await self._compute_incremental_diff(
-            folder_path, current_files, prior
-        )
+        return await self._compute_incremental_diff(folder_path, current_files, prior)
 
     async def _handle_force(
         self,
@@ -118,9 +116,7 @@ class ChunkEvictionService:
         chunks_evicted = 0
         if prior:
             all_prior_ids = [
-                cid
-                for rec in prior.files.values()
-                for cid in rec.chunk_ids
+                cid for rec in prior.files.values() for cid in rec.chunk_ids
             ]
             if all_prior_ids:
                 chunks_evicted = await self._storage.delete_by_ids(all_prior_ids)
@@ -145,7 +141,7 @@ class ChunkEvictionService:
         self,
         folder_path: str,
         current_files: list[str],
-        prior: "object",
+        prior: object,
     ) -> tuple[EvictionSummary, list[str]]:
         """Compute incremental diff against prior manifest.
 
