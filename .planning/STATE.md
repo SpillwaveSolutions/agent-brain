@@ -1,19 +1,19 @@
 # Agent Brain — Project State
 **Last Updated:** 2026-03-05
 **Current Milestone:** v7.0 Index Management & Content Pipeline
-**Status:** Phase 13 complete — all 2 plans done
-**Current Phase:** 13 (Content Injection Pipeline)
+**Status:** Phase 14 in progress — plan 01 complete
+**Current Phase:** 14 (Manifest Tracking & Chunk Eviction)
 **Total Phases:** 3 (Phases 12-14)
-**Current Plan:** 2 (COMPLETE)
+**Current Plan:** 1 (COMPLETE)
 **Total Plans in Phase:** 2
 
 ## Current Position
-Phase: 13 — Content Injection Pipeline
-Plan: 02 complete — CLI inject command, DocServeClient extension, protocol documentation
-Status: ALL PLANS COMPLETE — Phase 13 done, verified passed
-Last activity: 2026-03-05 — Phase 13 verified
+Phase: 14 — Manifest Tracking & Chunk Eviction
+Plan: 01 complete — ManifestTracker, ChunkEvictionService, storage_paths manifests dir, JobRecord force+eviction_summary
+Status: Plan 01 complete — 26 new tests, 819 total passing, zero regressions
+Last activity: 2026-03-05 — Phase 14 Plan 01 executed
 
-**Progress:** [██████████] 100%
+**Progress:** [█████░░░░░]  50%
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-23)
@@ -72,6 +72,7 @@ v7.0 Index Mgmt & Pipeline: [██████░░░░]  67% (Phase 13 done
 | Phase 12 P03 | 10 | 3 tasks | 6 files created, 8 modified |
 | Phase 13 P01 | 9 | 2 tasks | 9 files |
 | Phase 13 P02 | 4 | 2 tasks | 6 files |
+| Phase 14 P01 | 5 | 2 tasks | 8 files |
 
 ## Accumulated Context
 ### From v3.0 Advanced RAG
@@ -139,6 +140,10 @@ v7.0 Index Mgmt & Pipeline: [██████░░░░]  67% (Phase 13 done
 - [Phase 13]: inject command requires at least one of --script or --folder-metadata — validated before API call, exit code 2
 - [Phase 13]: CLI resolves --script and --folder-metadata to absolute paths before sending — server needs absolute paths to load files
 - [Phase 13]: inject is superset of index (not subcommand) — all index options available to avoid user confusion when combining injection with code/type presets
+- [Phase 14]: ManifestTracker uses SHA-256 of folder path string as manifest filename — flat directory, no path-separator issues across OS
+- [Phase 14]: mtime equality as O(1) fast-path before computing SHA-256 — handles ~95% of unchanged files without disk read
+- [Phase 14]: TYPE_CHECKING import for StorageBackendProtocol in ChunkEvictionService — avoids circular import, consistent with ContentInjector pattern
+- [Phase 14]: eviction_summary stored as dict[str, Any] not dataclass on JobRecord — Pydantic serialization friendly for API response
 
 ### From Phase 6 Plan 03 (Integration)
 - Factory creates PostgresBackend from YAML config with DATABASE_URL env var override
@@ -190,9 +195,9 @@ v7.0 Index Mgmt & Pipeline: [██████░░░░]  67% (Phase 13 done
 ## Session Continuity
 
 **Last Session:** 2026-03-05
-**Stopped At:** Phase 13 execution complete, verified passed (5/5 must-haves)
+**Stopped At:** Completed 14-01-PLAN.md — ManifestTracker + ChunkEvictionService foundation
 **Resume File:** None
-**Next Action:** Phase 14 planning (Manifest Tracking & Chunk Eviction)
+**Next Action:** Phase 14 Plan 02 — wire ManifestTracker+ChunkEvictionService into IndexingService pipeline
 
 ---
 *State updated: 2026-03-05*
