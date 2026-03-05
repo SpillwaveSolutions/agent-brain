@@ -12,6 +12,7 @@ from .commands import (
     folders_group,
     index_command,
     init_command,
+    inject_command,
     jobs_command,
     list_command,
     query_command,
@@ -43,6 +44,7 @@ def cli() -> None:
       status   Check server status
       query    Search documents
       index    Index documents from a folder
+      inject   Index documents with content injection
       jobs     View and manage job queue
       reset    Clear all indexed documents
 
@@ -62,6 +64,7 @@ def cli() -> None:
       agent-brain query "how to use python"           # Search documents
       agent-brain index ./docs                        # Index documents
       agent-brain index ./src --include-type python   # Index with preset
+      agent-brain inject --script enrich.py ./docs   # Index with injection
       agent-brain folders list                        # List indexed folders
       agent-brain folders remove ./docs --yes         # Remove folder chunks
       agent-brain types list                          # Show file type presets
@@ -84,6 +87,7 @@ cli.add_command(list_command, name="list")
 cli.add_command(status_command, name="status")
 cli.add_command(query_command, name="query")
 cli.add_command(index_command, name="index")
+cli.add_command(inject_command, name="inject")
 cli.add_command(jobs_command, name="jobs")
 cli.add_command(reset_command, name="reset")
 cli.add_command(config_group, name="config")

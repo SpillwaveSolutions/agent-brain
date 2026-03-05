@@ -4,6 +4,7 @@ from .config import config_group
 from .folders import folders_group
 from .index import index_command
 from .init import init_command
+from .inject import inject_command
 from .jobs import jobs_command
 from .list_cmd import list_command
 from .query import query_command
@@ -17,6 +18,7 @@ __all__ = [
     "config_group",
     "folders_group",
     "index_command",
+    "inject_command",
     "init_command",
     "jobs_command",
     "list_command",

@@ -290,6 +290,9 @@ class DocServeClient:
         generate_summaries: bool = False,
         force: bool = False,
         allow_external: bool = False,
+        injector_script: str | None = None,
+        folder_metadata_file: str | None = None,
+        dry_run: bool = False,
     ) -> IndexResponse:
         """
         Enqueue an indexing job for documents and optionally code from a folder.
@@ -308,6 +311,9 @@ class DocServeClient:
             generate_summaries: Generate LLM summaries for code chunks.
             force: Bypass deduplication and force a new job.
             allow_external: Allow paths outside the project directory.
+            injector_script: Path to Python script exporting process_chunk().
+            folder_metadata_file: Path to JSON file with static metadata.
+            dry_run: Validate injector against sample chunks without indexing.
 
         Returns:
             IndexResponse with job ID and queue status.
@@ -327,6 +333,12 @@ class DocServeClient:
         }
         if include_types is not None:
             body["include_types"] = include_types
+        if injector_script is not None:
+            body["injector_script"] = injector_script
+        if folder_metadata_file is not None:
+            body["folder_metadata_file"] = folder_metadata_file
+        if dry_run:
+            body["dry_run"] = True
 
         data = self._request(
             "POST",
