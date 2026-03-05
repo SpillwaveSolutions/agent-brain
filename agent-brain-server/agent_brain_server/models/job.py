@@ -71,6 +71,12 @@ class JobRecord(BaseModel):
     exclude_patterns: list[str] | None = Field(
         default=None, description="File patterns to exclude"
     )
+    injector_script: str | None = Field(
+        default=None, description="Path to injector Python script"
+    )
+    folder_metadata_file: str | None = Field(
+        default=None, description="Path to folder metadata JSON file"
+    )
 
     # Job state
     status: JobStatus = Field(

@@ -91,6 +91,22 @@ class IndexRequest(BaseModel):
         examples=[["*.log", "__pycache__/**"], ["node_modules/**", "*.tmp"]],
     )
 
+    # Content injection options (INJECT-01)
+    injector_script: str | None = Field(
+        default=None,
+        description="Path to Python script exporting process_chunk(chunk: dict) -> dict",
+    )
+    folder_metadata_file: str | None = Field(
+        default=None,
+        description="Path to JSON file with static metadata to merge into all chunks",
+    )
+    dry_run: bool = Field(
+        default=False,
+        description=(
+            "If true, validate injector against sample chunks without indexing"
+        ),
+    )
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -120,6 +136,12 @@ class IndexRequest(BaseModel):
                 {
                     "folder_path": "/path/to/project",
                     "include_types": ["python", "docs"],
+                    "recursive": True,
+                },
+                {
+                    "folder_path": "/path/to/project",
+                    "injector_script": "/path/to/inject.py",
+                    "folder_metadata_file": "/path/to/meta.json",
                     "recursive": True,
                 },
             ]
