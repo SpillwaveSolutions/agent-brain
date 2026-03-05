@@ -4,6 +4,7 @@ import hashlib
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, Field, computed_field
 
@@ -76,6 +77,15 @@ class JobRecord(BaseModel):
     )
     folder_metadata_file: str | None = Field(
         default=None, description="Path to folder metadata JSON file"
+    )
+    force: bool = Field(
+        default=False, description="Bypass manifest comparison for full reindex"
+    )
+    eviction_summary: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Eviction summary from manifest diff " "(added/changed/deleted counts)"
+        ),
     )
 
     # Job state
@@ -253,6 +263,10 @@ class JobDetailResponse(BaseModel):
     cancel_requested: bool = Field(
         default=False, description="Whether cancellation requested"
     )
+    eviction_summary: dict[str, Any] | None = Field(
+        default=None,
+        description="Eviction summary if manifest tracking was used",
+    )
 
     @classmethod
     def from_record(cls, record: JobRecord) -> "JobDetailResponse":
@@ -273,6 +287,7 @@ class JobDetailResponse(BaseModel):
             error=record.error,
             retry_count=record.retry_count,
             cancel_requested=record.cancel_requested,
+            eviction_summary=record.eviction_summary,
         )
 
 

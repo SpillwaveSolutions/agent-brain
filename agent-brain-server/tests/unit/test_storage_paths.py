@@ -57,6 +57,7 @@ class TestResolveStoragePaths:
             "llamaindex",
             "graph_index",
             "logs",
+            "manifests",
         }
         assert set(paths.keys()) == expected_keys
 

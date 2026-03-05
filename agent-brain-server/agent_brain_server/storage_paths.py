@@ -14,6 +14,7 @@ SUBDIRECTORIES = [
     "data/llamaindex",
     "data/graph_index",
     "logs",
+    "manifests",
 ]
 
 
@@ -51,6 +52,7 @@ def resolve_storage_paths(state_dir: Path) -> dict[str, Path]:
         "llamaindex": state_dir / "data" / "llamaindex",
         "graph_index": state_dir / "data" / "graph_index",
         "logs": state_dir / "logs",
+        "manifests": state_dir / "manifests",
     }
 
     # Create directories
