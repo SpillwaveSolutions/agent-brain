@@ -1,19 +1,19 @@
 # Agent Brain — Project State
 **Last Updated:** 2026-03-05
 **Current Milestone:** v7.0 Index Management & Content Pipeline
-**Status:** Phase 14 in progress — plan 01 complete
-**Current Phase:** 14 (Manifest Tracking & Chunk Eviction)
+**Status:** Phase 14 COMPLETE — all plans done, v7.0 milestone delivered
+**Current Phase:** 14 (Manifest Tracking & Chunk Eviction) — COMPLETE
 **Total Phases:** 3 (Phases 12-14)
-**Current Plan:** 1 (COMPLETE)
+**Current Plan:** 2 (COMPLETE)
 **Total Plans in Phase:** 2
 
 ## Current Position
-Phase: 14 — Manifest Tracking & Chunk Eviction
-Plan: 01 complete — ManifestTracker, ChunkEvictionService, storage_paths manifests dir, JobRecord force+eviction_summary
-Status: Plan 01 complete — 26 new tests, 819 total passing, zero regressions
-Last activity: 2026-03-05 — Phase 14 Plan 01 executed
+Phase: 14 — Manifest Tracking & Chunk Eviction — COMPLETE
+Plan: 02 complete — full incremental indexing pipeline wired, CLI eviction summary, 10 new tests
+Status: Phase 14 complete — 36 new tests across both plans (26+10), 829 total passing, zero regressions
+Last activity: 2026-03-05 — Phase 14 Plan 02 executed
 
-**Progress:** [█████░░░░░]  50%
+**Progress:** [██████████]  100%
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-23)
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-02-23)
 v3.0 Advanced RAG:          [██████████] 100% (shipped 2026-02-10)
 v6.0 PostgreSQL Backend:    [██████████] 100% (shipped 2026-02-13)
 v6.0.4 Plugin & Install:   [██████████] 100% (shipped 2026-02-22)
-v7.0 Index Mgmt & Pipeline: [██████░░░░]  67% (Phase 13 done 2026-03-05)
+v7.0 Index Mgmt & Pipeline: [██████████] 100% (Phase 14 done 2026-03-05)
 ```
 ## Performance Metrics
 **Velocity (v3.0 milestone):**
@@ -73,6 +73,7 @@ v7.0 Index Mgmt & Pipeline: [██████░░░░]  67% (Phase 13 done
 | Phase 13 P01 | 9 | 2 tasks | 9 files |
 | Phase 13 P02 | 4 | 2 tasks | 6 files |
 | Phase 14 P01 | 5 | 2 tasks | 8 files |
+| Phase 14 P02 | 9 | 2 tasks | 7 files |
 
 ## Accumulated Context
 ### From v3.0 Advanced RAG
@@ -144,6 +145,10 @@ v7.0 Index Mgmt & Pipeline: [██████░░░░]  67% (Phase 13 done
 - [Phase 14]: mtime equality as O(1) fast-path before computing SHA-256 — handles ~95% of unchanged files without disk read
 - [Phase 14]: TYPE_CHECKING import for StorageBackendProtocol in ChunkEvictionService — avoids circular import, consistent with ContentInjector pattern
 - [Phase 14]: eviction_summary stored as dict[str, Any] not dataclass on JobRecord — Pydantic serialization friendly for API response
+- [Phase 14 P02]: Return dict[str, Any] | None from _run_indexing_pipeline (dataclasses.asdict) — JobWorker stores directly without importing server dataclasses
+- [Phase 14 P02]: Zero-change early return returns eviction dict (not None) so JobWorker zero-change check can read chunks_to_create==0
+- [Phase 14 P02]: BM25 incremental fallback: if storage_backend.bm25_manager is None, use self.bm25_manager — handles both chroma and postgres backends
+- [Phase 14 P02]: Mock storage backend in tests must NOT have bm25_manager attr — hasattr() in constructor will override passed kwarg with None
 
 ### From Phase 6 Plan 03 (Integration)
 - Factory creates PostgresBackend from YAML config with DATABASE_URL env var override
@@ -195,9 +200,9 @@ v7.0 Index Mgmt & Pipeline: [██████░░░░]  67% (Phase 13 done
 ## Session Continuity
 
 **Last Session:** 2026-03-05
-**Stopped At:** Completed 14-01-PLAN.md — ManifestTracker + ChunkEvictionService foundation
+**Stopped At:** Completed 14-02-PLAN.md — Full incremental indexing pipeline, v7.0 milestone COMPLETE
 **Resume File:** None
-**Next Action:** Phase 14 Plan 02 — wire ManifestTracker+ChunkEvictionService into IndexingService pipeline
+**Next Action:** None — Phase 14 and v7.0 milestone complete
 
 ---
 *State updated: 2026-03-05*
