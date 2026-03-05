@@ -106,17 +106,11 @@ class ContentInjector:
             TypeError: ``process_chunk`` attribute is not callable.
         """
         if not script_path.exists():
-            raise FileNotFoundError(
-                f"Injector script not found: {script_path}"
-            )
+            raise FileNotFoundError(f"Injector script not found: {script_path}")
 
-        spec = importlib.util.spec_from_file_location(
-            "_injector_script", script_path
-        )
+        spec = importlib.util.spec_from_file_location("_injector_script", script_path)
         if spec is None or spec.loader is None:
-            raise ImportError(
-                f"Could not create module spec from: {script_path}"
-            )
+            raise ImportError(f"Could not create module spec from: {script_path}")
 
         module = importlib.util.module_from_spec(spec)
         try:
@@ -160,9 +154,7 @@ class ContentInjector:
             TypeError: JSON root value is not a dict.
         """
         if not metadata_path.exists():
-            raise FileNotFoundError(
-                f"Metadata file not found: {metadata_path}"
-            )
+            raise FileNotFoundError(f"Metadata file not found: {metadata_path}")
 
         raw = metadata_path.read_text(encoding="utf-8")
         data = json.loads(raw)
@@ -199,9 +191,7 @@ class ContentInjector:
         if metadata_path is not None:
             meta_p = Path(metadata_path).expanduser().resolve()
             if not meta_p.exists():
-                raise FileNotFoundError(
-                    f"Metadata file not found: {metadata_path}"
-                )
+                raise FileNotFoundError(f"Metadata file not found: {metadata_path}")
             raw = meta_p.read_text(encoding="utf-8")
             data = json.loads(raw)
             if not isinstance(data, dict):
@@ -270,9 +260,7 @@ class ContentInjector:
 
         return chunk
 
-    def _validate_metadata_values(
-        self, chunk: dict[str, Any]
-    ) -> dict[str, Any]:
+    def _validate_metadata_values(self, chunk: dict[str, Any]) -> dict[str, Any]:
         """Strip non-scalar metadata values incompatible with ChromaDB.
 
         ChromaDB requires all metadata values to be ``str | int | float | bool | None``.

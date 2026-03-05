@@ -94,7 +94,9 @@ class IndexRequest(BaseModel):
     # Content injection options (INJECT-01)
     injector_script: str | None = Field(
         default=None,
-        description="Path to Python script exporting process_chunk(chunk: dict) -> dict",
+        description=(
+            "Path to Python script exporting process_chunk(chunk: dict) -> dict"
+        ),
     )
     folder_metadata_file: str | None = Field(
         default=None,

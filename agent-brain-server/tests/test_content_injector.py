@@ -6,13 +6,11 @@ import json
 import logging
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
 
 import pytest
 
 from agent_brain_server.indexing.chunking import ChunkMetadata, TextChunk
 from agent_brain_server.services.content_injector import ContentInjector
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -232,9 +230,7 @@ def test_build_creates_injector_with_both_script_and_metadata(
     )
     meta = _write_meta(tmp_path, {"env": "prod"})
 
-    injector = ContentInjector.build(
-        script_path=str(script), metadata_path=str(meta)
-    )
+    injector = ContentInjector.build(script_path=str(script), metadata_path=str(meta))
     assert injector is not None
 
     result = injector.apply({"source": "x"})
@@ -275,8 +271,13 @@ def test_apply_to_chunks_updates_extra_for_new_keys(tmp_path: Path) -> None:
 
     chunk = _make_text_chunk()
     known_keys: set[str] = {
-        "chunk_id", "source", "file_name", "chunk_index", "total_chunks",
-        "source_type", "created_at",
+        "chunk_id",
+        "source",
+        "file_name",
+        "chunk_index",
+        "total_chunks",
+        "source_type",
+        "created_at",
     }
 
     count = injector.apply_to_chunks([chunk], known_keys)
@@ -293,8 +294,15 @@ def test_apply_to_chunks_does_not_overwrite_known_keys(tmp_path: Path) -> None:
 
     chunk = _make_text_chunk()
     original_source = chunk.metadata.source
-    known_keys: set[str] = {"chunk_id", "source", "file_name", "chunk_index",
-                             "total_chunks", "source_type", "created_at"}
+    known_keys: set[str] = {
+        "chunk_id",
+        "source",
+        "file_name",
+        "chunk_index",
+        "total_chunks",
+        "source_type",
+        "created_at",
+    }
 
     injector.apply_to_chunks([chunk], known_keys)
 
@@ -309,12 +317,17 @@ def test_apply_to_chunks_does_not_overwrite_known_keys(tmp_path: Path) -> None:
 def test_apply_to_chunks_returns_zero_when_no_new_keys() -> None:
     """apply_to_chunks returns 0 when all injected keys are known keys."""
     # Inject only known-schema keys — nothing new ends up in extra
-    injector = ContentInjector(
-        folder_metadata={"source": "overridden"}  # known key
-    )
+    injector = ContentInjector(folder_metadata={"source": "overridden"})  # known key
     chunk = _make_text_chunk()
-    known_keys: set[str] = {"chunk_id", "source", "file_name", "chunk_index",
-                             "total_chunks", "source_type", "created_at"}
+    known_keys: set[str] = {
+        "chunk_id",
+        "source",
+        "file_name",
+        "chunk_index",
+        "total_chunks",
+        "source_type",
+        "created_at",
+    }
     count = injector.apply_to_chunks([chunk], known_keys)
     assert count == 0
 
