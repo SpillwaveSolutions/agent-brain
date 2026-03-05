@@ -13,7 +13,7 @@ Plan: 03 complete — CLI folders/types commands, --include-type flag, plugin sl
 Status: ALL PLANS COMPLETE — Phase 12 done
 Last activity: 2026-02-25 — Plan 03 complete
 
-**Progress:** [██████████] 97%
+**Progress:** [██████████] 100%
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-23)
@@ -71,6 +71,7 @@ v7.0 Index Mgmt & Pipeline: [███░░░░░░░]  33% (Phase 12 done
 | Phase 12 P02 | 55 | 2 tasks | 12 files |
 | Phase 12 P03 | 10 | 3 tasks | 6 files created, 8 modified |
 | Phase 13 P01 | 9 | 2 tasks | 9 files |
+| Phase 13 P02 | 4 | 2 tasks | 6 files |
 
 ## Accumulated Context
 ### From v3.0 Advanced RAG
@@ -135,6 +136,9 @@ v7.0 Index Mgmt & Pipeline: [███░░░░░░░]  33% (Phase 12 done
 - [Phase 13]: apply_to_chunks writes only to chunk.metadata.extra for keys NOT in known_keys — prevents injectors from overwriting schema fields
 - [Phase 13]: ContentInjector is a parameter to _run_indexing_pipeline (not singleton mutation) — clean dependency injection, testable, backward compatible
 - [Phase 13]: JobService.enqueue_job must explicitly pass injector_script and folder_metadata_file to JobRecord — Pydantic does not auto-propagate from IndexRequest
+- [Phase 13]: inject command requires at least one of --script or --folder-metadata — validated before API call, exit code 2
+- [Phase 13]: CLI resolves --script and --folder-metadata to absolute paths before sending — server needs absolute paths to load files
+- [Phase 13]: inject is superset of index (not subcommand) — all index options available to avoid user confusion when combining injection with code/type presets
 
 ### From Phase 6 Plan 03 (Integration)
 - Factory creates PostgresBackend from YAML config with DATABASE_URL env var override
@@ -185,8 +189,8 @@ v7.0 Index Mgmt & Pipeline: [███░░░░░░░]  33% (Phase 12 done
 
 ## Session Continuity
 
-**Last Session:** 2026-03-05T21:16:43.890Z
-**Stopped At:** Completed 13-01-PLAN.md
+**Last Session:** 2026-03-05T21:22:44.603Z
+**Stopped At:** Completed 13-02-PLAN.md
 **Resume File:** None
 **Next Action:** Phase 13 planning or plugin/skills update
 
