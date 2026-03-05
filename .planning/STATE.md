@@ -1,7 +1,7 @@
 # Agent Brain — Project State
 **Last Updated:** 2026-02-25
 **Current Milestone:** v7.0 Index Management & Content Pipeline
-**Status:** Phase 12 complete — all 3 plans done
+**Status:** Phase complete — ready for verification
 **Current Phase:** 12 (Folder Management & File Type Presets)
 **Total Phases:** 3 (Phases 12-14)
 **Current Plan:** 3 (COMPLETE)
@@ -13,7 +13,7 @@ Plan: 03 complete — CLI folders/types commands, --include-type flag, plugin sl
 Status: ALL PLANS COMPLETE — Phase 12 done
 Last activity: 2026-02-25 — Plan 03 complete
 
-**Progress:** [██████████] 100%
+**Progress:** [██████████] 97%
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-23)
@@ -70,6 +70,7 @@ v7.0 Index Mgmt & Pipeline: [███░░░░░░░]  33% (Phase 12 done
 | Phase 12 P01 | 35 | 3 tasks | 11 files |
 | Phase 12 P02 | 55 | 2 tasks | 12 files |
 | Phase 12 P03 | 10 | 3 tasks | 6 files created, 8 modified |
+| Phase 13 P01 | 9 | 2 tasks | 9 files |
 
 ## Accumulated Context
 ### From v3.0 Advanced RAG
@@ -130,6 +131,10 @@ v7.0 Index Mgmt & Pipeline: [███░░░░░░░]  33% (Phase 12 done
 - [Phase 12 P03]: Hardcode FILE_TYPE_PRESETS in CLI to avoid agent-brain-server cross-package dependency
 - [Phase 12 P03]: folders add is alias for index (idempotent re-indexing per FOLD-09)
 - [Phase 12 P03]: folder_path for remove uses type=str not click.Path to allow non-existent disk paths
+- [Phase 13]: ContentInjector.build() returns None when both paths are None — no-op when injection not configured
+- [Phase 13]: apply_to_chunks writes only to chunk.metadata.extra for keys NOT in known_keys — prevents injectors from overwriting schema fields
+- [Phase 13]: ContentInjector is a parameter to _run_indexing_pipeline (not singleton mutation) — clean dependency injection, testable, backward compatible
+- [Phase 13]: JobService.enqueue_job must explicitly pass injector_script and folder_metadata_file to JobRecord — Pydantic does not auto-propagate from IndexRequest
 
 ### From Phase 6 Plan 03 (Integration)
 - Factory creates PostgresBackend from YAML config with DATABASE_URL env var override
@@ -180,8 +185,8 @@ v7.0 Index Mgmt & Pipeline: [███░░░░░░░]  33% (Phase 12 done
 
 ## Session Continuity
 
-**Last Session:** 2026-02-26
-**Stopped At:** Merged PR #113 (include_types fix), added plugin/skills update todo
+**Last Session:** 2026-03-05T21:16:43.890Z
+**Stopped At:** Completed 13-01-PLAN.md
 **Resume File:** None
 **Next Action:** Phase 13 planning or plugin/skills update
 
