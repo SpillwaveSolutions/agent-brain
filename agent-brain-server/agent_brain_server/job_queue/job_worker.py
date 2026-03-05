@@ -221,6 +221,7 @@ class JobWorker:
                 exclude_patterns=job.exclude_patterns,
                 injector_script=job.injector_script,
                 folder_metadata_file=job.folder_metadata_file,
+                force=job.force,
             )
 
             # Build content injector if job has injection params
@@ -269,8 +270,9 @@ class JobWorker:
                 logger.warning(f"Could not get count before indexing: {e}")
 
             # Execute indexing with timeout
+            eviction_result = None
             try:
-                await asyncio.wait_for(
+                eviction_result = await asyncio.wait_for(
                     self._indexing_service._run_indexing_pipeline(
                         index_request,
                         job.id,
@@ -309,6 +311,10 @@ class JobWorker:
                 status = await self._indexing_service.get_status()
                 job.total_chunks = status.get("total_chunks", 0)
                 job.total_documents = status.get("total_documents", 0)
+
+                # Store eviction summary if present (Phase 14)
+                if eviction_result is not None:
+                    job.eviction_summary = eviction_result
 
                 # Update final progress
                 if job.progress:
@@ -423,10 +429,23 @@ class JobWorker:
                     f"{delta} new chunks (before={count_before}, after={count_after})"
                 )
                 return True
-            elif count_after > 0 and delta == 0:
+            elif delta == 0:
+                # Check for zero-change incremental run (all files unchanged)
+                eviction = job.eviction_summary
+                if eviction is not None and eviction.get("chunks_to_create", -1) == 0:
+                    logger.info(
+                        f"Zero-change incremental run for job {job.id}: "
+                        "all files unchanged, no new chunks expected"
+                    )
+                    return True
+
                 # Special case: job might have processed files that were already indexed
                 # Check if any documents were processed
-                if job.progress and job.progress.files_processed > 0:
+                if (
+                    count_after > 0
+                    and job.progress
+                    and (job.progress.files_processed > 0)
+                ):
                     logger.warning(
                         f"Job {job.id} processed {job.progress.files_processed} files "
                         f"but added no new chunks (may have been already indexed)"

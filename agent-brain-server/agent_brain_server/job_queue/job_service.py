@@ -180,6 +180,7 @@ class JobQueueService:
             exclude_patterns=request.exclude_patterns,
             injector_script=request.injector_script,
             folder_metadata_file=request.folder_metadata_file,
+            force=request.force,
             status=JobStatus.PENDING,
             enqueued_at=datetime.now(timezone.utc),
         )

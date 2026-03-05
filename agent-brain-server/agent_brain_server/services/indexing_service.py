@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from agent_brain_server.services.content_injector import ContentInjector
     from agent_brain_server.services.folder_manager import FolderManager
+    from agent_brain_server.services.manifest_tracker import ManifestTracker
 
 from llama_index.core.schema import TextNode
 
@@ -63,6 +64,7 @@ class IndexingService:
         graph_index_manager: GraphIndexManager | None = None,
         storage_backend: StorageBackendProtocol | None = None,
         folder_manager: FolderManager | None = None,
+        manifest_tracker: ManifestTracker | None = None,
     ):
         """
         Initialize the indexing service.
@@ -78,6 +80,8 @@ class IndexingService:
             graph_index_manager: Graph index manager instance (Feature 113).
             storage_backend: Storage backend implementing protocol (preferred).
             folder_manager: Optional folder manager for indexed folder tracking.
+            manifest_tracker: Optional manifest tracker for incremental indexing
+                (Phase 14).
         """
         # Resolve storage_backend with backward compatibility
         if storage_backend is not None:
@@ -110,6 +114,7 @@ class IndexingService:
         self.embedding_generator = embedding_generator or EmbeddingGenerator()
         self.graph_index_manager = graph_index_manager or get_graph_index_manager()
         self.folder_manager = folder_manager
+        self.manifest_tracker = manifest_tracker
 
         # Internal state
         self._state = IndexingState(
@@ -226,7 +231,7 @@ class IndexingService:
         job_id: str,
         progress_callback: ProgressCallback | None = None,
         content_injector: ContentInjector | None = None,
-    ) -> None:
+    ) -> dict[str, Any] | None:
         """
         Execute the full indexing pipeline.
 
@@ -234,7 +239,12 @@ class IndexingService:
             request: Indexing request configuration.
             job_id: Job identifier for tracking.
             progress_callback: Optional progress callback.
+            content_injector: Optional content injector for metadata enrichment.
+
+        Returns:
+            Eviction summary dict if manifest tracking is active, None otherwise.
         """
+        eviction_summary_result: dict[str, Any] | None = None
         try:
             # Ensure storage backend is initialized
             await self.storage_backend.initialize()
@@ -294,12 +304,77 @@ class IndexingService:
             self._state.total_documents = len(documents)
             logger.info(f"Loaded {len(documents)} documents")
 
+            # Manifest tracking for incremental indexing (Phase 14)
+            eviction_summary: Any = None
+            prior_manifest: Any = None
+
+            if self.manifest_tracker is not None:
+                from pathlib import Path as _Path
+
+                from agent_brain_server.services.chunk_eviction_service import (
+                    ChunkEvictionService,
+                )
+                from agent_brain_server.services.manifest_tracker import (
+                    FileRecord,
+                    FolderManifest,
+                    compute_file_checksum,
+                )
+
+                eviction_service = ChunkEvictionService(
+                    manifest_tracker=self.manifest_tracker,
+                    storage_backend=self.storage_backend,
+                )
+                current_file_paths = [
+                    str(_Path(doc.metadata.get("source", "")).resolve())
+                    for doc in documents
+                    if doc.metadata.get("source")
+                ]
+                # Deduplicate (multiple docs can come from same source file)
+                current_file_paths = list(dict.fromkeys(current_file_paths))
+
+                prior_manifest = await self.manifest_tracker.load(abs_folder_path)
+                eviction_summary, files_to_index_list = (
+                    await eviction_service.compute_diff_and_evict(
+                        folder_path=abs_folder_path,
+                        current_files=current_file_paths,
+                        force=request.force,
+                    )
+                )
+                files_to_index_set = set(files_to_index_list)
+                documents = [
+                    doc
+                    for doc in documents
+                    if str(_Path(doc.metadata.get("source", "")).resolve())
+                    in files_to_index_set
+                ]
+                logger.info(
+                    f"Manifest diff: +{len(eviction_summary.files_added)} added "
+                    f"~{len(eviction_summary.files_changed)} changed "
+                    f"-{len(eviction_summary.files_deleted)} deleted "
+                    f"={len(eviction_summary.files_unchanged)} unchanged, "
+                    f"{eviction_summary.chunks_evicted} chunks evicted"
+                )
+                if not documents:
+                    logger.info("No files need re-indexing - all files unchanged")
+                    # Save manifest (carry over unchanged entries)
+                    new_manifest = FolderManifest(folder_path=abs_folder_path)
+                    if prior_manifest:
+                        new_manifest.files = dict(prior_manifest.files)
+                    await self.manifest_tracker.save(new_manifest)
+                    self._state.status = IndexingStatusEnum.COMPLETED
+                    self._state.is_indexing = False
+                    self._state.completed_at = datetime.now(timezone.utc)
+                    from dataclasses import asdict
+
+                    eviction_summary_result = asdict(eviction_summary)
+                    return eviction_summary_result
+
             if not documents:
                 logger.warning(f"No documents found in {request.folder_path}")
                 self._state.status = IndexingStatusEnum.COMPLETED
                 self._state.is_indexing = False
                 self._state.completed_at = datetime.now(timezone.utc)
-                return
+                return None
 
             # Step 2: Chunk documents and code files
             if progress_callback:
@@ -539,6 +614,54 @@ class IndexingService:
             ]
             self.bm25_manager.build_index(nodes)
 
+            # For incremental runs, BM25 must include unchanged file chunks too
+            if (
+                eviction_summary is not None
+                and eviction_summary.files_unchanged
+                and self.manifest_tracker is not None
+                and prior_manifest is not None
+            ):
+                from agent_brain_server.services.manifest_tracker import FolderManifest
+
+                assert isinstance(prior_manifest, FolderManifest)
+                # Collect unchanged chunk IDs from prior manifest
+                unchanged_ids = []
+                for fp in eviction_summary.files_unchanged:
+                    if fp in prior_manifest.files:
+                        unchanged_ids.extend(prior_manifest.files[fp].chunk_ids)
+                if unchanged_ids:
+                    unchanged_nodes = []
+                    for chunk_id in unchanged_ids:
+                        try:
+                            result = await self.storage_backend.get_by_id(chunk_id)
+                            if result:
+                                node = TextNode(
+                                    id_=chunk_id,
+                                    text=result.get("text", ""),
+                                    metadata=result.get("metadata", {}),
+                                )
+                                unchanged_nodes.append(node)
+                        except Exception as bm25_e:
+                            logger.warning(
+                                f"Could not fetch chunk {chunk_id} for BM25: {bm25_e}"
+                            )
+                    if unchanged_nodes:
+                        all_bm25_nodes = nodes + unchanged_nodes
+                        bm25_mgr = getattr(self.storage_backend, "bm25_manager", None)
+                        if bm25_mgr is not None:
+                            bm25_mgr.build_index(all_bm25_nodes)
+                            logger.info(
+                                f"BM25 rebuilt with {len(all_bm25_nodes)} total "
+                                "nodes (incremental)"
+                            )
+                        else:
+                            # Fallback: rebuild with self.bm25_manager if available
+                            self.bm25_manager.build_index(all_bm25_nodes)
+                            logger.info(
+                                f"BM25 rebuilt with {len(all_bm25_nodes)} total "
+                                "nodes (incremental, fallback)"
+                            )
+
             # Step 6: Build graph index if enabled (Feature 113)
             if settings.ENABLE_GRAPH_INDEX:
                 if progress_callback:
@@ -573,6 +696,47 @@ class IndexingService:
                     f"({len(chunks)} chunks)"
                 )
 
+            # Save manifest after successful pipeline completion (Phase 14)
+            if self.manifest_tracker is not None and eviction_summary is not None:
+                import os as _os
+                from pathlib import Path as _Path
+
+                from agent_brain_server.services.manifest_tracker import (
+                    FileRecord,
+                    FolderManifest,
+                    compute_file_checksum,
+                )
+
+                new_manifest = FolderManifest(folder_path=abs_folder_path)
+                # Carry over unchanged files
+                if prior_manifest is not None:
+                    assert isinstance(prior_manifest, FolderManifest)
+                    for fp in eviction_summary.files_unchanged:
+                        if fp in prior_manifest.files:
+                            new_manifest.files[fp] = prior_manifest.files[fp]
+                # Record newly indexed files
+                file_to_chunks: dict[str, list[str]] = {}
+                for chunk in chunks:
+                    src = chunk.metadata.to_dict().get("source", "")
+                    if src:
+                        resolved_src = str(_Path(src).resolve())
+                        file_to_chunks.setdefault(resolved_src, []).append(
+                            chunk.chunk_id
+                        )
+                for fp, chunk_ids in file_to_chunks.items():
+                    checksum = await asyncio.to_thread(compute_file_checksum, fp)
+                    mtime = _os.stat(fp).st_mtime
+                    new_manifest.files[fp] = FileRecord(
+                        checksum=checksum, mtime=mtime, chunk_ids=chunk_ids
+                    )
+                await self.manifest_tracker.save(new_manifest)
+                logger.info(
+                    f"Manifest saved with {len(new_manifest.files)} file entries"
+                )
+                from dataclasses import asdict
+
+                eviction_summary_result = asdict(eviction_summary)
+
             if progress_callback:
                 await progress_callback(100, 100, "Indexing complete!")
 
@@ -580,6 +744,8 @@ class IndexingService:
                 f"Indexing job {job_id} completed: "
                 f"{len(documents)} docs, {len(chunks)} chunks"
             )
+
+            return eviction_summary_result
 
         except Exception as e:
             logger.error(f"Indexing job {job_id} failed: {e}")

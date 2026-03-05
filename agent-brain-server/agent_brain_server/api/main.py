@@ -305,11 +305,25 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         document_loader = DocumentLoader(exclude_patterns=exclude_patterns)
 
+        # Initialize ManifestTracker for incremental indexing (Phase 14)
+        manifest_tracker = None
+        if storage_paths and "manifests" in storage_paths:
+            from agent_brain_server.services.manifest_tracker import ManifestTracker
+
+            manifest_tracker = ManifestTracker(manifests_dir=storage_paths["manifests"])
+            logger.info("Manifest tracker initialized")
+        elif state_dir is not None:
+            from agent_brain_server.services.manifest_tracker import ManifestTracker
+
+            manifest_tracker = ManifestTracker(manifests_dir=state_dir / "manifests")
+            logger.info("Manifest tracker initialized (fallback)")
+
         # Create indexing service with storage_backend (Phase 9)
         indexing_service = IndexingService(
             storage_backend=storage_backend,
             document_loader=document_loader,
             folder_manager=folder_manager,
+            manifest_tracker=manifest_tracker,
         )
         app.state.indexing_service = indexing_service
 
