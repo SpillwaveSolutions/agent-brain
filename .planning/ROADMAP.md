@@ -50,8 +50,8 @@
 <details open>
 <summary>🔵 v7.0 Index Management & Content Pipeline (Phases 12-14) — IN PROGRESS</summary>
 
-- [ ] Phase 12: Folder Management & File Type Presets (0/3 plans) — FOLD-01..10, FTYPE-01..07
-- [ ] Phase 13: Content Injection Pipeline (0/2 plans) — INJECT-01..08
+- [x] Phase 12: Folder Management & File Type Presets (3/3 plans) — 2026-02-25
+- [x] Phase 13: Content Injection Pipeline (2/2 plans) — 2026-03-05
 - [ ] Phase 14: Manifest Tracking & Chunk Eviction — EVICT-01..10
 
 </details>
@@ -163,8 +163,8 @@ Phases execute in numeric order: 12 → 13 → 14
 | 9. Runtime Backend Wiring | v6.0 | 2/2 | Complete | 2026-02-12 |
 | 10. Live PostgreSQL E2E Validation | v6.0 | 1/1 | Complete | 2026-02-12 |
 | 11. Plugin Port Discovery & Install Fix | v6.0.4 | 1/1 | Complete | 2026-02-22 |
-| 12. Folder Management & File Type Presets | v7.0 | 0/3 | Planned | — |
-| 13. Content Injection Pipeline | v7.0 | 0/? | Not Started | — |
+| 12. Folder Management & File Type Presets | v7.0 | 3/3 | Complete | 2026-02-25 |
+| 13. Content Injection Pipeline | v7.0 | 2/2 | Complete | 2026-03-05 |
 | 14. Manifest Tracking & Chunk Eviction | v7.0 | 0/? | Not Started | — |
 
 ## Future Phases
@@ -211,4 +211,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-02-23 — Phase 12 planned (3 plans in 3 waves)*
+*Last updated: 2026-03-05 — Phase 13 complete (2/2 plans)*
