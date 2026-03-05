@@ -51,7 +51,7 @@
 <summary>🔵 v7.0 Index Management & Content Pipeline (Phases 12-14) — IN PROGRESS</summary>
 
 - [ ] Phase 12: Folder Management & File Type Presets (0/3 plans) — FOLD-01..10, FTYPE-01..07
-- [ ] Phase 13: Content Injection Pipeline — INJECT-01..08
+- [ ] Phase 13: Content Injection Pipeline (0/2 plans) — INJECT-01..08
 - [ ] Phase 14: Manifest Tracking & Chunk Eviction — EVICT-01..10
 
 </details>
@@ -96,6 +96,12 @@ Plans:
 
 **Requirements:** INJECT-01..08 (8 requirements)
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 13-01-PLAN.md — Server foundation: ContentInjector service, model extensions, pipeline integration, dry-run, tests
+- [ ] 13-02-PLAN.md — CLI inject command, DocServeClient extension, protocol documentation
+
 **Success Criteria:**
 1. `agent-brain inject --script enrich.py /path` applies custom metadata to chunks
 2. `--folder-metadata metadata.json` merges static metadata into all chunks from a folder
@@ -110,8 +116,6 @@ Plans:
 - Integration into IndexingService pipeline (post-chunk, pre-embed)
 
 **Research Flags:** Standard patterns, unlikely to need deep research
-
-**Estimated Plans:** 1-2
 
 ---
 
