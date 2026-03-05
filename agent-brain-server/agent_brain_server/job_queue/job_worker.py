@@ -219,7 +219,19 @@ class JobWorker:
                 include_patterns=job.include_patterns,
                 include_types=job.include_types,
                 exclude_patterns=job.exclude_patterns,
+                injector_script=job.injector_script,
+                folder_metadata_file=job.folder_metadata_file,
             )
+
+            # Build content injector if job has injection params
+            content_injector = None
+            if job.injector_script or job.folder_metadata_file:
+                from agent_brain_server.services.content_injector import ContentInjector
+
+                content_injector = ContentInjector.build(
+                    script_path=job.injector_script,
+                    metadata_path=job.folder_metadata_file,
+                )
 
             # Create progress callback that checks for cancellation
             async def progress_callback(current: int, total: int, message: str) -> None:
@@ -260,7 +272,10 @@ class JobWorker:
             try:
                 await asyncio.wait_for(
                     self._indexing_service._run_indexing_pipeline(
-                        index_request, job.id, progress_callback
+                        index_request,
+                        job.id,
+                        progress_callback,
+                        content_injector=content_injector,
                     ),
                     timeout=self._max_runtime_seconds,
                 )

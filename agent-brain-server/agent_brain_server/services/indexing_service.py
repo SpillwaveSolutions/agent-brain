@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from agent_brain_server.services.content_injector import ContentInjector
     from agent_brain_server.services.folder_manager import FolderManager
 
 from llama_index.core.schema import TextNode
@@ -224,6 +225,7 @@ class IndexingService:
         request: IndexRequest,
         job_id: str,
         progress_callback: ProgressCallback | None = None,
+        content_injector: ContentInjector | None = None,
     ) -> None:
         """
         Execute the full indexing pipeline.
@@ -444,6 +446,35 @@ class IndexingService:
             chunks = all_chunks
             self._state.total_chunks = len(chunks)
             logger.info(f"Created {len(chunks)} total chunks")
+
+            # Step 2.5: Apply content injection (INJECT-03, INJECT-07)
+            if content_injector is not None:
+                known_keys: set[str] = {
+                    "chunk_id",
+                    "source",
+                    "file_name",
+                    "chunk_index",
+                    "total_chunks",
+                    "source_type",
+                    "created_at",
+                    "language",
+                    "heading_path",
+                    "section_title",
+                    "content_type",
+                    "symbol_name",
+                    "symbol_kind",
+                    "start_line",
+                    "end_line",
+                    "section_summary",
+                    "prev_section_summary",
+                    "docstring",
+                    "parameters",
+                    "return_type",
+                    "decorators",
+                    "imports",
+                }
+                enriched_count = content_injector.apply_to_chunks(chunks, known_keys)
+                logger.info(f"Applied content injection to {enriched_count} chunks")
 
             # Step 3: Generate embeddings
             if progress_callback:

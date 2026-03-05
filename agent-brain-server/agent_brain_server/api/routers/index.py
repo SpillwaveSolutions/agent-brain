@@ -1,8 +1,11 @@
 """Indexing endpoints for document processing with job queue support."""
 
+from __future__ import annotations
+
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 
@@ -15,6 +18,122 @@ router = APIRouter()
 
 # Maximum queue length for backpressure
 MAX_QUEUE_LENGTH = settings.AGENT_BRAIN_MAX_QUEUE
+
+
+async def _handle_dry_run(
+    request: Request,
+    request_body: IndexRequest,
+    folder_path: Path,
+) -> IndexResponse:
+    """Handle dry_run mode: validate injector against sample chunks without enqueueing.
+
+    Loads up to 3 files from the folder, chunks them, applies the injector,
+    and returns a report without creating a job.
+
+    Args:
+        request: FastAPI request for accessing app state.
+        request_body: IndexRequest with injection config.
+        folder_path: Resolved folder path.
+
+    Returns:
+        IndexResponse with dry_run report as message.
+    """
+    from agent_brain_server.services.content_injector import ContentInjector
+
+    indexing_service = request.app.state.indexing_service
+    document_loader = indexing_service.document_loader
+    chunker = indexing_service.chunker
+
+    # Build injector (may be None if no injection configured)
+    injector: ContentInjector | None = None
+    if request_body.injector_script or request_body.folder_metadata_file:
+        try:
+            injector = ContentInjector.build(
+                script_path=request_body.injector_script,
+                metadata_path=request_body.folder_metadata_file,
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to load injector: {exc}",
+            ) from exc
+
+    # Load a sample of documents (limit to first 3 files)
+    try:
+        documents = await document_loader.load_files(
+            str(folder_path),
+            recursive=request_body.recursive,
+            include_code=request_body.include_code,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to load sample documents: {exc}",
+        ) from exc
+
+    sample_docs = documents[:3]
+
+    # Chunk sample documents
+    try:
+        sample_chunks = await chunker.chunk_documents(sample_docs)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to chunk sample documents: {exc}",
+        ) from exc
+
+    # Limit to 10 chunks for the report
+    sample_chunks = sample_chunks[:10]
+
+    # Apply injector and collect results
+    injected_keys: set[str] = set()
+    enriched_count = 0
+
+    if injector is not None:
+        known_keys: set[str] = {
+            "chunk_id",
+            "source",
+            "file_name",
+            "chunk_index",
+            "total_chunks",
+            "source_type",
+            "created_at",
+            "language",
+            "heading_path",
+            "section_title",
+            "content_type",
+            "symbol_name",
+            "symbol_kind",
+            "start_line",
+            "end_line",
+            "section_summary",
+            "prev_section_summary",
+            "docstring",
+            "parameters",
+            "return_type",
+            "decorators",
+            "imports",
+        }
+        for chunk in sample_chunks:
+            original_dict: dict[str, Any] = chunk.metadata.to_dict()
+            enriched_dict = injector.apply(original_dict)
+            new_keys = {k for k in enriched_dict if k not in known_keys}
+            if new_keys:
+                injected_keys.update(new_keys)
+                enriched_count += 1
+
+    report = (
+        f"Dry-run complete: sampled {len(sample_docs)} files, "
+        f"{len(sample_chunks)} chunks. "
+        f"Injection enriched {enriched_count}/{len(sample_chunks)} chunks "
+        f"with keys: {sorted(injected_keys) if injected_keys else 'none'}."
+    )
+
+    return IndexResponse(
+        job_id="dry_run",
+        status="completed",
+        message=report,
+    )
 
 
 @router.post(
@@ -151,6 +270,35 @@ async def index_documents(
                 detail=str(e),
             ) from e
 
+    # Validate injector script path if provided (INJECT-04)
+    if request_body.injector_script is not None:
+        script_path = Path(request_body.injector_script).expanduser().resolve()
+        if not script_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Injector script not found: {request_body.injector_script}",
+            )
+        if script_path.suffix != ".py":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Injector script must be a .py file",
+            )
+
+    # Validate folder metadata file path if provided (INJECT-04)
+    if request_body.folder_metadata_file is not None:
+        meta_path = Path(request_body.folder_metadata_file).expanduser().resolve()
+        if not meta_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Metadata file not found: {request_body.folder_metadata_file}"
+                ),
+            )
+
+    # Handle dry_run mode (INJECT-02): validate injector without enqueueing
+    if request_body.dry_run:
+        return await _handle_dry_run(request, request_body, folder_path)
+
     # Get job service from app state
     job_service = request.app.state.job_service
 
@@ -180,6 +328,8 @@ async def index_documents(
             exclude_patterns=request_body.exclude_patterns,
             generate_summaries=request_body.generate_summaries,
             force=request_body.force,
+            injector_script=request_body.injector_script,
+            folder_metadata_file=request_body.folder_metadata_file,
         )
 
         result = await job_service.enqueue_job(
