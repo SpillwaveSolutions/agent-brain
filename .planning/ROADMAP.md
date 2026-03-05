@@ -8,7 +8,7 @@
 - ✅ **v3.0 Advanced RAG** — Phases 1-4 (shipped 2026-02-10)
 - ✅ **v6.0 PostgreSQL Backend** — Phases 5-10 (shipped 2026-02-13)
 - ✅ **v6.0.4 Plugin & Install Fixes** — Phase 11 (shipped 2026-02-22)
-- 🔵 **v7.0 Index Management & Content Pipeline** — Phases 12-14 (started 2026-02-23)
+- ✅ **v7.0 Index Management & Content Pipeline** — Phases 12-14 (shipped 2026-03-05)
 
 ## Phases
 
@@ -47,12 +47,12 @@
 
 </details>
 
-<details open>
-<summary>🔵 v7.0 Index Management & Content Pipeline (Phases 12-14) — IN PROGRESS</summary>
+<details>
+<summary>✅ v7.0 Index Management & Content Pipeline (Phases 12-14) — SHIPPED 2026-03-05</summary>
 
 - [x] Phase 12: Folder Management & File Type Presets (3/3 plans) — 2026-02-25
 - [x] Phase 13: Content Injection Pipeline (2/2 plans) — 2026-03-05
-- [ ] Phase 14: Manifest Tracking & Chunk Eviction (0/2 plans) — EVICT-01..10
+- [x] Phase 14: Manifest Tracking & Chunk Eviction (2/2 plans) — 2026-03-05
 
 </details>
 
@@ -169,7 +169,7 @@ Phases execute in numeric order: 12 → 13 → 14
 | 11. Plugin Port Discovery & Install Fix | v6.0.4 | 1/1 | Complete | 2026-02-22 |
 | 12. Folder Management & File Type Presets | v7.0 | 3/3 | Complete | 2026-02-25 |
 | 13. Content Injection Pipeline | v7.0 | 2/2 | Complete | 2026-03-05 |
-| 14. Manifest Tracking & Chunk Eviction | v7.0 | 0/2 | Not Started | — |
+| 14. Manifest Tracking & Chunk Eviction | v7.0 | 2/2 | Complete | 2026-03-05 |
 
 ## Future Phases
 
@@ -215,4 +215,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-05 — Phase 14 planned (2 plans)*
+*Last updated: 2026-03-05 — Phase 14 complete, v7.0 milestone shipped*

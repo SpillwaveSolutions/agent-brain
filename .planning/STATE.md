@@ -202,7 +202,7 @@ v7.0 Index Mgmt & Pipeline: [██████████] 100% (Phase 14 done
 **Last Session:** 2026-03-05
 **Stopped At:** Completed 14-02-PLAN.md — Full incremental indexing pipeline, v7.0 milestone COMPLETE
 **Resume File:** None
-**Next Action:** None — Phase 14 and v7.0 milestone complete
+**Next Action:** `/gsd:complete-milestone` to archive v7.0, or plan Phase 15+
 
 ---
 *State updated: 2026-03-05*
