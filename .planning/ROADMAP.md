@@ -52,7 +52,7 @@
 
 - [x] Phase 12: Folder Management & File Type Presets (3/3 plans) — 2026-02-25
 - [x] Phase 13: Content Injection Pipeline (2/2 plans) — 2026-03-05
-- [ ] Phase 14: Manifest Tracking & Chunk Eviction — EVICT-01..10
+- [ ] Phase 14: Manifest Tracking & Chunk Eviction (0/2 plans) — EVICT-01..10
 
 </details>
 
@@ -125,6 +125,12 @@ Plans:
 
 **Requirements:** EVICT-01..10 (10 requirements)
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 14-01-PLAN.md — Foundation: ManifestTracker, ChunkEvictionService, storage_paths extension, JobRecord model changes, unit tests
+- [ ] 14-02-PLAN.md — Pipeline integration: IndexingService wiring, JobWorker force threading, BM25 rebuild, CLI eviction summary, integration tests
+
 **Success Criteria:**
 1. Reindexing a folder only processes changed/new files (unchanged files skipped)
 2. Deleted files' chunks automatically evicted from index
@@ -140,8 +146,6 @@ Plans:
 - Integration with IndexingService for incremental pipeline
 
 **Research Flags:** Manifest storage scalability, checksum vs mtime tradeoffs, chunk ID retrieval from ChromaDB
-
-**Estimated Plans:** 2-3
 
 ---
 
@@ -165,7 +169,7 @@ Phases execute in numeric order: 12 → 13 → 14
 | 11. Plugin Port Discovery & Install Fix | v6.0.4 | 1/1 | Complete | 2026-02-22 |
 | 12. Folder Management & File Type Presets | v7.0 | 3/3 | Complete | 2026-02-25 |
 | 13. Content Injection Pipeline | v7.0 | 2/2 | Complete | 2026-03-05 |
-| 14. Manifest Tracking & Chunk Eviction | v7.0 | 0/? | Not Started | — |
+| 14. Manifest Tracking & Chunk Eviction | v7.0 | 0/2 | Not Started | — |
 
 ## Future Phases
 
@@ -211,4 +215,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-05 — Phase 13 complete (2/2 plans)*
+*Last updated: 2026-03-05 — Phase 14 planned (2 plans)*
