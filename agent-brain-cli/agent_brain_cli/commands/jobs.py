@@ -129,6 +129,22 @@ def _create_job_detail_panel(job: dict[str, Any]) -> Panel:
     if error := job.get("error", job.get("error_message")):
         lines.append(f"[bold]Error:[/] [red]{error}[/red]")
 
+    # Show eviction summary if present (Phase 14 - incremental indexing)
+    eviction = job.get("eviction_summary")
+    if eviction and isinstance(eviction, dict):
+        lines.append("")
+        lines.append("[bold]Eviction Summary:[/]")
+        added = eviction.get("files_added", [])
+        changed = eviction.get("files_changed", [])
+        deleted = eviction.get("files_deleted", [])
+        unchanged = eviction.get("files_unchanged", [])
+        lines.append(f"  Files added:     [green]{len(added)}[/green]")
+        lines.append(f"  Files changed:   [yellow]{len(changed)}[/yellow]")
+        lines.append(f"  Files deleted:   [red]{len(deleted)}[/red]")
+        lines.append(f"  Files unchanged: [dim]{len(unchanged)}[/dim]")
+        lines.append(f"  Chunks evicted:  {eviction.get('chunks_evicted', 0)}")
+        lines.append(f"  Chunks created:  {eviction.get('chunks_to_create', 0)}")
+
     # Additional metadata
     if chunk_size := job.get("chunk_size"):
         lines.append(f"[bold]Chunk Size:[/] {chunk_size}")
