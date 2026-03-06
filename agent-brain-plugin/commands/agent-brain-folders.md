@@ -39,6 +39,11 @@ remove all chunks associated with a folder.
 | action | Yes | - | list, add, or remove |
 | path | For add/remove | - | Path to the folder |
 | --yes | No | false | Skip confirmation for remove |
+| --include-code | No | false | Include code files (for add) |
+| --include-type | No | - | File type presets, e.g., python,docs (for add) |
+| --chunk-size | No | 512 | Target chunk size in tokens (for add) |
+| --force | No | false | Force re-indexing, bypass manifest (for add) |
+| --json | No | false | Output as JSON (for list) |
 
 ### Examples
 
@@ -46,7 +51,10 @@ remove all chunks associated with a folder.
 /agent-brain-folders list
 /agent-brain-folders add ./docs
 /agent-brain-folders add ./src --include-code
+/agent-brain-folders add ./src --include-type python,docs
+/agent-brain-folders add ./docs --force
 /agent-brain-folders remove ./old-docs
+/agent-brain-folders remove ./old-docs --yes
 ```
 
 ## Execution
@@ -63,17 +71,16 @@ agent-brain folders list
 
 ### Add Folder (triggers indexing)
 
-Queue an indexing job for the specified folder:
+Queue an indexing job for the specified folder. Add supports all index options:
 
 ```bash
 agent-brain folders add <path>
-```
-
-To include source code files:
-
-```bash
 agent-brain folders add <path> --include-code
+agent-brain folders add <path> --include-type python,docs
+agent-brain folders add <path> --include-code --force
 ```
+
+Note: `folders add` is an alias for `index` — re-adding an already-indexed folder triggers incremental re-indexing (only changed files processed).
 
 ### Remove Folder (deletes all chunks)
 

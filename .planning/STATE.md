@@ -191,10 +191,10 @@ v7.0 Index Mgmt & Pipeline: [██████████] 100% (Phase 14 done
 - Documentation must clarify no auto-migration tool (users rebuild from source)
 
 ### Pending Todos
-1 pending todo:
-- **Update agent plugin and skills for latest features** (area: plugin) — Plugin/skill packages behind Phase 12 CLI/server features (folders, types, include-type flag)
+0 pending todos.
 
 ### Done Todos
+- ~~Update agent plugin and skills for latest features~~ (area: plugin) — Resolved 2026-03-06, added inject/jobs commands, updated index/folders commands, updated skills
 - ~~Fix include_types pipeline plumbing~~ (area: api) — Resolved 2026-02-26, merged PR #113
 
 ## Session Continuity

@@ -16,7 +16,7 @@ allowed-tools:
   - Bash
   - Read
 metadata:
-  version: 4.0.0
+  version: 7.0.0
   category: ai-tools
   author: Spillwave
 ---
@@ -30,6 +30,9 @@ Expert-level skill for Agent Brain document search with five modes: BM25 (keywor
 - [Search Modes](#search-modes)
 - [Mode Selection Guide](#mode-selection-guide)
 - [GraphRAG (Knowledge Graph)](#graphrag-knowledge-graph)
+- [Indexing & Folder Management](#indexing--folder-management)
+- [Content Injection](#content-injection)
+- [Job Queue Management](#job-queue-management)
 - [Server Management](#server-management)
 - [When Not to Use](#when-not-to-use)
 - [Best Practices](#best-practices)
@@ -152,6 +155,115 @@ See [Graph Search Guide](references/graph-search-guide.md) for detailed usage.
 
 ---
 
+## Indexing & Folder Management
+
+### Indexing with File Type Presets
+
+```bash
+# Index only Python files
+agent-brain index ./src --include-type python
+
+# Index Python and documentation
+agent-brain index ./project --include-type python,docs
+
+# Index all code files
+agent-brain index ./repo --include-type code
+
+# Force full re-index (bypass incremental)
+agent-brain index ./docs --force
+```
+
+Use `agent-brain types list` to see all 14 available presets.
+
+### Folder Management
+
+```bash
+agent-brain folders list                    # List indexed folders with chunk counts
+agent-brain folders add ./docs              # Add folder (triggers indexing)
+agent-brain folders add ./src --include-type python  # Add with preset filter
+agent-brain folders remove ./old-docs --yes # Remove folder and evict chunks
+```
+
+### Incremental Indexing
+
+Re-indexing a folder automatically detects changes:
+- **Unchanged files** are skipped (mtime + SHA-256 checksum)
+- **Changed files** have old chunks evicted and new ones created
+- **Deleted files** have their chunks automatically removed
+- Use `--force` to bypass manifest and fully re-index
+
+---
+
+## Content Injection
+
+Enrich chunk metadata during indexing with custom Python scripts or static JSON metadata.
+
+### When to Use
+
+- Tag chunks with project/team/category metadata
+- Classify chunks by content type
+- Add custom fields for filtered search
+- Merge folder-level metadata into all chunks
+
+### Basic Usage
+
+```bash
+# Inject via Python script
+agent-brain inject ./docs --script enrich.py
+
+# Inject via static JSON metadata
+agent-brain inject ./src --folder-metadata project-meta.json
+
+# Validate script before indexing
+agent-brain inject ./docs --script enrich.py --dry-run
+```
+
+### Injector Script Protocol
+
+Scripts export a `process_chunk(chunk: dict) -> dict` function:
+
+```python
+def process_chunk(chunk: dict) -> dict:
+    chunk["project"] = "my-project"
+    chunk["team"] = "backend"
+    return chunk
+```
+
+- Values must be scalars (str, int, float, bool)
+- Per-chunk exceptions are logged as warnings, not fatal
+- See `docs/INJECTOR_PROTOCOL.md` for the full specification
+
+---
+
+## Job Queue Management
+
+Indexing runs asynchronously via a job queue. Monitor and manage jobs:
+
+```bash
+agent-brain jobs                    # List all jobs
+agent-brain jobs --watch            # Live polling every 3s
+agent-brain jobs <job_id>           # Job details + eviction summary
+agent-brain jobs <job_id> --cancel  # Cancel a job
+```
+
+### Eviction Summary
+
+When re-indexing, job details show what changed:
+
+```
+Eviction Summary:
+  Files added:     3
+  Files changed:   2
+  Files deleted:   1
+  Files unchanged: 42
+  Chunks evicted:  15
+  Chunks created:  25
+```
+
+This confirms incremental indexing is working efficiently.
+
+---
+
 ## Server Management
 
 ### Quick Start
@@ -228,6 +340,10 @@ This skill focuses on **searching and querying**. Do NOT use for:
 5. **Source Citation**: Always reference source filenames in responses
 6. **Graph Queries**: Use graph mode for "what calls X", "what imports Y" patterns
 7. **Traversal Depth**: Start with depth 2, increase to 3-4 for deeper chains
+8. **File Type Presets**: Use `--include-type python,docs` instead of manual glob patterns
+9. **Incremental Indexing**: Re-index without `--force` for efficient updates
+10. **Injection Validation**: Always `--dry-run` injector scripts before full indexing
+11. **Job Monitoring**: Use `agent-brain jobs --watch` for long-running index jobs
 
 ---
 

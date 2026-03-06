@@ -13,7 +13,7 @@ allowed-tools:
   - Bash
   - Read
 metadata:
-  version: 4.0.0
+  version: 7.0.0
   category: ai-tools
   author: Spillwave
 ---
@@ -378,12 +378,15 @@ Expected: Search results or "No results" (not an error)
 
 Run each command and verify expected output:
 
-- [ ] `agent-brain --version` shows version number
+- [ ] `agent-brain --version` shows version number (7.0.0+)
 - [ ] `echo ${OPENAI_API_KEY:+SET}` shows "SET" (if using OpenAI)
 - [ ] `ls .claude/agent-brain/config.json` file exists
 - [ ] `agent-brain status` shows "healthy"
 - [ ] `agent-brain status` shows document count > 0
 - [ ] `agent-brain query "test"` returns results or "no matches"
+- [ ] `agent-brain folders list` shows indexed folders
+- [ ] `agent-brain types list` shows file type presets
+- [ ] `agent-brain jobs` shows job queue (empty or with history)
 
 ### GraphRAG Verification (if enabled)
 
@@ -399,6 +402,24 @@ agent-brain verify
 ```
 
 This runs all checks and reports any issues.
+
+### Post-Indexing Verification
+
+After indexing documents, verify the pipeline is working:
+
+```bash
+# Monitor indexing job
+agent-brain jobs --watch
+
+# Check job completed successfully
+agent-brain jobs <job_id>
+
+# Verify incremental indexing works
+agent-brain index ./docs  # Should show eviction summary with unchanged files
+
+# Validate injection scripts before use
+agent-brain inject ./docs --script enrich.py --dry-run
+```
 
 ---
 
