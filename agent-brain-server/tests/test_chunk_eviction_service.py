@@ -102,7 +102,7 @@ async def test_incremental_no_changes_all_unchanged(tmp_path: Path) -> None:
     current_files = [file_a, file_b]
 
     # Mock os.stat to return the same mtime as in the manifest
-    def fake_stat(fp: str) -> os.stat_result:  # type: ignore[override]
+    def fake_stat(fp: str, **kwargs: object) -> os.stat_result:  # type: ignore[override]
         mtime = 100.0 if fp == file_a else 200.0
         # Override st_mtime to be float
         return type("FakeStat", (), {"st_mtime": mtime})()  # type: ignore[return-value]
@@ -154,7 +154,7 @@ async def test_incremental_deleted_file_chunks_evicted(tmp_path: Path) -> None:
     # file_b is no longer on disk
     current_files = [file_a]
 
-    def fake_stat(fp: str) -> object:
+    def fake_stat(fp: str, **kwargs: object) -> object:
         return type("FakeStat", (), {"st_mtime": 100.0})()
 
     with patch(
@@ -202,7 +202,7 @@ async def test_incremental_changed_file_old_chunks_evicted(tmp_path: Path) -> No
 
     current_files = [file_a]
 
-    def fake_stat(fp: str) -> object:
+    def fake_stat(fp: str, **kwargs: object) -> object:
         # mtime changed
         return type("FakeStat", (), {"st_mtime": 999.0})()
 
@@ -321,7 +321,7 @@ async def test_mtime_changed_same_checksum_counted_as_unchanged(tmp_path: Path) 
     storage = make_mock_storage()
     service = ChunkEvictionService(manifest_tracker=tracker, storage_backend=storage)
 
-    def fake_stat(fp: str) -> object:
+    def fake_stat(fp: str, **kwargs: object) -> object:
         # mtime changed
         return type("FakeStat", (), {"st_mtime": 999.0})()
 
@@ -381,7 +381,7 @@ async def test_mixed_diff_scenario(tmp_path: Path) -> None:
 
     current_files = [file_unchanged, file_changed, file_new]
 
-    def fake_stat(fp: str) -> object:
+    def fake_stat(fp: str, **kwargs: object) -> object:
         if fp == file_unchanged:
             return type("FakeStat", (), {"st_mtime": 1.0})()  # mtime unchanged
         return type("FakeStat", (), {"st_mtime": 999.0})()  # mtime changed
@@ -463,7 +463,7 @@ async def test_no_eviction_needed_delete_not_called(tmp_path: Path) -> None:
     storage = make_mock_storage()
     service = ChunkEvictionService(manifest_tracker=tracker, storage_backend=storage)
 
-    def fake_stat(fp: str) -> object:
+    def fake_stat(fp: str, **kwargs: object) -> object:
         return type("FakeStat", (), {"st_mtime": 1.0})()
 
     with patch(
