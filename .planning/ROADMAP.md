@@ -79,11 +79,11 @@
 5. Folders marked `watch_mode: off` are never auto-reindexed regardless of file activity
 6. Plugin slash commands are updated for `--watch` flag and `watch_mode` display
 
-**Plans:** TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 15-01: FileWatcherService (watchfiles awatch(), per-folder debounce, exclusion patterns, asyncio lifespan task, FolderRecord extension with watch_enabled + watch_debounce_seconds)
-- [ ] 15-02: Background incremental wiring (job queue routing, duplicate job prevention, force=False, source indicator on JobRecord); CLI watch flag; plugin updates
+- [ ] 15-01-PLAN.md — FileWatcherService + data model extensions (FolderRecord, JobRecord, Settings, lifespan wiring, health endpoint)
+- [ ] 15-02-PLAN.md — CLI --watch/--debounce flags, folders list watch columns, jobs source column, job worker watcher notification, plugin docs
 
 ---
 
@@ -177,7 +177,7 @@ Phases execute in numeric order: 15 → 16 → 17 → 18
 | 12. Folder Management & File Type Presets | v7.0 | 3/3 | Complete | 2026-02-25 |
 | 13. Content Injection Pipeline | v7.0 | 2/2 | Complete | 2026-03-05 |
 | 14. Manifest Tracking & Chunk Eviction | v7.0 | 2/2 | Complete | 2026-03-05 |
-| 15. File Watcher & Background Incremental | v8.0 | 0/2 | Not started | - |
+| 15. File Watcher & Background Incremental | v8.0 | 0/2 | Planning complete | - |
 | 16. Embedding Cache | v8.0 | 0/2 | Not started | - |
 | 17. Query Cache | v8.0 | 0/2 | Not started | - |
 | 18. UDS Transport & Quality Gate | v8.0 | 0/2 | Not started | - |
@@ -206,4 +206,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-06 — v8.0 phases reordered: 15=File Watcher+BGINC, 16=Embedding Cache, 17=Query Cache, 18=UDS+Quality Gate*
+*Last updated: 2026-03-06 — Phase 15 planned: 2 plans in 2 waves*
