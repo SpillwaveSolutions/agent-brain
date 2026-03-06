@@ -1,19 +1,19 @@
 # Agent Brain — Project State
-**Last Updated:** 2026-03-05
-**Current Milestone:** v7.0 Index Management & Content Pipeline
-**Status:** v7.0 milestone complete
-**Current Phase:** 14 (Manifest Tracking & Chunk Eviction) — COMPLETE
-**Total Phases:** 3 (Phases 12-14)
-**Current Plan:** 2 (COMPLETE)
-**Total Plans in Phase:** 2
+**Last Updated:** 2026-03-06
+**Current Milestone:** v8.0 Performance & Developer Experience
+**Status:** Defining requirements
+**Current Phase:** Not started
+**Total Phases:** TBD
+**Current Plan:** —
+**Total Plans in Phase:** —
 
 ## Current Position
-Phase: 14 — Manifest Tracking & Chunk Eviction — COMPLETE
-Plan: 02 complete — full incremental indexing pipeline wired, CLI eviction summary, 10 new tests
-Status: Phase 14 complete — 36 new tests across both plans (26+10), 829 total passing, zero regressions
-Last activity: 2026-03-05 — Phase 14 Plan 02 executed
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-06 — Milestone v8.0 started
 
-**Progress:** [██████████]  100%
+**Progress:** [░░░░░░░░░░]  0%
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-23)
