@@ -1,458 +1,380 @@
-# Pitfalls Research: v7.0 Index Management & Content Pipeline
+# Pitfalls Research: v8.0 Performance & Developer Experience
 
-**Domain:** RAG Index Management, Chunk Eviction, Content Injection, Folder Tracking
-**Researched:** 2026-02-23
+**Domain:** RAG System — File Watching, Embedding Cache, Query Cache, UDS Transport
+**Researched:** 2026-03-06
 **Confidence:** HIGH
 
 ## Critical Pitfalls
 
-### Pitfall 1: ChromaDB Empty IDs Delete Bug (Collection Wipe)
+### Pitfall 1: Cache Incoherence on Embedding Provider or Model Change
 
 **What goes wrong:**
-Calling `collection.delete(ids=[])` with an empty list deletes ALL documents in the ChromaDB collection. This is a documented bug that persists in ChromaDB 0.3.23+ where empty `ids` parameter is treated as "delete everything that matches the where clause" rather than "delete nothing".
+The embedding cache keys on content hash (SHA-256 of text), but embeddings from `text-embedding-3-large` are not interchangeable with embeddings from `nomic-embed-text` (Ollama). If the user switches providers in `providers.yaml`, stale cached embeddings are served with wrong vector dimensions or wrong geometric space. ChromaDB raises `InvalidDimensionException` on insert, or worse — inserts silently succeed because both providers happen to share a dimension (e.g., both 1536-dim), but the vector spaces are incompatible. Semantic search returns garbage results with no error signal.
 
 **Why it happens:**
-When implementing folder removal or selective chunk eviction, developers often build a list of IDs to delete based on metadata filters. If the filter returns no matches (e.g., folder path typo, already deleted), passing the empty list to `delete()` triggers catastrophic data loss. This is especially dangerous during:
-- Folder removal when folder path doesn't exist
-- Chunk eviction when file hash doesn't match
-- Concurrent deletion operations where another process removed the target first
+Developers cache on content hash alone — it's cheap and correct for same-provider runs. Provider config is separate from the cache key. Nobody tests "switch provider while cache is warm." The v7.0 provider system already has dimension validation on startup (`PROV-07`), but embedding cache bypasses that path by returning a vector before any provider call happens.
 
 **How to avoid:**
+Include provider config fingerprint in the cache key:
 ```python
-# DANGEROUS — DO NOT DO THIS
-ids_to_delete = get_ids_for_folder(folder_path)  # might be []
-collection.delete(ids=ids_to_delete)  # WIPES COLLECTION IF EMPTY
+import hashlib
 
-# SAFE — Always check before delete
-ids_to_delete = get_ids_for_folder(folder_path)
-if ids_to_delete:
-    collection.delete(ids=ids_to_delete)
-else:
-    logger.warning(f"No chunks found for folder {folder_path}")
+def _cache_key(text: str, provider_name: str, model_name: str) -> str:
+    config_sig = hashlib.sha256(
+        f"{provider_name}:{model_name}".encode()
+    ).hexdigest()[:16]
+    content_hash = hashlib.sha256(text.encode()).hexdigest()
+    return f"{config_sig}:{content_hash}"
 ```
+On startup, read the current provider config and compute a `cache_namespace` string. If it differs from what is stored in the cache metadata, wipe the cache before accepting any reads. Store the namespace as a sentinel key (`__provider_config__`) in the cache on first write.
 
 **Warning signs:**
-- Index count suddenly drops to zero after folder management operation
-- "Document not found" errors after delete operations that should have been no-ops
-- Delete operations that complete instantly (0ms) — suggests no work done but might indicate bug trigger
+- `InvalidDimensionException` from ChromaDB after provider config change
+- Search quality drops sharply after switching from OpenAI to Ollama with no error
+- Cache hit rate is 100% immediately after provider switch (should be 0% on cold namespace)
+- Embedding cache size doesn't shrink after `providers.yaml` change
 
 **Phase to address:**
-Phase 12 (Folder Management CLI) — Add explicit guard checks before all delete operations. Phase 13 (Chunk Eviction) — Validate that eviction logic never passes empty lists to delete().
+Phase (Embedding Cache) — embed provider + model name into cache key design from day one. Do not add cache key version field later as a patch — it must be in the initial schema.
 
 ---
 
-### Pitfall 2: Stale Chunk Accumulation (Zombie Embeddings)
+### Pitfall 2: Watcher Thundering Herd on Git Checkout
 
 **What goes wrong:**
-When source files are updated, old chunks remain in the vector store alongside new chunks, causing search results to return outdated content. Users query for current code/docs but retrieve stale embeddings representing deleted or modified content. Over time, vector store fills with duplicate and obsolete chunks, degrading search quality and wasting storage.
+A `git checkout main` or `git rebase` on a 500-file project emits hundreds or thousands of `FileModifiedEvent` / `FileCreatedEvent` / `FileDeletedEvent` events within milliseconds. With a naive 30s debounce per folder, all events are batched, which is correct. But if the debounce is per-file rather than per-folder, each of the 500 files schedules its own 30s timer. The timer heap grows to 500 entries. When all timers fire simultaneously, 500 `asyncio.create_task()` calls enqueue 500 index jobs — the job queue absorbs them FIFO and indexes each file individually rather than as a single folder run. This saturates the job queue, re-embeds everything (expensive API calls), and defeats incremental indexing.
 
 **Why it happens:**
-Naive indexing implementations append new chunks without removing old ones. File updates trigger re-chunking and new embeddings, but the system lacks:
-- File-to-chunk mapping to identify old chunks
-- Content hashing to detect changes
-- Metadata versioning to track chunk generations
-- Eviction strategy to remove superseded chunks
-
-This is especially problematic with code files that change frequently (hot paths, configuration files).
+Per-file debounce seems natural because the OS reports changes per-file. Developers implement debounce at the event level, not at the folder level. The manifest-based incremental system handles "what changed" correctly, but redundant jobs mean redundant manifest loads/saves and redundant chunk eviction passes.
 
 **How to avoid:**
-**Strategy 1: Delete-then-insert (Transactional)**
+Debounce at folder granularity, not file granularity. Use a single `asyncio.Handle` per watched folder:
 ```python
-# On file update:
-# 1. Query existing chunks by source_file metadata
-old_chunk_ids = storage_backend.query_by_metadata({"source_file": file_path})
-# 2. Delete old chunks (with empty check!)
-if old_chunk_ids:
-    storage_backend.delete_chunks(old_chunk_ids)
-# 3. Insert new chunks
-storage_backend.upsert_chunks(new_chunks)
-```
+class FolderWatcher:
+    _pending_handle: asyncio.TimerHandle | None = None
 
-**Strategy 2: Content Hash Versioning**
-```python
-# Chunk metadata includes content hash
-chunk.metadata = {
-    "source_file": file_path,
-    "content_hash": hashlib.sha256(file_content).hexdigest(),
-    "indexed_at": datetime.now(timezone.utc).isoformat()
-}
-
-# On re-index, skip if hash unchanged
-existing_hash = storage_backend.get_file_hash(file_path)
-new_hash = hashlib.sha256(file_content).hexdigest()
-if existing_hash == new_hash:
-    logger.info(f"Skipping {file_path} — content unchanged")
-    return
+    def on_event(self, event: FileSystemEvent) -> None:
+        # Any event in this folder resets the single folder-level timer
+        if self._pending_handle is not None:
+            self._pending_handle.cancel()
+        loop = asyncio.get_event_loop()
+        self._pending_handle = loop.call_later(
+            self.debounce_seconds,
+            self._schedule_index_job
+        )
 ```
+One timer per folder. One job enqueued per debounce window regardless of how many files changed.
 
-**Strategy 3: Versioned Embeddings**
-Use version metadata and periodic garbage collection:
-```python
-chunk.metadata = {"source_file": file_path, "version": 2}
-# Later: delete all chunks where version < current_version
-```
+Additionally, before enqueuing a new job, check if a job for the same folder is already PENDING or RUNNING in the job queue. If yes, skip enqueuing (the running job will process whatever changed).
 
 **Warning signs:**
-- Search results include code that was deleted weeks ago
-- Vector store size grows monotonically despite stable source directory size
-- Duplicate results with different timestamps for same source file
-- "I just updated this but search still shows old version"
+- Job queue depth > 1 for the same folder after git operations
+- `asyncio` pending handles count grows proportionally to file count watched
+- Repeated duplicate job IDs for same folder in quick succession in logs
+- API cost spikes on `git rebase` or `git stash pop`
 
 **Phase to address:**
-Phase 13 (Chunk Eviction & Live Reindex) — Implement delete-before-insert strategy with content hash change detection. Phase 12 (Folder Management) — Track file-to-chunk mapping for eviction.
+Phase (File Watcher) — require per-folder debounce design in the watcher implementation spec. Add integration test: emit 200 FileCreatedEvent in 100ms, verify exactly 1 job enqueued.
 
 ---
 
-### Pitfall 3: File Manifest Persistence Failure (State Loss on Restart)
+### Pitfall 3: Watcher Events Dispatched on Watchdog Thread, Not Event Loop Thread
 
 **What goes wrong:**
-Folder tracking state (which folders are indexed, file count, last index time) is stored only in-memory. Server restarts lose all folder management state. Users add folders via CLI, restart server, and `/folders/list` returns empty. Re-adding folders causes duplicate indexing. No way to reconstruct "what was indexed" without re-scanning filesystem.
+`watchdog` calls `on_modified()` / `on_created()` from a background OS thread, not the asyncio event loop. Any `await` call inside a watchdog `EventHandler` crashes with `RuntimeError: no running event loop` or silently schedules work on the wrong loop. Calling `asyncio.create_task()` from outside the loop raises the same error. The handler appears to work in unit tests (single-threaded) but fails at runtime.
 
 **Why it happens:**
-Developer stores folder manifest in Python dict/list without persistence layer:
+Watchdog's `Observer` runs in a dedicated thread. Python asyncio event loops are not thread-safe. Developers unfamiliar with asyncio thread safety write:
 ```python
-class IndexingService:
-    def __init__(self):
-        self.indexed_folders = []  # ⚠️ LOST ON RESTART
+class MyHandler(FileSystemEventHandler):
+    async def on_modified(self, event):  # WRONG: on_modified cannot be async
+        await self._enqueue_job(event)   # RuntimeError at runtime
 ```
-
-RAG systems often focus on vector storage and ignore operational metadata persistence. IndexingService currently tracks nothing about folder origins — chunks have `source_file` metadata but no `folder_root` or `index_session_id`.
 
 **How to avoid:**
-**Strategy 1: Persistent Manifest File (Simple)**
+Bridge the thread boundary with `loop.call_soon_threadsafe()`:
 ```python
-# .claude/agent-brain/index_manifest.json
-{
-  "folders": [
-    {
-      "path": "/path/to/project",
-      "added_at": "2026-02-23T10:30:00Z",
-      "file_count": 142,
-      "last_indexed_at": "2026-02-23T11:00:00Z",
-      "include_patterns": ["*.py", "*.md"]
-    }
-  ]
-}
+class WatcherHandler(FileSystemEventHandler):
+    def __init__(self, loop: asyncio.AbstractEventLoop, callback: Callable) -> None:
+        self._loop = loop
+        self._callback = callback
+
+    def on_modified(self, event: FileSystemEvent) -> None:
+        # Always dispatch to the event loop — never await here
+        self._loop.call_soon_threadsafe(
+            self._callback, event
+        )
 ```
+The callback is a synchronous function that manipulates the debounce timer. All async work happens in tasks created within the event loop thread.
 
-Load on startup, persist after modifications. Use file locking for concurrent access.
-
-**Strategy 2: Store in Vector DB Metadata (Backend Agnostic)**
-Create special "manifest" documents:
-```python
-manifest_chunk = {
-    "id": "manifest:folder:/path/to/project",
-    "content": "Indexed folder manifest",
-    "metadata": {
-        "type": "folder_manifest",
-        "folder_path": "/path/to/project",
-        "added_at": "...",
-        "file_count": 142
-    }
-}
-```
-
-Query by `type: folder_manifest` to reconstruct state.
-
-**Strategy 3: Use Storage Backend for All State (PostgreSQL Path)**
-If using PostgreSQL backend, add `indexed_folders` table with schema:
-```sql
-CREATE TABLE indexed_folders (
-    id SERIAL PRIMARY KEY,
-    folder_path TEXT UNIQUE NOT NULL,
-    added_at TIMESTAMPTZ DEFAULT NOW(),
-    file_count INT,
-    include_patterns JSONB
-);
-```
-
-ChromaDB backend falls back to JSON manifest file.
+Alternatively, use `watchfiles` (the `anyio`-native successor to `watchdog`) which handles the thread bridge internally and exposes an `async for` interface.
 
 **Warning signs:**
-- `/folders/list` returns empty after server restart despite previous indexing
-- Users report "I added this yesterday but it's gone"
-- Duplicate indexing of same folder after restart
-- No audit trail of what was indexed when
+- `RuntimeError: no running event loop` in watchdog handler logs
+- File events logged but no jobs enqueued
+- Works in `pytest` but fails in running server
+- Intermittent missing events under load
 
 **Phase to address:**
-Phase 12 (Folder Management CLI) — Implement persistent manifest with JSON file. Phase 15 (PostgreSQL Folder State) — Migrate to database table for PostgreSQL backend.
+Phase (File Watcher) — explicitly document thread-safety requirement in watcher component design. Unit test the thread bridge in isolation before wiring to job queue.
 
 ---
 
-### Pitfall 4: Content Injection Subprocess Zombies (CLI Tool Orphans)
+### Pitfall 4: UDS Socket File Survives Crash, Blocks Next Startup
 
 **What goes wrong:**
-Content injector spawns subprocess (`claude`, `opencode`, custom CLI tools) but fails to properly wait for completion. Process exits, leaving zombie processes. Over multiple injection operations, zombies accumulate, consuming PIDs and potentially leaking file descriptors. On production systems, PID exhaustion blocks new process creation.
+When Agent Brain crashes (OOM kill, `kill -9`, power loss), the Unix Domain Socket file at e.g. `~/.claude/agent-brain/<project>/agent-brain.sock` is NOT automatically cleaned up by the OS. On next startup, `asyncio.start_unix_server()` raises `OSError: [Errno 98] Address already in use` and the server fails to start. This is a documented CPython issue (cpython#111246) — `create_unix_server()` does not remove existing socket files. Users see a cryptic startup error and must manually delete the socket file.
 
 **Why it happens:**
-Naive subprocess usage without proper cleanup:
-```python
-# DANGEROUS — Creates zombies
-import subprocess
-proc = subprocess.Popen(["claude", "--version"])
-# ⚠️ Parent exits without wait() — zombie created
-```
-
-Python's `subprocess.run()` with timeout doesn't handle signals properly. CLI tool might hang indefinitely (network timeout, deadlock, user input prompt). If parent kills child with SIGTERM but doesn't reap exit status, zombie persists.
+UDS socket files are filesystem objects. Unlike TCP ports that are released by the kernel when a process dies, socket files persist. Every process restart after a non-clean shutdown leaves a stale socket. This is a well-known POSIX footgun — the POSIX spec requires the application to clean up.
 
 **How to avoid:**
-**Strategy 1: Use subprocess.run() with Proper Cleanup**
-```python
-import subprocess
-
-try:
-    result = subprocess.run(
-        ["claude", "query", "--input", content],
-        timeout=30,
-        capture_output=True,
-        text=True,
-        check=True  # Raises on non-zero exit
-    )
-    return result.stdout
-except subprocess.TimeoutExpired:
-    # Process killed, status reaped automatically
-    raise ContentInjectionTimeout(f"CLI tool exceeded 30s timeout")
-except subprocess.CalledProcessError as e:
-    # Non-zero exit, status reaped
-    raise ContentInjectionError(f"CLI tool failed: {e.stderr}")
-```
-
-**Strategy 2: Process Group Management**
-Kill entire process tree on timeout:
+Before binding, attempt to unlink the socket path, ignoring `FileNotFoundError`:
 ```python
 import os
-import signal
-import psutil
-
-proc = subprocess.Popen(
-    ["complex-cli-tool"],
-    preexec_fn=os.setsid  # Create new session
-)
-
-try:
-    proc.wait(timeout=30)
-except subprocess.TimeoutExpired:
-    # Kill entire process group
-    pgid = os.getpgid(proc.pid)
-    os.killpg(pgid, signal.SIGTERM)
-    proc.wait()  # Reap zombie
-```
-
-**Strategy 3: Ignore SIGCHLD for Auto-Reaping**
-For fire-and-forget background tasks:
-```python
-import signal
-signal.signal(signal.SIGCHLD, signal.SIG_IGN)  # Auto-reap children
-```
-
-**Warning signs:**
-- `ps aux | grep -i defunct` shows processes in `<defunct>` state
-- `/proc/sys/kernel/pid_max` approaching limit (check `/proc/sys/kernel/pid_current`)
-- "Cannot fork: Resource temporarily unavailable" errors
-- File descriptor leaks (`lsof | wc -l` growing over time)
-
-**Phase to address:**
-Phase 14 (Content Injection CLI) — Use `subprocess.run()` with timeout and proper exception handling. Add health check that counts zombie processes and alerts.
-
----
-
-### Pitfall 5: ChromaDB Concurrent Operation Race Conditions (Single-Threaded Blocking)
-
-**What goes wrong:**
-ChromaDB is fundamentally single-threaded — only one thread can read/write to a given HNSW index at a time. Under concurrent load (multiple folder indexing jobs, live reindex while querying), operations block sequentially. Average latency increases dramatically. User triggers folder indexing, then immediately queries, but query blocks until indexing completes (potentially minutes).
-
-**Why it happens:**
-ChromaDB v0.4+ fixed many thread-safety bugs but remains single-threaded internally. HNSW algorithm has parallelism, but only one operation at a time per index. Developer assumes concurrent safety:
-```python
-# Job 1: Index 10k documents (takes 5 minutes)
-await storage_backend.upsert_chunks(large_batch)
-
-# Job 2: Query during indexing (blocks until Job 1 finishes)
-results = await storage_backend.query("search term")  # ⚠️ 5 min latency
-```
-
-Agent Brain job queue processes one job at a time (sequential), which mitigates but doesn't eliminate issue. User could issue query via API while job runs.
-
-**How to avoid:**
-**Strategy 1: Job Queue Concurrency Control (Current Approach)**
-Maintain single-threaded job execution, block queries during indexing:
-```python
-# In query endpoint
-if job_queue.has_running_job():
-    raise HTTPException(503, "Indexing in progress, retry in 30s")
-```
-
-**Strategy 2: Read-Write Separation**
-Allow queries during indexing with eventual consistency trade-off:
-```python
-# Use asyncio.Lock for write operations only
-write_lock = asyncio.Lock()
-
-async def upsert_chunks(chunks):
-    async with write_lock:
-        await storage_backend.upsert_chunks(chunks)
-
-async def query(text):
-    # No lock — allow concurrent reads
-    # May return incomplete results during indexing
-    return await storage_backend.query(text)
-```
-
-**Strategy 3: PostgreSQL Backend for Concurrency**
-PostgreSQL handles concurrent reads/writes natively via MVCC. Phase 6 already implemented PostgreSQL backend — use it for high-concurrency deployments.
-
-**Warning signs:**
-- Query latency spikes from <100ms to >30s during indexing
-- `/health/status` shows long queue times
-- Users report "search is frozen" during indexing operations
-- Timeout errors on queries that normally succeed
-
-**Phase to address:**
-Phase 12 (Folder Management) — Document concurrency limits in CLI help text. Phase 13 (Live Reindex) — Add `/health/indexing-status` endpoint that clients poll before querying. Phase 15+ — Recommend PostgreSQL backend for concurrent usage.
-
----
-
-### Pitfall 6: Glob Pattern Edge Cases (Unexpected File Inclusion)
-
-**What goes wrong:**
-Smart filtering with glob patterns (e.g., `*.py`, `**/*.md`, `[!_]*.ts`) fails to match expected files or includes unintended files due to:
-- Spaces in filenames (glob breaks on unquoted paths)
-- Newlines in filenames (rare but possible on Unix)
-- Case sensitivity differences (macOS case-insensitive, Linux case-sensitive)
-- Recursive glob (`**`) not working without `recursive=True` flag
-- Negation patterns (`[!_]`) matching more than intended
-
-Users configure "index all Python files except tests" with `*.py, !test_*.py` but test files still get indexed.
-
-**Why it happens:**
-Python's `glob.glob()` has subtle behavior:
-```python
-# WRONG — Doesn't recurse by default
-glob.glob("**/*.py")  # Only matches ./foo.py, not ./subdir/bar.py
-
-# CORRECT
-glob.glob("**/*.py", recursive=True)
-
-# WRONG — Negation doesn't work as expected
-glob.glob("!test_*.py")  # Returns literal string "!test_*.py"
-
-# CORRECT — Use separate filter
-files = [f for f in glob.glob("*.py") if not f.startswith("test_")]
-```
-
-**How to avoid:**
-**Strategy 1: Use pathlib (Modern Approach)**
-```python
 from pathlib import Path
 
-# Recursive glob with proper negation
-py_files = Path(folder).rglob("*.py")
-py_files = [f for f in py_files if not f.name.startswith("test_")]
+def _cleanup_stale_socket(sock_path: Path) -> None:
+    """Remove stale UDS socket file if present."""
+    try:
+        sock_path.unlink()
+    except FileNotFoundError:
+        pass  # Already gone, fine
+    except PermissionError:
+        raise RuntimeError(
+            f"Cannot remove stale socket {sock_path}. "
+            "Another process may own it. Check for running instances."
+        )
+
+async def start_uds_server(sock_path: Path, app: FastAPI) -> None:
+    _cleanup_stale_socket(sock_path)
+    server = await asyncio.start_unix_server(handler, path=str(sock_path))
+    ...
 ```
 
-**Strategy 2: Explicit Include/Exclude Lists**
-```python
-# CLI accepts both include and exclude patterns
-agent-brain index /project --include "*.py,*.md" --exclude "test_*,*_test.py,__pycache__"
-```
-
-Validation logic ensures patterns are parsed consistently.
-
-**Strategy 3: Preset Patterns**
-Define presets for common use cases:
-```python
-PRESETS = {
-    "python": {"include": ["*.py"], "exclude": ["test_*.py", "*_test.py", "conftest.py"]},
-    "docs": {"include": ["*.md", "*.rst"], "exclude": ["LICENSE*", "README*"]},
-    "code": {"include": ["*.py", "*.ts", "*.js"], "exclude": ["*.min.js", "dist/*"]}
-}
-
-# CLI usage
-agent-brain index /project --preset python
-```
+Also register a cleanup atexit handler and handle SIGTERM/SIGINT to delete the socket on clean shutdown. The existing `locking.py` already does PID-based staleness detection — apply the same pattern to the UDS socket path.
 
 **Warning signs:**
-- Test files appearing in search results despite exclusion pattern
-- Empty search results when files definitely exist
-- Different file counts on macOS vs Linux for same folder
-- "Pattern matched 0 files" when files exist
+- `OSError: [Errno 98] Address already in use` on startup after crash
+- Socket file exists at `<state_dir>/agent-brain.sock` but no server process running (check with `lsof`)
+- `agent-brain start` fails immediately after `kill -9` on the server
+- UDS socket file accumulates multiple stale copies across directories
 
 **Phase to address:**
-Phase 12 (Folder Management) — Implement include/exclude pattern validation with test suite covering edge cases. Phase 13 (Smart Filtering) — Add preset patterns and clear documentation of glob behavior.
+Phase (UDS Transport) — add pre-bind cleanup as the first step in UDS server startup. Add integration test: start server, kill -9 it, start again — verify it starts successfully.
 
 ---
 
-### Pitfall 7: Metadata Filter Type Inconsistency (ChromaDB Query Failure)
+### Pitfall 5: Query Cache Serving Stale Results After Reindex
 
 **What goes wrong:**
-ChromaDB metadata filtering fails or returns unexpected results when metadata field types are inconsistent across documents. Example: `file_size` stored as integer `12345` for one document, string `"12345"` for another. Filter `where={"file_size": {"$gt": 10000}}` only matches integer type, silently skipping string type.
+Query cache stores `(query_text, retrieval_mode, top_k) -> [results]` with a TTL. A user runs `agent-brain reindex /project` to update 50 files. The index is now fresh, but any cached queries that would return those updated chunks remain in the cache until TTL expiry. The user queries for something that was just updated and receives the pre-reindex answer. This is functionally incorrect for a local dev tool where users expect freshness after explicit reindex.
 
 **Why it happens:**
-ChromaDB doesn't enforce schema on metadata — any JSON-serializable value is accepted. Developer indexing code inconsistently types metadata:
-```python
-# File 1: size as int
-chunk.metadata = {"source_file": "a.py", "file_size": 12345}
-
-# File 2: size as string (from CLI arg parsing)
-chunk.metadata = {"source_file": "b.py", "file_size": "67890"}
-
-# Query fails to match File 2
-results = collection.query(where={"file_size": {"$gt": 10000}})
-```
-
-Also problematic: date strings with inconsistent formats (`2026-02-23` vs `February 23, 2026`), boolean values as strings (`"true"` vs `True`).
+TTL-based invalidation is simple to implement and sufficient for web caches. But local RAG differs: index changes are deterministic (user triggered them) and the expected behavior is "query reflects whatever was last indexed." Unlike a web cache where content changes gradually, a `reindex` is a step-function change. A 5-minute TTL means 5 minutes of incorrect results after every reindex.
 
 **How to avoid:**
-**Strategy 1: Enforce Schema at Chunk Creation**
+Maintain an `index_generation` counter (a monotonically incrementing integer or `datetime` timestamp) that increments on every successful reindex. Include `index_generation` in every cache key:
 ```python
-from pydantic import BaseModel, Field
-
-class ChunkMetadata(BaseModel):
-    source_file: str
-    file_size: int  # Type enforced
-    indexed_at: str  # ISO 8601 datetime
-    chunk_index: int
-
-# Validate before storage
-metadata = ChunkMetadata(
-    source_file=file_path,
-    file_size=os.path.getsize(file_path),  # Always int
-    indexed_at=datetime.now(timezone.utc).isoformat(),
-    chunk_index=i
-)
-chunk.metadata = metadata.dict()
+def _query_cache_key(
+    query: str, mode: str, top_k: int, index_generation: int
+) -> str:
+    return f"{index_generation}:{mode}:{top_k}:{hashlib.sha256(query.encode()).hexdigest()}"
 ```
+When `index_generation` increments, all prior cache keys become unreachable (different key prefix). No explicit invalidation scan needed. Old entries expire via TTL naturally.
 
-**Strategy 2: Migration Script for Existing Data**
-```python
-# Fix inconsistent types
-for chunk in collection.get()["metadatas"]:
-    if isinstance(chunk["file_size"], str):
-        chunk["file_size"] = int(chunk["file_size"])
-    collection.update(ids=[chunk["id"]], metadatas=[chunk])
-```
-
-**Strategy 3: Document Metadata Schema**
-Create `docs/metadata_schema.md`:
-```markdown
-## Chunk Metadata Schema
-
-| Field | Type | Example | Required |
-|-------|------|---------|----------|
-| source_file | str | "/path/to/file.py" | Yes |
-| file_size | int | 12345 | Yes |
-| indexed_at | str (ISO 8601) | "2026-02-23T10:30:00Z" | Yes |
-| folder_root | str | "/path/to/project" | No |
-```
+For the watcher-triggered background incremental updates, increment `index_generation` only when the job completes successfully — not when it starts. This prevents partial-update windows where some queries get new results and some get stale results simultaneously.
 
 **Warning signs:**
-- Metadata filters return fewer results than expected
-- Query by numeric range misses documents
-- "Cannot compare str and int" errors in logs
-- Filters work for recent documents but not old ones
+- User reports "I just reindexed but still seeing old results"
+- Query cache hit rate stays high immediately after reindex (should be 0% on new generation)
+- Cached results reference file content that no longer exists at that path
+- Discrepancy between `/query/count` (updated) and search results (stale)
 
 **Phase to address:**
-Phase 12 (Folder Management) — Define and enforce metadata schema with Pydantic. Phase 13 (Chunk Eviction) — Add metadata validation to health check endpoint.
+Phase (Query Cache) — `index_generation` must be part of the cache key schema from initial design. Background incremental watcher jobs must call the same "increment generation" hook that manual reindex does.
+
+---
+
+### Pitfall 6: Debounce Timer Handle Leaks in Long-Running Server
+
+**What goes wrong:**
+Each call to `loop.call_later()` returns an `asyncio.TimerHandle`. The watcher stores the handle to cancel it on the next event (resetting the debounce). But if a watched folder is removed (via `agent-brain folder remove`) while a pending timer exists, the handle is never cancelled. The timer fires after 30s, calls `_schedule_index_job(folder_path)`, and the job queue processes a job for a folder that no longer exists in the folder manager. The job fails, logs an error, but the real leak is that the cancelled-folder watcher object is still referenced by the timer closure, preventing garbage collection. Over hours/days with frequent folder additions/removals, memory grows.
+
+**Why it happens:**
+Debounce timer cleanup is decoupled from folder lifecycle management. The watcher component and the folder manager component are separate. When `FolderManager.remove_folder()` is called, it has no reference to the watcher's pending timer handle.
+
+**How to avoid:**
+On folder removal, explicitly cancel any pending timer handle for that folder before stopping the watcher:
+```python
+async def remove_folder_watcher(self, folder_path: str) -> None:
+    watcher = self._watchers.get(folder_path)
+    if watcher is None:
+        return
+    # Cancel pending debounce timer BEFORE stopping observer
+    if watcher.pending_handle is not None:
+        watcher.pending_handle.cancel()
+        watcher.pending_handle = None
+    watcher.observer.stop()
+    watcher.observer.join(timeout=5.0)
+    del self._watchers[folder_path]
+```
+The `FolderWatcher` must expose its pending handle to the managing component. Test this path explicitly: add folder, generate events to create a pending timer, remove folder, verify no job is enqueued after the debounce window.
+
+**Warning signs:**
+- Memory usage grows over time with watcher enabled and folders being added/removed
+- "Folder not found" errors in job worker logs ~30s after folder removal
+- `asyncio` timer handle count grows monotonically (inspect with `loop.call_soon_threadsafe` debugging)
+- Failed jobs for folder paths that appear nowhere in the folder manager's manifest
+
+**Phase to address:**
+Phase (File Watcher) — watcher teardown must cancel pending timer before stopping OS observer. Integration test: add folder, trigger events, remove folder before debounce fires, verify no job enqueued.
+
+---
+
+### Pitfall 7: Manifest Lock Contention Between Watcher Jobs and Manual Reindex
+
+**What goes wrong:**
+`ManifestTracker` uses a single `asyncio.Lock` for all manifest operations. The watcher triggers background incremental index jobs automatically. If a user simultaneously runs `agent-brain index /project --force` (manual reindex), two jobs now contend for the same manifest lock. The `asyncio.Lock` serializes them correctly — but the second job re-reads the manifest after the first job wrote it, sees all files as "unchanged" (because the first job just updated all checksums), and produces an empty `chunks_to_create` list. The eviction verification logic in `job_worker.py` handles the zero-change case as a success (lines 433-443), so the job completes with no error — but the user's `--force` flag was effectively ignored.
+
+**Why it happens:**
+The manifest lock is per-`ManifestTracker` instance, not per-folder. `--force` bypasses the manifest check (deletes manifest first), but if job 1 completes and writes a fresh manifest just before job 2 reads it, job 2 treats it as a normal incremental run. Race condition window is narrow but real.
+
+**How to avoid:**
+`--force` jobs should acquire the manifest lock, delete the manifest, then proceed with indexing — atomically, without releasing the lock between delete and index. Do not delete the manifest before enqueuing the job; delete it as the first step inside the job worker under the lock.
+
+Alternatively: use folder-path-scoped locks rather than a global manifest lock. Each folder gets its own lock, preventing cross-folder contention while still serializing watcher vs. manual jobs for the same folder.
+
+Additionally: the job queue should support a "supersede" mode where a new `--force` job for a folder cancels any PENDING (not RUNNING) jobs for the same folder.
+
+**Warning signs:**
+- `--force` flag does not cause full reindex when watcher is active
+- Job completes "successfully" with zero new chunks despite `--force`
+- Manifest file timestamp is newer than job start time (indicates another job wrote it first)
+- Log message "Zero-change incremental run" on a `--force` job
+
+**Phase to address:**
+Phase (File Watcher + Background Incremental) — coordinate watcher-triggered jobs and manual jobs through a unified "job supersession" mechanism. Test: start watcher, trigger 30s debounce, immediately run `--force`, verify force job wins.
+
+---
+
+### Pitfall 8: Embedding Cache Disk Corruption on Crash
+
+**What goes wrong:**
+If the embedding cache is written to disk as individual files (one per cache entry) or as a single SQLite database, a server crash mid-write leaves a partially written file. On next startup, loading the cache raises `json.JSONDecodeError`, `pickle.UnpicklingError`, or `sqlite3.DatabaseError: database disk image is malformed`. If the startup code does not handle these exceptions, the server fails to start entirely — the cache meant to improve availability now blocks it.
+
+**Why it happens:**
+Developers use `pickle.dump()` or `json.dump()` directly to a cache file path without atomic write protection (same pattern solved in `ManifestTracker` with temp+replace, but not applied to cache writes). SQLite with WAL mode is resilient, but only if WAL was enabled before the crash. Raw file writes are not atomic.
+
+**How to avoid:**
+Use the same temp-file + atomic rename pattern already established in `ManifestTracker._write_manifest()`:
+```python
+def _write_cache_entry(self, key: str, value: bytes) -> None:
+    path = self._cache_path(key)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_bytes(value)
+    tmp.replace(path)  # Atomic on POSIX
+```
+
+For SQLite-backed cache (`diskcache`), enable WAL mode on connection open:
+```python
+conn.execute("PRAGMA journal_mode=WAL")
+conn.execute("PRAGMA synchronous=NORMAL")
+```
+
+On startup, wrap cache load in a try/except that deletes corrupt entries and continues:
+```python
+try:
+    cache.load()
+except (json.JSONDecodeError, OSError) as e:
+    logger.warning(f"Cache corrupt, clearing: {e}")
+    shutil.rmtree(cache_dir)
+    cache_dir.mkdir()
+```
+A corrupt cache is recoverable by clearing it — never let it block server startup.
+
+**Warning signs:**
+- Server fails to start after `kill -9` with cache-related exception in traceback
+- `json.JSONDecodeError` or `UnpicklingError` in startup logs
+- `.tmp` files accumulating in the cache directory (incomplete writes that did not reach atomic rename)
+- Cache file size is 0 bytes or suspiciously small
+
+**Phase to address:**
+Phase (Embedding Cache) — atomic writes from day one. Startup code must include try/except around cache load with automatic fallback to empty cache.
+
+---
+
+### Pitfall 9: Query Cache Memory Pressure Without Bounded Size
+
+**What goes wrong:**
+Query cache stores full result sets (lists of retrieved chunks with content). Each cache entry can be 10–50 KB (5–20 chunks × 500–2500 bytes of content each). An in-memory cache with no size limit grows to fill available RAM as query diversity increases. A server handling 500 unique queries per hour with 20 KB average result size accumulates 10 MB/hour with no eviction. After a few days of continuous use, the server is killed by the OS OOM manager. The next startup clears the cache, but the problem recurs.
+
+**Why it happens:**
+Python's `functools.lru_cache` is bounded by call count, not memory. A naive `dict` cache has no bound at all. Developers set "large" counts (e.g., `maxsize=10000`) without considering entry sizes. Query results are variable-size; count-based limits do not protect against a few large results consuming all memory.
+
+**How to avoid:**
+Implement size-aware eviction. Track total bytes stored, evict LRU entries when threshold is exceeded:
+```python
+MAX_CACHE_BYTES = 64 * 1024 * 1024  # 64 MB hard limit
+
+class QueryCache:
+    def __init__(self, max_bytes: int = MAX_CACHE_BYTES) -> None:
+        self._cache: OrderedDict[str, bytes] = OrderedDict()
+        self._total_bytes: int = 0
+        self._max_bytes = max_bytes
+
+    def set(self, key: str, value: bytes) -> None:
+        entry_size = len(value)
+        while self._total_bytes + entry_size > self._max_bytes and self._cache:
+            _, evicted = self._cache.popitem(last=False)
+            self._total_bytes -= len(evicted)
+        self._cache[key] = value
+        self._total_bytes += entry_size
+```
+
+Expose `cache_size_bytes` and `cache_entry_count` in the `/health/status` endpoint so operators can tune the limit. Start with a 64 MB ceiling for the query cache and 256 MB for the embedding cache as conservative defaults for a developer laptop.
+
+**Warning signs:**
+- Server memory usage grows monotonically without apparent plateau
+- OOM kills with no other obvious memory consumer
+- `/health/status` shows large document counts but cache metrics absent
+- RSS growing proportionally to unique query count in logs
+
+**Phase to address:**
+Phase (Query Cache) — implement size-aware cache from day one. Never use unbounded dict. Add `GET /health/cache` endpoint with size metrics.
+
+---
+
+### Pitfall 10: Per-Folder Watcher Config Schema Drift from Folder Manager Schema
+
+**What goes wrong:**
+The file watcher introduces per-folder config fields: `watch_enabled`, `debounce_seconds`, `read_only` (watch but do not auto-reindex). These live in the folder manager's persistent manifest. Over time, the watcher config schema diverges from the folder manager schema — the folder manager validates its own fields with Pydantic, but the watcher config is stored as a nested dict in `extra_config` and never validated. A user sets `debounce_seconds: "thirty"` (string instead of int) in the CLI or directly in the JSON. The server starts and silently uses the default debounce because the string fails `isinstance(v, (int, float))`, but no error is raised.
+
+**Why it happens:**
+Watcher config is added after the folder manager is built. Rather than extending the existing `FolderRecord` Pydantic model, developers add a freeform `extra` dict to avoid touching the existing schema. The `extra` dict is never validated.
+
+**How to avoid:**
+Extend `FolderRecord` (or whatever model stores folder state) with explicit typed watcher fields:
+```python
+class FolderRecord(BaseModel):
+    path: str
+    added_at: datetime
+    # Watcher config — typed, validated
+    watch_enabled: bool = False
+    debounce_seconds: float = 30.0
+    read_only: bool = False  # Watch but never auto-reindex
+    include_patterns: list[str] = Field(default_factory=list)
+```
+Pydantic validates on load. Invalid YAML/JSON raises `ValidationError` with a clear message rather than silently using defaults. The folder manager's existing atomic write path handles persisting the extended model without changes.
+
+**Warning signs:**
+- Watcher uses different debounce than configured in CLI
+- `agent-brain folder config` shows correct values but behavior is wrong
+- Silent fallback to default in logs ("using default debounce: 30s") when folder has explicit config
+- Schema mismatch errors when upgrading from pre-watcher to watcher-enabled version
+
+**Phase to address:**
+Phase (File Watcher) — watcher config fields must be part of `FolderRecord` Pydantic model, not a separate dict. Run migration test: load a v7.0 folder manifest JSON (without watcher fields), verify it loads cleanly with watcher defaults applied.
 
 ---
 
@@ -462,27 +384,31 @@ Shortcuts that seem reasonable but create long-term problems.
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Store folder list in-memory dict | Simple, no DB dependency | State lost on restart, no audit trail | Never — JSON manifest has minimal overhead |
-| Skip content hash check on re-index | Faster indexing | Duplicate stale chunks accumulate | Only for append-only document sets (never updated) |
-| Use `subprocess.Popen()` without timeout | Flexible control | Zombie processes, hangs on CLI tool failure | Never — `subprocess.run()` with timeout is standard |
-| Allow empty IDs in delete() calls | Simpler code, fewer conditionals | Risk of wiping entire collection | Never — guard check is one line |
-| Store metadata as strings (no schema) | Easy prototyping | Filter failures, inconsistent queries | Only in POC phase — enforce schema before production |
-| Single-threaded job queue | Simple, no race conditions | Poor UX during long indexing jobs | Acceptable for MVP — migrate to PostgreSQL for concurrency |
+| Cache key on content hash only (no provider signature) | Simple, one hash lookup | Cache poisoning on provider switch, silent wrong results | Never — add provider+model to key from day one |
+| Per-file debounce instead of per-folder | Easier to implement | Thundering herd on git checkout, 500 jobs instead of 1 | Never for this use case |
+| Calling asyncio from watchdog thread directly | Looks correct in tests | RuntimeError at runtime, missing events | Never — always use `call_soon_threadsafe()` |
+| Unbounded in-memory cache dict | Zero-overhead implementation | OOM kill after sustained use, no eviction metrics | Only for unit tests with mock data |
+| Skip atomic write for cache entries | Simpler code | Corrupt cache blocks startup after crash | Never — existing `ManifestTracker` pattern is one function to reuse |
+| No UDS cleanup on startup | One less thing to worry about | Startup failure after every crash, confusing error message | Never — two lines of code with try/except |
+| Watcher config in freeform `extra` dict | No model changes needed | Silent misconfiguration, no validation | Never — extend the Pydantic model |
+| Increment `index_generation` at job start (not job end) | Generation advances as soon as work begins | Race window where half the queries get new results and half get old | Never — advance on successful completion only |
 
 ---
 
 ## Integration Gotchas
 
-Common mistakes when connecting to external services.
+Common mistakes when connecting to existing Agent Brain components.
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| ChromaDB delete() | Passing empty `ids=[]` list | Always check `if ids_to_delete:` before calling |
-| CLI subprocess timeout | Using `subprocess.Popen()` without wait | Use `subprocess.run(timeout=30)` with exception handling |
-| Content injector tools | Assuming CLI tools always succeed | Wrap in try/except, log stderr, return error codes |
-| File glob patterns | Using `**/*.py` without `recursive=True` | Use `pathlib.Path.rglob()` or `glob.glob(..., recursive=True)` |
-| Metadata filtering | Storing mixed types (int/str) | Define Pydantic schema, validate at chunk creation |
-| PostgreSQL pgvector | Not creating HNSW index | Schema initialization must `CREATE INDEX USING hnsw` |
+| Embedding cache + provider system | Cache key omits provider/model name | Include `provider:model` fingerprint in cache key namespace |
+| Watcher + job queue | Enqueue job per file event | Enqueue job per folder per debounce window; check for existing PENDING job before enqueuing |
+| Watchdog + asyncio event loop | Calling async functions from watchdog handler | Use `loop.call_soon_threadsafe()` to cross the thread boundary |
+| UDS socket + startup | Binding without pre-cleanup | Unlink socket path before bind, handle `FileNotFoundError` |
+| Query cache + reindex | TTL-only invalidation | Include `index_generation` counter in cache key |
+| Cache + server startup | `json.JSONDecodeError` propagates and crashes server | Wrap cache load in try/except, clear and continue on corruption |
+| Per-folder watcher config + folder manager | Adding config as freeform dict | Extend `FolderRecord` Pydantic model with typed watcher fields |
+| Watcher + manifest tracker lock | Concurrent watcher job + manual `--force` job | Implement job supersession for PENDING jobs on same folder path |
 
 ---
 
@@ -492,12 +418,12 @@ Patterns that work at small scale but fail as usage grows.
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| No chunk eviction strategy | Vector store grows unbounded, stale results | Implement delete-before-insert with content hashing | >10k files with frequent updates |
-| Sequential folder indexing | Long blocking operations, poor UX | Job queue with progress tracking, allow concurrent queries (PostgreSQL) | >5 folders, >1k files each |
-| No file manifest persistence | Re-index entire project on restart | Persist folder manifest to JSON/database | Any multi-folder project |
-| Regex metadata filters | Slow queries on large indexes | Use indexed metadata fields, avoid `$regex` | >100k chunks |
-| Embedding every chunk on update | Re-embed unchanged content | Content hash check, skip unchanged files | >1k files with frequent commits |
-| ChromaDB under concurrent load | Query latency spikes from 100ms to 30s | Use PostgreSQL backend or serialize operations | >10 concurrent users |
+| Embedding cache with no size limit | Memory grows 100–200 MB/day for active codebases | Set hard byte limit (256 MB default), evict LRU | ~50k unique text chunks in cache |
+| Query cache with no size limit | OOM kill after days of continuous use | Size-aware eviction with byte tracking | ~5k large result sets (~20 chunks each) |
+| Per-file debounce timers | 500 tasks created on git checkout | Per-folder single timer, reset on any folder event | Projects with >50 files and frequent VCS operations |
+| Synchronous cache disk I/O on embedding path | Blocking event loop during cache read on cold start | Use `asyncio.to_thread()` for disk-based cache reads | Cache files >1 MB each |
+| No cache hit rate metrics | Cannot distinguish "cache working" from "cache bypassed" | Expose `cache_hits` / `cache_misses` counters in `/health/status` | At any scale — blind operation is always wrong |
+| UDS + TCP dual transport without connection pooling | Connection overhead per request over TCP | Use persistent httpx `AsyncClient` with connection pool | >10 req/s over TCP transport |
 
 ---
 
@@ -507,11 +433,10 @@ Domain-specific security issues beyond general web security.
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Allow arbitrary CLI tool execution in content injector | Command injection, privilege escalation | Allowlist CLI tools, validate tool paths, run in sandboxed subprocess |
-| Index sensitive files (`.env`, credentials) | Secrets leak in search results | Default exclude patterns for sensitive extensions, warn on detection |
-| Expose folder paths in API responses | Information disclosure (filesystem structure) | Return folder ID aliases, sanitize paths in error messages |
-| No input validation on folder paths | Directory traversal (`../../../etc/passwd`) | Validate paths resolve within allowed roots, reject `..` |
-| Store PostgreSQL credentials in YAML | Credential theft from config file | Require env vars for sensitive config, document in setup guide |
+| UDS socket with world-readable permissions (0o777) | Any local user can query the index | Set socket mode to 0o600 (owner only) after bind |
+| Embedding cache stored in world-readable directory | Cache entries contain indexed code content | Store cache in `<state_dir>` (per-project), not `/tmp` |
+| Cache key predictable without hash | Cache poisoning via crafted query | Use SHA-256 of full key tuple, never concatenate raw strings |
+| UDS socket path in system temp directory (`/tmp`) | Other users can observe socket and attempt connection | Use `<state_dir>/agent-brain.sock` (per-project, mode 0o700 directory) |
 
 ---
 
@@ -521,12 +446,12 @@ Common user experience mistakes in this domain.
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| No progress feedback during indexing | "Is it frozen?" uncertainty | WebSocket or SSE for real-time progress, estimated time remaining |
-| Silent failures on CLI tool errors | User assumes success, later confusion | Log stderr, return error codes, show user-friendly error messages |
-| No indication of indexing vs query blocking | User retries queries, creating more load | Return 503 with "Indexing in progress, retry after 30s" header |
-| Folder removal requires exact path match | "I added `/home/user/project` but removal needs `/home/user/project/`" | Normalize paths (strip trailing slash, resolve symlinks) |
-| No dry-run mode for glob patterns | User deletes wrong files/folders | Add `--dry-run` flag to show what would be indexed/deleted |
-| Unclear folder list output | "Which folders are currently indexed?" | Show folder path, file count, last indexed time, status |
+| Silent background reindex with no indication | "Why is indexing happening? I didn't ask for it" | Log watcher-triggered jobs clearly: "Auto-reindex triggered for /project (3 files changed)" |
+| Debounce hides that changes were detected | User edits file, expects instant indexing, nothing happens for 30s | Show "Changes detected, indexing in 30s..." in `agent-brain status` |
+| Cache metrics absent from status | Cannot tell if caching is working | Expose hit rate, size, and entry count in `agent-brain status` and `/health/status` |
+| UDS transport not auto-detected | User must know to set `--uds` flag | CLI auto-detects UDS socket file from `runtime.json`, falls back to TCP |
+| Background watcher error not surfaced | File watcher crashes silently, no auto-reindex happening | Expose watcher state (running/stopped/error) in `agent-brain status` |
+| No way to disable watcher per-folder without removing it | Watcher auto-reindexes read-only mounts (NFS, Docker volumes) | Support `read_only: true` per-folder config: watch for changes but never enqueue jobs |
 
 ---
 
@@ -534,14 +459,20 @@ Common user experience mistakes in this domain.
 
 Things that appear complete but are missing critical pieces.
 
-- [ ] **Folder Management:** Often missing persistent manifest — verify state survives restart
-- [ ] **Chunk Eviction:** Often missing empty IDs check — verify guard clause before delete()
-- [ ] **Content Injection:** Often missing timeout handling — verify subprocess.run() has timeout parameter
-- [ ] **Glob Filtering:** Often missing recursive flag — verify `recursive=True` or using pathlib
-- [ ] **Metadata Schema:** Often missing type validation — verify Pydantic model enforces types
-- [ ] **Concurrent Operations:** Often missing read-write separation — verify queries don't block during indexing
-- [ ] **Error Handling:** Often missing subprocess stderr logging — verify errors propagate to user
-- [ ] **Path Normalization:** Often missing trailing slash handling — verify paths compared consistently
+- [ ] **Embedding Cache:** Cache key includes `provider:model` fingerprint — verify switching `providers.yaml` causes cache miss, not cache hit
+- [ ] **Embedding Cache:** Startup detects provider config change and clears cache namespace — verify no stale vectors served after provider switch
+- [ ] **Embedding Cache:** Atomic writes for cache entries — verify `.tmp` file used, not direct write
+- [ ] **Embedding Cache:** Corrupt cache on startup clears gracefully — verify server starts after `dd if=/dev/urandom` into cache file
+- [ ] **File Watcher:** Debounce is per-folder, not per-file — verify 500 events in 100ms produces exactly 1 job
+- [ ] **File Watcher:** Watchdog handler uses `call_soon_threadsafe()` — verify no `RuntimeError` in server logs under load
+- [ ] **File Watcher:** Pending timer cancelled on folder removal — verify no job enqueued after folder removed mid-debounce
+- [ ] **File Watcher:** Watcher config schema uses typed Pydantic fields — verify `ValidationError` on invalid `debounce_seconds: "thirty"`
+- [ ] **UDS Transport:** Socket cleanup before bind — verify server starts after `kill -9` without manual socket deletion
+- [ ] **UDS Transport:** Socket mode is 0o600 — verify `ls -la <sock_path>` shows `-rw-------`
+- [ ] **Query Cache:** `index_generation` in cache key — verify all cache entries are missed after successful reindex
+- [ ] **Query Cache:** Size-aware eviction — verify memory does not exceed limit after 10k unique queries
+- [ ] **Query Cache:** Hit/miss metrics in `/health/status` — verify counters increment correctly
+- [ ] **Background Incremental:** Watcher job does not supersede running manual job — verify manual `--force` job wins if it starts after watcher job is PENDING
 
 ---
 
@@ -551,12 +482,13 @@ When pitfalls occur despite prevention, how to recover.
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| ChromaDB collection wiped by empty delete | HIGH | Restore from backup or re-index all folders (hours to days) |
-| Zombie processes accumulate | LOW | `pkill -9 -f defunct` to kill zombies, restart server |
-| Stale chunks accumulate | MEDIUM | Run cleanup script: query all source files, compare with disk, delete orphaned chunks |
-| Folder manifest lost | MEDIUM | Re-add folders via CLI, deduplicate chunks based on content hash |
-| Metadata type inconsistency | MEDIUM | Run migration script to cast all metadata fields to correct types |
-| Concurrent operation deadlock | LOW | Restart server, configure PostgreSQL backend for future |
+| Cache serves wrong-dimension embeddings after provider switch | MEDIUM | `rm -rf <state_dir>/embedding-cache/`, restart server — cache cold starts |
+| Thundering herd floods job queue with 500+ jobs | LOW | Cancel all PENDING jobs via `agent-brain jobs --cancel-all`, restart watcher |
+| UDS socket stale, server won't start | LOW | `rm <state_dir>/agent-brain.sock`, restart server |
+| Query cache serving stale results post-reindex | LOW | `POST /cache/clear` (if endpoint exists) or restart server to clear in-memory cache |
+| Corrupt embedding cache blocks startup | LOW | `rm -rf <state_dir>/embedding-cache/`, restart — all embeddings re-fetched on next index run |
+| Memory OOM from unbounded cache | MEDIUM | Restart server (cache clears), set `EMBEDDING_CACHE_MAX_MB` and `QUERY_CACHE_MAX_MB` env vars |
+| Watcher timer leak after folder removals | LOW | Restart server — timers are in-memory, restart clears them; fix underlying cancel-on-remove bug |
 
 ---
 
@@ -566,46 +498,65 @@ How roadmap phases should address these pitfalls.
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| ChromaDB empty IDs delete bug | Phase 12 (Folder Management) | Unit test: delete(ids=[]) raises ValueError |
-| Stale chunk accumulation | Phase 13 (Chunk Eviction) | Integration test: update file, verify old chunks removed |
-| File manifest persistence failure | Phase 12 (Folder Management) | E2E test: add folder, restart server, verify folder still listed |
-| Subprocess zombies | Phase 14 (Content Injection) | Health check: verify no defunct processes after 100 injections |
-| Concurrent operation race conditions | Phase 13 (Live Reindex) | Load test: concurrent queries during indexing, verify latency <500ms (PostgreSQL) or 503 errors (ChromaDB) |
-| Glob pattern edge cases | Phase 12 (Folder Management) | Unit test suite: recursive, negation, spaces, case sensitivity |
-| Metadata type inconsistency | Phase 12 (Folder Management) | Unit test: metadata validation with Pydantic, test type coercion failures |
+| Cache incoherence on provider change | Phase: Embedding Cache | Integration test: index with OpenAI, switch to Ollama, verify cache miss and no dimension error |
+| Thundering herd on git checkout | Phase: File Watcher | Unit test: 500 events in 100ms → exactly 1 job enqueued |
+| Watchdog thread / asyncio thread boundary | Phase: File Watcher | Unit test: call handler from non-loop thread, verify no RuntimeError |
+| UDS socket stale on crash | Phase: UDS Transport | Integration test: kill -9 server, restart, verify startup success |
+| Query cache stale after reindex | Phase: Query Cache | Integration test: index, query (cache warm), reindex, query same text → cache miss, fresh results |
+| Debounce timer leak on folder remove | Phase: File Watcher | Integration test: add folder, trigger events, remove folder, verify no job after debounce window |
+| Manifest lock contention watcher vs manual | Phase: Background Incremental | Integration test: concurrent watcher job + force reindex, verify force wins |
+| Cache corrupt on crash | Phase: Embedding Cache | Integration test: corrupt cache file mid-write, verify startup clears and continues |
+| Cache memory unbounded | Phase: Query Cache + Embedding Cache | Load test: 50k unique texts cached, verify RSS stays under limit |
+| Per-folder config schema drift | Phase: File Watcher | Migration test: load v7.0 manifest, verify watcher defaults applied without error |
 
 ---
 
 ## Sources
 
-### Critical Bug Documentation
-- [ChromaDB Issue #583: collection.delete() deletes all data with empty ids list](https://github.com/chroma-core/chroma/issues/583)
-- [ChromaDB Delete Data Documentation](https://docs.trychroma.com/docs/collections/delete-data)
-- [ChromaDB Issue #666: Multi-process concurrent access](https://github.com/chroma-core/chroma/issues/666)
+### UDS Socket Cleanup
+- [CPython issue #111246: Listening asyncio UNIX socket isn't removed on close](https://github.com/python/cpython/issues/111246)
+- [Python asyncio issue #425: unlink stale unix socket before binding](https://github.com/python/asyncio/issues/425)
+- [Python bug tracker #34139: Remove stale unix datagram socket before binding](https://bugs.python.org/issue34139)
 
-### RAG System Patterns & Best Practices
-- [Best Chunking Strategies for RAG in 2025](https://www.firecrawl.dev/blog/best-chunking-strategies-rag-2025)
-- [RAG Isn't a Modeling Problem. It's a Data Engineering Problem](https://datalakehousehub.com/blog/2026-01-rag-isnt-the-problem/)
-- [Building an Enterprise RAG System in 2026](https://medium.com/@Deep-concept/building-an-enterprise-rag-system-in-2026-the-tools-i-wish-i-had-from-day-one-2ad3c2299275)
+### Watchdog Thread Safety and Asyncio Integration
+- [Using watchdog with asyncio (gist)](https://gist.github.com/mivade/f4cb26c282d421a62e8b9a341c7c65f6)
+- [asyncio Event Loop documentation — thread safety](https://docs.python.org/3/library/asyncio-eventloop.html)
+- [Smarter File Watching with rate-limiting and change history](https://medium.com/@RampantLions/smarter-file-watching-in-python-rate-limiting-and-change-history-with-watchdog-2114e45e7774)
 
-### Vector Database Management
-- [Versioning vector databases - DataRobot](https://docs.datarobot.com/en/docs/gen-ai/vector-database/vector-versions.html)
-- [ChromaDB Single-Node Performance and Limitations](https://docs.trychroma.com/deployment/performance)
-- [ChromaDB Metadata Filtering Documentation](https://docs.trychroma.com/docs/querying-collections/metadata-filtering)
-- [Metadata-Based Filtering in RAG Systems](https://codesignal.com/learn/courses/scaling-up-rag-with-vector-databases/lessons/metadata-based-filtering-in-rag-systems)
+### Asyncio Task Cancellation and Timer Cleanup
+- [Asyncio Task Cancellation Best Practices](https://superfastpython.com/asyncio-task-cancellation-best-practices/)
+- [PEP 789 — Preventing task-cancellation bugs](https://peps.python.org/pep-0789/)
 
-### Python Subprocess Management
-- [Python Subprocess Documentation](https://docs.python.org/3/library/subprocess.html)
-- [Kill Python subprocess and children on timeout](https://alexandra-zaharia.github.io/posts/kill-subprocess-and-its-children-on-timeout-python/)
-- [How to Safely Kill Python Subprocesses Without Zombies](https://dev.to/generatecodedev/how-to-safely-kill-python-subprocesses-without-zombies-3h9g)
+### Embedding Cache and Provider Coherence
+- [ChromaDB embedding dimension mismatch — crewAI issue #2464](https://github.com/crewAIInc/crewAI/issues/2464)
+- [ChromaDB Bug: InvalidDimensionException on model switch — chroma issue #4368](https://github.com/chroma-core/chroma/issues/4368)
+- [Mastering Embedding Caching: Advanced Techniques for 2025](https://sparkco.ai/blog/mastering-embedding-caching-advanced-techniques-for-2025)
 
-### File Pattern Matching
-- [Python glob documentation](https://docs.python.org/3/library/glob.html)
-- [File Searching in Python: Avoiding glob Gotchas](https://runebook.dev/en/docs/python/library/glob)
-- [Glob Patterns Guide](https://www.devzery.com/post/your-comprehensive-guide-to-glob-patterns)
+### Query Cache Invalidation
+- [Semantic Caching in Agentic AI: cache eligibility and invalidation](https://www.ashwinhariharan.com/semantic-caching-in-agentic-ai-determining-cache-eligibility-and-invalidation/)
+- [How to cache semantic search: a complete guide](https://www.meilisearch.com/blog/how-to-cache-semantic-search)
+- [Data freshness rot as the silent failure mode in production RAG systems](https://glenrhodes.com/data-freshness-rot-as-the-silent-failure-mode-in-production-rag-systems-and-treating-document-shelf-life-as-a-first-class-reliability-concern/)
+
+### Cache Memory Management
+- [Memory-aware LRU cache decorator (gist)](https://gist.github.com/wmayner/0245b7d9c329e498d42b)
+- [Caching in Python Using the LRU Cache Strategy — Real Python](https://realpython.com/lru-cache-python/)
+- [Time-based LRU cache in Python](https://jamesg.blog/2024/08/18/time-based-lru-cache-python)
+
+### Disk Cache Corruption
+- [DiskCache SQLite concurrent access issue #85](https://github.com/grantjenks/python-diskcache/issues/85)
+- [How To Corrupt An SQLite Database File](https://www.sqlite.org/howtocorrupt.html)
+- [DiskCache Tutorial — WAL mode and crash safety](https://grantjenks.com/docs/diskcache/tutorial.html)
+
+### Job Deduplication Patterns
+- [BullMQ Job Deduplication — Debounce and Throttle modes](https://docs.bullmq.io/guide/jobs/deduplication)
+- [Race conditions when watching the file system — atom/github issue #345](https://github.com/atom/github/issues/345)
+
+### Uvicorn UDS Support
+- [Uvicorn Settings — --uds flag](https://www.uvicorn.org/settings/)
+- [FastAPI Unix Domain Socket example](https://github.com/realcaptainsolaris/fast_api_unix_domain)
 
 ---
 
-*Pitfalls research for: v7.0 Index Management & Content Pipeline*
-*Researched: 2026-02-23*
-*Confidence: HIGH — All critical pitfalls verified with official documentation or known issues*
+*Pitfalls research for: v8.0 Performance & Developer Experience (file watching, embedding cache, query cache, UDS transport)*
+*Researched: 2026-03-06*
+*Confidence: HIGH — critical pitfalls cross-referenced with official CPython/asyncio issue trackers and ChromaDB bug reports*
