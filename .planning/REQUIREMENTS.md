@@ -66,7 +66,38 @@
 
 ## Traceability
 
-(Populated by roadmapper)
-
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
+| WATCH-01 | Phase 15 | Pending |
+| WATCH-02 | Phase 15 | Pending |
+| WATCH-03 | Phase 15 | Pending |
+| WATCH-04 | Phase 15 | Pending |
+| WATCH-05 | Phase 15 | Pending |
+| WATCH-06 | Phase 15 | Pending |
+| WATCH-07 | Phase 15 | Pending |
+| BGINC-01 | Phase 15 | Pending |
+| BGINC-02 | Phase 15 | Pending |
+| BGINC-03 | Phase 15 | Pending |
+| BGINC-04 | Phase 15 | Pending |
+| XCUT-03 | Phase 15 | Pending |
+| ECACHE-01 | Phase 16 | Pending |
+| ECACHE-02 | Phase 16 | Pending |
+| ECACHE-03 | Phase 16 | Pending |
+| ECACHE-04 | Phase 16 | Pending |
+| ECACHE-05 | Phase 16 | Pending |
+| ECACHE-06 | Phase 16 | Pending |
+| QCACHE-01 | Phase 17 | Pending |
+| QCACHE-02 | Phase 17 | Pending |
+| QCACHE-03 | Phase 17 | Pending |
+| QCACHE-04 | Phase 17 | Pending |
+| QCACHE-05 | Phase 17 | Pending |
+| QCACHE-06 | Phase 17 | Pending |
+| XCUT-04 | Phase 17 | Pending |
+| UDS-01 | Phase 18 | Pending |
+| UDS-02 | Phase 18 | Pending |
+| UDS-03 | Phase 18 | Pending |
+| UDS-04 | Phase 18 | Pending |
+| UDS-05 | Phase 18 | Pending |
+| UDS-06 | Phase 18 | Pending |
+| XCUT-01 | Phase 18 | Pending |
+| XCUT-02 | Phase 18 | Pending |

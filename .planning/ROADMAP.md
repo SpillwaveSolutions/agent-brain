@@ -9,6 +9,7 @@
 - ✅ **v6.0 PostgreSQL Backend** — Phases 5-10 (shipped 2026-02-13)
 - ✅ **v6.0.4 Plugin & Install Fixes** — Phase 11 (shipped 2026-02-22)
 - ✅ **v7.0 Index Management & Content Pipeline** — Phases 12-14 (shipped 2026-03-05)
+- 🚧 **v8.0 Performance & Developer Experience** — Phases 15-18 (in progress)
 
 ## Phases
 
@@ -58,101 +59,107 @@
 
 ---
 
-## Phase 12: Folder Management & File Type Presets
+## 🚧 v8.0 Performance & Developer Experience (In Progress)
 
-**Goal:** Users can list, add, and remove indexed folders via CLI/API/plugin, and use shorthand file type presets instead of manual glob patterns.
+**Milestone Goal:** Improve developer workflow with automatic index maintenance and faster query/indexing through caching and optimized transport.
 
-**Requirements:** FOLD-01..10, FTYPE-01..07 (17 requirements)
+### Phase 15: File Watcher and Background Incremental Updates
 
-**Plans:** 3 plans
+**Goal:** Folders configured with `watch_mode: auto` automatically stay indexed after every file change, without any manual reindex command.
+
+**Depends on:** Phase 14 (ManifestTracker and IndexingService must exist; watcher-triggered jobs leverage incremental diff via force=False)
+
+**Requirements:** WATCH-01, WATCH-02, WATCH-03, WATCH-04, WATCH-05, WATCH-06, WATCH-07, BGINC-01, BGINC-02, BGINC-03, BGINC-04, XCUT-03
+
+**Success Criteria** (what must be TRUE):
+1. Running `agent-brain folders add ./src --watch auto` causes the folder to be re-indexed automatically within 30 seconds of any file change
+2. A `git checkout` that touches 150 files triggers exactly one reindex job — not 150 separate jobs
+3. `agent-brain folders list` shows `watch_mode` (off/auto) and watcher status (watching/idle) per folder
+4. `agent-brain jobs` shows watcher-triggered jobs with a `source: auto` indicator distinguishing them from manually triggered jobs
+5. Folders marked `watch_mode: off` are never auto-reindexed regardless of file activity
+6. Plugin slash commands are updated for `--watch` flag and `watch_mode` display
+
+**Plans:** TBD
 
 Plans:
-- [ ] 12-01-PLAN.md — Server foundation: FolderManager, FileTypePresetResolver, models, protocol extension
-- [ ] 12-02-PLAN.md — API endpoints + server integration: folders router, lifespan wiring, include_types
-- [ ] 12-03-PLAN.md — CLI commands + plugin: folders, types, --include-type flag, plugin commands
-
-**Success Criteria:**
-1. `agent-brain folders list` shows all indexed folders with chunk counts
-2. `agent-brain folders remove /path` deletes all chunks for that folder
-3. `agent-brain index /path --include-type python,docs` indexes only matching file types
-4. Indexed folders persist across server restarts
-5. All commands work with both ChromaDB and PostgreSQL backends
-6. Plugin slash commands mirror CLI folder management
-
-**Key Components:**
-- `FolderManager` service — persist/list/remove indexed folders (JSONL storage)
-- `FileTypePresetResolver` — map preset names to glob patterns
-- API endpoints: `GET /index/folders`, `DELETE /index/folders`
-- CLI commands: `agent-brain folders list|add|remove`, `agent-brain types list`
-- CLI flag: `--include-type` on `agent-brain index`
-
-**Research Flags:** ChromaDB `where` filter performance on large collections, path normalization strategy
+- [ ] 15-01: FileWatcherService (watchfiles awatch(), per-folder debounce, exclusion patterns, asyncio lifespan task, FolderRecord extension with watch_enabled + watch_debounce_seconds)
+- [ ] 15-02: Background incremental wiring (job queue routing, duplicate job prevention, force=False, source indicator on JobRecord); CLI watch flag; plugin updates
 
 ---
 
-## Phase 13: Content Injection Pipeline
+### Phase 16: Embedding Cache
 
-**Goal:** Users can enrich chunks with custom metadata during indexing via Python scripts or folder-level JSON metadata.
+**Goal:** Users pay zero OpenAI API cost for unchanged content on any reindex run triggered by the watcher or manually.
 
-**Requirements:** INJECT-01..08 (8 requirements)
+**Depends on:** Phase 15 (File Watcher must be in place — embedding cache provides the cost control that makes automatic watcher-driven reindexing economically viable)
 
-**Plans:** 2 plans
+**Requirements:** ECACHE-01, ECACHE-02, ECACHE-03, ECACHE-04, ECACHE-05, ECACHE-06
+
+**Success Criteria** (what must be TRUE):
+1. Reindexing a folder for the second time with no file changes makes zero embedding API calls
+2. `agent-brain status` shows embedding cache hit rate, total hits, and total misses
+3. `agent-brain cache clear` flushes the cache and subsequent reindex incurs full API cost again
+4. Switching embedding provider or model (via YAML/env) automatically invalidates all cached embeddings — no dimension mismatch errors
+5. Cache survives server restart — a reindex after restart still shows nonzero hit rate for unchanged files
+
+**Plans:** TBD
 
 Plans:
-- [ ] 13-01-PLAN.md — Server foundation: ContentInjector service, model extensions, pipeline integration, dry-run, tests
-- [ ] 13-02-PLAN.md — CLI inject command, DocServeClient extension, protocol documentation
-
-**Success Criteria:**
-1. `agent-brain inject --script enrich.py /path` applies custom metadata to chunks
-2. `--folder-metadata metadata.json` merges static metadata into all chunks from a folder
-3. Injector exceptions don't crash the indexing job (per-chunk error handling)
-4. `--dry-run` mode validates script without indexing
-5. Injector protocol documented with example scripts
-
-**Key Components:**
-- Content injector callable protocol (`process_chunk(chunk: dict) -> dict`)
-- Dynamic script loading with validation
-- Folder-level JSON metadata merge
-- Integration into IndexingService pipeline (post-chunk, pre-embed)
-
-**Research Flags:** Standard patterns, unlikely to need deep research
+- [ ] 16-01: EmbeddingCache service (aiosqlite persistence, SHA-256 + provider:model key, LRU in-memory layer, atomic writes, startup recovery)
+- [ ] 16-02: Integration into EmbeddingGenerator + IndexingService + QueryService; CLI `cache` command; settings; metrics in /health/status
 
 ---
 
-## Phase 14: Manifest Tracking & Chunk Eviction
+### Phase 17: Query Cache
 
-**Goal:** Automatically detect file changes, evict stale chunks, and only reindex modified files — enabling efficient incremental updates.
+**Goal:** Repeat queries return results in sub-millisecond with guaranteed freshness after any reindex — including watcher-triggered auto-reindex jobs.
 
-**Requirements:** EVICT-01..10 (10 requirements)
+**Depends on:** Phase 15 (watcher generates automatic reindex events that must invalidate cache), Phase 16 (index_generation counter must be established before query cache relies on it for freshness guarantees)
 
-**Plans:** 2 plans
+**Requirements:** QCACHE-01, QCACHE-02, QCACHE-03, QCACHE-04, QCACHE-05, QCACHE-06, XCUT-04
+
+**Success Criteria** (what must be TRUE):
+1. Running the same query twice in succession (no reindex between) returns the second result from cache with no storage backend call
+2. Running a reindex job causes the very next identical query to hit storage (cache is cleared on job completion)
+3. `agent-brain status` shows query cache hit rate, total hits, and total misses
+4. `graph` and `multi` query modes are never served from cache — each call reaches storage
+5. `QUERY_CACHE_TTL` and `QUERY_CACHE_MAX_SIZE` are documented in env vars reference and YAML config reference
+
+**Plans:** TBD
 
 Plans:
-- [ ] 14-01-PLAN.md — Foundation: ManifestTracker, ChunkEvictionService, storage_paths extension, JobRecord model changes, unit tests
-- [ ] 14-02-PLAN.md — Pipeline integration: IndexingService wiring, JobWorker force threading, BM25 rebuild, CLI eviction summary, integration tests
+- [ ] 17-01: QueryCache service (cachetools TTLCache + asyncio.Lock, index_generation counter, graph/multi exclusion, invalidate_all on job DONE)
+- [ ] 17-02: Integration into QueryService + JobWorker; cache hit/miss metrics in /health/status; env var config; config documentation
 
-**Success Criteria:**
-1. Reindexing a folder only processes changed/new files (unchanged files skipped)
-2. Deleted files' chunks automatically evicted from index
-3. Changed files' old chunks replaced with new ones
-4. `--force` bypasses manifest for full reindex
-5. CLI shows eviction summary (added/changed/deleted counts)
-6. StorageBackendProtocol extended with `delete_by_ids()` method
+---
 
-**Key Components:**
-- `ManifestTracker` — per-folder manifest (file_path → checksum + mtime + chunk_ids)
-- `ChunkEvictionService` — detect changes, bulk delete stale chunks
-- Manifest storage in `.agent-brain/manifests/<hash>.json`
-- Integration with IndexingService for incremental pipeline
+### Phase 18: UDS Transport and Quality Gate
 
-**Research Flags:** Manifest storage scalability, checksum vs mtime tradeoffs, chunk ID retrieval from ChromaDB
+**Goal:** CLI-to-server communication on the same host uses Unix domain sockets for lower latency, and the full v8.0 feature set passes all quality checks.
+
+**Depends on:** Phases 15-17 (all service-layer changes must be complete before touching server startup — widest blast radius)
+
+**Requirements:** UDS-01, UDS-02, UDS-03, UDS-04, UDS-05, UDS-06, XCUT-01, XCUT-02
+
+**Success Criteria** (what must be TRUE):
+1. `agent-brain status` shows both TCP endpoint and UDS socket path; CLI connects via UDS automatically when on the same host
+2. Killing the server with `kill -9` and restarting it succeeds without manual socket file cleanup
+3. Setting `transport.uds_enabled: false` in YAML config causes server to listen on TCP only and CLI falls back to TCP without error
+4. All new v8.0 code (file watcher, embedding cache, query cache, UDS transport) has >70% test coverage
+5. `task before-push` exits with code 0 with all v8.0 features in place
+
+**Plans:** TBD
+
+Plans:
+- [ ] 18-01: Dual Uvicorn server (asyncio.gather TCP+UDS, _NoSignalServer subclass, lifespan="off" on UDS, stale socket cleanup, runtime.json uds_path)
+- [ ] 18-02: CLI UDS auto-detection (httpx AsyncHTTPTransport(uds=), runtime.json discovery, TCP fallback); UDS endpoint in status output; quality gate validation
 
 ---
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 12 → 13 → 14
+Phases execute in numeric order: 15 → 16 → 17 → 18
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -170,26 +177,10 @@ Phases execute in numeric order: 12 → 13 → 14
 | 12. Folder Management & File Type Presets | v7.0 | 3/3 | Complete | 2026-02-25 |
 | 13. Content Injection Pipeline | v7.0 | 2/2 | Complete | 2026-03-05 |
 | 14. Manifest Tracking & Chunk Eviction | v7.0 | 2/2 | Complete | 2026-03-05 |
-
-## Future Phases
-
-### Phase 15+: AWS Bedrock Provider (Feature 105)
-
-- Bedrock embeddings (Titan, Cohere)
-- Bedrock summarization (Claude, Llama, Mistral)
-
-### Phase 16+: Vertex AI Provider (Feature 106)
-
-- Vertex embeddings (textembedding-gecko)
-- Vertex summarization (Gemini)
-
-### Future Optimizations
-
-- Embedding cache with content hashing
-- File watcher for auto-indexing
-- Background incremental updates
-- Query caching with LRU
-- UDS transport for sub-ms latency
+| 15. File Watcher & Background Incremental | v8.0 | 0/2 | Not started | - |
+| 16. Embedding Cache | v8.0 | 0/2 | Not started | - |
+| 17. Query Cache | v8.0 | 0/2 | Not started | - |
+| 18. UDS Transport & Quality Gate | v8.0 | 0/2 | Not started | - |
 
 ---
 
@@ -215,4 +206,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-05 — Phase 14 complete, v7.0 milestone shipped*
+*Last updated: 2026-03-06 — v8.0 phases reordered: 15=File Watcher+BGINC, 16=Embedding Cache, 17=Query Cache, 18=UDS+Quality Gate*
