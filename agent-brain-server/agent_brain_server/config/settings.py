@@ -75,6 +75,7 @@ class Settings(BaseSettings):
     AGENT_BRAIN_JOB_TIMEOUT: int = 7200  # Job timeout in seconds (2 hours)
     AGENT_BRAIN_MAX_RETRIES: int = 3  # Max retries for failed jobs
     AGENT_BRAIN_CHECKPOINT_INTERVAL: int = 50  # Progress checkpoint every N files
+    AGENT_BRAIN_WATCH_DEBOUNCE_SECONDS: int = 30  # File watcher debounce (Phase 15)
 
     # Reranking Configuration (Feature 123)
     ENABLE_RERANKING: bool = False  # Off by default

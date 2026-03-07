@@ -109,6 +109,19 @@ class IndexRequest(BaseModel):
         ),
     )
 
+    # File watching options (Phase 15)
+    watch_mode: str | None = Field(
+        default=None,
+        description=(
+            "Watch mode for auto-reindex: 'auto' or 'off'. "
+            "None means don't change the current watch setting."
+        ),
+    )
+    watch_debounce_seconds: int | None = Field(
+        default=None,
+        description="Per-folder debounce in seconds (None = use global default)",
+    )
+
     model_config = {
         "json_schema_extra": {
             "examples": [

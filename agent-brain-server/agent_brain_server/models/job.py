@@ -87,6 +87,12 @@ class JobRecord(BaseModel):
             "Eviction summary from manifest diff " "(added/changed/deleted counts)"
         ),
     )
+    source: str = Field(
+        default="manual",
+        description=(
+            "Job source: 'manual' (user-triggered) or 'auto' (watcher-triggered)"
+        ),
+    )
 
     # Job state
     status: JobStatus = Field(
@@ -210,6 +216,7 @@ class JobSummary(BaseModel):
     folder_path: str = Field(..., description="Folder being indexed")
     operation: str = Field(..., description="Operation type")
     include_code: bool = Field(..., description="Whether indexing code")
+    source: str = Field(default="manual", description="Job source: manual or auto")
     enqueued_at: datetime = Field(..., description="When queued")
     started_at: datetime | None = Field(default=None, description="When started")
     finished_at: datetime | None = Field(default=None, description="When finished")
@@ -225,6 +232,7 @@ class JobSummary(BaseModel):
             folder_path=record.folder_path,
             operation=record.operation,
             include_code=record.include_code,
+            source=record.source,
             enqueued_at=record.enqueued_at,
             started_at=record.started_at,
             finished_at=record.finished_at,
@@ -243,6 +251,7 @@ class JobDetailResponse(BaseModel):
     folder_path: str = Field(..., description="Folder being indexed")
     operation: str = Field(..., description="Operation type")
     include_code: bool = Field(..., description="Whether indexing code")
+    source: str = Field(default="manual", description="Job source: manual or auto")
 
     # Timestamps
     enqueued_at: datetime = Field(..., description="When queued")
@@ -277,6 +286,7 @@ class JobDetailResponse(BaseModel):
             folder_path=record.folder_path,
             operation=record.operation,
             include_code=record.include_code,
+            source=record.source,
             enqueued_at=record.enqueued_at,
             started_at=record.started_at,
             finished_at=record.finished_at,
