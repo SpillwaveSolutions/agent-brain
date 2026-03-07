@@ -258,9 +258,47 @@ agent-brain query "search text" --json
 agent-brain index /path/to/docs
 agent-brain index /path/to/docs --recursive
 
+# Folder management
+agent-brain folders add ./docs                          # Index a folder
+agent-brain folders add ./src --include-code            # Index with code
+agent-brain folders add ./src --watch auto              # Enable auto-reindex
+agent-brain folders add ./src --watch auto --debounce 10  # Custom debounce
+agent-brain folders list                                # Show all folders
+agent-brain folders remove ./docs --yes                 # Remove folder
+
+# Job queue
+agent-brain jobs                      # List all jobs
+agent-brain jobs --watch              # Watch queue live
+agent-brain jobs JOB_ID               # Show job details
+agent-brain jobs JOB_ID --cancel      # Cancel a job
+
 # Clear index
 agent-brain reset --yes
 ```
+
+**Folder Options (folders add):**
+- `--include-code` - Index source code files alongside documents
+- `--watch MODE` - Watch mode: `auto` (enable file watching) or `off` (default)
+- `--debounce N` - Debounce interval in seconds for file watching (default: 30)
+
+**Folders List Output:**
+
+| Column | Description |
+|--------|-------------|
+| Folder Path | Canonical absolute path |
+| Chunks | Number of indexed chunks |
+| Last Indexed | Timestamp of last indexing run |
+| Watch | Watch mode: `auto` or `off` |
+
+**Jobs List Output:**
+
+| Column | Description |
+|--------|-------------|
+| ID | Job identifier |
+| Status | pending, running, done, failed, cancelled |
+| Source | `manual` (user-triggered) or `auto` (watcher-triggered) |
+| Folder | Folder being indexed |
+| Progress | Completion percentage |
 
 **Query Options:**
 - `--mode MODE` - Search mode: bm25, vector, hybrid, graph, multi
@@ -274,3 +312,34 @@ agent-brain reset --yes
 - `--url URL` - Server URL (default: http://127.0.0.1:8000)
 - `--json` - Output as JSON
 - `--help` - Show help message
+
+---
+
+## File Watcher
+
+Folders configured with `watch_mode: auto` are automatically re-indexed when files change. This eliminates the need to manually re-run indexing after edits.
+
+**How it works:**
+- After `agent-brain folders add ./src --watch auto`, the server monitors the folder for file changes
+- Per-folder debounce collapses rapid changes (e.g., git checkout, IDE save-all) into a single reindex job
+- Watcher-triggered jobs use incremental diff (`force=False`) for efficiency -- only changed files are re-processed
+- Jobs created by the watcher show `source: auto` in the jobs list
+
+**Excluded directories:**
+The watcher ignores changes in: `.git/`, `node_modules/`, `__pycache__/`, `dist/`, `build/`, `.next/`, `.nuxt/`, `coverage/`, `htmlcov/`
+
+**Configuration:**
+- Default debounce: 30 seconds (configurable via `AGENT_BRAIN_WATCH_DEBOUNCE_SECONDS`)
+- Per-folder override: `--debounce N` on `folders add`
+
+**Examples:**
+```bash
+# Enable auto-reindex with default 30s debounce
+agent-brain folders add ./src --watch auto --include-code
+
+# Custom 10-second debounce for fast iteration
+agent-brain folders add ./src --watch auto --debounce 10
+
+# Disable watching for a folder
+agent-brain folders add ./docs --watch off
+```
