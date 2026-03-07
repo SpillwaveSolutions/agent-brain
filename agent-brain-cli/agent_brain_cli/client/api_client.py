@@ -80,6 +80,8 @@ class FolderInfo:
     folder_path: str
     chunk_count: int
     last_indexed: str
+    watch_mode: str = "off"
+    watch_debounce_seconds: int | None = None
 
 
 @dataclass
@@ -293,6 +295,8 @@ class DocServeClient:
         injector_script: str | None = None,
         folder_metadata_file: str | None = None,
         dry_run: bool = False,
+        watch_mode: str | None = None,
+        watch_debounce_seconds: int | None = None,
     ) -> IndexResponse:
         """
         Enqueue an indexing job for documents and optionally code from a folder.
@@ -314,6 +318,8 @@ class DocServeClient:
             injector_script: Path to Python script exporting process_chunk().
             folder_metadata_file: Path to JSON file with static metadata.
             dry_run: Validate injector against sample chunks without indexing.
+            watch_mode: Watch mode for auto-reindex: 'auto' or 'off'.
+            watch_debounce_seconds: Per-folder debounce in seconds.
 
         Returns:
             IndexResponse with job ID and queue status.
@@ -339,6 +345,10 @@ class DocServeClient:
             body["folder_metadata_file"] = folder_metadata_file
         if dry_run:
             body["dry_run"] = True
+        if watch_mode is not None:
+            body["watch_mode"] = watch_mode
+        if watch_debounce_seconds is not None:
+            body["watch_debounce_seconds"] = watch_debounce_seconds
 
         data = self._request(
             "POST",
@@ -366,6 +376,8 @@ class DocServeClient:
                 folder_path=f["folder_path"],
                 chunk_count=f["chunk_count"],
                 last_indexed=f["last_indexed"],
+                watch_mode=f.get("watch_mode", "off"),
+                watch_debounce_seconds=f.get("watch_debounce_seconds"),
             )
             for f in data.get("folders", [])
         ]

@@ -1,13 +1,20 @@
 """Background job worker that processes indexing jobs from the queue."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from agent_brain_server.job_queue.job_store import JobQueueStore
 from agent_brain_server.models import IndexingState, IndexingStatusEnum, IndexRequest
 from agent_brain_server.models.job import JobProgress, JobRecord, JobStatus
 from agent_brain_server.services.indexing_service import IndexingService
+
+if TYPE_CHECKING:
+    from agent_brain_server.services.file_watcher_service import FileWatcherService
+    from agent_brain_server.services.folder_manager import FolderManager
 
 logger = logging.getLogger(__name__)
 
@@ -68,11 +75,34 @@ class JobWorker:
         )
         self._poll_interval = poll_interval_seconds or self.POLL_INTERVAL_SECONDS
 
+        # Optional references for watch_mode integration (Phase 15)
+        self._file_watcher_service: FileWatcherService | None = None
+        self._folder_manager: FolderManager | None = None
+
         # Internal state
         self._running = False
         self._task: asyncio.Task[None] | None = None
         self._current_job: JobRecord | None = None
         self._stop_event = asyncio.Event()
+
+    def set_file_watcher_service(self, service: FileWatcherService | None) -> None:
+        """Set the file watcher service for watch_mode integration.
+
+        Called by the lifespan after both JobWorker and FileWatcherService
+        are initialized.
+
+        Args:
+            service: FileWatcherService instance or None.
+        """
+        self._file_watcher_service = service
+
+    def set_folder_manager(self, manager: FolderManager | None) -> None:
+        """Set the folder manager for watch config updates after job completion.
+
+        Args:
+            manager: FolderManager instance or None.
+        """
+        self._folder_manager = manager
 
     @property
     def is_running(self) -> bool:
@@ -344,6 +374,9 @@ class JobWorker:
                         completed_at=job.finished_at,
                         error=None,
                     )
+
+                # Update watch config and start watcher if watch_mode is set
+                await self._apply_watch_config(job)
             else:
                 job.status = JobStatus.FAILED
                 job.error = "Verification failed: No chunks found in vector store"
@@ -404,6 +437,53 @@ class JobWorker:
 
         finally:
             self._current_job = None
+
+    async def _apply_watch_config(self, job: JobRecord) -> None:
+        """Update folder watch config and notify FileWatcherService.
+
+        If the job has watch_mode set, updates the FolderRecord via FolderManager
+        and starts/stops file watching accordingly.
+
+        Args:
+            job: The completed job record.
+        """
+        if job.watch_mode is None:
+            return
+
+        try:
+            # Update FolderRecord with watch config via FolderManager
+            if self._folder_manager is not None:
+                folder_record = await self._folder_manager.get_folder(job.folder_path)
+                if folder_record is not None:
+                    # Re-add the folder with updated watch config
+                    await self._folder_manager.add_folder(
+                        folder_path=folder_record.folder_path,
+                        chunk_count=folder_record.chunk_count,
+                        chunk_ids=folder_record.chunk_ids,
+                        watch_mode=job.watch_mode,
+                        watch_debounce_seconds=job.watch_debounce_seconds,
+                        include_code=folder_record.include_code,
+                    )
+                    logger.info(
+                        f"Updated watch config for {job.folder_path}: "
+                        f"watch_mode={job.watch_mode}"
+                    )
+
+            # Notify FileWatcherService
+            if self._file_watcher_service is not None:
+                if job.watch_mode == "auto":
+                    self._file_watcher_service.add_folder_watch(
+                        folder_path=job.folder_path,
+                        debounce_seconds=job.watch_debounce_seconds,
+                    )
+                elif job.watch_mode == "off":
+                    self._file_watcher_service.remove_folder_watch(job.folder_path)
+
+        except Exception as exc:
+            logger.error(
+                f"Failed to apply watch config for job {job.id}: {exc!r}",
+                exc_info=True,
+            )
 
     async def _verify_collection_delta(self, job: JobRecord, count_before: int) -> bool:
         """Verify that the vector store has new chunks after indexing.

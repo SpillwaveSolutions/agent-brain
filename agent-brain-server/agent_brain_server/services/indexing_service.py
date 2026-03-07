@@ -690,6 +690,7 @@ class IndexingService:
                     folder_path=abs_folder_path,
                     chunk_count=len(chunks),
                     chunk_ids=chunk_ids,
+                    include_code=request.include_code,
                 )
                 logger.info(
                     f"Registered folder {abs_folder_path} with FolderManager "

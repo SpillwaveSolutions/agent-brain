@@ -93,6 +93,17 @@ class JobRecord(BaseModel):
             "Job source: 'manual' (user-triggered) or 'auto' (watcher-triggered)"
         ),
     )
+    watch_mode: str | None = Field(
+        default=None,
+        description=(
+            "Watch mode to apply after job completion: 'auto' or 'off'. "
+            "None means don't change the current watch setting."
+        ),
+    )
+    watch_debounce_seconds: int | None = Field(
+        default=None,
+        description="Per-folder debounce in seconds (None = use global default)",
+    )
 
     # Job state
     status: JobStatus = Field(

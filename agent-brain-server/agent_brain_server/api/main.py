@@ -374,6 +374,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await _file_watcher.start()
             app.state.file_watcher_service = _file_watcher
             logger.info("File watcher service started")
+
+            # Wire JobWorker to FileWatcherService and FolderManager (Phase 15-02)
+            _job_worker.set_file_watcher_service(_file_watcher)
+            _job_worker.set_folder_manager(folder_manager)
         else:
             # No state directory - create minimal job service for backward compat
             # Jobs will not be persisted in this mode
@@ -413,6 +417,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             )
             await _file_watcher.start()
             app.state.file_watcher_service = _file_watcher
+
+            # Wire JobWorker to FileWatcherService and FolderManager (Phase 15-02)
+            _job_worker.set_file_watcher_service(_file_watcher)
+            _job_worker.set_folder_manager(folder_manager)
 
         # Set multi-instance metadata on app.state for health endpoint
         app.state.mode = mode

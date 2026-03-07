@@ -184,6 +184,8 @@ class JobQueueService:
             folder_metadata_file=request.folder_metadata_file,
             force=request.force,
             source=source,
+            watch_mode=request.watch_mode,
+            watch_debounce_seconds=request.watch_debounce_seconds,
             status=JobStatus.PENDING,
             enqueued_at=datetime.now(timezone.utc),
         )

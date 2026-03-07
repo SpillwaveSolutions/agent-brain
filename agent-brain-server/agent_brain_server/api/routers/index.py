@@ -330,6 +330,8 @@ async def index_documents(
             force=request_body.force,
             injector_script=request_body.injector_script,
             folder_metadata_file=request_body.folder_metadata_file,
+            watch_mode=request_body.watch_mode,
+            watch_debounce_seconds=request_body.watch_debounce_seconds,
         )
 
         result = await job_service.enqueue_job(
