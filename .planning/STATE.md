@@ -2,23 +2,23 @@
 **Last Updated:** 2026-03-07
 **Current Milestone:** v8.0 Performance & Developer Experience
 **Status:** In Progress
-**Current Phase:** 15 — File Watcher & Background Incremental Updates
+**Current Phase:** 16 — Embedding Cache
 **Total Phases:** 4 (Phases 15-18)
-**Current Plan:** 2 of 2
-**Total Plans in Phase:** 2
+**Current Plan:** 1 of TBD
+**Total Plans in Phase:** TBD
 
 ## Current Position
-Phase: 15 of 18 (File Watcher & Background Incremental Updates)
-Plan: 2 of 2
-Status: In Progress (Plan 01 complete, Plan 02 ready)
-Last activity: 2026-03-07 — Phase 15 Plan 01 complete: FileWatcherService, model extensions, backward-compatible JSONL
+Phase: 16 of 18 (Embedding Cache)
+Plan: 1 of TBD
+Status: Ready for planning
+Last activity: 2026-03-07 — Phase 15 complete: FileWatcherService + CLI/plugin integration for --watch auto
 
-**Progress (v8.0):** [█░░░░░░░░░] 10%
+**Progress (v8.0):** [███░░░░░░░] 25%
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-06)
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** v8.0 Performance & Developer Experience — Phase 15: File Watcher & Background Incremental Updates
+**Current focus:** v8.0 Performance & Developer Experience — Phase 16: Embedding Cache
 
 ## Milestone Summary
 ```
@@ -26,7 +26,7 @@ v3.0 Advanced RAG:          [██████████] 100% (shipped 2026-
 v6.0 PostgreSQL Backend:    [██████████] 100% (shipped 2026-02-13)
 v6.0.4 Plugin & Install:   [██████████] 100% (shipped 2026-02-22)
 v7.0 Index Mgmt & Pipeline: [██████████] 100% (shipped 2026-03-05)
-v8.0 Performance & DX:      [█░░░░░░░░░]  10% (Phase 15 Plan 01 complete)
+v8.0 Performance & DX:      [███░░░░░░░]  25% (Phase 15 complete)
 ```
 
 ## Performance Metrics
@@ -45,7 +45,7 @@ v8.0 Performance & DX:      [█░░░░░░░░░]  10% (Phase 15 Plan
 **By Phase (v8.0 in progress):**
 | Phase | Plans | Duration | Status |
 |-------|-------|----------|--------|
-| Phase 15: File Watcher & BGINC | 2 | Plan 01: 7 min | Plan 01 Complete |
+| Phase 15: File Watcher & BGINC | 2 | 13 min total (7+6) | Complete |
 
 ## Accumulated Context
 
@@ -55,7 +55,7 @@ v8.0 Performance & DX:      [█░░░░░░░░░]  10% (Phase 15 Plan
 - JobRecord.eviction_summary as dict[str, Any] — extend same model for source indicator (BGINC-04)
 - Two-step ChromaDB delete guards against empty ids=[] bug — embedding cache IDs must never be empty list
 
-### Key v8.0 Decisions (Phase 15 Plan 01)
+### Key v8.0 Decisions (Phase 15)
 - watchfiles 1.1.1 is already a transitive dep via uvicorn — confirmed, no new install needed
 - anyio.Event (not asyncio.Event) used for stop_event — watchfiles.awatch requires anyio-compatible event, must be created inside async context
 - One asyncio.Task per folder — independent lifecycles, named tasks (watcher:{path})
@@ -64,6 +64,10 @@ v8.0 Performance & DX:      [█░░░░░░░░░]  10% (Phase 15 Plan
 - allow_external=True for watcher-enqueued jobs — auto-mode folders may be outside project root
 - TYPE_CHECKING guard prevents circular: services/file_watcher_service.py -> job_queue/job_service.py -> models
 - FileWatcherService stops BEFORE JobWorker (dependency order in shutdown)
+- watch_mode/watch_debounce_seconds on JobRecord (not just IndexRequest) — JobWorker needs them post-completion
+- Setter injection for FileWatcherService/FolderManager on JobWorker — lifespan creates them sequentially
+- _apply_watch_config catches all exceptions — watch config failure does not fail an otherwise successful job
+- include_code now passed from IndexingService to folder_manager.add_folder() (was missing)
 
 ### v8.0 Phase Order Rationale (revised 2026-03-06)
 - Phase 15 (File Watcher + BGINC): DX first — user's top priority; builds on Phase 14 ManifestTracker
@@ -91,9 +95,9 @@ v8.0 Performance & DX:      [█░░░░░░░░░]  10% (Phase 15 Plan
 ## Session Continuity
 
 **Last Session:** 2026-03-07
-**Stopped At:** Phase 15 Plan 01 complete — FileWatcherService, model extensions, 31 new tests, task before-push exits 0
+**Stopped At:** Phase 15 complete — CLI/plugin watch_mode integration, 16 new tests (10 server + 6 CLI), task before-push exits 0
 **Resume File:** None
-**Next Action:** Execute Phase 15 Plan 02 — CLI and plugin integration for --watch auto flag
+**Next Action:** Plan Phase 16 — Embedding Cache (aiosqlite, hash-based dedup)
 
 ---
 *State updated: 2026-03-07*
