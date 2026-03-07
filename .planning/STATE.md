@@ -1,19 +1,19 @@
 # Agent Brain — Project State
-**Last Updated:** 2026-03-06
+**Last Updated:** 2026-03-07
 **Current Milestone:** v8.0 Performance & Developer Experience
-**Status:** Ready to plan Phase 15
+**Status:** In Progress
 **Current Phase:** 15 — File Watcher & Background Incremental Updates
 **Total Phases:** 4 (Phases 15-18)
-**Current Plan:** —
-**Total Plans in Phase:** 2 (TBD during planning)
+**Current Plan:** 2 of 2
+**Total Plans in Phase:** 2
 
 ## Current Position
 Phase: 15 of 18 (File Watcher & Background Incremental Updates)
-Plan: — of 2
-Status: Ready to plan
-Last activity: 2026-03-06 — v8.0 roadmap reordered: File Watcher first (DX priority), 28/28 requirements mapped
+Plan: 2 of 2
+Status: In Progress (Plan 01 complete, Plan 02 ready)
+Last activity: 2026-03-07 — Phase 15 Plan 01 complete: FileWatcherService, model extensions, backward-compatible JSONL
 
-**Progress (v8.0):** [░░░░░░░░░░] 0%
+**Progress (v8.0):** [█░░░░░░░░░] 10%
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-06)
@@ -26,7 +26,7 @@ v3.0 Advanced RAG:          [██████████] 100% (shipped 2026-
 v6.0 PostgreSQL Backend:    [██████████] 100% (shipped 2026-02-13)
 v6.0.4 Plugin & Install:   [██████████] 100% (shipped 2026-02-22)
 v7.0 Index Mgmt & Pipeline: [██████████] 100% (shipped 2026-03-05)
-v8.0 Performance & DX:      [░░░░░░░░░░]   0% (Phase 15 — ready to plan)
+v8.0 Performance & DX:      [█░░░░░░░░░]  10% (Phase 15 Plan 01 complete)
 ```
 
 ## Performance Metrics
@@ -42,6 +42,11 @@ v8.0 Performance & DX:      [░░░░░░░░░░]   0% (Phase 15 — 
 | Phase 13: Content Injection | 2 | ~13 min | Complete |
 | Phase 14: Manifest & Eviction | 2 | ~14 min | Complete |
 
+**By Phase (v8.0 in progress):**
+| Phase | Plans | Duration | Status |
+|-------|-------|----------|--------|
+| Phase 15: File Watcher & BGINC | 2 | Plan 01: 7 min | Plan 01 Complete |
+
 ## Accumulated Context
 
 ### Key v7.0 Decisions (relevant to v8.0)
@@ -49,6 +54,16 @@ v8.0 Performance & DX:      [░░░░░░░░░░]   0% (Phase 15 — 
 - Atomic temp+Path.replace() for JSONL writes — same pattern required for aiosqlite cache writes
 - JobRecord.eviction_summary as dict[str, Any] — extend same model for source indicator (BGINC-04)
 - Two-step ChromaDB delete guards against empty ids=[] bug — embedding cache IDs must never be empty list
+
+### Key v8.0 Decisions (Phase 15 Plan 01)
+- watchfiles 1.1.1 is already a transitive dep via uvicorn — confirmed, no new install needed
+- anyio.Event (not asyncio.Event) used for stop_event — watchfiles.awatch requires anyio-compatible event, must be created inside async context
+- One asyncio.Task per folder — independent lifecycles, named tasks (watcher:{path})
+- source="auto" field on JobRecord default='manual' — full backward compatibility
+- force=False for watcher-triggered jobs — rely on ManifestTracker for incremental efficiency (BGINC-03)
+- allow_external=True for watcher-enqueued jobs — auto-mode folders may be outside project root
+- TYPE_CHECKING guard prevents circular: services/file_watcher_service.py -> job_queue/job_service.py -> models
+- FileWatcherService stops BEFORE JobWorker (dependency order in shutdown)
 
 ### v8.0 Phase Order Rationale (revised 2026-03-06)
 - Phase 15 (File Watcher + BGINC): DX first — user's top priority; builds on Phase 14 ManifestTracker
@@ -63,24 +78,22 @@ v8.0 Performance & DX:      [░░░░░░░░░░]   0% (Phase 15 — 
 - Phase 18 (UDS + Quality Gate): Ship last — touches api/main.py server startup (widest blast radius)
 
 ### Research Flags for Planning
-- Phase 15: Confirm watchfiles awatch() debounce-per-folder cancel-restart with lifespan shutdown
-- Phase 15: Verify watchfiles is already a transitive dep via Uvicorn (`poetry show watchfiles`)
+- Phase 15: watchfiles confirmed as transitive dep via Uvicorn (resolved)
 - Phase 16: Test aiosqlite WAL mode under concurrent indexing reads/writes
 - Phase 18: Validate asyncio.gather(tcp_server.serve(), uds_server.serve()) against pinned Uvicorn version
 
 ### Blockers/Concerns
 - Phase 18 UDS dual-server pattern is MEDIUM confidence (community-verified, not official Uvicorn docs)
-- Verify watchfiles is already a transitive dep via Uvicorn before Phase 15 (`poetry show watchfiles`)
 
 ### Pending Todos
 0 pending todos.
 
 ## Session Continuity
 
-**Last Session:** 2026-03-06
-**Stopped At:** v8.0 roadmap reordered — Phase 15=File Watcher+BGINC, 16=Embedding Cache, 17=Query Cache, 18=UDS+Quality Gate; 28/28 requirements mapped
+**Last Session:** 2026-03-07
+**Stopped At:** Phase 15 Plan 01 complete — FileWatcherService, model extensions, 31 new tests, task before-push exits 0
 **Resume File:** None
-**Next Action:** `/gsd:plan-phase 15` to plan Phase 15: File Watcher & Background Incremental Updates
+**Next Action:** Execute Phase 15 Plan 02 — CLI and plugin integration for --watch auto flag
 
 ---
-*State updated: 2026-03-06*
+*State updated: 2026-03-07*
