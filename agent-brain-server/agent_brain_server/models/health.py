@@ -125,6 +125,13 @@ class IndexingStatus(BaseModel):
         None,
         description="Running time of current job in milliseconds",
     )
+    # File watcher status (Phase 15)
+    file_watcher: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "File watcher status with 'running' bool and 'watched_folders' count"
+        ),
+    )
 
     model_config = {
         "json_schema_extra": {

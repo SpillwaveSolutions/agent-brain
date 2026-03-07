@@ -69,6 +69,9 @@ _state_dir: Path | None = None
 # Module-level reference to job worker for cleanup
 _job_worker: JobWorker | None = None
 
+# Module-level reference to file watcher service for cleanup
+_file_watcher: object = None
+
 
 async def check_embedding_compatibility(
     vector_store: VectorStoreManager,
@@ -131,7 +134,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     - Initializes job queue system
     - Cleans up on shutdown
     """
-    global _runtime_state, _state_dir, _job_worker
+    global _runtime_state, _state_dir, _job_worker, _file_watcher
 
     logger.info("Starting Agent Brain RAG server...")
 
@@ -357,6 +360,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             )
             await _job_worker.start()
             logger.info("Job worker started")
+
+            # Initialize and start file watcher service (Phase 15)
+            from agent_brain_server.services.file_watcher_service import (
+                FileWatcherService,
+            )
+
+            _file_watcher = FileWatcherService(
+                folder_manager=folder_manager,
+                job_service=job_service,
+                default_debounce_seconds=settings.AGENT_BRAIN_WATCH_DEBOUNCE_SECONDS,
+            )
+            await _file_watcher.start()
+            app.state.file_watcher_service = _file_watcher
+            logger.info("File watcher service started")
         else:
             # No state directory - create minimal job service for backward compat
             # Jobs will not be persisted in this mode
@@ -384,6 +401,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             )
             await _job_worker.start()
 
+            # Initialize and start file watcher service (Phase 15, no-state-dir branch)
+            from agent_brain_server.services.file_watcher_service import (
+                FileWatcherService,
+            )
+
+            _file_watcher = FileWatcherService(
+                folder_manager=folder_manager,
+                job_service=job_service,
+                default_debounce_seconds=settings.AGENT_BRAIN_WATCH_DEBOUNCE_SECONDS,
+            )
+            await _file_watcher.start()
+            app.state.file_watcher_service = _file_watcher
+
         # Set multi-instance metadata on app.state for health endpoint
         app.state.mode = mode
         app.state.instance_id = _runtime_state.instance_id if _runtime_state else None
@@ -401,6 +431,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
     logger.info("Shutting down Agent Brain RAG server...")
+
+    # Stop file watcher service BEFORE job worker (Phase 15)
+    if _file_watcher is not None:
+        from agent_brain_server.services.file_watcher_service import FileWatcherService
+
+        if isinstance(_file_watcher, FileWatcherService):
+            await _file_watcher.stop()
+            logger.info("File watcher service stopped")
+        _file_watcher = None
 
     # Stop job worker gracefully
     if _job_worker is not None:

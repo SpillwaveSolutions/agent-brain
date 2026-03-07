@@ -182,6 +182,15 @@ async def indexing_status(request: Request) -> IndexingStatus:
         }
         service_status["graph_index"] = graph_index_info
 
+    # Get file watcher status (Phase 15)
+    file_watcher_service = getattr(request.app.state, "file_watcher_service", None)
+    file_watcher_info: dict[str, Any] = {
+        "running": (file_watcher_service.is_running if file_watcher_service else False),
+        "watched_folders": (
+            file_watcher_service.watched_folder_count if file_watcher_service else 0
+        ),
+    }
+
     return IndexingStatus(
         total_documents=service_status.get("total_documents", 0),
         total_chunks=total_chunks,
@@ -202,6 +211,8 @@ async def indexing_status(request: Request) -> IndexingStatus:
         queue_pending=queue_pending,
         queue_running=queue_running,
         current_job_running_time_ms=current_job_running_time_ms,
+        # File watcher status (Phase 15)
+        file_watcher=file_watcher_info,
     )
 
 
