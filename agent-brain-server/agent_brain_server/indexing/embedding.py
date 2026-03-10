@@ -86,7 +86,15 @@ class EmbeddingGenerator:
         return self._summarization_provider
 
     async def embed_text(self, text: str) -> list[float]:
-        """Generate embedding for a single text.
+        """Generate embedding for a single text (cache-intercepted).
+
+        Checks the embedding cache before calling the provider. On a cache
+        miss, calls the provider and stores the result for future requests.
+        If the cache is not initialised, delegates directly to the provider
+        for backward compatibility.
+
+        Lazy-imports the cache module to avoid a circular import between
+        ``indexing`` and ``services`` packages (both loaded at startup).
 
         Args:
             text: Text to embed.
@@ -94,6 +102,28 @@ class EmbeddingGenerator:
         Returns:
             Embedding vector as list of floats.
         """
+        # Lazy import to avoid circular import at module init time:
+        #   indexing.__init__ -> embedding -> services.embedding_cache ->
+        #   services.__init__ -> indexing_service -> indexing.__init__
+        from agent_brain_server.services.embedding_cache import (  # noqa: PLC0415
+            EmbeddingCacheService,
+            get_embedding_cache,
+        )
+
+        cache = get_embedding_cache()
+        if cache is not None:
+            key = EmbeddingCacheService.make_cache_key(
+                text,
+                self._embedding_provider.provider_name,
+                self._embedding_provider.model_name,
+                self._embedding_provider.get_dimensions(),
+            )
+            cached = await cache.get(key)
+            if cached is not None:
+                return cached
+            result = await self._embedding_provider.embed_text(text)
+            await cache.put(key, result)
+            return result
         return await self._embedding_provider.embed_text(text)
 
     async def embed_texts(
@@ -101,16 +131,62 @@ class EmbeddingGenerator:
         texts: list[str],
         progress_callback: Callable[[int, int], Awaitable[None]] | None = None,
     ) -> list[list[float]]:
-        """Generate embeddings for multiple texts.
+        """Generate embeddings for multiple texts (batch cache-intercepted).
+
+        Performs a batch cache lookup for all texts, then calls the provider
+        only for cache misses. Results are stored in the cache before
+        returning. Order is preserved in the output list.
+
+        If the cache is not initialised, delegates directly to the provider
+        for backward compatibility.
 
         Args:
             texts: List of texts to embed.
-            progress_callback: Optional callback(processed, total) for progress.
+            progress_callback: Optional callback(processed, total) for
+                progress reporting. Passed only to the provider call for
+                miss texts.
 
         Returns:
-            List of embedding vectors.
+            List of embedding vectors in the same order as ``texts``.
         """
-        return await self._embedding_provider.embed_texts(texts, progress_callback)
+        # Lazy import to break circular import (see embed_text for details)
+        from agent_brain_server.services.embedding_cache import (  # noqa: PLC0415
+            EmbeddingCacheService,
+            get_embedding_cache,
+        )
+
+        cache = get_embedding_cache()
+        if cache is None:
+            return await self._embedding_provider.embed_texts(texts, progress_callback)
+
+        dims = self._embedding_provider.get_dimensions()
+        provider = self._embedding_provider.provider_name
+        model = self._embedding_provider.model_name
+
+        # Build cache keys for all texts
+        keys = [
+            EmbeddingCacheService.make_cache_key(t, provider, model, dims)
+            for t in texts
+        ]
+
+        # Batch lookup: one SQL query for all keys
+        hits = await cache.get_batch(keys)
+
+        # Assemble results list; identify miss indices
+        results: list[list[float] | None] = [hits.get(k) for k in keys]
+        miss_indices = [i for i, r in enumerate(results) if r is None]
+
+        if miss_indices:
+            miss_texts = [texts[i] for i in miss_indices]
+            miss_embeddings = await self._embedding_provider.embed_texts(
+                miss_texts, progress_callback
+            )
+            for idx, embedding in zip(miss_indices, miss_embeddings):
+                results[idx] = embedding
+                await cache.put(keys[idx], embedding)
+
+        # All results are now populated (no Nones remain)
+        return [r for r in results if r is not None]
 
     async def embed_chunks(
         self,

@@ -191,6 +191,20 @@ async def indexing_status(request: Request) -> IndexingStatus:
         ),
     }
 
+    # Get embedding cache status (Phase 16)
+    # Only include when cache has entries (omit for fresh installs)
+    embedding_cache_info: dict[str, Any] | None = None
+    embedding_cache_svc = getattr(request.app.state, "embedding_cache", None)
+    if embedding_cache_svc is not None:
+        try:
+            disk_stats = await embedding_cache_svc.get_disk_stats()
+            if disk_stats.get("entry_count", 0) > 0:
+                mem_stats = embedding_cache_svc.get_stats()
+                embedding_cache_info = {**mem_stats, **disk_stats}
+        except Exception:
+            # Non-blocking: don't fail status if cache stats error
+            pass
+
     return IndexingStatus(
         total_documents=service_status.get("total_documents", 0),
         total_chunks=total_chunks,
@@ -213,6 +227,8 @@ async def indexing_status(request: Request) -> IndexingStatus:
         current_job_running_time_ms=current_job_running_time_ms,
         # File watcher status (Phase 15)
         file_watcher=file_watcher_info,
+        # Embedding cache status (Phase 16)
+        embedding_cache=embedding_cache_info,
     )
 
 
