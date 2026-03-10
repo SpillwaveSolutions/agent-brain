@@ -3,32 +3,32 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Performance & Developer Experience
 current_phase: 16 — Embedding Cache
-current_plan: 1 of 1
+current_plan: 2 of 2
 status: executing
-stopped_at: Completed 16-01-PLAN.md
-last_updated: "2026-03-10T16:44:02Z"
-last_activity: "2026-03-10 — Phase 16 Plan 1 complete: EmbeddingCacheService + API endpoints + 22 tests"
+stopped_at: Completed 16-02-PLAN.md
+last_updated: "2026-03-10T16:51:42Z"
+last_activity: "2026-03-10 — Phase 16 Plan 2 complete: cache CLI commands + 12 tests"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 4
+  completed_plans: 4
 ---
 
 # Agent Brain — Project State
 **Last Updated:** 2026-03-10
 **Current Milestone:** v8.0 Performance & Developer Experience
 **Status:** In Progress
-**Current Phase:** 16 — Embedding Cache
+**Current Phase:** 16 — Embedding Cache (complete)
 **Total Phases:** 4 (Phases 15-18)
-**Current Plan:** 1 of 1 (Phase 16 complete)
-**Total Plans in Phase:** 1
+**Current Plan:** 2 of 2 (Phase 16 complete)
+**Total Plans in Phase:** 2
 
 ## Current Position
 Phase: 16 of 18 (Embedding Cache)
-Plan: 1 of 1
+Plan: 2 of 2
 Status: Phase 16 complete
-Last activity: 2026-03-10 — Phase 16 Plan 1 complete: EmbeddingCacheService + API endpoints + 22 tests
+Last activity: 2026-03-10 — Phase 16 Plan 2 complete: `agent-brain cache` command group + embedding cache metrics in `agent-brain status` + 12 tests
 
 **Progress (v8.0):** [█████░░░░░] 50%
 
@@ -63,7 +63,7 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 | Phase | Plans | Duration | Status |
 |-------|-------|----------|--------|
 | Phase 15: File Watcher & BGINC | 2 | 13 min total (7+6) | Complete |
-| Phase 16: Embedding Cache | 1 | 10 min | Complete |
+| Phase 16: Embedding Cache | 2 | 14 min total (10+4) | Complete |
 
 ## Accumulated Context
 
@@ -95,6 +95,9 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 - embedding_cache section in /health/status omitted when entry_count == 0 (clean for fresh installs)
 - float32 BLOB via struct.pack — ~12 KB/entry at 3072 dims; cosine similarity unaffected (max error ~3.57e-9)
 - Provider fingerprint in metadata row — O(1) startup wipe check vs O(N) per-entry scan (ECACHE-04)
+- embedding_cache: dict | None on IndexingStatus dataclass — None default preserves all existing code
+- No pre-fetch in --yes path: cache clear --yes skips count lookup (avoids extra API call)
+- Connection-safe count fetch in cache clear confirmation: try/except shows 0 if fetch fails
 
 ### v8.0 Phase Order Rationale (revised 2026-03-06)
 - Phase 15 (File Watcher + BGINC): DX first — user's top priority; builds on Phase 14 ManifestTracker
@@ -121,9 +124,9 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 
 ## Session Continuity
 
-**Last Session:** 2026-03-10T16:44:02Z
-**Stopped At:** Completed 16-01-PLAN.md
-**Resume File:** .planning/phases/16-embedding-cache/16-01-SUMMARY.md
+**Last Session:** 2026-03-10T16:51:42Z
+**Stopped At:** Completed 16-02-PLAN.md
+**Resume File:** .planning/phases/16-embedding-cache/16-02-SUMMARY.md
 **Next Action:** Phase 17 — Query Cache (freshness guarantees after auto-reindex)
 
 ---
