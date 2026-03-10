@@ -42,6 +42,9 @@ def status_command(url: str | None, json_output: bool) -> None:
                         "indexing_in_progress": indexing.indexing_in_progress,
                         "progress_percent": indexing.progress_percent,
                         "indexed_folders": indexing.indexed_folders,
+                        "file_watcher": indexing.file_watcher
+                        or {"running": False, "watched_folders": 0},
+                        "embedding_cache": indexing.embedding_cache,
                     },
                 }
                 click.echo(json.dumps(output, indent=2))
@@ -95,6 +98,29 @@ def status_command(url: str | None, json_output: bool) -> None:
 
             if indexing.last_indexed_at:
                 table.add_row("Last Indexed", indexing.last_indexed_at)
+
+            file_watcher = indexing.file_watcher or {}
+            if file_watcher:
+                running = bool(file_watcher.get("running", False))
+                watched_folders = int(file_watcher.get("watched_folders", 0))
+                watcher_status = "running" if running else "stopped"
+                table.add_row(
+                    "File Watcher",
+                    f"{watcher_status} ({watched_folders} watched folder(s))",
+                )
+
+            # Show embedding cache status if available (Phase 16)
+            embedding_cache = indexing.embedding_cache
+            if embedding_cache:
+                entry_count = int(embedding_cache.get("entry_count", 0))
+                hit_rate = float(embedding_cache.get("hit_rate", 0.0))
+                hits = int(embedding_cache.get("hits", 0))
+                misses = int(embedding_cache.get("misses", 0))
+                table.add_row(
+                    "Embedding Cache",
+                    f"{entry_count:,} entries, {hit_rate:.1%} hit rate "
+                    f"({hits:,} hits, {misses:,} misses)",
+                )
 
             # Show graph index status if available (Feature 113)
             graph_status = getattr(indexing, "graph_index", None)

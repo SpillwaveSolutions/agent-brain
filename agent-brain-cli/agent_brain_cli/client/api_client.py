@@ -50,6 +50,7 @@ class IndexingStatus:
     last_indexed_at: str | None
     indexed_folders: list[str]
     file_watcher: dict[str, Any] | None = None
+    embedding_cache: dict[str, Any] | None = None
 
 
 @dataclass
@@ -215,6 +216,7 @@ class DocServeClient:
             last_indexed_at=data.get("last_indexed_at"),
             indexed_folders=data.get("indexed_folders", []),
             file_watcher=data.get("file_watcher"),
+            embedding_cache=data.get("embedding_cache"),
         )
 
     def query(
