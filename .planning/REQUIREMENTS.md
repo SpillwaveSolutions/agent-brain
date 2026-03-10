@@ -7,12 +7,12 @@
 ## v8.0 Requirements
 
 ### Embedding Cache
-- [ ] **ECACHE-01**: Embedding cache uses content-hash + provider:model fingerprint as cache key to prevent dimension mismatches
-- [ ] **ECACHE-02**: Embedding cache persists to disk via aiosqlite (survives server restarts)
-- [ ] **ECACHE-03**: Cache hit/miss metrics visible in `agent-brain status` output
-- [ ] **ECACHE-04**: Cache automatically invalidates all entries when embedding provider or model changes
-- [ ] **ECACHE-05**: `agent-brain cache clear` CLI command to manually flush embedding cache
-- [ ] **ECACHE-06**: Embedding cache integrates transparently into IndexingService and QueryService embed paths
+- [x] **ECACHE-01**: Embedding cache uses content-hash + provider:model fingerprint as cache key to prevent dimension mismatches
+- [x] **ECACHE-02**: Embedding cache persists to disk via aiosqlite (survives server restarts)
+- [x] **ECACHE-03**: Cache hit/miss metrics visible in `agent-brain status` output
+- [x] **ECACHE-04**: Cache automatically invalidates all entries when embedding provider or model changes
+- [x] **ECACHE-05**: `agent-brain cache clear` CLI command to manually flush embedding cache
+- [x] **ECACHE-06**: Embedding cache integrates transparently into IndexingService and QueryService embed paths
 
 ### Query Cache
 - [ ] **QCACHE-01**: Query results cached in-memory with configurable TTL (default 5 minutes)
@@ -80,12 +80,12 @@
 | BGINC-03 | Phase 15 | Pending |
 | BGINC-04 | Phase 15 | Pending |
 | XCUT-03 | Phase 15 | Pending |
-| ECACHE-01 | Phase 16 | Pending |
-| ECACHE-02 | Phase 16 | Pending |
-| ECACHE-03 | Phase 16 | Pending |
-| ECACHE-04 | Phase 16 | Pending |
-| ECACHE-05 | Phase 16 | Pending |
-| ECACHE-06 | Phase 16 | Pending |
+| ECACHE-01 | Phase 16 | Complete |
+| ECACHE-02 | Phase 16 | Complete |
+| ECACHE-03 | Phase 16 | Complete |
+| ECACHE-04 | Phase 16 | Complete |
+| ECACHE-05 | Phase 16 | Complete |
+| ECACHE-06 | Phase 16 | Complete |
 | QCACHE-01 | Phase 17 | Pending |
 | QCACHE-02 | Phase 17 | Pending |
 | QCACHE-03 | Phase 17 | Pending |
