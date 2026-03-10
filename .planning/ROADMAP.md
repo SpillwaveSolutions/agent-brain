@@ -105,7 +105,7 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 16-01-PLAN.md — EmbeddingCacheService (aiosqlite two-layer cache, SHA-256+provider:model:dims key, LRU eviction, provider auto-wipe) + EmbeddingGenerator integration + API endpoints + settings
+- [x] 16-01-PLAN.md — EmbeddingCacheService (aiosqlite two-layer cache, SHA-256+provider:model:dims key, LRU eviction, provider auto-wipe) + EmbeddingGenerator integration + API endpoints + settings
 - [ ] 16-02-PLAN.md — CLI `cache` command group (status, clear --yes) + status command cache display + health endpoint embedding_cache section
 
 ---

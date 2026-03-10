@@ -3,39 +3,39 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Performance & Developer Experience
 current_phase: 16 — Embedding Cache
-current_plan: 1 of TBD
+current_plan: 1 of 1
 status: executing
-stopped_at: Phase 16 context gathered
-last_updated: "2026-03-10T04:52:16.442Z"
-last_activity: "2026-03-07 — Phase 15 complete: FileWatcherService + CLI/plugin integration for --watch auto"
+stopped_at: Completed 16-01-PLAN.md
+last_updated: "2026-03-10T16:44:02Z"
+last_activity: "2026-03-10 — Phase 16 Plan 1 complete: EmbeddingCacheService + API endpoints + 22 tests"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 3
+  completed_plans: 3
 ---
 
 # Agent Brain — Project State
-**Last Updated:** 2026-03-07
+**Last Updated:** 2026-03-10
 **Current Milestone:** v8.0 Performance & Developer Experience
 **Status:** In Progress
 **Current Phase:** 16 — Embedding Cache
 **Total Phases:** 4 (Phases 15-18)
-**Current Plan:** 1 of TBD
-**Total Plans in Phase:** TBD
+**Current Plan:** 1 of 1 (Phase 16 complete)
+**Total Plans in Phase:** 1
 
 ## Current Position
 Phase: 16 of 18 (Embedding Cache)
-Plan: 1 of TBD
-Status: Ready for planning
-Last activity: 2026-03-07 — Phase 15 complete: FileWatcherService + CLI/plugin integration for --watch auto
+Plan: 1 of 1
+Status: Phase 16 complete
+Last activity: 2026-03-10 — Phase 16 Plan 1 complete: EmbeddingCacheService + API endpoints + 22 tests
 
-**Progress (v8.0):** [███░░░░░░░] 25%
+**Progress (v8.0):** [█████░░░░░] 50%
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-06)
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** v8.0 Performance & Developer Experience — Phase 16: Embedding Cache
+**Current focus:** v8.0 Performance & Developer Experience — Phase 16 complete, ready for Phase 17: Query Cache
 
 ## Milestone Summary
 ```
@@ -43,7 +43,7 @@ v3.0 Advanced RAG:          [██████████] 100% (shipped 2026-
 v6.0 PostgreSQL Backend:    [██████████] 100% (shipped 2026-02-13)
 v6.0.4 Plugin & Install:   [██████████] 100% (shipped 2026-02-22)
 v7.0 Index Mgmt & Pipeline: [██████████] 100% (shipped 2026-03-05)
-v8.0 Performance & DX:      [███░░░░░░░]  25% (Phase 15 complete)
+v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 complete)
 ```
 
 ## Performance Metrics
@@ -63,6 +63,7 @@ v8.0 Performance & DX:      [███░░░░░░░]  25% (Phase 15 comp
 | Phase | Plans | Duration | Status |
 |-------|-------|----------|--------|
 | Phase 15: File Watcher & BGINC | 2 | 13 min total (7+6) | Complete |
+| Phase 16: Embedding Cache | 1 | 10 min | Complete |
 
 ## Accumulated Context
 
@@ -86,6 +87,15 @@ v8.0 Performance & DX:      [███░░░░░░░]  25% (Phase 15 comp
 - _apply_watch_config catches all exceptions — watch config failure does not fail an otherwise successful job
 - include_code now passed from IndexingService to folder_manager.add_folder() (was missing)
 
+### Key v8.0 Decisions (Phase 16)
+- Lazy import in embed_text/embed_texts (not module-level) breaks circular import: indexing -> services -> indexing
+- persist_stats=False default — session-only counters avoid write contention on every cache hit
+- In-memory LRU default 1000 entries (~12 MB at 3072 dims) — configurable via EMBEDDING_CACHE_MAX_MEM_ENTRIES
+- get_batch() implemented from start for embed_texts() efficiency (batch SQL vs N sequential awaits)
+- embedding_cache section in /health/status omitted when entry_count == 0 (clean for fresh installs)
+- float32 BLOB via struct.pack — ~12 KB/entry at 3072 dims; cosine similarity unaffected (max error ~3.57e-9)
+- Provider fingerprint in metadata row — O(1) startup wipe check vs O(N) per-entry scan (ECACHE-04)
+
 ### v8.0 Phase Order Rationale (revised 2026-03-06)
 - Phase 15 (File Watcher + BGINC): DX first — user's top priority; builds on Phase 14 ManifestTracker
 - Phase 16 (Embedding Cache): Cost optimization for the now-running watcher — prevents API bill from automatic reindexing
@@ -100,7 +110,7 @@ v8.0 Performance & DX:      [███░░░░░░░]  25% (Phase 15 comp
 
 ### Research Flags for Planning
 - Phase 15: watchfiles confirmed as transitive dep via Uvicorn (resolved)
-- Phase 16: Test aiosqlite WAL mode under concurrent indexing reads/writes
+- Phase 16: aiosqlite WAL mode verified working under concurrent access (resolved)
 - Phase 18: Validate asyncio.gather(tcp_server.serve(), uds_server.serve()) against pinned Uvicorn version
 
 ### Blockers/Concerns
@@ -111,10 +121,10 @@ v8.0 Performance & DX:      [███░░░░░░░]  25% (Phase 15 comp
 
 ## Session Continuity
 
-**Last Session:** 2026-03-10T04:52:16.440Z
-**Stopped At:** Phase 16 context gathered
-**Resume File:** .planning/phases/16-embedding-cache/16-CONTEXT.md
-**Next Action:** Plan Phase 16 — Embedding Cache (aiosqlite, hash-based dedup)
+**Last Session:** 2026-03-10T16:44:02Z
+**Stopped At:** Completed 16-01-PLAN.md
+**Resume File:** .planning/phases/16-embedding-cache/16-01-SUMMARY.md
+**Next Action:** Phase 17 — Query Cache (freshness guarantees after auto-reindex)
 
 ---
-*State updated: 2026-03-07*
+*State updated: 2026-03-10*
