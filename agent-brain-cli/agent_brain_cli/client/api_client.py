@@ -468,7 +468,7 @@ class DocServeClient:
             ConnectionError: If unable to connect.
             ServerError: If server returns an error.
         """
-        return self._request("GET", "/index/cache/status")
+        return self._request("GET", "/index/cache/")
 
     def clear_cache(self) -> dict[str, Any]:
         """
