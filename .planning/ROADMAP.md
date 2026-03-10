@@ -106,7 +106,7 @@ Plans:
 
 Plans:
 - [x] 16-01-PLAN.md — EmbeddingCacheService (aiosqlite two-layer cache, SHA-256+provider:model:dims key, LRU eviction, provider auto-wipe) + EmbeddingGenerator integration + API endpoints + settings
-- [ ] 16-02-PLAN.md — CLI `cache` command group (status, clear --yes) + status command cache display + health endpoint embedding_cache section
+- [x] 16-02-PLAN.md — CLI `cache` command group (status, clear --yes) + status command cache display + health endpoint embedding_cache section
 
 ---
 
@@ -178,7 +178,7 @@ Phases execute in numeric order: 15 → 16 → 17 → 18
 | 13. Content Injection Pipeline | v7.0 | 2/2 | Complete | 2026-03-05 |
 | 14. Manifest Tracking & Chunk Eviction | v7.0 | 2/2 | Complete | 2026-03-05 |
 | 15. File Watcher & Background Incremental | v8.0 | 2/2 | Complete | 2026-03-07 |
-| 16. Embedding Cache | v8.0 | 0/2 | Planning complete | - |
+| 16. Embedding Cache | v8.0 | 2/2 | Complete | 2026-03-10 |
 | 17. Query Cache | v8.0 | 0/2 | Not started | - |
 | 18. UDS Transport & Quality Gate | v8.0 | 0/2 | Not started | - |
 
