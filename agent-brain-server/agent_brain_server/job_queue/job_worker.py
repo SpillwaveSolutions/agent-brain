@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from agent_brain_server.job_queue.job_store import JobQueueStore
 from agent_brain_server.models import IndexingState, IndexingStatusEnum, IndexRequest
@@ -334,7 +334,9 @@ class JobWorker:
                 return
 
             # Verify collection has new chunks (delta verification)
-            verification_passed = await self._verify_collection_delta(job, count_before)
+            verification_passed = await self._verify_collection_delta(
+                job, count_before, eviction_result
+            )
 
             if verification_passed:
                 # Get final chunk count from indexing service status
@@ -485,7 +487,12 @@ class JobWorker:
                 exc_info=True,
             )
 
-    async def _verify_collection_delta(self, job: JobRecord, count_before: int) -> bool:
+    async def _verify_collection_delta(
+        self,
+        job: JobRecord,
+        count_before: int,
+        eviction_result: dict[str, Any] | None = None,
+    ) -> bool:
         """Verify that the vector store has new chunks after indexing.
 
         Uses delta verification (count_after - count_before) to avoid false
@@ -494,6 +501,8 @@ class JobWorker:
         Args:
             job: The job record to verify.
             count_before: Chunk count before indexing started.
+            eviction_result: Eviction summary from the indexing pipeline
+                (used for zero-change incremental detection).
 
         Returns:
             True if verification passed (new chunks added), False otherwise.
@@ -511,7 +520,9 @@ class JobWorker:
                 return True
             elif delta == 0:
                 # Check for zero-change incremental run (all files unchanged)
-                eviction = job.eviction_summary
+                # Use eviction_result from pipeline (not job.eviction_summary
+                # which is only set after verification passes)
+                eviction = eviction_result or job.eviction_summary
                 if eviction is not None and eviction.get("chunks_to_create", -1) == 0:
                     logger.info(
                         f"Zero-change incremental run for job {job.id}: "

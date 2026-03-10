@@ -83,7 +83,7 @@
 
 Plans:
 - [x] 15-01-PLAN.md — FileWatcherService + data model extensions (FolderRecord, JobRecord, Settings, lifespan wiring, health endpoint)
-- [ ] 15-02-PLAN.md — CLI --watch/--debounce flags, folders list watch columns, jobs source column, job worker watcher notification, plugin docs
+- [x] 15-02-PLAN.md — CLI --watch/--debounce flags, folders list watch columns, jobs source column, job worker watcher notification, plugin docs
 
 ---
 
@@ -177,7 +177,7 @@ Phases execute in numeric order: 15 → 16 → 17 → 18
 | 12. Folder Management & File Type Presets | v7.0 | 3/3 | Complete | 2026-02-25 |
 | 13. Content Injection Pipeline | v7.0 | 2/2 | Complete | 2026-03-05 |
 | 14. Manifest Tracking & Chunk Eviction | v7.0 | 2/2 | Complete | 2026-03-05 |
-| 15. File Watcher & Background Incremental | v8.0 | 0/2 | Planning complete | - |
+| 15. File Watcher & Background Incremental | v8.0 | 2/2 | Complete | 2026-03-07 |
 | 16. Embedding Cache | v8.0 | 0/2 | Not started | - |
 | 17. Query Cache | v8.0 | 0/2 | Not started | - |
 | 18. UDS Transport & Quality Gate | v8.0 | 0/2 | Not started | - |

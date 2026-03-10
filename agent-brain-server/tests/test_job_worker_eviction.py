@@ -140,6 +140,35 @@ async def test_verify_delta_positive_delta_passes() -> None:
     assert result is True
 
 
+@pytest.mark.asyncio
+async def test_verify_delta_eviction_result_param_takes_precedence() -> None:
+    """eviction_result parameter is checked before job.eviction_summary.
+
+    This is the fix for the bug where job.eviction_summary was always None
+    at verification time (only set after verification passes).
+    """
+    worker, _ = _make_worker_with_mock_service(count_before=50, count_after=50)
+
+    # Job has NO eviction_summary (as it would be at verification time)
+    job = _make_job(eviction_summary=None)
+
+    # But the pipeline returned an eviction result with chunks_to_create=0
+    eviction_from_pipeline: dict[str, Any] = {
+        "files_added": [],
+        "files_changed": [],
+        "files_deleted": [],
+        "files_unchanged": ["file1.md"],
+        "chunks_evicted": 0,
+        "chunks_to_create": 0,
+    }
+
+    result = await worker._verify_collection_delta(
+        job, count_before=50, eviction_result=eviction_from_pipeline
+    )
+
+    assert result is True
+
+
 # ---------------------------------------------------------------------------
 # Test: JobRecord.force is propagated to IndexRequest
 # ---------------------------------------------------------------------------
