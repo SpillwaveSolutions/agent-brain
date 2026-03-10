@@ -1,5 +1,6 @@
 """CLI commands for agent-brain."""
 
+from .cache import cache_group
 from .config import config_group
 from .folders import folders_group
 from .index import index_command
@@ -15,6 +16,7 @@ from .stop import stop_command
 from .types import types_group
 
 __all__ = [
+    "cache_group",
     "config_group",
     "folders_group",
     "index_command",

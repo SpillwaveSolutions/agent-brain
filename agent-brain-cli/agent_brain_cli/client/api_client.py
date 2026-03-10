@@ -49,6 +49,7 @@ class IndexingStatus:
     progress_percent: float
     last_indexed_at: str | None
     indexed_folders: list[str]
+    file_watcher: dict[str, Any] | None = None
 
 
 @dataclass
@@ -213,6 +214,7 @@ class DocServeClient:
             progress_percent=data.get("progress_percent", 0.0),
             last_indexed_at=data.get("last_indexed_at"),
             indexed_folders=data.get("indexed_folders", []),
+            file_watcher=data.get("file_watcher"),
         )
 
     def query(
@@ -452,3 +454,29 @@ class DocServeClient:
             Cancellation result dictionary.
         """
         return self._request("DELETE", f"/index/jobs/{job_id}")
+
+    def cache_status(self) -> dict[str, Any]:
+        """
+        Get embedding cache status.
+
+        Returns:
+            Dict with hits, misses, hit_rate, mem_entries, entry_count, size_bytes.
+
+        Raises:
+            ConnectionError: If unable to connect.
+            ServerError: If server returns an error.
+        """
+        return self._request("GET", "/index/cache/status")
+
+    def clear_cache(self) -> dict[str, Any]:
+        """
+        Clear the embedding cache.
+
+        Returns:
+            Dict with count, size_bytes, size_mb of cleared entries.
+
+        Raises:
+            ConnectionError: If unable to connect.
+            ServerError: If server returns an error.
+        """
+        return self._request("DELETE", "/index/cache")
