@@ -102,11 +102,11 @@ Plans:
 4. Switching embedding provider or model (via YAML/env) automatically invalidates all cached embeddings — no dimension mismatch errors
 5. Cache survives server restart — a reindex after restart still shows nonzero hit rate for unchanged files
 
-**Plans:** TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 16-01: EmbeddingCache service (aiosqlite persistence, SHA-256 + provider:model key, LRU in-memory layer, atomic writes, startup recovery)
-- [ ] 16-02: Integration into EmbeddingGenerator + IndexingService + QueryService; CLI `cache` command; settings; metrics in /health/status
+- [ ] 16-01-PLAN.md — EmbeddingCacheService (aiosqlite two-layer cache, SHA-256+provider:model:dims key, LRU eviction, provider auto-wipe) + EmbeddingGenerator integration + API endpoints + settings
+- [ ] 16-02-PLAN.md — CLI `cache` command group (status, clear --yes) + status command cache display + health endpoint embedding_cache section
 
 ---
 
@@ -178,7 +178,7 @@ Phases execute in numeric order: 15 → 16 → 17 → 18
 | 13. Content Injection Pipeline | v7.0 | 2/2 | Complete | 2026-03-05 |
 | 14. Manifest Tracking & Chunk Eviction | v7.0 | 2/2 | Complete | 2026-03-05 |
 | 15. File Watcher & Background Incremental | v8.0 | 2/2 | Complete | 2026-03-07 |
-| 16. Embedding Cache | v8.0 | 0/2 | Not started | - |
+| 16. Embedding Cache | v8.0 | 0/2 | Planning complete | - |
 | 17. Query Cache | v8.0 | 0/2 | Not started | - |
 | 18. UDS Transport & Quality Gate | v8.0 | 0/2 | Not started | - |
 
@@ -206,4 +206,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-06 — Phase 15 planned: 2 plans in 2 waves*
+*Last updated: 2026-03-10 — Phase 16 planned: 2 plans in 2 waves*
