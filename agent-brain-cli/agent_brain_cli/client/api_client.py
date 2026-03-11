@@ -481,4 +481,4 @@ class DocServeClient:
             ConnectionError: If unable to connect.
             ServerError: If server returns an error.
         """
-        return self._request("DELETE", "/index/cache")
+        return self._request("DELETE", "/index/cache/")

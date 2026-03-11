@@ -108,7 +108,8 @@ def cache_clear(url: str | None, yes: bool) -> None:
                     count = 0
 
                 if not Confirm.ask(
-                    f"This will flush {count:,} cached embeddings. Continue?"
+                    f"This will flush {count:,} cached embeddings. Continue?",
+                    default=False,
                 ):
                     console.print("[dim]Aborted.[/]")
                     return

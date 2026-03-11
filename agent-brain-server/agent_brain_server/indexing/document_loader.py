@@ -410,6 +410,7 @@ class DocumentLoader:
                 metadata={
                     **doc.metadata,
                     "doc_id": doc.doc_id,
+                    "source": file_path,
                     "source_type": source_type,
                     "language": language,
                 },
@@ -473,6 +474,7 @@ class DocumentLoader:
             metadata={
                 **doc.metadata,
                 "doc_id": doc.doc_id,
+                "source": file_path,
                 "source_type": source_type,
                 "language": language,
             },
