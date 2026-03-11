@@ -19,7 +19,8 @@ console = Console()
     help="Agent Brain server URL (default: from config or http://127.0.0.1:8000)",
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
-def status_command(url: str | None, json_output: bool) -> None:
+@click.option("--verbose", "-v", is_flag=True, help="Show additional detail")
+def status_command(url: str | None, json_output: bool, verbose: bool) -> None:
     """Check Agent Brain server status and health."""
     resolved_url = url or get_server_url()
     try:
@@ -121,6 +122,12 @@ def status_command(url: str | None, json_output: bool) -> None:
                     f"{entry_count:,} entries, {hit_rate:.1%} hit rate "
                     f"({hits:,} hits, {misses:,} misses)",
                 )
+                if verbose:
+                    mem_entries = int(embedding_cache.get("mem_entries", 0))
+                    size_bytes = int(embedding_cache.get("size_bytes", 0))
+                    size_mb = size_bytes / (1024 * 1024) if size_bytes else 0.0
+                    table.add_row("  Memory Entries", f"{mem_entries:,}")
+                    table.add_row("  Cache Size", f"{size_mb:.2f} MB")
 
             # Show graph index status if available (Feature 113)
             graph_status = getattr(indexing, "graph_index", None)

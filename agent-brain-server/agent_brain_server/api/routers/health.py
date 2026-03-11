@@ -205,7 +205,7 @@ async def indexing_status(request: Request) -> IndexingStatus:
             # Non-blocking: don't fail status if cache stats error
             pass
 
-    return IndexingStatus(
+    response = IndexingStatus(
         total_documents=service_status.get("total_documents", 0),
         total_chunks=total_chunks,
         total_doc_chunks=service_status.get("total_doc_chunks", 0),
@@ -230,6 +230,15 @@ async def indexing_status(request: Request) -> IndexingStatus:
         # Embedding cache status (Phase 16)
         embedding_cache=embedding_cache_info,
     )
+
+    # Narrowly omit embedding_cache when None (fresh installs)
+    # rather than serializing as null.
+    if embedding_cache_info is None:
+        data = response.model_dump(mode="json")
+        data.pop("embedding_cache", None)
+        return data  # type: ignore[return-value]
+
+    return response
 
 
 @router.get(

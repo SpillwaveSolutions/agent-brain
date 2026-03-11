@@ -166,6 +166,19 @@ class TestCacheClearCommand:
         assert "Aborted" in result.output
 
     @patch("agent_brain_cli.commands.cache.DocServeClient")
+    def test_cache_clear_prompt_defaults_to_no(
+        self, mock_client_class: MagicMock, runner: CliRunner
+    ) -> None:
+        """cache clear prompt shows [y/N] indicating default is No."""
+        mock_client_class.return_value = make_mock_client()
+        # Send empty input (accept default) — should abort since default=False
+        result = runner.invoke(cli, ["cache", "clear"], input="\n")
+        assert result.exit_code == 0
+        assert "Aborted" in result.output
+        # Verify the prompt renders [y/n] (Rich Confirm with default=False)
+        assert "y/n" in result.output.lower()
+
+    @patch("agent_brain_cli.commands.cache.DocServeClient")
     def test_cache_clear_confirm_yes(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:

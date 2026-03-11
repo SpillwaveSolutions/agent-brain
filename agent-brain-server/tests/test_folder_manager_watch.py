@@ -19,9 +19,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from agent_brain_server.models.index import IndexRequest
-from agent_brain_server.models.job import JobRecord, JobSummary, JobDetailResponse
+from agent_brain_server.models.job import JobDetailResponse, JobRecord, JobSummary
 from agent_brain_server.services.folder_manager import FolderManager, FolderRecord
-
 
 # ---------------------------------------------------------------------------
 # FolderRecord dataclass tests
@@ -81,7 +80,7 @@ def test_folder_record_asdict_includes_watch_fields() -> None:
 
 @pytest.mark.asyncio
 async def test_load_jsonl_v7_records_missing_watch_fields() -> None:
-    """v7.0 JSONL records without watch fields load with backward-compatible defaults."""
+    """v7.0 JSONL records without watch fields load with backward-compat defaults."""
     with tempfile.TemporaryDirectory() as tmpdir:
         state_dir = Path(tmpdir)
         jsonl_path = state_dir / "indexed_folders.jsonl"
@@ -282,7 +281,7 @@ def test_job_detail_response_from_record_includes_source() -> None:
 async def test_enqueue_job_with_source_auto() -> None:
     """enqueue_job with source='auto' creates a job with source='auto'."""
     from agent_brain_server.job_queue.job_service import JobQueueService
-    from agent_brain_server.models.job import JobEnqueueResponse, JobStatus
+    from agent_brain_server.models.job import JobEnqueueResponse
 
     # Build mocked store
     mock_store = MagicMock()

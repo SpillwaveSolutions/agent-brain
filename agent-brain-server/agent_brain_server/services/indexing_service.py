@@ -325,12 +325,30 @@ class IndexingService:
                     storage_backend=self.storage_backend,
                 )
                 current_file_paths = [
-                    str(_Path(doc.metadata.get("source", "")).resolve())
+                    str(
+                        _Path(
+                            doc.metadata.get("source", "")
+                            or getattr(doc, "source", "")
+                            or getattr(doc, "file_path", "")
+                        ).resolve()
+                    )
                     for doc in documents
-                    if doc.metadata.get("source")
+                    if (
+                        doc.metadata.get("source")
+                        or getattr(doc, "source", "")
+                        or getattr(doc, "file_path", "")
+                    )
                 ]
                 # Deduplicate (multiple docs can come from same source file)
                 current_file_paths = list(dict.fromkeys(current_file_paths))
+
+                # Invariant: if loader returned documents, we must have paths
+                if documents and not current_file_paths:
+                    raise RuntimeError(
+                        f"Loaded {len(documents)} documents but resolved 0 "
+                        f"file paths — metadata['source'] is missing. "
+                        f"This is a bug in DocumentLoader."
+                    )
 
                 prior_manifest = await self.manifest_tracker.load(abs_folder_path)
                 eviction_summary, files_to_index_list = (
@@ -341,11 +359,19 @@ class IndexingService:
                     )
                 )
                 files_to_index_set = set(files_to_index_list)
+
+                def _resolve_doc_path(doc: Any) -> str:
+                    raw = (
+                        doc.metadata.get("source", "")
+                        or getattr(doc, "source", "")
+                        or getattr(doc, "file_path", "")
+                    )
+                    return str(_Path(raw).resolve()) if raw else ""
+
                 documents = [
                     doc
                     for doc in documents
-                    if str(_Path(doc.metadata.get("source", "")).resolve())
-                    in files_to_index_set
+                    if _resolve_doc_path(doc) in files_to_index_set
                 ]
                 logger.info(
                     f"Manifest diff: +{len(eviction_summary.files_added)} added "

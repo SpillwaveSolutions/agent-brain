@@ -179,9 +179,7 @@ class EmbeddingCacheService:
         )
 
     @staticmethod
-    def make_cache_key(
-        text: str, provider: str, model: str, dimensions: int
-    ) -> str:
+    def make_cache_key(text: str, provider: str, model: str, dimensions: int) -> str:
         """Compute a deterministic cache key for an embedding request.
 
         Key format: ``SHA-256(text):provider:model:dimensions``.
@@ -254,9 +252,7 @@ class EmbeddingCacheService:
         self._hits += 1
         return embedding
 
-    async def get_batch(
-        self, cache_keys: list[str]
-    ) -> dict[str, list[float]]:
+    async def get_batch(self, cache_keys: list[str]) -> dict[str, list[float]]:
         """Batch lookup for multiple cache keys.
 
         Uses a single ``IN (?, ?, ...)`` query for efficiency. Only
