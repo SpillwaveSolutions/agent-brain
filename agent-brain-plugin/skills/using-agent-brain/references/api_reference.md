@@ -223,6 +223,80 @@ Clear all indexed documents.
 
 ---
 
+## Cache Endpoints
+
+### GET /index/cache
+
+Retrieve embedding cache statistics for the current session and persisted disk cache.
+
+**Response:**
+
+```json
+{
+  "hits": 5432,
+  "misses": 800,
+  "hit_rate": 0.8712,
+  "mem_entries": 500,
+  "entry_count": 1234,
+  "size_bytes": 15531008
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `hits` | integer | Total successful cache lookups this session |
+| `misses` | integer | Total cache misses (embedding computed via API) this session |
+| `hit_rate` | float | Fraction of lookups served from cache (0.0–1.0). Resets on server restart. |
+| `mem_entries` | integer | Embeddings currently held in the in-memory LRU tier |
+| `entry_count` | integer | Total embeddings persisted in the SQLite disk cache |
+| `size_bytes` | integer | Total bytes used by the disk cache database |
+
+**Note:** Both `/index/cache` and `/index/cache/` are accepted (trailing-slash alias).
+Use the no-trailing-slash form (`/index/cache`) to avoid 307 redirects.
+
+**Error Responses:**
+
+| Status | Description |
+|--------|-------------|
+| 503 | Cache not initialized (server starting up or cache subsystem unavailable) |
+
+---
+
+### DELETE /index/cache
+
+Clear all cached embeddings from the disk cache. The next reindex will recompute
+embeddings via the configured embedding provider.
+
+**Response:**
+
+```json
+{
+  "count": 1234,
+  "size_bytes": 15531008,
+  "size_mb": 14.81
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `count` | integer | Number of cached embeddings that were removed |
+| `size_bytes` | integer | Bytes freed from the disk cache |
+| `size_mb` | float | Megabytes freed (rounded to 2 decimal places) |
+
+**Note:** Both `/index/cache` and `/index/cache/` are accepted (trailing-slash alias).
+
+**Error Responses:**
+
+| Status | Description |
+|--------|-------------|
+| 503 | Cache not initialized (server starting up or cache subsystem unavailable) |
+
+---
+
 ## OpenAPI Documentation
 
 Interactive API documentation available at:
@@ -274,6 +348,12 @@ agent-brain jobs JOB_ID --cancel      # Cancel a job
 
 # Clear index
 agent-brain reset --yes
+
+# Embedding cache
+agent-brain cache status             # View cache metrics (human-readable)
+agent-brain cache status --json      # View metrics as JSON
+agent-brain cache clear              # Clear cache (prompts for confirmation)
+agent-brain cache clear --yes        # Clear cache (skips confirmation)
 ```
 
 **Folder Options (folders add):**
