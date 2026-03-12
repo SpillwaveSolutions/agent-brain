@@ -503,11 +503,15 @@ class IndexingService:
                         # progress_offset = len(doc_documents) + total_code_processed
                         # code_chunk_progress = make_progress_callback(progress_offset)
 
-                        for doc in lang_docs:
+                        for doc_idx, doc in enumerate(lang_docs):
                             code_chunks = await code_chunker.chunk_code_document(doc)
                             all_chunks.extend(code_chunks)
                             self._total_code_chunks += len(code_chunks)
                             self._supported_languages.add(lang)
+                            # Yield to event loop so HTTP requests aren't
+                            # starved during long code-chunking runs.
+                            if doc_idx % 10 == 0:
+                                await asyncio.sleep(0)
 
                         # Update the total code documents processed
                         total_code_processed += len(lang_docs)

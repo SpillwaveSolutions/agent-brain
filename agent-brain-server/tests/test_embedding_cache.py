@@ -447,3 +447,81 @@ def test_singleton_reset():
     """reset_embedding_cache() clears the global instance."""
     reset_embedding_cache()
     assert get_embedding_cache() is None
+
+
+# ---------------------------------------------------------------------------
+# Test: Health endpoint omits embedding_cache when cache is empty
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_health_status_omits_embedding_cache_when_empty(tmp_path):
+    """GET /health/status omits 'embedding_cache' key for fresh/empty cache.
+
+    Regression test for Issue 11: response_model=IndexingStatus was
+    re-serializing the dict through Pydantic and re-adding the field as null.
+    """
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from fastapi.testclient import TestClient
+
+    # Create a real (empty) cache service
+    svc = make_service(tmp_path)
+    await svc.initialize(FINGERPRINT)
+
+    with (
+        patch(
+            "agent_brain_server.storage.get_vector_store",
+            return_value=MagicMock(is_initialized=True),
+        ),
+        patch(
+            "agent_brain_server.storage.initialize_vector_store",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "agent_brain_server.indexing.get_embedding_generator",
+            return_value=AsyncMock(),
+        ),
+        patch(
+            "agent_brain_server.indexing.get_bm25_manager",
+            return_value=MagicMock(is_initialized=True),
+        ),
+    ):
+        from agent_brain_server.api.main import app
+        from agent_brain_server.services import IndexingService, QueryService
+
+        mock_vs = MagicMock(is_initialized=True)
+        mock_vs.get_count = AsyncMock(return_value=0)
+        mock_bm25 = MagicMock(is_initialized=True)
+
+        app.state.vector_store = mock_vs
+        app.state.bm25_manager = mock_bm25
+        app.state.storage_backend = MagicMock(
+            is_initialized=True,
+            get_count=AsyncMock(return_value=0),
+        )
+        app.state.indexing_service = IndexingService(
+            vector_store=mock_vs, bm25_manager=mock_bm25
+        )
+        app.state.query_service = QueryService(
+            vector_store=mock_vs,
+            embedding_generator=AsyncMock(),
+            bm25_manager=mock_bm25,
+        )
+        app.state.mode = "project"
+        app.state.instance_id = None
+        app.state.project_id = None
+        app.state.active_projects = None
+        app.state.job_service = None
+        app.state.file_watcher_service = None
+        # Empty cache — 0 entries → should be omitted
+        app.state.embedding_cache = svc
+
+        with TestClient(app) as client:
+            resp = client.get("/health/status")
+            assert resp.status_code == 200
+            data = resp.json()
+            assert "embedding_cache" not in data, (
+                "embedding_cache should be omitted when cache is empty, "
+                f"but got: {data.get('embedding_cache')}"
+            )

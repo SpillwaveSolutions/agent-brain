@@ -125,16 +125,16 @@ async def indexing_status(request: Request) -> dict[str, Any]:
     vector_store = getattr(request.app.state, "vector_store", None)
     job_service = getattr(request.app.state, "job_service", None)
 
-    # Get vector store count (non-blocking read)
+    # Get chunk count — prefer storage_backend (single source of truth)
+    # over legacy vector_store which may be a separate Chroma instance.
     try:
-        if vector_store is not None and vector_store.is_initialized:
+        storage_backend = getattr(request.app.state, "storage_backend", None)
+        if storage_backend and storage_backend.is_initialized:
+            total_chunks = await storage_backend.get_count()
+        elif vector_store is not None and vector_store.is_initialized:
             total_chunks = await vector_store.get_count()
         else:
-            storage_backend = getattr(request.app.state, "storage_backend", None)
-            if storage_backend and storage_backend.is_initialized:
-                total_chunks = await storage_backend.get_count()
-            else:
-                total_chunks = 0
+            total_chunks = 0
     except Exception:
         total_chunks = 0
 

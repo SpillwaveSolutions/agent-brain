@@ -1,5 +1,6 @@
 """Context-aware text chunking with configurable overlap."""
 
+import asyncio
 import hashlib
 import logging
 import re
@@ -253,6 +254,11 @@ class ContextAwareChunker:
         for idx, doc in enumerate(documents):
             doc_chunks = await self.chunk_single_document(doc)
             all_chunks.extend(doc_chunks)
+
+            # Yield to event loop so HTTP requests aren't starved
+            # during long chunking runs.
+            if idx % 10 == 0:
+                await asyncio.sleep(0)
 
             if progress_callback:
                 await progress_callback(idx + 1, len(documents))
