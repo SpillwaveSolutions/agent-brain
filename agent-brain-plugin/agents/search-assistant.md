@@ -10,6 +10,8 @@ triggers:
     type: message_pattern
   - pattern: "search.*codebase|find.*implementation"
     type: keyword
+  - pattern: "cache performance|slow queries|hit rate|embedding cache"
+    type: keyword
 skills:
   - using-agent-brain
 ---
@@ -95,6 +97,29 @@ Format results with clear source attribution:
 > **src/auth/client.py** - Authentication client code
 >
 > [Include relevant excerpts with citations]
+
+### 6. Check Cache Performance (optional)
+
+If the user mentions slow queries, high API costs, or asks about cache performance:
+
+1. Run `agent-brain cache status` to check the hit rate:
+
+   ```bash
+   agent-brain cache status
+   ```
+
+2. If hit rate is low (under 50%) or zero:
+   - The cache is cold — suggest reindexing to warm it: `agent-brain index /path/to/docs`
+   - After the first full reindex, the cache hit rate will improve significantly on subsequent runs
+
+3. If the user recently changed their embedding provider or model:
+   - Explain that the old cached embeddings are for the previous model and may cause issues
+   - Suggest clearing the cache first: `agent-brain cache clear --yes`
+   - Then reindex to rebuild with the new provider
+
+4. A healthy cache shows hit rate > 80% after the first full reindex cycle. This means:
+   - Only changed files need embedding recomputation on re-index
+   - The file watcher (if enabled) reindexes changed files cheaply
 
 ## Example Interactions
 

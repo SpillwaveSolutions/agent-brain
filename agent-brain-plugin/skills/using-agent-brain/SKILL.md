@@ -7,7 +7,8 @@ description: |
   "find dependencies", "code relationships", "searching knowledge base",
   "querying indexed documents", "finding code references", "exploring codebase",
   "what calls this function", "find imports", "trace dependencies",
-  "brain search", "brain query", or "knowledge base search".
+  "brain search", "brain query", "knowledge base search",
+  "cache management", "clear embedding cache", "cache hit rate", or "cache status".
   Supports multi-instance architecture with automatic server discovery.
   GraphRAG mode enables relationship-aware queries for code dependencies and entity connections.
   Pluggable providers for embeddings (OpenAI, Cohere, Ollama) and summarization (Anthropic, OpenAI, Gemini, Grok, Ollama).
@@ -34,6 +35,7 @@ Expert-level skill for Agent Brain document search with five modes: BM25 (keywor
 - [Content Injection](#content-injection)
 - [Job Queue Management](#job-queue-management)
 - [Server Management](#server-management)
+- [Cache Management](#cache-management)
 - [When Not to Use](#when-not-to-use)
 - [Best Practices](#best-practices)
 - [Reference Documentation](#reference-documentation)
@@ -315,6 +317,51 @@ agent-brain status && agent-brain query "search term"
 ```
 
 See [Server Discovery Guide](references/server-discovery.md) for multi-instance details.
+
+---
+
+## Cache Management
+
+The embedding cache automatically stores computed embeddings to avoid redundant API calls
+during reindexing. No setup is required — the cache is active by default.
+
+### When to Check Cache Status
+
+- **After indexing** — verify cache is working and hit rate is growing
+- **When queries seem slow** — a low or zero hit rate means embeddings are being recomputed on every reindex
+- **To monitor cache growth** — track disk usage over time for large indexes
+
+```bash
+agent-brain cache status
+```
+
+A healthy cache shows:
+- Hit rate > 80% after the first full reindex cycle
+- Growing disk entries over time as more content is indexed
+- Low misses relative to hits
+
+### When to Clear the Cache
+
+- **After changing embedding provider or model** — prevents dimension mismatches and stale cached vectors
+- **Suspected cache corruption** — if embeddings seem incorrect or search quality degrades unexpectedly
+- **To force fresh embeddings** — when you need to ensure all vectors reflect the current provider/model
+
+```bash
+# Clear with confirmation prompt
+agent-brain cache clear
+
+# Clear without prompt (use in scripts)
+agent-brain cache clear --yes
+```
+
+### Cache is Automatic
+
+No configuration is required. Embeddings are cached on first compute and reused on subsequent
+reindexes of unchanged content (identified by SHA-256 hash). The cache complements the
+ManifestTracker — files that haven't changed on disk won't need to recompute embeddings.
+
+See the [API Reference](references/api_reference.md) for `GET /index/cache` and `DELETE /index/cache`
+endpoint details, including response schemas.
 
 ---
 
