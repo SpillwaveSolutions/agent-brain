@@ -396,6 +396,9 @@ class EmbeddingCacheService:
         writers at the database level — the DELETE waits only for the
         current page-level write to finish, not the entire batch.
 
+        VACUUM is scheduled as a background task so the HTTP response
+        returns immediately after the DELETE.
+
         Returns:
             Tuple of ``(entry_count, size_bytes_freed)`` measured before
             the clear.
@@ -420,13 +423,25 @@ class EmbeddingCacheService:
 
             await db.execute("DELETE FROM embeddings")
             await db.commit()
-            # VACUUM to reclaim disk space after bulk delete
-            await db.execute("VACUUM")
 
         self._mem.clear()
         self._hits = 0
         self._misses = 0
+
+        # VACUUM in background — reclaims disk space without blocking
+        # the HTTP response.  Fire-and-forget; errors are logged.
+        asyncio.create_task(self._vacuum_background())
+
         return count, size_bytes
+
+    async def _vacuum_background(self) -> None:
+        """Run VACUUM in a background task to reclaim disk space."""
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                await db.execute("PRAGMA busy_timeout=30000")
+                await db.execute("VACUUM")
+        except Exception:
+            logger.warning("Background VACUUM failed (non-critical)", exc_info=True)
 
     def get_stats(self) -> dict[str, Any]:
         """Return current session hit/miss counters and memory layer size.
