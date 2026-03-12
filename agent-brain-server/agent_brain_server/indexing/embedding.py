@@ -5,7 +5,6 @@ the configurable provider system. Providers are selected based on
 config.yaml or environment defaults.
 """
 
-import asyncio
 import logging
 import re
 from collections.abc import Awaitable, Callable
@@ -182,14 +181,12 @@ class EmbeddingGenerator:
             miss_embeddings = await self._embedding_provider.embed_texts(
                 miss_texts, progress_callback
             )
-            for i, (idx, embedding) in enumerate(zip(miss_indices, miss_embeddings)):
+            # Collect results and batch-write to cache in one transaction
+            cache_items: list[tuple[str, list[float]]] = []
+            for idx, embedding in zip(miss_indices, miss_embeddings):
                 results[idx] = embedding
-                await cache.put(keys[idx], embedding)
-                # Yield to event loop every 10 cache writes so
-                # concurrent HTTP requests (e.g. cache clear) aren't
-                # starved behind a long put stream.
-                if i % 10 == 9:
-                    await asyncio.sleep(0)
+                cache_items.append((keys[idx], embedding))
+            await cache.put_many(cache_items)
 
         # All results are now populated (no Nones remain)
         return [r for r in results if r is not None]

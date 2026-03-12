@@ -350,6 +350,46 @@ class EmbeddingCacheService:
         if len(self._mem) > self.max_mem_entries:
             self._mem.popitem(last=False)
 
+    async def put_many(self, items: list[tuple[str, list[float]]]) -> None:
+        """Batch-store multiple embeddings in a single DB transaction.
+
+        One lock acquisition and one ``commit`` for the whole batch,
+        reducing per-entry overhead and event-loop contention compared
+        to calling :meth:`put` in a loop.
+
+        Args:
+            items: List of ``(cache_key, embedding)`` tuples.
+        """
+        if not items:
+            return
+        now = time.time()
+        rows: list[tuple[str, bytes, int, float]] = []
+        for key, embedding in items:
+            dims = len(embedding)
+            blob = struct.pack(f"{dims}f", *embedding)
+            rows.append((key, blob, dims, now))
+
+        async with self._lock:
+            async with aiosqlite.connect(self.db_path) as db:
+                await db.execute("PRAGMA journal_mode=WAL")
+                await db.execute("PRAGMA synchronous=NORMAL")
+                await db.executemany(
+                    "INSERT OR REPLACE INTO embeddings "
+                    "(cache_key, embedding, provider, model, "
+                    "dimensions, last_accessed) "
+                    "VALUES (?, ?, '', '', ?, ?)",
+                    rows,
+                )
+                await db.commit()
+                await self._evict_if_needed(db)
+
+        # Update in-memory LRU
+        for key, embedding in items:
+            self._mem[key] = embedding
+            self._mem.move_to_end(key)
+        while len(self._mem) > self.max_mem_entries:
+            self._mem.popitem(last=False)
+
     async def _evict_if_needed(self, db: aiosqlite.Connection) -> None:
         """LRU evict oldest entries when DB exceeds ``max_disk_mb``.
 
@@ -396,12 +436,13 @@ class EmbeddingCacheService:
         writers at the database level — the DELETE waits only for the
         current page-level write to finish, not the entire batch.
 
-        VACUUM is scheduled as a background task so the HTTP response
-        returns immediately after the DELETE.
+        Uses ``PRAGMA wal_checkpoint(TRUNCATE)`` instead of VACUUM to
+        reclaim WAL disk space without requiring an exclusive lock on
+        the main database file.
 
         Returns:
-            Tuple of ``(entry_count, size_bytes_freed)`` measured before
-            the clear.
+            Tuple of ``(entry_count, size_bytes_before)`` measured
+            before the clear.
         """
         async with aiosqlite.connect(self.db_path) as db:
             # WAL + short busy timeout so we don't block if put() holds
@@ -424,24 +465,23 @@ class EmbeddingCacheService:
             await db.execute("DELETE FROM embeddings")
             await db.commit()
 
+            # Truncate WAL file inline — unlike VACUUM this does NOT
+            # require an exclusive lock on the main DB, so it succeeds
+            # even when put() is actively writing via another connection.
+            try:
+                await db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            except Exception:
+                logger.debug("WAL checkpoint skipped (non-critical)", exc_info=True)
+
+        # Reset in-memory state.  OrderedDict.clear() and int assignment
+        # are both atomic in CPython (GIL), but we still do them after
+        # the DB transaction to maintain the invariant that disk is
+        # always a superset of memory.
         self._mem.clear()
         self._hits = 0
         self._misses = 0
 
-        # VACUUM in background — reclaims disk space without blocking
-        # the HTTP response.  Fire-and-forget; errors are logged.
-        asyncio.create_task(self._vacuum_background())
-
         return count, size_bytes
-
-    async def _vacuum_background(self) -> None:
-        """Run VACUUM in a background task to reclaim disk space."""
-        try:
-            async with aiosqlite.connect(self.db_path) as db:
-                await db.execute("PRAGMA busy_timeout=30000")
-                await db.execute("VACUUM")
-        except Exception:
-            logger.warning("Background VACUUM failed (non-critical)", exc_info=True)
 
     def get_stats(self) -> dict[str, Any]:
         """Return current session hit/miss counters and memory layer size.
