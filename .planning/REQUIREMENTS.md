@@ -48,7 +48,7 @@
 ### Cross-Cutting
 - [ ] **XCUT-01**: All new features have >70% test coverage
 - [ ] **XCUT-02**: `task before-push` passes with all new code
-- [ ] **XCUT-03**: Plugin skills and commands updated for new CLI features (cache, watch_mode)
+- [x] **XCUT-03**: Plugin skills and commands updated for new CLI features (cache, watch_mode)
 - [ ] **XCUT-04**: All new config options documented in env vars reference and YAML config
 
 ## Future Requirements
@@ -79,7 +79,7 @@
 | BGINC-02 | Phase 15 | Pending |
 | BGINC-03 | Phase 15 | Pending |
 | BGINC-04 | Phase 15 | Pending |
-| XCUT-03 | Phase 15 | Pending |
+| XCUT-03 | Phase 15 | Complete |
 | ECACHE-01 | Phase 16 | Complete |
 | ECACHE-02 | Phase 16 | Complete |
 | ECACHE-03 | Phase 16 | Complete |

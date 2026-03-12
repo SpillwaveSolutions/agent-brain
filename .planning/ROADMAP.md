@@ -164,7 +164,7 @@ Plans:
 
 **Depends on:** Phase 16 (embedding cache backend must be complete)
 
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 19-01-PLAN.md — Create agent-brain-cache slash command + update help, API reference, skills, agent, and config docs for cache awareness
@@ -196,7 +196,7 @@ Phases execute in numeric order: 15 → 16 → 17 → 18
 | 16. Embedding Cache | v8.0 | Complete    | 2026-03-10 | 2026-03-10 |
 | 17. Query Cache | v8.0 | 0/2 | Not started | - |
 | 18. UDS Transport & Quality Gate | v8.0 | 0/2 | Not started | - |
-| 19. Plugin Cache Docs | v8.0 | 0/1 | Not started | - |
+| 19. Plugin Cache Docs | 1/1 | Complete   | 2026-03-12 | - |
 
 ---
 
