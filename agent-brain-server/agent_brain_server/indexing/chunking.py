@@ -1,5 +1,6 @@
 """Context-aware text chunking with configurable overlap."""
 
+import asyncio
 import hashlib
 import logging
 import re
@@ -254,6 +255,11 @@ class ContextAwareChunker:
             doc_chunks = await self.chunk_single_document(doc)
             all_chunks.extend(doc_chunks)
 
+            # Yield to event loop so HTTP requests aren't starved
+            # during long chunking runs.
+            if idx % 10 == 0:
+                await asyncio.sleep(0)
+
             if progress_callback:
                 await progress_callback(idx + 1, len(documents))
 
@@ -270,6 +276,9 @@ class ContextAwareChunker:
         """
         Chunk a single document.
 
+        Runs the CPU-heavy text splitting and metadata construction in a
+        thread so the event loop stays responsive for HTTP requests.
+
         Args:
             document: The document to chunk.
 
@@ -280,60 +289,66 @@ class ContextAwareChunker:
             logger.warning(f"Empty document: {document.source}")
             return []
 
-        # Use LlamaIndex splitter to get text chunks
-        text_chunks = self.splitter.split_text(document.text)
+        splitter = self.splitter
+        tokenizer = self.tokenizer
 
-        # Convert to our TextChunk format with metadata
-        chunks: list[TextChunk] = []
-        total_chunks = len(text_chunks)
+        def _do_chunk() -> list[TextChunk]:
+            # Use LlamaIndex splitter to get text chunks
+            text_chunks = splitter.split_text(document.text)
 
-        for idx, chunk_text in enumerate(text_chunks):
-            # Generate a stable ID based on source path and chunk index
-            # This helps avoid duplicates if the same folder is indexed again
-            # We use MD5 for speed and stability
-            id_seed = f"{document.source}_{idx}"
-            stable_id = hashlib.md5(id_seed.encode()).hexdigest()
+            # Convert to our TextChunk format with metadata
+            chunks: list[TextChunk] = []
+            total_chunks = len(text_chunks)
 
-            # Extract document-specific metadata
-            doc_language = document.metadata.get("language", "markdown")
-            doc_heading_path = document.metadata.get("heading_path")
-            doc_section_title = document.metadata.get("section_title")
-            doc_content_type = document.metadata.get("content_type", "document")
+            for idx, chunk_text in enumerate(text_chunks):
+                id_seed = f"{document.source}_{idx}"
+                stable_id = hashlib.md5(id_seed.encode()).hexdigest()
 
-            # Filter out fields we've already extracted to avoid duplication
-            extra_metadata = {
-                k: v
-                for k, v in document.metadata.items()
-                if k
-                not in {"language", "heading_path", "section_title", "content_type"}
-            }
+                doc_language = document.metadata.get("language", "markdown")
+                doc_heading_path = document.metadata.get("heading_path")
+                doc_section_title = document.metadata.get("section_title")
+                doc_content_type = document.metadata.get("content_type", "document")
 
-            chunk_metadata = ChunkMetadata(
-                chunk_id=f"chunk_{stable_id[:16]}",
-                source=document.source,
-                file_name=document.file_name,
-                chunk_index=idx,
-                total_chunks=total_chunks,
-                source_type="doc",
-                language=doc_language,
-                heading_path=doc_heading_path,
-                section_title=doc_section_title,
-                content_type=doc_content_type,
-                extra=extra_metadata,
-            )
+                extra_metadata = {
+                    k: v
+                    for k, v in document.metadata.items()
+                    if k
+                    not in {
+                        "language",
+                        "heading_path",
+                        "section_title",
+                        "content_type",
+                    }
+                }
 
-            chunk = TextChunk(
-                chunk_id=f"chunk_{stable_id[:16]}",
-                text=chunk_text,
-                source=document.source,
-                chunk_index=idx,
-                total_chunks=total_chunks,
-                token_count=self.count_tokens(chunk_text),
-                metadata=chunk_metadata,
-            )
-            chunks.append(chunk)
+                chunk_metadata = ChunkMetadata(
+                    chunk_id=f"chunk_{stable_id[:16]}",
+                    source=document.source,
+                    file_name=document.file_name,
+                    chunk_index=idx,
+                    total_chunks=total_chunks,
+                    source_type="doc",
+                    language=doc_language,
+                    heading_path=doc_heading_path,
+                    section_title=doc_section_title,
+                    content_type=doc_content_type,
+                    extra=extra_metadata,
+                )
 
-        return chunks
+                chunk = TextChunk(
+                    chunk_id=f"chunk_{stable_id[:16]}",
+                    text=chunk_text,
+                    source=document.source,
+                    chunk_index=idx,
+                    total_chunks=total_chunks,
+                    token_count=len(tokenizer.encode(chunk_text)),
+                    metadata=chunk_metadata,
+                )
+                chunks.append(chunk)
+
+            return chunks
+
+        return await asyncio.to_thread(_do_chunk)
 
     async def rechunk_with_config(
         self,
@@ -651,6 +666,10 @@ class CodeChunker:
         """
         Chunk a code document using AST-aware boundaries.
 
+        Runs the CPU-heavy tree-sitter parsing, text splitting, and
+        metadata construction in a thread so the event loop stays
+        responsive for HTTP requests.
+
         Args:
             document: Code document to chunk (must have source_type="code").
 
@@ -674,119 +693,119 @@ class CodeChunker:
             logger.warning(f"Empty code document: {document.source}")
             return []
 
-        # Extract symbols for metadata enrichment
-        symbols = self._get_symbols(document.text)
+        # Capture references for the thread closure
+        get_symbols = self._get_symbols
+        code_splitter = self.code_splitter
+        max_chars = self.max_chars
+        language = self.language
+        tokenizer = self.tokenizer
 
-        try:
-            # Use LlamaIndex CodeSplitter to get AST-aware chunks
-            code_chunks = self.code_splitter.split_text(document.text)
-        except Exception as e:
-            logger.error(f"Failed to chunk code document {document.source}: {e}")
-            # Fallback to text-based chunking if AST parsing fails
-            logger.info(f"Falling back to text chunking for {document.source}")
-            text_splitter = SentenceSplitter(
-                chunk_size=self.max_chars,  # Use max_chars as approximate token limit
-                chunk_overlap=int(self.max_chars * 0.1),  # 10% overlap
-            )
-            code_chunks = text_splitter.split_text(document.text)
+        def _do_code_chunk() -> list[CodeChunk]:
+            """CPU-heavy: tree-sitter parse + split + metadata build."""
+            symbols = get_symbols(document.text)
 
-        # Convert to our CodeChunk format with enhanced metadata
-        chunks: list[CodeChunk] = []
-        total_chunks = len(code_chunks)
+            try:
+                raw_chunks = code_splitter.split_text(document.text)
+            except Exception as e:
+                logger.error(f"Failed to chunk code document {document.source}: {e}")
+                logger.info(f"Falling back to text chunking for {document.source}")
+                text_splitter = SentenceSplitter(
+                    chunk_size=max_chars,
+                    chunk_overlap=int(max_chars * 0.1),
+                )
+                raw_chunks = text_splitter.split_text(document.text)
 
-        # Track line numbers by matching chunk text back to original document
-        current_pos = 0
-        original_text = document.text
+            chunks: list[CodeChunk] = []
+            total_chunks = len(raw_chunks)
+            current_pos = 0
+            original_text = document.text
 
-        for idx, chunk_text in enumerate(code_chunks):
-            # Generate stable chunk ID
-            id_seed = f"{document.source}_{idx}"
-            stable_id = hashlib.md5(id_seed.encode()).hexdigest()
+            for idx, chunk_text in enumerate(raw_chunks):
+                id_seed = f"{document.source}_{idx}"
+                stable_id = hashlib.md5(id_seed.encode()).hexdigest()
 
-            # Determine line numbers for this chunk
-            start_line = None
-            end_line = None
-            start_idx = original_text.find(chunk_text, current_pos)
-            if start_idx != -1:
-                start_line = original_text.count("\n", 0, start_idx) + 1
-                end_line = start_line + chunk_text.count("\n")
-                current_pos = start_idx + len(chunk_text)
+                start_line = None
+                end_line = None
+                start_idx = original_text.find(chunk_text, current_pos)
+                if start_idx != -1:
+                    start_line = original_text.count("\n", 0, start_idx) + 1
+                    end_line = start_line + chunk_text.count("\n")
+                    current_pos = start_idx + len(chunk_text)
 
-            # Find dominant symbol for this chunk
-            symbol_name = None
-            symbol_kind = None
-            if start_line is not None and end_line is not None:
-                # Find symbols that overlap with this chunk
-                overlapping_symbols = [
-                    s
-                    for s in symbols
-                    if not (s["end_line"] < start_line or s["start_line"] > end_line)
-                ]
-
-                if overlapping_symbols:
-                    # Strategy:
-                    # 1. Prefer symbols that START within the chunk
-                    # 2. If multiple start in chunk, pick the first one
-                    # 3. If none start in chunk, pick the most "nested" one
-                    #    that overlaps (the one that starts latest)
-
-                    in_chunk_symbols = [
+                symbol_name = None
+                symbol_kind = None
+                if start_line is not None and end_line is not None:
+                    overlapping_symbols = [
                         s
-                        for s in overlapping_symbols
-                        if start_line <= s["start_line"] <= end_line
+                        for s in symbols
+                        if not (
+                            s["end_line"] < start_line or s["start_line"] > end_line
+                        )
                     ]
 
-                    if in_chunk_symbols:
-                        # Pick the most "specific" one starting in the chunk
-                        # (latest start line)
-                        in_chunk_symbols.sort(
-                            key=lambda x: x["start_line"], reverse=True
-                        )
-                        symbol_name = in_chunk_symbols[0]["name"]
-                        symbol_kind = in_chunk_symbols[0]["kind"]
-                    else:
-                        # None start in chunk, pick the one that starts latest
-                        # (most specific parent)
-                        overlapping_symbols.sort(
-                            key=lambda x: x["start_line"], reverse=True
-                        )
-                        symbol_name = overlapping_symbols[0]["name"]
-                        symbol_kind = overlapping_symbols[0]["kind"]
+                    if overlapping_symbols:
+                        in_chunk_symbols = [
+                            s
+                            for s in overlapping_symbols
+                            if start_line <= s["start_line"] <= end_line
+                        ]
 
-            # Generate summary if enabled
-            section_summary = None
-            if self.generate_summaries and chunk_text.strip():
-                try:
-                    section_summary = await self.embedding_generator.generate_summary(
-                        chunk_text
-                    )
-                    logger.debug(
-                        f"Generated summary for chunk {idx}: {section_summary[:50]}..."
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to generate summary for chunk {idx}: {e}")
-                    section_summary = ""
+                        if in_chunk_symbols:
+                            in_chunk_symbols.sort(
+                                key=lambda x: x["start_line"], reverse=True
+                            )
+                            symbol_name = in_chunk_symbols[0]["name"]
+                            symbol_kind = in_chunk_symbols[0]["kind"]
+                        else:
+                            overlapping_symbols.sort(
+                                key=lambda x: x["start_line"], reverse=True
+                            )
+                            symbol_name = overlapping_symbols[0]["name"]
+                            symbol_kind = overlapping_symbols[0]["kind"]
 
-            chunk = CodeChunk.create(
-                chunk_id=f"chunk_{stable_id[:16]}",
-                text=chunk_text,
-                source=document.source,
-                language=self.language,
-                chunk_index=idx,
-                total_chunks=total_chunks,
-                token_count=self.count_tokens(chunk_text),
-                symbol_name=symbol_name,
-                symbol_kind=symbol_kind,
-                start_line=start_line,
-                end_line=end_line,
-                section_summary=section_summary,
-                extra=document.metadata.copy(),
-            )
-            chunks.append(chunk)
+                chunk = CodeChunk.create(
+                    chunk_id=f"chunk_{stable_id[:16]}",
+                    text=chunk_text,
+                    source=document.source,
+                    language=language,
+                    chunk_index=idx,
+                    total_chunks=total_chunks,
+                    token_count=len(tokenizer.encode(chunk_text)),
+                    symbol_name=symbol_name,
+                    symbol_kind=symbol_kind,
+                    start_line=start_line,
+                    end_line=end_line,
+                    extra=document.metadata.copy(),
+                )
+                chunks.append(chunk)
+
+            return chunks
+
+        chunks = await asyncio.to_thread(_do_code_chunk)
+
+        # Generate summaries (async LLM calls) after thread returns
+        if self.generate_summaries:
+            for chunk in chunks:
+                if chunk.text.strip():
+                    try:
+                        summary = await self.embedding_generator.generate_summary(
+                            chunk.text
+                        )
+                        chunk.metadata.section_summary = summary
+                        logger.debug(
+                            f"Generated summary for chunk "
+                            f"{chunk.chunk_index}: {summary[:50]}..."
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to generate summary for chunk "
+                            f"{chunk.chunk_index}: {e}"
+                        )
+                        chunk.metadata.section_summary = ""
 
         logger.info(
             f"Code chunked {document.source} into {len(chunks)} chunks "
-            f"(avg {len(chunks) / max(total_chunks, 1):.1f} chunks/doc)"
+            f"(avg {len(chunks) / max(len(chunks), 1):.1f} chunks/doc)"
         )
         return chunks
 

@@ -26,12 +26,18 @@ class FolderRecord:
         chunk_count: Number of chunks indexed from this folder
         last_indexed: ISO 8601 UTC timestamp of last indexing
         chunk_ids: List of chunk IDs for targeted deletion
+        watch_mode: File watch mode: 'off' or 'auto'
+        watch_debounce_seconds: Per-folder debounce in seconds (None = use global)
+        include_code: Whether to index code files (preserved for watcher jobs)
     """
 
     folder_path: str
     chunk_count: int
     last_indexed: str
     chunk_ids: list[str]
+    watch_mode: str = "off"
+    watch_debounce_seconds: int | None = None
+    include_code: bool = False
 
 
 class FolderManager:
@@ -79,6 +85,9 @@ class FolderManager:
         folder_path: str,
         chunk_count: int,
         chunk_ids: list[str],
+        watch_mode: str = "off",
+        watch_debounce_seconds: int | None = None,
+        include_code: bool = False,
     ) -> FolderRecord:
         """Add or update a folder record.
 
@@ -89,6 +98,9 @@ class FolderManager:
             folder_path: Path to the indexed folder
             chunk_count: Number of chunks indexed
             chunk_ids: List of chunk IDs for deletion
+            watch_mode: File watch mode: 'off' or 'auto'
+            watch_debounce_seconds: Per-folder debounce in seconds (None = global)
+            include_code: Whether code files were indexed (preserved for watcher jobs)
 
         Returns:
             The created or updated FolderRecord
@@ -101,6 +113,9 @@ class FolderManager:
             chunk_count=chunk_count,
             last_indexed=timestamp,
             chunk_ids=chunk_ids,
+            watch_mode=watch_mode,
+            watch_debounce_seconds=watch_debounce_seconds,
+            include_code=include_code,
         )
 
         async with self._lock:
@@ -205,6 +220,9 @@ class FolderManager:
                         chunk_count=data["chunk_count"],
                         last_indexed=data["last_indexed"],
                         chunk_ids=data["chunk_ids"],
+                        watch_mode=data.get("watch_mode", "off"),
+                        watch_debounce_seconds=data.get("watch_debounce_seconds"),
+                        include_code=data.get("include_code", False),
                     )
                     records[record.folder_path] = record
                 except (json.JSONDecodeError, KeyError, TypeError) as e:

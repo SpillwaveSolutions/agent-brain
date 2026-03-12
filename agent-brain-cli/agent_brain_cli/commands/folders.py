@@ -55,6 +55,8 @@ def list_folders_cmd(url: str | None, json_output: bool) -> None:
                             "folder_path": f.folder_path,
                             "chunk_count": f.chunk_count,
                             "last_indexed": f.last_indexed,
+                            "watch_mode": f.watch_mode,
+                            "watch_debounce_seconds": f.watch_debounce_seconds,
                         }
                         for f in folders
                     ]
@@ -70,6 +72,7 @@ def list_folders_cmd(url: str | None, json_output: bool) -> None:
             table.add_column("Folder Path", style="bold")
             table.add_column("Chunks", justify="right")
             table.add_column("Last Indexed")
+            table.add_column("Watch")
 
             for folder in folders:
                 last_indexed = folder.last_indexed
@@ -77,10 +80,18 @@ def list_folders_cmd(url: str | None, json_output: bool) -> None:
                 if "." in last_indexed:
                     last_indexed = last_indexed.split(".")[0]
 
+                # Style watch_mode
+                watch_display = folder.watch_mode
+                if watch_display == "auto":
+                    watch_display = "[cyan]auto[/cyan]"
+                else:
+                    watch_display = "[dim]off[/dim]"
+
                 table.add_row(
                     folder.folder_path,
                     str(folder.chunk_count),
                     last_indexed,
+                    watch_display,
                 )
 
             console.print(table)
@@ -113,11 +124,27 @@ def list_folders_cmd(url: str | None, json_output: bool) -> None:
     is_flag=True,
     help="Index source code files alongside documents",
 )
+@click.option(
+    "--watch",
+    "watch_mode",
+    type=click.Choice(["off", "auto"], case_sensitive=False),
+    default=None,
+    help="Watch mode: 'auto' enables file watching, 'off' disables (default: off)",
+)
+@click.option(
+    "--debounce",
+    "debounce_seconds",
+    type=int,
+    default=None,
+    help="Debounce interval in seconds for file watching (default: 30)",
+)
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
 def add_folder_cmd(
     folder_path: str,
     url: str | None,
     include_code: bool,
+    watch_mode: str | None,
+    debounce_seconds: int | None,
     json_output: bool,
 ) -> None:
     """Index documents from a folder (alias for 'agent-brain index').
@@ -128,6 +155,7 @@ def add_folder_cmd(
     Examples:
       agent-brain folders add ./docs
       agent-brain folders add ./src --include-code
+      agent-brain folders add ./src --watch auto --debounce 10
     """
     resolved_url = url or get_server_url()
     folder = Path(folder_path).resolve()
@@ -137,6 +165,8 @@ def add_folder_cmd(
             response = client.index(
                 folder_path=str(folder),
                 include_code=include_code,
+                watch_mode=watch_mode,
+                watch_debounce_seconds=debounce_seconds,
             )
 
             if json_output:

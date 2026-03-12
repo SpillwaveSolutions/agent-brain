@@ -377,44 +377,54 @@ class DocumentLoader:
             logger.error(f"Failed to load documents: {e}")
             raise
 
-        # Convert to our LoadedDocument format
-        loaded_docs: list[LoadedDocument] = []
+        # Convert to our LoadedDocument format.
+        # The loop does Path.stat(), LanguageDetector.detect_language()
+        # (regex-heavy), and object construction for every document.
+        # Run in a thread so the event loop stays responsive during
+        # large folder loads (hundreds of files).
+        code_exts = self.CODE_EXTENSIONS
 
-        for doc in llama_documents:
-            file_path = doc.metadata.get("file_path", "")
-            file_name = doc.metadata.get(
-                "file_name", Path(file_path).name if file_path else "unknown"
-            )
+        def _convert_documents() -> list[LoadedDocument]:
+            docs: list[LoadedDocument] = []
+            for doc in llama_documents:
+                file_path = doc.metadata.get("file_path", "")
+                file_name = doc.metadata.get(
+                    "file_name", Path(file_path).name if file_path else "unknown"
+                )
 
-            # Get file size
-            try:
-                file_size = Path(file_path).stat().st_size if file_path else 0
-            except OSError:
-                file_size = 0
+                # Get file size
+                try:
+                    file_size = Path(file_path).stat().st_size if file_path else 0
+                except OSError:
+                    file_size = 0
 
-            # Detect language for code files
-            language = None
-            source_type = "doc"  # Default to document
-            if file_path:
-                path_ext = Path(file_path).suffix.lower()
-                if path_ext in self.CODE_EXTENSIONS:
-                    source_type = "code"
-                    language = LanguageDetector.detect_language(file_path, doc.text)
+                # Detect language for code files
+                language = None
+                source_type = "doc"  # Default to document
+                if file_path:
+                    path_ext = Path(file_path).suffix.lower()
+                    if path_ext in code_exts:
+                        source_type = "code"
+                        language = LanguageDetector.detect_language(file_path, doc.text)
 
-            loaded_doc = LoadedDocument(
-                text=doc.text,
-                source=file_path,
-                file_name=file_name,
-                file_path=file_path,
-                file_size=file_size,
-                metadata={
-                    **doc.metadata,
-                    "doc_id": doc.doc_id,
-                    "source_type": source_type,
-                    "language": language,
-                },
-            )
-            loaded_docs.append(loaded_doc)
+                loaded_doc = LoadedDocument(
+                    text=doc.text,
+                    source=file_path,
+                    file_name=file_name,
+                    file_path=file_path,
+                    file_size=file_size,
+                    metadata={
+                        **doc.metadata,
+                        "doc_id": doc.doc_id,
+                        "source": file_path,
+                        "source_type": source_type,
+                        "language": language,
+                    },
+                )
+                docs.append(loaded_doc)
+            return docs
+
+        loaded_docs = await asyncio.to_thread(_convert_documents)
 
         logger.info(f"Loaded {len(loaded_docs)} documents from {folder_path}")
         return loaded_docs
@@ -473,6 +483,7 @@ class DocumentLoader:
             metadata={
                 **doc.metadata,
                 "doc_id": doc.doc_id,
+                "source": file_path,
                 "source_type": source_type,
                 "language": language,
             },

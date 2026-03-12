@@ -15,6 +15,7 @@ SUBDIRECTORIES = [
     "data/graph_index",
     "logs",
     "manifests",
+    "embedding_cache",  # Phase 16: persistent embedding cache
 ]
 
 
@@ -53,6 +54,7 @@ def resolve_storage_paths(state_dir: Path) -> dict[str, Path]:
         "graph_index": state_dir / "data" / "graph_index",
         "logs": state_dir / "logs",
         "manifests": state_dir / "manifests",
+        "embedding_cache": state_dir / "embedding_cache",  # Phase 16
     }
 
     # Create directories

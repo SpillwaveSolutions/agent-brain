@@ -49,6 +49,8 @@ async def list_folders(request: Request) -> FolderListResponse:
             folder_path=record.folder_path,
             chunk_count=record.chunk_count,
             last_indexed=record.last_indexed,
+            watch_mode=record.watch_mode,
+            watch_debounce_seconds=record.watch_debounce_seconds,
         )
         for record in records
     ]

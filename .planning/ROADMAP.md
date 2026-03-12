@@ -82,8 +82,8 @@
 **Plans:** 2 plans
 
 Plans:
-- [ ] 15-01-PLAN.md — FileWatcherService + data model extensions (FolderRecord, JobRecord, Settings, lifespan wiring, health endpoint)
-- [ ] 15-02-PLAN.md — CLI --watch/--debounce flags, folders list watch columns, jobs source column, job worker watcher notification, plugin docs
+- [x] 15-01-PLAN.md — FileWatcherService + data model extensions (FolderRecord, JobRecord, Settings, lifespan wiring, health endpoint)
+- [x] 15-02-PLAN.md — CLI --watch/--debounce flags, folders list watch columns, jobs source column, job worker watcher notification, plugin docs
 
 ---
 
@@ -102,11 +102,11 @@ Plans:
 4. Switching embedding provider or model (via YAML/env) automatically invalidates all cached embeddings — no dimension mismatch errors
 5. Cache survives server restart — a reindex after restart still shows nonzero hit rate for unchanged files
 
-**Plans:** TBD
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 16-01: EmbeddingCache service (aiosqlite persistence, SHA-256 + provider:model key, LRU in-memory layer, atomic writes, startup recovery)
-- [ ] 16-02: Integration into EmbeddingGenerator + IndexingService + QueryService; CLI `cache` command; settings; metrics in /health/status
+- [x] 16-01-PLAN.md — EmbeddingCacheService (aiosqlite two-layer cache, SHA-256+provider:model:dims key, LRU eviction, provider auto-wipe) + EmbeddingGenerator integration + API endpoints + settings
+- [x] 16-02-PLAN.md — CLI `cache` command group (status, clear --yes) + status command cache display + health endpoint embedding_cache section
 
 ---
 
@@ -156,6 +156,21 @@ Plans:
 
 ---
 
+### Phase 19: Plugin and skill updates for embedding cache management
+
+**Goal:** Users can manage the embedding cache entirely through the Claude Code plugin without dropping to the terminal -- slash commands, skill guidance, agent awareness, and configuration docs all surface the cache feature.
+
+**Requirements:** XCUT-03
+
+**Depends on:** Phase 16 (embedding cache backend must be complete)
+
+**Plans:** 1 plan
+
+Plans:
+- [ ] 19-01-PLAN.md — Create agent-brain-cache slash command + update help, API reference, skills, agent, and config docs for cache awareness
+
+---
+
 ## Progress
 
 **Execution Order:**
@@ -177,10 +192,11 @@ Phases execute in numeric order: 15 → 16 → 17 → 18
 | 12. Folder Management & File Type Presets | v7.0 | 3/3 | Complete | 2026-02-25 |
 | 13. Content Injection Pipeline | v7.0 | 2/2 | Complete | 2026-03-05 |
 | 14. Manifest Tracking & Chunk Eviction | v7.0 | 2/2 | Complete | 2026-03-05 |
-| 15. File Watcher & Background Incremental | v8.0 | 0/2 | Planning complete | - |
-| 16. Embedding Cache | v8.0 | 0/2 | Not started | - |
+| 15. File Watcher & Background Incremental | v8.0 | 2/2 | Complete | 2026-03-07 |
+| 16. Embedding Cache | v8.0 | Complete    | 2026-03-10 | 2026-03-10 |
 | 17. Query Cache | v8.0 | 0/2 | Not started | - |
 | 18. UDS Transport & Quality Gate | v8.0 | 0/2 | Not started | - |
+| 19. Plugin Cache Docs | v8.0 | 0/1 | Not started | - |
 
 ---
 
@@ -206,4 +222,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-06 — Phase 15 planned: 2 plans in 2 waves*
+*Last updated: 2026-03-12 — Phase 19 planned: 1 plan in 1 wave*

@@ -72,6 +72,29 @@ class TestDocServeClient:
         assert status.total_chunks == 500
         assert status.indexing_in_progress is False
         assert status.indexed_folders == ["/docs"]
+        assert status.file_watcher is None
+
+    @patch("httpx.Client.request")
+    def test_status_includes_file_watcher(self, mock_request):
+        """Test status maps file_watcher payload when present."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "total_documents": 42,
+            "total_chunks": 84,
+            "indexing_in_progress": False,
+            "current_job_id": None,
+            "progress_percent": 0.0,
+            "last_indexed_at": None,
+            "indexed_folders": ["/docs"],
+            "file_watcher": {"running": True, "watched_folders": 2},
+        }
+        mock_request.return_value = mock_response
+
+        with DocServeClient() as client:
+            status = client.status()
+
+        assert status.file_watcher == {"running": True, "watched_folders": 2}
 
     @patch("httpx.Client.request")
     def test_query_success(self, mock_request):

@@ -8,6 +8,7 @@ import click
 
 from . import __version__
 from .commands import (
+    cache_group,
     config_group,
     folders_group,
     index_command,
@@ -47,6 +48,10 @@ def cli() -> None:
       inject   Index documents with content injection
       jobs     View and manage job queue
       reset    Clear all indexed documents
+
+    \b
+    Cache Commands:
+      cache    Manage the embedding cache (status, clear)
 
     \b
     Folder Commands:
@@ -93,6 +98,7 @@ cli.add_command(reset_command, name="reset")
 cli.add_command(config_group, name="config")
 cli.add_command(folders_group, name="folders")
 cli.add_command(types_group, name="types")
+cli.add_command(cache_group, name="cache")
 
 
 if __name__ == "__main__":

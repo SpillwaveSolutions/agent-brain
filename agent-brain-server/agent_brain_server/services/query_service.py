@@ -161,6 +161,16 @@ class QueryService:
 
         start_time = time.time()
 
+        # Early return for empty index — avoids top_k=0 errors downstream
+        corpus_size = await self.storage_backend.get_count()
+        if corpus_size == 0:
+            elapsed = (time.time() - start_time) * 1000
+            return QueryResponse(
+                results=[],
+                query_time_ms=elapsed,
+                total_results=0,
+            )
+
         # Determine if reranking is enabled
         # Use getattr with default False to handle mocked settings in tests
         enable_reranking = getattr(settings, "ENABLE_RERANKING", False)

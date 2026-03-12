@@ -1,24 +1,41 @@
+---
+gsd_state_version: 1.0
+milestone: v8.0
+milestone_name: Performance & Developer Experience
+current_phase: 17
+current_plan: Not started
+status: planning
+stopped_at: Completed 16-02-PLAN.md
+last_updated: "2026-03-10T17:02:13.597Z"
+last_activity: "2026-03-10 — Phase 16 Plan 2 complete: `agent-brain cache` command group + embedding cache metrics in `agent-brain status` + 12 tests"
+progress:
+  total_phases: 4
+  completed_phases: 2
+  total_plans: 4
+  completed_plans: 4
+---
+
 # Agent Brain — Project State
-**Last Updated:** 2026-03-06
+**Last Updated:** 2026-03-10
 **Current Milestone:** v8.0 Performance & Developer Experience
-**Status:** Ready to plan Phase 15
-**Current Phase:** 15 — File Watcher & Background Incremental Updates
+**Status:** Ready to plan
+**Current Phase:** 17
 **Total Phases:** 4 (Phases 15-18)
-**Current Plan:** —
-**Total Plans in Phase:** 2 (TBD during planning)
+**Current Plan:** Not started
+**Total Plans in Phase:** 2
 
 ## Current Position
-Phase: 15 of 18 (File Watcher & Background Incremental Updates)
-Plan: — of 2
-Status: Ready to plan
-Last activity: 2026-03-06 — v8.0 roadmap reordered: File Watcher first (DX priority), 28/28 requirements mapped
+Phase: 16 of 18 (Embedding Cache)
+Plan: 2 of 2
+Status: Phase 16 complete
+Last activity: 2026-03-10 — Phase 16 Plan 2 complete: `agent-brain cache` command group + embedding cache metrics in `agent-brain status` + 12 tests
 
-**Progress (v8.0):** [░░░░░░░░░░] 0%
+**Progress (v8.0):** [█████░░░░░] 50%
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-06)
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** v8.0 Performance & Developer Experience — Phase 15: File Watcher & Background Incremental Updates
+**Current focus:** v8.0 Performance & Developer Experience — Phase 16 complete, ready for Phase 17: Query Cache
 
 ## Milestone Summary
 ```
@@ -26,7 +43,7 @@ v3.0 Advanced RAG:          [██████████] 100% (shipped 2026-
 v6.0 PostgreSQL Backend:    [██████████] 100% (shipped 2026-02-13)
 v6.0.4 Plugin & Install:   [██████████] 100% (shipped 2026-02-22)
 v7.0 Index Mgmt & Pipeline: [██████████] 100% (shipped 2026-03-05)
-v8.0 Performance & DX:      [░░░░░░░░░░]   0% (Phase 15 — ready to plan)
+v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 complete)
 ```
 
 ## Performance Metrics
@@ -42,6 +59,12 @@ v8.0 Performance & DX:      [░░░░░░░░░░]   0% (Phase 15 — 
 | Phase 13: Content Injection | 2 | ~13 min | Complete |
 | Phase 14: Manifest & Eviction | 2 | ~14 min | Complete |
 
+**By Phase (v8.0 in progress):**
+| Phase | Plans | Duration | Status |
+|-------|-------|----------|--------|
+| Phase 15: File Watcher & BGINC | 2 | 13 min total (7+6) | Complete |
+| Phase 16: Embedding Cache | 2 | 14 min total (10+4) | Complete |
+
 ## Accumulated Context
 
 ### Key v7.0 Decisions (relevant to v8.0)
@@ -49,6 +72,32 @@ v8.0 Performance & DX:      [░░░░░░░░░░]   0% (Phase 15 — 
 - Atomic temp+Path.replace() for JSONL writes — same pattern required for aiosqlite cache writes
 - JobRecord.eviction_summary as dict[str, Any] — extend same model for source indicator (BGINC-04)
 - Two-step ChromaDB delete guards against empty ids=[] bug — embedding cache IDs must never be empty list
+
+### Key v8.0 Decisions (Phase 15)
+- watchfiles 1.1.1 is already a transitive dep via uvicorn — confirmed, no new install needed
+- anyio.Event (not asyncio.Event) used for stop_event — watchfiles.awatch requires anyio-compatible event, must be created inside async context
+- One asyncio.Task per folder — independent lifecycles, named tasks (watcher:{path})
+- source="auto" field on JobRecord default='manual' — full backward compatibility
+- force=False for watcher-triggered jobs — rely on ManifestTracker for incremental efficiency (BGINC-03)
+- allow_external=True for watcher-enqueued jobs — auto-mode folders may be outside project root
+- TYPE_CHECKING guard prevents circular: services/file_watcher_service.py -> job_queue/job_service.py -> models
+- FileWatcherService stops BEFORE JobWorker (dependency order in shutdown)
+- watch_mode/watch_debounce_seconds on JobRecord (not just IndexRequest) — JobWorker needs them post-completion
+- Setter injection for FileWatcherService/FolderManager on JobWorker — lifespan creates them sequentially
+- _apply_watch_config catches all exceptions — watch config failure does not fail an otherwise successful job
+- include_code now passed from IndexingService to folder_manager.add_folder() (was missing)
+
+### Key v8.0 Decisions (Phase 16)
+- Lazy import in embed_text/embed_texts (not module-level) breaks circular import: indexing -> services -> indexing
+- persist_stats=False default — session-only counters avoid write contention on every cache hit
+- In-memory LRU default 1000 entries (~12 MB at 3072 dims) — configurable via EMBEDDING_CACHE_MAX_MEM_ENTRIES
+- get_batch() implemented from start for embed_texts() efficiency (batch SQL vs N sequential awaits)
+- embedding_cache section in /health/status omitted when entry_count == 0 (clean for fresh installs)
+- float32 BLOB via struct.pack — ~12 KB/entry at 3072 dims; cosine similarity unaffected (max error ~3.57e-9)
+- Provider fingerprint in metadata row — O(1) startup wipe check vs O(N) per-entry scan (ECACHE-04)
+- embedding_cache: dict | None on IndexingStatus dataclass — None default preserves all existing code
+- No pre-fetch in --yes path: cache clear --yes skips count lookup (avoids extra API call)
+- Connection-safe count fetch in cache clear confirmation: try/except shows 0 if fetch fails
 
 ### v8.0 Phase Order Rationale (revised 2026-03-06)
 - Phase 15 (File Watcher + BGINC): DX first — user's top priority; builds on Phase 14 ManifestTracker
@@ -63,24 +112,22 @@ v8.0 Performance & DX:      [░░░░░░░░░░]   0% (Phase 15 — 
 - Phase 18 (UDS + Quality Gate): Ship last — touches api/main.py server startup (widest blast radius)
 
 ### Research Flags for Planning
-- Phase 15: Confirm watchfiles awatch() debounce-per-folder cancel-restart with lifespan shutdown
-- Phase 15: Verify watchfiles is already a transitive dep via Uvicorn (`poetry show watchfiles`)
-- Phase 16: Test aiosqlite WAL mode under concurrent indexing reads/writes
+- Phase 15: watchfiles confirmed as transitive dep via Uvicorn (resolved)
+- Phase 16: aiosqlite WAL mode verified working under concurrent access (resolved)
 - Phase 18: Validate asyncio.gather(tcp_server.serve(), uds_server.serve()) against pinned Uvicorn version
 
 ### Blockers/Concerns
 - Phase 18 UDS dual-server pattern is MEDIUM confidence (community-verified, not official Uvicorn docs)
-- Verify watchfiles is already a transitive dep via Uvicorn before Phase 15 (`poetry show watchfiles`)
 
 ### Pending Todos
 0 pending todos.
 
 ## Session Continuity
 
-**Last Session:** 2026-03-06
-**Stopped At:** v8.0 roadmap reordered — Phase 15=File Watcher+BGINC, 16=Embedding Cache, 17=Query Cache, 18=UDS+Quality Gate; 28/28 requirements mapped
-**Resume File:** None
-**Next Action:** `/gsd:plan-phase 15` to plan Phase 15: File Watcher & Background Incremental Updates
+**Last Session:** 2026-03-10T16:51:42Z
+**Stopped At:** Completed 16-02-PLAN.md
+**Resume File:** .planning/phases/16-embedding-cache/16-02-SUMMARY.md
+**Next Action:** Phase 17 — Query Cache (freshness guarantees after auto-reindex)
 
 ---
-*State updated: 2026-03-06*
+*State updated: 2026-03-10*

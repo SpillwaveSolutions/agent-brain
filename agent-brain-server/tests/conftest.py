@@ -70,7 +70,7 @@ def mock_vector_store():
     mock.initialize = AsyncMock()
     mock.add_documents = AsyncMock(return_value=1)
     mock.similarity_search = AsyncMock(return_value=[])
-    mock.get_count = AsyncMock(return_value=0)
+    mock.get_count = AsyncMock(return_value=10)
     mock.reset = AsyncMock()
     return mock
 

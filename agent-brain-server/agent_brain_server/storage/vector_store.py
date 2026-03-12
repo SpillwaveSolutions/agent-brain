@@ -275,12 +275,23 @@ class VectorStoreManager:
 
         async with self._lock:
             assert self._collection is not None
-            self._collection.upsert(
-                ids=ids,
-                embeddings=embeddings,  # type: ignore[arg-type]
-                documents=documents,
-                metadatas=metadatas or [{}] * len(ids),  # type: ignore[arg-type]
-            )
+            collection = self._collection
+            safe_metadatas = metadatas or [{}] * len(ids)
+
+            # ChromaDB upsert is synchronous and CPU/IO-heavy for large
+            # batches.  Run in a thread so the event loop stays responsive
+            # for concurrent HTTP requests (e.g. cache clear, health).
+            def _upsert() -> None:
+                collection.upsert(
+                    ids=ids,
+                    embeddings=embeddings,  # type: ignore[arg-type]
+                    documents=documents,
+                    metadatas=safe_metadatas,  # type: ignore[arg-type]
+                )
+
+            import asyncio
+
+            await asyncio.to_thread(_upsert)
 
         logger.debug(f"Upserted {len(ids)} documents to vector store")
         return len(ids)

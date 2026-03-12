@@ -105,6 +105,7 @@ class JobQueueService:
         operation: str = "index",
         force: bool = False,
         allow_external: bool = False,
+        source: str = "manual",
     ) -> JobEnqueueResponse:
         """Enqueue an indexing job with deduplication.
 
@@ -113,6 +114,7 @@ class JobQueueService:
             operation: Operation type - 'index' (replace) or 'add' (append).
             force: If True, skip deduplication check and always create new job.
             allow_external: If True, allow paths outside project root.
+            source: Job source - 'manual' (user-triggered) or 'auto' (watcher).
 
         Returns:
             JobEnqueueResponse with job details and queue position.
@@ -181,6 +183,9 @@ class JobQueueService:
             injector_script=request.injector_script,
             folder_metadata_file=request.folder_metadata_file,
             force=request.force,
+            source=source,
+            watch_mode=request.watch_mode,
+            watch_debounce_seconds=request.watch_debounce_seconds,
             status=JobStatus.PENDING,
             enqueued_at=datetime.now(timezone.utc),
         )
