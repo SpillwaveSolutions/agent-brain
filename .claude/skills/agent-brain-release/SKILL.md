@@ -111,11 +111,12 @@ The release skill performs these steps:
    - Parse current version from `agent-brain-server/pyproject.toml`
    - Apply bump type to calculate new version
 
-3. **Update Version Files** (4 files total)
+3. **Update Version Files** (5 files total)
    - `agent-brain-server/pyproject.toml`
    - `agent-brain-server/agent_brain_server/__init__.py`
    - `agent-brain-cli/pyproject.toml`
    - `agent-brain-cli/agent_brain_cli/__init__.py`
+   - `agent-brain-plugin/.claude-plugin/plugin.json` — **MUST match CLI/server version**
 
 4. **Generate Release Notes**
    - Collect commits since last tag
@@ -151,6 +152,7 @@ Use `--dry-run` to preview all changes without executing:
     - agent-brain-server/agent_brain_server/__init__.py
     - agent-brain-cli/pyproject.toml
     - agent-brain-cli/agent_brain_cli/__init__.py
+    - agent-brain-plugin/.claude-plugin/plugin.json
 
   Commits since vX.Y.Z: <count>
 
@@ -207,8 +209,10 @@ def bump_version(current: str, bump_type: str) -> str:
 ### Step 5: Update Version Files
 
 ```bash
-# Update all 4 version files using sed or Edit tool
+# Update all 5 version files using sed or Edit tool
 # See references/version-management.md for exact locations
+# IMPORTANT: Update plugin.json version to match CLI/server:
+#   agent-brain-plugin/.claude-plugin/plugin.json → "version": "$NEW_VERSION"
 ```
 
 ### Step 6: Generate Release Notes
