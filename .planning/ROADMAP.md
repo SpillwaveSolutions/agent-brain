@@ -156,6 +156,21 @@ Plans:
 
 ---
 
+### Phase 19: Plugin and skill updates for embedding cache management
+
+**Goal:** Users can manage the embedding cache entirely through the Claude Code plugin without dropping to the terminal -- slash commands, skill guidance, agent awareness, and configuration docs all surface the cache feature.
+
+**Requirements:** XCUT-03
+
+**Depends on:** Phase 16 (embedding cache backend must be complete)
+
+**Plans:** 1 plan
+
+Plans:
+- [ ] 19-01-PLAN.md — Create agent-brain-cache slash command + update help, API reference, skills, agent, and config docs for cache awareness
+
+---
+
 ## Progress
 
 **Execution Order:**
@@ -181,6 +196,7 @@ Phases execute in numeric order: 15 → 16 → 17 → 18
 | 16. Embedding Cache | v8.0 | Complete    | 2026-03-10 | 2026-03-10 |
 | 17. Query Cache | v8.0 | 0/2 | Not started | - |
 | 18. UDS Transport & Quality Gate | v8.0 | 0/2 | Not started | - |
+| 19. Plugin Cache Docs | v8.0 | 0/1 | Not started | - |
 
 ---
 
@@ -206,4 +222,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-10 — Phase 16 planned: 2 plans in 2 waves*
+*Last updated: 2026-03-12 — Phase 19 planned: 1 plan in 1 wave*
