@@ -390,33 +390,38 @@ class EmbeddingCacheService:
     async def clear(self) -> tuple[int, int]:
         """Clear all cached embeddings and reclaim disk space.
 
-        Counts entries and measures DB size before deletion, deletes all
-        rows, runs ``VACUUM`` to reclaim disk pages, and resets in-memory
-        state and counters.
+        Uses its own DB connection with a short busy timeout instead of
+        acquiring ``self._lock``, so it never blocks behind a long
+        embedding write stream.  SQLite WAL mode handles concurrent
+        writers at the database level — the DELETE waits only for the
+        current page-level write to finish, not the entire batch.
 
         Returns:
             Tuple of ``(entry_count, size_bytes_freed)`` measured before
             the clear.
         """
-        async with self._lock:
-            async with aiosqlite.connect(self.db_path) as db:
-                await db.execute("PRAGMA journal_mode=WAL")
-                cur = await db.execute("SELECT COUNT(*) FROM embeddings")
-                row = await cur.fetchone()
-                count: int = row[0] if row else 0
+        async with aiosqlite.connect(self.db_path) as db:
+            # WAL + short busy timeout so we don't block if put() holds
+            # the DB write lock momentarily.
+            await db.execute("PRAGMA journal_mode=WAL")
+            await db.execute("PRAGMA busy_timeout=5000")
 
-                # Get size before delete
-                cur2 = await db.execute(
-                    "SELECT page_count * page_size "
-                    "FROM pragma_page_count(), pragma_page_size()"
-                )
-                size_row = await cur2.fetchone()
-                size_bytes: int = size_row[0] if size_row else 0
+            cur = await db.execute("SELECT COUNT(*) FROM embeddings")
+            row = await cur.fetchone()
+            count: int = row[0] if row else 0
 
-                await db.execute("DELETE FROM embeddings")
-                await db.commit()
-                # VACUUM to reclaim disk space after bulk delete
-                await db.execute("VACUUM")
+            # Get size before delete
+            cur2 = await db.execute(
+                "SELECT page_count * page_size "
+                "FROM pragma_page_count(), pragma_page_size()"
+            )
+            size_row = await cur2.fetchone()
+            size_bytes: int = size_row[0] if size_row else 0
+
+            await db.execute("DELETE FROM embeddings")
+            await db.commit()
+            # VACUUM to reclaim disk space after bulk delete
+            await db.execute("VACUUM")
 
         self._mem.clear()
         self._hits = 0

@@ -102,11 +102,10 @@ async def health_check(request: Request) -> HealthStatus:
 
 @router.get(
     "/status",
-    response_model=IndexingStatus,
     summary="Indexing Status",
     description="Returns detailed indexing status information. Never blocks.",
 )
-async def indexing_status(request: Request) -> IndexingStatus:
+async def indexing_status(request: Request) -> dict[str, Any]:
     """Get detailed indexing status.
 
     This endpoint never blocks and always returns quickly, even during indexing.
@@ -231,14 +230,13 @@ async def indexing_status(request: Request) -> IndexingStatus:
         embedding_cache=embedding_cache_info,
     )
 
-    # Narrowly omit embedding_cache when None (fresh installs)
-    # rather than serializing as null.
+    # Always serialize via model_dump so we can narrowly omit
+    # embedding_cache when None (fresh installs) without response_model
+    # re-adding it as null.
+    data = response.model_dump(mode="json")
     if embedding_cache_info is None:
-        data = response.model_dump(mode="json")
         data.pop("embedding_cache", None)
-        return data  # type: ignore[return-value]
-
-    return response
+    return data
 
 
 @router.get(
