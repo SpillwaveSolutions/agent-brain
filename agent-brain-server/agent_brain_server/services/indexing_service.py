@@ -325,12 +325,30 @@ class IndexingService:
                     storage_backend=self.storage_backend,
                 )
                 current_file_paths = [
-                    str(_Path(doc.metadata.get("source", "")).resolve())
+                    str(
+                        _Path(
+                            doc.metadata.get("source", "")
+                            or getattr(doc, "source", "")
+                            or getattr(doc, "file_path", "")
+                        ).resolve()
+                    )
                     for doc in documents
-                    if doc.metadata.get("source")
+                    if (
+                        doc.metadata.get("source")
+                        or getattr(doc, "source", "")
+                        or getattr(doc, "file_path", "")
+                    )
                 ]
                 # Deduplicate (multiple docs can come from same source file)
                 current_file_paths = list(dict.fromkeys(current_file_paths))
+
+                # Invariant: if loader returned documents, we must have paths
+                if documents and not current_file_paths:
+                    raise RuntimeError(
+                        f"Loaded {len(documents)} documents but resolved 0 "
+                        f"file paths — metadata['source'] is missing. "
+                        f"This is a bug in DocumentLoader."
+                    )
 
                 prior_manifest = await self.manifest_tracker.load(abs_folder_path)
                 eviction_summary, files_to_index_list = (
@@ -341,11 +359,19 @@ class IndexingService:
                     )
                 )
                 files_to_index_set = set(files_to_index_list)
+
+                def _resolve_doc_path(doc: Any) -> str:
+                    raw = (
+                        doc.metadata.get("source", "")
+                        or getattr(doc, "source", "")
+                        or getattr(doc, "file_path", "")
+                    )
+                    return str(_Path(raw).resolve()) if raw else ""
+
                 documents = [
                     doc
                     for doc in documents
-                    if str(_Path(doc.metadata.get("source", "")).resolve())
-                    in files_to_index_set
+                    if _resolve_doc_path(doc) in files_to_index_set
                 ]
                 logger.info(
                     f"Manifest diff: +{len(eviction_summary.files_added)} added "
@@ -477,11 +503,15 @@ class IndexingService:
                         # progress_offset = len(doc_documents) + total_code_processed
                         # code_chunk_progress = make_progress_callback(progress_offset)
 
-                        for doc in lang_docs:
+                        for doc_idx, doc in enumerate(lang_docs):
                             code_chunks = await code_chunker.chunk_code_document(doc)
                             all_chunks.extend(code_chunks)
                             self._total_code_chunks += len(code_chunks)
                             self._supported_languages.add(lang)
+                            # Yield to event loop so HTTP requests aren't
+                            # starved during long code-chunking runs.
+                            if doc_idx % 10 == 0:
+                                await asyncio.sleep(0)
 
                         # Update the total code documents processed
                         total_code_processed += len(lang_docs)
@@ -548,7 +578,9 @@ class IndexingService:
                     "decorators",
                     "imports",
                 }
-                enriched_count = content_injector.apply_to_chunks(chunks, known_keys)
+                enriched_count = await asyncio.to_thread(
+                    content_injector.apply_to_chunks, chunks, known_keys
+                )
                 logger.info(f"Applied content injection to {enriched_count} chunks")
 
             # Step 3: Generate embeddings
@@ -612,7 +644,10 @@ class IndexingService:
                 )
                 for chunk in chunks
             ]
-            self.bm25_manager.build_index(nodes)
+            # BM25 index build is CPU-heavy (tokenization + scoring).
+            # Run in a thread so the event loop stays responsive.
+            bm25_mgr = self.bm25_manager
+            await asyncio.to_thread(bm25_mgr.build_index, nodes)
 
             # For incremental runs, BM25 must include unchanged file chunks too
             if (
@@ -647,16 +682,19 @@ class IndexingService:
                             )
                     if unchanged_nodes:
                         all_bm25_nodes = nodes + unchanged_nodes
-                        bm25_mgr = getattr(self.storage_backend, "bm25_manager", None)
-                        if bm25_mgr is not None:
-                            bm25_mgr.build_index(all_bm25_nodes)
+                        bm25_mgr2 = getattr(self.storage_backend, "bm25_manager", None)
+                        if bm25_mgr2 is not None:
+                            await asyncio.to_thread(
+                                bm25_mgr2.build_index, all_bm25_nodes
+                            )
                             logger.info(
                                 f"BM25 rebuilt with {len(all_bm25_nodes)} total "
                                 "nodes (incremental)"
                             )
                         else:
-                            # Fallback: rebuild with self.bm25_manager if available
-                            self.bm25_manager.build_index(all_bm25_nodes)
+                            await asyncio.to_thread(
+                                self.bm25_manager.build_index, all_bm25_nodes
+                            )
                             logger.info(
                                 f"BM25 rebuilt with {len(all_bm25_nodes)} total "
                                 "nodes (incremental, fallback)"
@@ -671,10 +709,14 @@ class IndexingService:
                     # Synchronous callback wrapper
                     logger.debug(f"Graph indexing: {message}")
 
-                triplet_count = self.graph_index_manager.build_from_documents(
-                    chunks,
-                    progress_callback=graph_progress,
-                )
+                graph_mgr = self.graph_index_manager
+
+                def _build_graph() -> int:
+                    return graph_mgr.build_from_documents(
+                        chunks, progress_callback=graph_progress
+                    )
+
+                triplet_count = await asyncio.to_thread(_build_graph)
                 logger.info(f"Graph index built with {triplet_count} triplets")
 
             # Mark as completed
@@ -690,6 +732,7 @@ class IndexingService:
                     folder_path=abs_folder_path,
                     chunk_count=len(chunks),
                     chunk_ids=chunk_ids,
+                    include_code=request.include_code,
                 )
                 logger.info(
                     f"Registered folder {abs_folder_path} with FolderManager "
@@ -725,9 +768,11 @@ class IndexingService:
                         )
                 for fp, chunk_ids in file_to_chunks.items():
                     checksum = await asyncio.to_thread(compute_file_checksum, fp)
-                    mtime = _os.stat(fp).st_mtime
+                    stat_result = await asyncio.to_thread(_os.stat, fp)
                     new_manifest.files[fp] = FileRecord(
-                        checksum=checksum, mtime=mtime, chunk_ids=chunk_ids
+                        checksum=checksum,
+                        mtime=stat_result.st_mtime,
+                        chunk_ids=chunk_ids,
                     )
                 await self.manifest_tracker.save(new_manifest)
                 logger.info(

@@ -58,6 +58,7 @@ class TestResolveStoragePaths:
             "graph_index",
             "logs",
             "manifests",
+            "embedding_cache",  # Phase 16
         }
         assert set(paths.keys()) == expected_keys
 

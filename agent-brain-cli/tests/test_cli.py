@@ -57,6 +57,7 @@ class TestStatusCommand:
         mock_status.progress_percent = 0.0
         mock_status.indexed_folders = ["/docs"]
         mock_status.last_indexed_at = "2024-12-15"
+        mock_status.file_watcher = {"running": True, "watched_folders": 1}
 
         mock_client.health.return_value = mock_health
         mock_client.status.return_value = mock_status
@@ -85,6 +86,8 @@ class TestStatusCommand:
         mock_status.indexing_in_progress = False
         mock_status.progress_percent = 0.0
         mock_status.indexed_folders = []
+        mock_status.file_watcher = {"running": False, "watched_folders": 0}
+        mock_status.embedding_cache = None  # fresh install: no cache entries
 
         mock_client.health.return_value = mock_health
         mock_client.status.return_value = mock_status
@@ -98,6 +101,11 @@ class TestStatusCommand:
         output = json.loads(result.output)
         assert output["health"]["status"] == "healthy"
         assert output["indexing"]["total_documents"] == 50
+        assert output["indexing"]["file_watcher"] == {
+            "running": False,
+            "watched_folders": 0,
+        }
+        assert output["indexing"]["embedding_cache"] is None
 
     @patch("agent_brain_cli.commands.status.DocServeClient")
     def test_status_connection_error(self, mock_client_class, runner):

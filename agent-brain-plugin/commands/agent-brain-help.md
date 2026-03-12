@@ -68,6 +68,9 @@ INDEXING COMMANDS
   agent-brain-index      Index documents for search
   agent-brain-reset      Clear the document index (requires confirmation)
 
+CACHE COMMANDS
+  agent-brain-cache      View cache metrics or clear embedding cache
+
 HELP
   agent-brain-help       Show this help message
 
@@ -148,6 +151,7 @@ Show comprehensive details:
 | agent-brain-list | Server | List all instances |
 | agent-brain-index | Indexing | Index documents |
 | agent-brain-reset | Indexing | Clear the index |
+| agent-brain-cache | Cache | View cache metrics or clear embedding cache |
 | agent-brain-help | Help | Show help |
 
 *Graph search requires `ENABLE_GRAPH_INDEX=true` (disabled by default)

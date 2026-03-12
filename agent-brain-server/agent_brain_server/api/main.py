@@ -48,6 +48,7 @@ from agent_brain_server.storage import (
 from agent_brain_server.storage_paths import resolve_state_dir, resolve_storage_paths
 
 from .routers import (
+    cache_router,
     folders_router,
     health_router,
     index_router,
@@ -68,6 +69,32 @@ _state_dir: Path | None = None
 
 # Module-level reference to job worker for cleanup
 _job_worker: JobWorker | None = None
+
+# Module-level reference to file watcher service for cleanup
+_file_watcher: object = None
+
+
+def _build_provider_fingerprint() -> str:
+    """Build a stable provider:model:dimensions fingerprint string.
+
+    Used by the embedding cache to detect provider or model changes on
+    startup (ECACHE-04 auto-wipe).
+
+    Returns:
+        Fingerprint string of the form ``"provider:model:dimensions"``,
+        e.g. ``"openai:text-embedding-3-large:3072"``.
+        Returns ``"unknown:unknown:0"`` on any configuration error.
+    """
+    try:
+        ps = load_provider_settings()
+        from agent_brain_server.providers.factory import ProviderRegistry
+
+        provider = ProviderRegistry.get_embedding_provider(ps.embedding)
+        dims = provider.get_dimensions()
+        return f"{ps.embedding.provider}:{ps.embedding.model}:{dims}"
+    except Exception as exc:
+        logger.warning("Failed to build provider fingerprint: %s", exc)
+        return "unknown:unknown:0"
 
 
 async def check_embedding_compatibility(
@@ -131,7 +158,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     - Initializes job queue system
     - Cleans up on shutdown
     """
-    global _runtime_state, _state_dir, _job_worker
+    global _runtime_state, _state_dir, _job_worker, _file_watcher
 
     logger.info("Starting Agent Brain RAG server...")
 
@@ -275,6 +302,35 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             app.state.embedding_warning = None
             logger.info(f"Skipping ChromaDB initialization (backend: {backend_type})")
 
+        # Initialize embedding cache service (Phase 16)
+        # Must be initialized BEFORE IndexingService so get_embedding_cache()
+        # returns the instance when the first embed call happens.
+        from agent_brain_server.services.embedding_cache import (
+            EmbeddingCacheService,
+            set_embedding_cache,
+        )
+
+        if storage_paths:
+            cache_db_path = storage_paths["embedding_cache"] / "embeddings.db"
+        else:
+            import tempfile
+
+            cache_db_path = (
+                Path(tempfile.mkdtemp(prefix="agent-brain-cache-")) / "embeddings.db"
+            )
+
+        provider_fingerprint = _build_provider_fingerprint()
+        embedding_cache = EmbeddingCacheService(
+            db_path=cache_db_path,
+            max_mem_entries=settings.EMBEDDING_CACHE_MAX_MEM_ENTRIES,
+            max_disk_mb=settings.EMBEDDING_CACHE_MAX_DISK_MB,
+            persist_stats=settings.EMBEDDING_CACHE_PERSIST_STATS,
+        )
+        await embedding_cache.initialize(provider_fingerprint)
+        set_embedding_cache(embedding_cache)
+        app.state.embedding_cache = embedding_cache
+        logger.info("Embedding cache service initialized")
+
         # Load project config for exclude patterns
         exclude_patterns = None
         if state_dir:
@@ -357,6 +413,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             )
             await _job_worker.start()
             logger.info("Job worker started")
+
+            # Initialize and start file watcher service (Phase 15)
+            from agent_brain_server.services.file_watcher_service import (
+                FileWatcherService,
+            )
+
+            _file_watcher = FileWatcherService(
+                folder_manager=folder_manager,
+                job_service=job_service,
+                default_debounce_seconds=settings.AGENT_BRAIN_WATCH_DEBOUNCE_SECONDS,
+            )
+            await _file_watcher.start()
+            app.state.file_watcher_service = _file_watcher
+            logger.info("File watcher service started")
+
+            # Wire JobWorker to FileWatcherService and FolderManager (Phase 15-02)
+            _job_worker.set_file_watcher_service(_file_watcher)
+            _job_worker.set_folder_manager(folder_manager)
         else:
             # No state directory - create minimal job service for backward compat
             # Jobs will not be persisted in this mode
@@ -384,6 +458,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             )
             await _job_worker.start()
 
+            # Initialize and start file watcher service (Phase 15, no-state-dir branch)
+            from agent_brain_server.services.file_watcher_service import (
+                FileWatcherService,
+            )
+
+            _file_watcher = FileWatcherService(
+                folder_manager=folder_manager,
+                job_service=job_service,
+                default_debounce_seconds=settings.AGENT_BRAIN_WATCH_DEBOUNCE_SECONDS,
+            )
+            await _file_watcher.start()
+            app.state.file_watcher_service = _file_watcher
+
+            # Wire JobWorker to FileWatcherService and FolderManager (Phase 15-02)
+            _job_worker.set_file_watcher_service(_file_watcher)
+            _job_worker.set_folder_manager(folder_manager)
+
         # Set multi-instance metadata on app.state for health endpoint
         app.state.mode = mode
         app.state.instance_id = _runtime_state.instance_id if _runtime_state else None
@@ -401,6 +492,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
     logger.info("Shutting down Agent Brain RAG server...")
+
+    # Stop file watcher service BEFORE job worker (Phase 15)
+    if _file_watcher is not None:
+        from agent_brain_server.services.file_watcher_service import FileWatcherService
+
+        if isinstance(_file_watcher, FileWatcherService):
+            await _file_watcher.stop()
+            logger.info("File watcher service stopped")
+        _file_watcher = None
 
     # Stop job worker gracefully
     if _job_worker is not None:
@@ -447,6 +547,7 @@ app.add_middleware(
 # Include routers
 app.include_router(health_router, prefix="/health", tags=["Health"])
 app.include_router(index_router, prefix="/index", tags=["Indexing"])
+app.include_router(cache_router, prefix="/index/cache", tags=["Cache"])
 app.include_router(folders_router, prefix="/index/folders", tags=["Folders"])
 app.include_router(jobs_router, prefix="/index/jobs", tags=["Jobs"])
 app.include_router(query_router, prefix="/query", tags=["Querying"])

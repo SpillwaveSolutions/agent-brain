@@ -101,13 +101,20 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ### Active
 
-(No active milestone — v7.0 shipped)
+## Current Milestone: v8.0 Performance & Developer Experience
+
+**Goal:** Improve developer workflow with automatic index maintenance and faster query/indexing through caching and optimized transport.
+
+**Target features:**
+- Embedding cache — avoid re-embedding unchanged content, reduce API calls and latency
+- File watcher — per-folder config (read-only vs auto-reindex), configurable debounce (default 30s)
+- Background incremental updates — auto-triggered from watcher, seamless index maintenance
+- Query cache — cache frequent query results with TTL-based invalidation
+- UDS transport — hybrid TCP + Unix domain socket (UDS for local speed, TCP for remote/health)
 
 ### Out of Scope
 
 - **MCP Server**: User prefers Skill + CLI model over MCP — too heavyweight, context-hungry
-- **Real-time file watching**: Deferred to future optimization phase
-- **Embedding caching**: Deferred to future optimization phase
 - **Web UI**: CLI-first philosophy — agents are primary consumers
 - **Multi-tenancy**: Local-first philosophy — one instance per project
 - **AlloyDB-specific features**: Standard PostgreSQL + pgvector for maximum portability
@@ -182,4 +189,4 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 | eviction_summary as dict[str, Any] on JobRecord | Pydantic-friendly serialization, no server import in CLI | ✓ Good |
 
 ---
-*Last updated: 2026-03-05 after v7.0 milestone shipped*
+*Last updated: 2026-03-06 after v8.0 milestone started*

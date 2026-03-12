@@ -16,6 +16,8 @@ class FolderInfo(BaseModel):
         folder_path: Canonical absolute path to the indexed folder.
         chunk_count: Number of document chunks indexed from this folder.
         last_indexed: ISO 8601 UTC timestamp of the last indexing run.
+        watch_mode: File watch mode: 'off' or 'auto'.
+        watch_debounce_seconds: Per-folder debounce override in seconds.
     """
 
     folder_path: str = Field(
@@ -30,6 +32,14 @@ class FolderInfo(BaseModel):
     last_indexed: str = Field(
         ...,
         description="ISO 8601 UTC timestamp of last indexing",
+    )
+    watch_mode: str = Field(
+        default="off",
+        description="Watch mode: 'off' or 'auto'",
+    )
+    watch_debounce_seconds: int | None = Field(
+        default=None,
+        description="Per-folder debounce override in seconds",
     )
 
 

@@ -1,208 +1,134 @@
+---
+gsd_state_version: 1.0
+milestone: v8.0
+milestone_name: Performance & Developer Experience
+current_phase: 19
+current_plan: Not started
+status: completed
+stopped_at: Completed 19-01-PLAN.md
+last_updated: "2026-03-12T22:17:46.303Z"
+last_activity: "2026-03-10 — Phase 16 Plan 2 complete: `agent-brain cache` command group + embedding cache metrics in `agent-brain status` + 12 tests"
+progress:
+  total_phases: 5
+  completed_phases: 3
+  total_plans: 5
+  completed_plans: 5
+---
+
 # Agent Brain — Project State
-**Last Updated:** 2026-03-05
-**Current Milestone:** v7.0 Index Management & Content Pipeline
-**Status:** v7.0 milestone complete
-**Current Phase:** 14 (Manifest Tracking & Chunk Eviction) — COMPLETE
-**Total Phases:** 3 (Phases 12-14)
-**Current Plan:** 2 (COMPLETE)
+**Last Updated:** 2026-03-10
+**Current Milestone:** v8.0 Performance & Developer Experience
+**Status:** Milestone complete
+**Current Phase:** 19
+**Total Phases:** 4 (Phases 15-18)
+**Current Plan:** Not started
 **Total Plans in Phase:** 2
 
 ## Current Position
-Phase: 14 — Manifest Tracking & Chunk Eviction — COMPLETE
-Plan: 02 complete — full incremental indexing pipeline wired, CLI eviction summary, 10 new tests
-Status: Phase 14 complete — 36 new tests across both plans (26+10), 829 total passing, zero regressions
-Last activity: 2026-03-05 — Phase 14 Plan 02 executed
+Phase: 16 of 18 (Embedding Cache)
+Plan: 2 of 2
+Status: Phase 16 complete
+Last activity: 2026-03-10 — Phase 16 Plan 2 complete: `agent-brain cache` command group + embedding cache metrics in `agent-brain status` + 12 tests
 
-**Progress:** [██████████]  100%
+**Progress (v8.0):** [█████░░░░░] 50%
 
 ## Project Reference
-See: .planning/PROJECT.md (updated 2026-02-23)
+See: .planning/PROJECT.md (updated 2026-03-06)
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** v7.0 Index Management & Content Pipeline
+**Current focus:** v8.0 Performance & Developer Experience — Phase 16 complete, ready for Phase 17: Query Cache
 
 ## Milestone Summary
 ```
 v3.0 Advanced RAG:          [██████████] 100% (shipped 2026-02-10)
 v6.0 PostgreSQL Backend:    [██████████] 100% (shipped 2026-02-13)
 v6.0.4 Plugin & Install:   [██████████] 100% (shipped 2026-02-22)
-v7.0 Index Mgmt & Pipeline: [██████████] 100% (Phase 14 done 2026-03-05)
+v7.0 Index Mgmt & Pipeline: [██████████] 100% (shipped 2026-03-05)
+v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 complete)
 ```
+
 ## Performance Metrics
-**Velocity (v3.0 milestone):**
-- Total plans completed: 15
-- Total execution time: ~8 hours across 4 phases
-- Milestone shipped: 2026-02-10
+**Velocity (v7.0 milestone):**
+- Total plans completed: 7 (Phases 12-14)
+- Phases 12-14: 3+2+2 = 7 plans
+- Average duration: ~18 min/plan
 
-**By Phase (v3.0):**
-| Phase | Plans | Status |
-|-------|-------|--------|
-| Phase 1: Two-Stage Reranking | 7 | Complete |
-| Phase 2: Pluggable Providers | 4 | Complete |
-| Phase 3: Schema-Based GraphRAG | 2 | Complete |
-| Phase 4: Provider Integration Testing | 2 | Complete |
+**By Phase (v7.0):**
+| Phase | Plans | Duration | Status |
+|-------|-------|----------|--------|
+| Phase 12: Folder Mgmt & Presets | 3 | ~100 min | Complete |
+| Phase 13: Content Injection | 2 | ~13 min | Complete |
+| Phase 14: Manifest & Eviction | 2 | ~14 min | Complete |
 
-**v6.0 milestone:**
-- Total plans: TBD (Phase 5: 2 plans, Phases 6-8: TBD during planning)
-- Phase 5: 2/2 plans complete (05-01, 05-02)
-- Average duration: ~10 minutes per plan
-- Requirements coverage: 34/34 mapped (100%), 7/34 done
-
-**Phase 5 Metrics:**
-| Plan | Duration | Tasks | Tests Added | Status |
-|------|----------|-------|-------------|--------|
-| 05-01 | 8 min | 3/3 | +33 | Complete |
-| 05-02 | 11 min | 3/3 | +20 | Complete |
-
-**Phase 6 Metrics:**
-| Plan | Duration | Tasks | Files Created | Status |
-|------|----------|-------|---------------|--------|
-| 06-01 | 6 min | 3/3 | 6 | Complete |
-| 06-02 | 4 min | 2/2 | 4 | Complete |
-| 06-03 | 11 min | 3/3 | 13 | Complete |
-| Phase 07 P01 | 16 min | 3 tasks | 6 files |
-| Phase 07 P02 | 4 min | 3 tasks | 3 files |
-| Phase 08-plugin-documentation P01 | 1 min | 3 tasks | 4 files |
-| Phase 08-plugin-documentation P02 | 2 min | 2 tasks | 7 files |
-| Phase 09-runtime-backend-wiring P01 | 4 min | 3 tasks | 5 files modified |
-| Phase 09-runtime-backend-wiring P02 | 5 | 2 tasks | 1 files |
-| Phase 10-live-postgres-e2e P01 | 3.5 | 2 tasks | 1 files |
-| Phase 11 P01 | 3 | 3 tasks | 9 files |
-| Phase 12 P01 | 35 | 3 tasks | 11 files |
-| Phase 12 P02 | 55 | 2 tasks | 12 files |
-| Phase 12 P03 | 10 | 3 tasks | 6 files created, 8 modified |
-| Phase 13 P01 | 9 | 2 tasks | 9 files |
-| Phase 13 P02 | 4 | 2 tasks | 6 files |
-| Phase 14 P01 | 5 | 2 tasks | 8 files |
-| Phase 14 P02 | 9 | 2 tasks | 7 files |
+**By Phase (v8.0 in progress):**
+| Phase | Plans | Duration | Status |
+|-------|-------|----------|--------|
+| Phase 15: File Watcher & BGINC | 2 | 13 min total (7+6) | Complete |
+| Phase 16: Embedding Cache | 2 | 14 min total (10+4) | Complete |
+| Phase 19-plugin-and-skill-updates-for-embedding-cache-management P01 | 2 | 2 tasks | 6 files |
 
 ## Accumulated Context
-### From v3.0 Advanced RAG
-- Pluggable provider pattern (YAML config) works well — reused for backend selection
-- 654 tests passing (559 base + 95 postgres), 70% coverage after Phase 5 refactor
-- Existing architecture: ChromaDB (vectors), disk BM25 (keyword), SimplePropertyGraphStore (graph)
-- Dual-layer validation pattern (startup warning + runtime error) proven effective
 
-### From Phase 5 (Storage Abstraction)
-- StorageBackendProtocol defines 11 async methods (initialize, upsert, vector_search, keyword_search, etc.)
-- ChromaBackend wraps VectorStoreManager + BM25IndexManager via composition
-- BM25 scores normalized to 0-1 (per-query max normalization)
-- Backend factory: env var > YAML > default("chroma")
-- Services accept both old-style (vector_store, bm25_manager) and new (storage_backend) constructors
+### Key v7.0 Decisions (relevant to v8.0)
+- ManifestTracker uses SHA-256 + mtime fast-path — embedding cache must complement this (hash already available)
+- Atomic temp+Path.replace() for JSONL writes — same pattern required for aiosqlite cache writes
+- JobRecord.eviction_summary as dict[str, Any] — extend same model for source indicator (BGINC-04)
+- Two-step ChromaDB delete guards against empty ids=[] bug — embedding cache IDs must never be empty list
 
-### Decisions
-- v3.0: Skill + CLI over MCP — simpler, less context overhead
-- v3.0: Dual-layer validation (startup warning + indexing error)
-- v3.0: CI matrix with conditional API key checks
-- v6.0: PostgreSQL as optional dual backend — ChromaDB remains default
-- 05-01: Protocol over ABC — structural subtyping, no inheritance required
-- 05-01: Normalize scores to 0-1 range — consistent across backends
-- 05-01: Singleton factory pattern — matches existing pattern
-- 05-02: Adapter pattern — composition over code movement
-- 05-02: BM25 rebuild stays in IndexingService — full-corpus operation
-- 05-02: Per-query BM25 normalization — divide by max score
-- 05-02: Backward-compatible constructors — preserves 505+ test patterns
-- 06-01: Pydantic mode="after" for port validator — satisfies mypy strict
-- 06-01: QueuePool isinstance check for pool metrics — handles non-standard pool types
-- 06-01: Embedded SQL with f-string for integer params — safe for validated ints only
-- 06-01: Graceful table-not-found in get_embedding_metadata() — first-startup scenario
-- 06-02: json.dumps() for embedding serialization with ::vector cast — SQLAlchemy text() binding
-- 06-02: RRF k=60 constant — per academic literature recommendation
-- 06-02: Individual upserts for MVP — batch optimization deferred
-- 06-02: Discover dimensions from ProviderRegistry at initialize() — dynamic dimensions
-- 06-03: Lazy import PostgresBackend in factory — avoid importing asyncpg when using chroma
-- 06-03: DATABASE_URL overrides connection string only, pool config stays in YAML
-- 06-03: Dedicated /health/postgres endpoint — backend-specific pool metrics
-- 06-03: Lifespan uses hasattr(backend, 'close') — safe for ChromaBackend (no close)
-- 06-03: Poetry extras [postgres] — asyncpg + sqlalchemy as optional deps
-- [Phase 07]: Avoid updating Chroma hnsw:space metadata during embedding metadata writes.
-- [Phase 08-plugin-documentation]: Documented backend resolution order and reindex requirement in config flow
-- [Phase 08-plugin-documentation]: Standardized postgres local setup around docker-compose.postgres.yml
-- 09-01: Conditional ChromaDB initialization based on backend_type — avoids creating chroma directories on postgres
-- 09-01: Graph queries raise ValueError on postgres, multi-mode gracefully skips — graph is ChromaDB-only
-- 09-01: Health endpoints use getattr() for vector_store — handles None safely on postgres backend
-- [Phase 09-02]: All wiring tests mock-based (no PostgreSQL required)
-- [Phase 10-live-postgres-e2e]: Service-level testing approach (direct backend instantiation) avoids ASGI lifespan complexity
-- [Phase 11]: Excluded historical/legacy files from path updates (.speckit/, docs/roadmaps/, docs/MIGRATION.md, docs/design/)
-- [Phase 11]: Excluded .planning/ internal records from path cleanup (intentional historical reference)
-- [Phase 11]: Structural verification only for requirements (functional correctness already validated in Phase 10)
-- [Phase 12]: Atomic JSONL writes via temp + Path.replace() — POSIX atomic, safe for process crashes during write
-- [Phase 12]: Two-step ChromaDB delete (query IDs then delete by IDs) — guards against empty ids=[] collection wipe bug
-- [Phase 12]: DELETE...RETURNING for PostgreSQL delete_by_metadata — single round-trip to delete and count
-- [Phase 12]: Added delete_by_ids to StorageBackendProtocol: chunk metadata stores file paths not folder paths, so targeted ID-based deletion is required for correct folder removal
-- [Phase 12]: FOLD-07 check uses job_service.store.get_running_job() for efficient single-job lookup instead of list_jobs()
-- [Phase 12]: FolderManager uses temp dir fallback when no state_dir configured for backward compat with single-instance mode
-- [Phase 12 P03]: Hardcode FILE_TYPE_PRESETS in CLI to avoid agent-brain-server cross-package dependency
-- [Phase 12 P03]: folders add is alias for index (idempotent re-indexing per FOLD-09)
-- [Phase 12 P03]: folder_path for remove uses type=str not click.Path to allow non-existent disk paths
-- [Phase 13]: ContentInjector.build() returns None when both paths are None — no-op when injection not configured
-- [Phase 13]: apply_to_chunks writes only to chunk.metadata.extra for keys NOT in known_keys — prevents injectors from overwriting schema fields
-- [Phase 13]: ContentInjector is a parameter to _run_indexing_pipeline (not singleton mutation) — clean dependency injection, testable, backward compatible
-- [Phase 13]: JobService.enqueue_job must explicitly pass injector_script and folder_metadata_file to JobRecord — Pydantic does not auto-propagate from IndexRequest
-- [Phase 13]: inject command requires at least one of --script or --folder-metadata — validated before API call, exit code 2
-- [Phase 13]: CLI resolves --script and --folder-metadata to absolute paths before sending — server needs absolute paths to load files
-- [Phase 13]: inject is superset of index (not subcommand) — all index options available to avoid user confusion when combining injection with code/type presets
-- [Phase 14]: ManifestTracker uses SHA-256 of folder path string as manifest filename — flat directory, no path-separator issues across OS
-- [Phase 14]: mtime equality as O(1) fast-path before computing SHA-256 — handles ~95% of unchanged files without disk read
-- [Phase 14]: TYPE_CHECKING import for StorageBackendProtocol in ChunkEvictionService — avoids circular import, consistent with ContentInjector pattern
-- [Phase 14]: eviction_summary stored as dict[str, Any] not dataclass on JobRecord — Pydantic serialization friendly for API response
-- [Phase 14 P02]: Return dict[str, Any] | None from _run_indexing_pipeline (dataclasses.asdict) — JobWorker stores directly without importing server dataclasses
-- [Phase 14 P02]: Zero-change early return returns eviction dict (not None) so JobWorker zero-change check can read chunks_to_create==0
-- [Phase 14 P02]: BM25 incremental fallback: if storage_backend.bm25_manager is None, use self.bm25_manager — handles both chroma and postgres backends
-- [Phase 14 P02]: Mock storage backend in tests must NOT have bm25_manager attr — hasattr() in constructor will override passed kwarg with None
+### Key v8.0 Decisions (Phase 15)
+- watchfiles 1.1.1 is already a transitive dep via uvicorn — confirmed, no new install needed
+- anyio.Event (not asyncio.Event) used for stop_event — watchfiles.awatch requires anyio-compatible event, must be created inside async context
+- One asyncio.Task per folder — independent lifecycles, named tasks (watcher:{path})
+- source="auto" field on JobRecord default='manual' — full backward compatibility
+- force=False for watcher-triggered jobs — rely on ManifestTracker for incremental efficiency (BGINC-03)
+- allow_external=True for watcher-enqueued jobs — auto-mode folders may be outside project root
+- TYPE_CHECKING guard prevents circular: services/file_watcher_service.py -> job_queue/job_service.py -> models
+- FileWatcherService stops BEFORE JobWorker (dependency order in shutdown)
+- watch_mode/watch_debounce_seconds on JobRecord (not just IndexRequest) — JobWorker needs them post-completion
+- Setter injection for FileWatcherService/FolderManager on JobWorker — lifespan creates them sequentially
+- _apply_watch_config catches all exceptions — watch config failure does not fail an otherwise successful job
+- include_code now passed from IndexingService to folder_manager.add_folder() (was missing)
 
-### From Phase 6 Plan 03 (Integration)
-- Factory creates PostgresBackend from YAML config with DATABASE_URL env var override
-- /health/postgres endpoint returns pool metrics (pool_size, checked_in, checked_out, overflow, total) and database version
-- Server lifespan closes PostgreSQL connection pool on shutdown via hasattr check
-- Poetry extras [postgres] = asyncpg + sqlalchemy[asyncio] (optional)
-- 95 new unit tests covering all 6 PostgreSQL modules (config, connection, schema, vector_ops, keyword_ops, backend) + health endpoint
-- 654 total tests (559 existing + 95 new), zero regression
-- All code passes mypy strict, ruff, and black
+### Key v8.0 Decisions (Phase 16)
+- Lazy import in embed_text/embed_texts (not module-level) breaks circular import: indexing -> services -> indexing
+- persist_stats=False default — session-only counters avoid write contention on every cache hit
+- In-memory LRU default 1000 entries (~12 MB at 3072 dims) — configurable via EMBEDDING_CACHE_MAX_MEM_ENTRIES
+- get_batch() implemented from start for embed_texts() efficiency (batch SQL vs N sequential awaits)
+- embedding_cache section in /health/status omitted when entry_count == 0 (clean for fresh installs)
+- float32 BLOB via struct.pack — ~12 KB/entry at 3072 dims; cosine similarity unaffected (max error ~3.57e-9)
+- Provider fingerprint in metadata row — O(1) startup wipe check vs O(N) per-entry scan (ECACHE-04)
+- embedding_cache: dict | None on IndexingStatus dataclass — None default preserves all existing code
+- No pre-fetch in --yes path: cache clear --yes skips count lookup (avoids extra API call)
+- Connection-safe count fetch in cache clear confirmation: try/except shows 0 if fetch fails
 
-### From Phase 6 Plan 02 (Core Operations)
-- VectorOps: pgvector search with cosine (<=>), L2 (<->), inner_product (<#>) metrics, 0-1 score normalization
-- KeywordOps: tsvector with weighted relevance (title=A, summary=B, content=C), configurable language, websearch_to_tsquery
-- PostgresBackend: implements all 11 StorageBackendProtocol methods + hybrid_search_with_rrf() + close()
-- RRF hybrid search: fetch 2x top_k from both sources, weighted rank fusion with k=60, 0-1 normalized output
-- Package exports: PostgresBackend, PostgresConfig, PostgresConnectionManager, PostgresSchemaManager
-- 559 existing tests still pass (no regressions)
+### v8.0 Phase Order Rationale (revised 2026-03-06)
+- Phase 15 (File Watcher + BGINC): DX first — user's top priority; builds on Phase 14 ManifestTracker
+- Phase 16 (Embedding Cache): Cost optimization for the now-running watcher — prevents API bill from automatic reindexing
+- Phase 17 (Query Cache): Freshness guarantees after auto-reindex; index_generation counter established by Phase 16
+- Phase 18 (UDS + Quality Gate): Ship last — touches api/main.py server startup (widest blast radius)
 
-### From Phase 6 Plan 01 (PostgreSQL Foundation)
-- PostgresConfig: host, port, database, user, password, pool_size, pool_max_overflow, language, hnsw_m, hnsw_ef_construction, debug
-- PostgresConnectionManager: async engine with configurable pool, retry with exponential backoff, pool health metrics
-- PostgresSchemaManager: documents table with vector(N), HNSW/GIN indexes, embedding_metadata with dimension validation
-- Docker Compose template for pgvector/pgvector:pg16 in server/templates/ and plugin/templates/
-- All modules pass mypy strict with --ignore-missing-imports (asyncpg/sqlalchemy not yet in Poetry extras)
-- 559 existing tests still pass (no regressions from new code)
+### v8.0 Phase Dependencies
+- Phase 15 (File Watcher + BGINC): Builds on Phase 14 ManifestTracker + IndexingService + job queue
+- Phase 16 (Embedding Cache): Watcher must be running first — cache makes repeated auto-reindexing cheap
+- Phase 17 (Query Cache): Requires Phase 15 (watcher generates reindex events needing cache invalidation) + Phase 16 (index_generation counter)
+- Phase 18 (UDS + Quality Gate): Ship last — touches api/main.py server startup (widest blast radius)
+
+### Research Flags for Planning
+- Phase 15: watchfiles confirmed as transitive dep via Uvicorn (resolved)
+- Phase 16: aiosqlite WAL mode verified working under concurrent access (resolved)
+- Phase 18: Validate asyncio.gather(tcp_server.serve(), uds_server.serve()) against pinned Uvicorn version
 
 ### Blockers/Concerns
-
-**Phase 6 (PostgreSQL Implementation):**
-- LlamaIndex llama-index-vector-stores-postgres version compatibility with existing llama-index-core ^0.14.0 needs validation
-- Connection pool sizing must be tuned for concurrent load (research shows default 10 may be insufficient)
-- HNSW index build on large corpora (100k+ docs) can take hours and consume 64GB+ memory
-
-**Phase 7 (Testing & CI):**
-- CI must support PostgreSQL service container without breaking existing ChromaDB-only tests
-- Score normalization between ChromaDB BM25 and PostgreSQL ts_rank needs tuning
-
-**Phase 8 (Plugin & Documentation):**
-- Plugin must guide users through backend selection without overwhelming with complexity
-- Documentation must clarify no auto-migration tool (users rebuild from source)
+- Phase 18 UDS dual-server pattern is MEDIUM confidence (community-verified, not official Uvicorn docs)
 
 ### Pending Todos
 0 pending todos.
 
-### Done Todos
-- ~~Update agent plugin and skills for latest features~~ (area: plugin) — Resolved 2026-03-06, added inject/jobs commands, updated index/folders commands, updated skills
-- ~~Fix include_types pipeline plumbing~~ (area: api) — Resolved 2026-02-26, merged PR #113
-
 ## Session Continuity
 
-**Last Session:** 2026-03-05
-**Stopped At:** Completed 14-02-PLAN.md — Full incremental indexing pipeline, v7.0 milestone COMPLETE
+**Last Session:** 2026-03-12T22:14:31.220Z
+**Stopped At:** Completed 19-01-PLAN.md
 **Resume File:** None
-**Next Action:** `/gsd:complete-milestone` to archive v7.0, or plan Phase 15+
+**Next Action:** Phase 17 — Query Cache (freshness guarantees after auto-reindex)
 
 ---
-*State updated: 2026-03-05*
+*State updated: 2026-03-10*

@@ -102,11 +102,10 @@ async def health_check(request: Request) -> HealthStatus:
 
 @router.get(
     "/status",
-    response_model=IndexingStatus,
     summary="Indexing Status",
     description="Returns detailed indexing status information. Never blocks.",
 )
-async def indexing_status(request: Request) -> IndexingStatus:
+async def indexing_status(request: Request) -> dict[str, Any]:
     """Get detailed indexing status.
 
     This endpoint never blocks and always returns quickly, even during indexing.
@@ -126,16 +125,16 @@ async def indexing_status(request: Request) -> IndexingStatus:
     vector_store = getattr(request.app.state, "vector_store", None)
     job_service = getattr(request.app.state, "job_service", None)
 
-    # Get vector store count (non-blocking read)
+    # Get chunk count — prefer storage_backend (single source of truth)
+    # over legacy vector_store which may be a separate Chroma instance.
     try:
-        if vector_store is not None and vector_store.is_initialized:
+        storage_backend = getattr(request.app.state, "storage_backend", None)
+        if storage_backend and storage_backend.is_initialized:
+            total_chunks = await storage_backend.get_count()
+        elif vector_store is not None and vector_store.is_initialized:
             total_chunks = await vector_store.get_count()
         else:
-            storage_backend = getattr(request.app.state, "storage_backend", None)
-            if storage_backend and storage_backend.is_initialized:
-                total_chunks = await storage_backend.get_count()
-            else:
-                total_chunks = 0
+            total_chunks = 0
     except Exception:
         total_chunks = 0
 
@@ -182,7 +181,30 @@ async def indexing_status(request: Request) -> IndexingStatus:
         }
         service_status["graph_index"] = graph_index_info
 
-    return IndexingStatus(
+    # Get file watcher status (Phase 15)
+    file_watcher_service = getattr(request.app.state, "file_watcher_service", None)
+    file_watcher_info: dict[str, Any] = {
+        "running": (file_watcher_service.is_running if file_watcher_service else False),
+        "watched_folders": (
+            file_watcher_service.watched_folder_count if file_watcher_service else 0
+        ),
+    }
+
+    # Get embedding cache status (Phase 16)
+    # Only include when cache has entries (omit for fresh installs)
+    embedding_cache_info: dict[str, Any] | None = None
+    embedding_cache_svc = getattr(request.app.state, "embedding_cache", None)
+    if embedding_cache_svc is not None:
+        try:
+            disk_stats = await embedding_cache_svc.get_disk_stats()
+            if disk_stats.get("entry_count", 0) > 0:
+                mem_stats = embedding_cache_svc.get_stats()
+                embedding_cache_info = {**mem_stats, **disk_stats}
+        except Exception:
+            # Non-blocking: don't fail status if cache stats error
+            pass
+
+    response = IndexingStatus(
         total_documents=service_status.get("total_documents", 0),
         total_chunks=total_chunks,
         total_doc_chunks=service_status.get("total_doc_chunks", 0),
@@ -202,7 +224,19 @@ async def indexing_status(request: Request) -> IndexingStatus:
         queue_pending=queue_pending,
         queue_running=queue_running,
         current_job_running_time_ms=current_job_running_time_ms,
+        # File watcher status (Phase 15)
+        file_watcher=file_watcher_info,
+        # Embedding cache status (Phase 16)
+        embedding_cache=embedding_cache_info,
     )
+
+    # Always serialize via model_dump so we can narrowly omit
+    # embedding_cache when None (fresh installs) without response_model
+    # re-adding it as null.
+    data = response.model_dump(mode="json")
+    if embedding_cache_info is None:
+        data.pop("embedding_cache", None)
+    return data
 
 
 @router.get(

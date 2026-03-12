@@ -49,6 +49,8 @@ class IndexingStatus:
     progress_percent: float
     last_indexed_at: str | None
     indexed_folders: list[str]
+    file_watcher: dict[str, Any] | None = None
+    embedding_cache: dict[str, Any] | None = None
 
 
 @dataclass
@@ -80,6 +82,8 @@ class FolderInfo:
     folder_path: str
     chunk_count: int
     last_indexed: str
+    watch_mode: str = "off"
+    watch_debounce_seconds: int | None = None
 
 
 @dataclass
@@ -211,6 +215,8 @@ class DocServeClient:
             progress_percent=data.get("progress_percent", 0.0),
             last_indexed_at=data.get("last_indexed_at"),
             indexed_folders=data.get("indexed_folders", []),
+            file_watcher=data.get("file_watcher"),
+            embedding_cache=data.get("embedding_cache"),
         )
 
     def query(
@@ -293,6 +299,8 @@ class DocServeClient:
         injector_script: str | None = None,
         folder_metadata_file: str | None = None,
         dry_run: bool = False,
+        watch_mode: str | None = None,
+        watch_debounce_seconds: int | None = None,
     ) -> IndexResponse:
         """
         Enqueue an indexing job for documents and optionally code from a folder.
@@ -314,6 +322,8 @@ class DocServeClient:
             injector_script: Path to Python script exporting process_chunk().
             folder_metadata_file: Path to JSON file with static metadata.
             dry_run: Validate injector against sample chunks without indexing.
+            watch_mode: Watch mode for auto-reindex: 'auto' or 'off'.
+            watch_debounce_seconds: Per-folder debounce in seconds.
 
         Returns:
             IndexResponse with job ID and queue status.
@@ -339,6 +349,10 @@ class DocServeClient:
             body["folder_metadata_file"] = folder_metadata_file
         if dry_run:
             body["dry_run"] = True
+        if watch_mode is not None:
+            body["watch_mode"] = watch_mode
+        if watch_debounce_seconds is not None:
+            body["watch_debounce_seconds"] = watch_debounce_seconds
 
         data = self._request(
             "POST",
@@ -366,6 +380,8 @@ class DocServeClient:
                 folder_path=f["folder_path"],
                 chunk_count=f["chunk_count"],
                 last_indexed=f["last_indexed"],
+                watch_mode=f.get("watch_mode", "off"),
+                watch_debounce_seconds=f.get("watch_debounce_seconds"),
             )
             for f in data.get("folders", [])
         ]
@@ -440,3 +456,29 @@ class DocServeClient:
             Cancellation result dictionary.
         """
         return self._request("DELETE", f"/index/jobs/{job_id}")
+
+    def cache_status(self) -> dict[str, Any]:
+        """
+        Get embedding cache status.
+
+        Returns:
+            Dict with hits, misses, hit_rate, mem_entries, entry_count, size_bytes.
+
+        Raises:
+            ConnectionError: If unable to connect.
+            ServerError: If server returns an error.
+        """
+        return self._request("GET", "/index/cache/")
+
+    def clear_cache(self) -> dict[str, Any]:
+        """
+        Clear the embedding cache.
+
+        Returns:
+            Dict with count, size_bytes, size_mb of cleared entries.
+
+        Raises:
+            ConnectionError: If unable to connect.
+            ServerError: If server returns an error.
+        """
+        return self._request("DELETE", "/index/cache/")

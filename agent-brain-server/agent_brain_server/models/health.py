@@ -125,6 +125,21 @@ class IndexingStatus(BaseModel):
         None,
         description="Running time of current job in milliseconds",
     )
+    # File watcher status (Phase 15)
+    file_watcher: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "File watcher status with 'running' bool and 'watched_folders' count"
+        ),
+    )
+    # Embedding cache status (Phase 16)
+    embedding_cache: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Embedding cache status with hits, misses, hit_rate, entry_count, "
+            "size_bytes. Omitted for fresh installs with empty cache."
+        ),
+    )
 
     model_config = {
         "json_schema_extra": {

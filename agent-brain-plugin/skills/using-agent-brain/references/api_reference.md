@@ -223,6 +223,80 @@ Clear all indexed documents.
 
 ---
 
+## Cache Endpoints
+
+### GET /index/cache
+
+Retrieve embedding cache statistics for the current session and persisted disk cache.
+
+**Response:**
+
+```json
+{
+  "hits": 5432,
+  "misses": 800,
+  "hit_rate": 0.8712,
+  "mem_entries": 500,
+  "entry_count": 1234,
+  "size_bytes": 15531008
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `hits` | integer | Total successful cache lookups this session |
+| `misses` | integer | Total cache misses (embedding computed via API) this session |
+| `hit_rate` | float | Fraction of lookups served from cache (0.0–1.0). Resets on server restart. |
+| `mem_entries` | integer | Embeddings currently held in the in-memory LRU tier |
+| `entry_count` | integer | Total embeddings persisted in the SQLite disk cache |
+| `size_bytes` | integer | Total bytes used by the disk cache database |
+
+**Note:** Both `/index/cache` and `/index/cache/` are accepted (trailing-slash alias).
+Use the no-trailing-slash form (`/index/cache`) to avoid 307 redirects.
+
+**Error Responses:**
+
+| Status | Description |
+|--------|-------------|
+| 503 | Cache not initialized (server starting up or cache subsystem unavailable) |
+
+---
+
+### DELETE /index/cache
+
+Clear all cached embeddings from the disk cache. The next reindex will recompute
+embeddings via the configured embedding provider.
+
+**Response:**
+
+```json
+{
+  "count": 1234,
+  "size_bytes": 15531008,
+  "size_mb": 14.81
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `count` | integer | Number of cached embeddings that were removed |
+| `size_bytes` | integer | Bytes freed from the disk cache |
+| `size_mb` | float | Megabytes freed (rounded to 2 decimal places) |
+
+**Note:** Both `/index/cache` and `/index/cache/` are accepted (trailing-slash alias).
+
+**Error Responses:**
+
+| Status | Description |
+|--------|-------------|
+| 503 | Cache not initialized (server starting up or cache subsystem unavailable) |
+
+---
+
 ## OpenAPI Documentation
 
 Interactive API documentation available at:
@@ -258,9 +332,53 @@ agent-brain query "search text" --json
 agent-brain index /path/to/docs
 agent-brain index /path/to/docs --recursive
 
+# Folder management
+agent-brain folders add ./docs                          # Index a folder
+agent-brain folders add ./src --include-code            # Index with code
+agent-brain folders add ./src --watch auto              # Enable auto-reindex
+agent-brain folders add ./src --watch auto --debounce 10  # Custom debounce
+agent-brain folders list                                # Show all folders
+agent-brain folders remove ./docs --yes                 # Remove folder
+
+# Job queue
+agent-brain jobs                      # List all jobs
+agent-brain jobs --watch              # Watch queue live
+agent-brain jobs JOB_ID               # Show job details
+agent-brain jobs JOB_ID --cancel      # Cancel a job
+
 # Clear index
 agent-brain reset --yes
+
+# Embedding cache
+agent-brain cache status             # View cache metrics (human-readable)
+agent-brain cache status --json      # View metrics as JSON
+agent-brain cache clear              # Clear cache (prompts for confirmation)
+agent-brain cache clear --yes        # Clear cache (skips confirmation)
 ```
+
+**Folder Options (folders add):**
+- `--include-code` - Index source code files alongside documents
+- `--watch MODE` - Watch mode: `auto` (enable file watching) or `off` (default)
+- `--debounce N` - Debounce interval in seconds for file watching (default: 30)
+
+**Folders List Output:**
+
+| Column | Description |
+|--------|-------------|
+| Folder Path | Canonical absolute path |
+| Chunks | Number of indexed chunks |
+| Last Indexed | Timestamp of last indexing run |
+| Watch | Watch mode: `auto` or `off` |
+
+**Jobs List Output:**
+
+| Column | Description |
+|--------|-------------|
+| ID | Job identifier |
+| Status | pending, running, done, failed, cancelled |
+| Source | `manual` (user-triggered) or `auto` (watcher-triggered) |
+| Folder | Folder being indexed |
+| Progress | Completion percentage |
 
 **Query Options:**
 - `--mode MODE` - Search mode: bm25, vector, hybrid, graph, multi
@@ -274,3 +392,34 @@ agent-brain reset --yes
 - `--url URL` - Server URL (default: http://127.0.0.1:8000)
 - `--json` - Output as JSON
 - `--help` - Show help message
+
+---
+
+## File Watcher
+
+Folders configured with `watch_mode: auto` are automatically re-indexed when files change. This eliminates the need to manually re-run indexing after edits.
+
+**How it works:**
+- After `agent-brain folders add ./src --watch auto`, the server monitors the folder for file changes
+- Per-folder debounce collapses rapid changes (e.g., git checkout, IDE save-all) into a single reindex job
+- Watcher-triggered jobs use incremental diff (`force=False`) for efficiency -- only changed files are re-processed
+- Jobs created by the watcher show `source: auto` in the jobs list
+
+**Excluded directories:**
+The watcher ignores changes in: `.git/`, `node_modules/`, `__pycache__/`, `dist/`, `build/`, `.next/`, `.nuxt/`, `coverage/`, `htmlcov/`
+
+**Configuration:**
+- Default debounce: 30 seconds (configurable via `AGENT_BRAIN_WATCH_DEBOUNCE_SECONDS`)
+- Per-folder override: `--debounce N` on `folders add`
+
+**Examples:**
+```bash
+# Enable auto-reindex with default 30s debounce
+agent-brain folders add ./src --watch auto --include-code
+
+# Custom 10-second debounce for fast iteration
+agent-brain folders add ./src --watch auto --debounce 10
+
+# Disable watching for a folder
+agent-brain folders add ./docs --watch off
+```

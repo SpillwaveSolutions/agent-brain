@@ -501,8 +501,26 @@ agent-brain index ./docs
 | `GOOGLE_API_KEY` | Conditional | - | Required if using Gemini |
 | `XAI_API_KEY` | Conditional | - | Required if using Grok |
 | `COHERE_API_KEY` | Conditional | - | Required if using Cohere |
+| `EMBEDDING_CACHE_MAX_MEM_ENTRIES` | No | 1000 | Max in-memory LRU entries (~12 MB at 3072 dims per 1000 entries) |
+| `EMBEDDING_CACHE_MAX_DISK_MB` | No | 500 | Max disk size for the SQLite embedding cache |
 
 **Note**: Environment variables override config file values. Config file values override defaults.
+
+### Embedding Cache Tuning
+
+The embedding cache is **automatic** — no setup required. Embeddings are cached on first compute
+and reused on subsequent reindexes of unchanged content, significantly reducing OpenAI API costs
+when using file watching or frequent reindexing.
+
+The two cache env vars allow tuning for specific environments:
+- **Large indexes** — increase `EMBEDDING_CACHE_MAX_MEM_ENTRIES` (e.g., 5000) to keep more embeddings
+  in the fast in-memory tier and reduce SQLite lookups
+- **Memory-constrained environments** — decrease `EMBEDDING_CACHE_MAX_MEM_ENTRIES` (e.g., 200) to
+  limit RAM usage; the disk cache still provides cost savings even with a small memory tier
+- **Disk space constrained** — decrease `EMBEDDING_CACHE_MAX_DISK_MB` (e.g., 100) to cap the SQLite
+  cache database size; oldest entries are evicted when the limit is reached
+
+The disk cache uses SQLite with WAL mode for safe concurrent access during indexing operations.
 
 ---
 

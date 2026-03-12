@@ -1,6 +1,5 @@
 {
   "mode": "yolo",
-  "depth": "standard",
   "parallelization": true,
   "commit_docs": true,
   "model_profile": "balanced",
@@ -13,5 +12,6 @@
     "source": "speckit",
     "migrated_at": "2026-02-07",
     "legacy_path": ".speckit/"
-  }
+  },
+  "granularity": "standard"
 }

@@ -55,6 +55,7 @@ def _create_jobs_table(jobs: list[dict[str, Any]]) -> Table:
     table = Table(show_header=True, header_style="bold cyan")
     table.add_column("ID", style="dim", max_width=12)
     table.add_column("Status")
+    table.add_column("Source")
     table.add_column("Folder", max_width=40)
     table.add_column("Progress", justify="right")
     table.add_column("Enqueued")
@@ -80,9 +81,15 @@ def _create_jobs_table(jobs: list[dict[str, Any]]) -> Table:
         if len(error) > 30:
             error = error[:27] + "..."
 
+        source = job.get("source", "manual")
+        source_display = (
+            f"[dim cyan]{source}[/dim cyan]" if source == "auto" else source
+        )
+
         table.add_row(
             job_id,
             f"[{status_style}]{status}[/{status_style}]",
+            source_display,
             folder,
             progress,
             enqueued,
@@ -103,6 +110,9 @@ def _create_job_detail_panel(job: dict[str, Any]) -> Panel:
         f"[bold]Job ID:[/] {job_id}",
         f"[bold]Status:[/] [{status_style}]{status}[/{status_style}]",
     ]
+
+    source = job.get("source", "manual")
+    lines.append(f"[bold]Source:[/] {source}")
 
     if folder := job.get("folder_path", job.get("folder")):
         lines.append(f"[bold]Folder:[/] {folder}")

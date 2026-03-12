@@ -1,23 +1,33 @@
-# Stack Research — v7.0 Index Management & Content Pipeline
+# Stack Research — v8.0 Performance & Developer Experience
 
-**Domain:** Index management, file filtering, chunk eviction, content enrichment
-**Researched:** 2026-02-23
-**Confidence:** HIGH
+**Domain:** File watching, embedding/query caching, hybrid UDS+TCP transport for local RAG service
+**Researched:** 2026-03-06
+**Confidence:** HIGH (core libraries), MEDIUM (dual-transport pattern)
+
+---
 
 ## Executive Summary
 
-v7.0 adds four NEW capabilities to the existing Agent Brain RAG system. **CRITICAL**: This stack analysis covers ONLY what's NEW — the existing validated stack (FastAPI, ChromaDB, LlamaIndex, PostgreSQL, etc.) is already in place and NOT covered here.
+v8.0 adds five NEW capabilities to the existing Agent Brain RAG system. **CRITICAL**: This stack analysis covers ONLY what's NEW — the existing validated stack (FastAPI, ChromaDB, LlamaIndex, PostgreSQL, Poetry, Click, etc.) is already in place and NOT re-covered here.
 
-**Key Finding:** Most features require NO new external dependencies. The Python standard library + existing LlamaIndex capabilities cover 90% of needs. Only optional feature (content injector with custom enrichment) might benefit from a small utility library.
+**Key findings:**
+- **File watching**: `watchfiles` (Rust-backed, async-native, already a Uvicorn dependency) wins clearly over `watchdog`
+- **Embedding cache**: `aiosqlite` + stdlib `hashlib` — persistent across restarts, async-safe, zero new heavy deps
+- **Query cache**: `cachetools.TTLCache` with `asyncio.Lock` — lightweight, in-memory, TTL-based invalidation
+- **UDS transport**: Uvicorn natively supports `--uds`; dual TCP+UDS requires two `uvicorn.Server` instances via `asyncio.gather()`
+- **httpx CLI client**: Already in the stack; add `HTTPTransport(uds=...)` for UDS connection
+
+---
 
 ## New Feature Requirements
 
 | Feature | Stack Additions | Rationale |
 |---------|----------------|-----------|
-| Indexed Folder Management | None (stdlib only) | JSONL manifest with stdlib json module |
-| Smart Include Filtering | None (stdlib only) | Predefined presets using existing extensions |
-| Chunk Eviction & Live Reindex | hashlib (stdlib) | SHA256 for content change detection |
-| Content Injector CLI | None (LlamaIndex already has it) | SummaryExtractor pattern already used |
+| File watcher (per-folder config, debounce) | `watchfiles ^1.1` | Already a Uvicorn transitive dep, asyncio-native, Rust-backed |
+| Embedding cache (SHA256 → vector, persistent) | `aiosqlite ^0.20` | Async SQLite, persists across restarts, no extra services |
+| Query cache with TTL | `cachetools ^7.0` | Already used in ecosystem; TTLCache + asyncio.Lock pattern |
+| Background incremental updates | stdlib `asyncio` | Task creation + watchfiles event loop integration |
+| UDS transport (hybrid TCP + UDS) | Uvicorn config only | Native `--uds` flag; two-server pattern for dual binding |
 
 ---
 
@@ -27,45 +37,40 @@ v7.0 adds four NEW capabilities to the existing Agent Brain RAG system. **CRITIC
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| hashlib (stdlib) | Python 3.10+ | Content change detection via SHA256 | Standard library, no dependencies, 50MB/s throughput on typical hardware, widely used for file integrity checks |
-| json (stdlib) | Python 3.10+ | JSONL manifest file I/O | Standard library, line-by-line processing for large manifests, append-safe for crash recovery |
-| pathlib (stdlib) | Python 3.10+ | Cross-platform path handling | Already used extensively, consistent path normalization for manifest keys |
+| watchfiles | ^1.1.1 | File system event watching with asyncio | Rust-backed via `notify` crate; `awatch()` is a native async generator; debounce built into Rust layer (default 1600ms, configurable); already a transitive dependency of Uvicorn — zero new install cost |
+| aiosqlite | ^0.20.0 | Async SQLite for persistent embedding cache | Non-blocking async wrapper around stdlib sqlite3; SHA256 hash → embedding blob cache persists across server restarts; zero new services; fits local-first philosophy |
+| cachetools | ^7.0.3 | In-memory TTL query cache | `TTLCache(maxsize=N, ttl=seconds)` is purpose-built for LRU+TTL semantics; 7.0.3 released 2026-03-05; pair with `asyncio.Lock` for async safety |
 
-### Supporting Libraries (Optional)
+### Supporting Libraries
 
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| filetype | ^1.2.0 | Content-based file type detection | Only if users report incorrect type detection from extensions (LOW priority) |
+| httpx | ^0.27 (already present) | CLI UDS transport client | Use `httpx.AsyncHTTPTransport(uds="/path/to/socket")` when CLI detects local instance; already in agent-brain-cli dependencies |
 
----
+### Development Tools
 
-## What Already Exists (DO NOT ADD)
-
-| Capability | Already Available | Location |
-|------------|-------------------|----------|
-| Metadata extraction | LlamaIndex SummaryExtractor, QuestionsAnsweredExtractor, TitleExtractor, EntityExtractor | agent_brain_server/indexing/chunking.py uses SummaryExtractor |
-| File extension filtering | LlamaIndex SimpleDirectoryReader `required_exts` parameter | document_loader.py line 370 |
-| Code/doc type detection | LanguageDetector with 40+ extensions | document_loader.py lines 44-239 |
-| Source tracking | ChromaDB/PostgreSQL metadata fields (`file_path`, `file_name`, `source`) | Stored with every chunk |
-| Background job queue | JSONL-based queue with worker | models/job.py, services/job_queue.py |
+No new dev tooling needed. Existing Black, Ruff, mypy, pytest coverage all apply.
 
 ---
 
 ## Installation (NEW Dependencies Only)
 
 ```bash
-# Server — NO new required dependencies
-# Existing pyproject.toml already has everything needed
+# agent-brain-server pyproject.toml additions
+poetry add watchfiles        # file watcher (^1.1)
+poetry add aiosqlite         # async SQLite embedding cache (^0.20)
+poetry add cachetools        # TTL query cache (^7.0)
 
-# Optional (content-based type detection, LOW priority)
-poetry add filetype  # Only if extension-based detection proves insufficient
+# agent-brain-cli pyproject.toml — httpx already present; no additions needed
+
+# Verify watchfiles not already pulled as transitive dep before adding
+poetry show watchfiles
 ```
 
-**IMPORTANT**: The existing stack already includes:
-- Python 3.10+ stdlib (hashlib, json, pathlib)
-- LlamaIndex metadata extractors (SummaryExtractor, etc.)
-- ChromaDB/PostgreSQL with metadata storage
-- JSONL job queue infrastructure
+**IMPORTANT**: `cachetools` requires `types-cachetools` for mypy strict mode:
+```bash
+poetry add --group dev types-cachetools
+```
 
 ---
 
@@ -73,10 +78,12 @@ poetry add filetype  # Only if extension-based detection proves insufficient
 
 | Recommended | Alternative | When to Use Alternative |
 |-------------|-------------|-------------------------|
-| hashlib SHA256 | blake3 (faster) | Never — SHA256 is 200-300 MB/s, fast enough for file change detection, no external deps |
-| json (stdlib) | jsonlines library | Never — stdlib json handles line-by-line JSONL natively, no dependency needed |
-| Extension-based detection | python-magic (content-based) | Only if users index files without extensions (VERY rare) |
-| LlamaIndex extractors | Custom LLM prompts | Never — extractors already optimized, battle-tested, configurable via provider YAML |
+| watchfiles ^1.1 | watchdog ^4.0 | Use watchdog only if Windows-first deployment and inotify/FSEvents not available; watchdog requires explicit asyncio bridging via threading.Event or hachiko wrapper; watchfiles is Uvicorn's own choice since v0.18 |
+| aiosqlite for embedding cache | diskcache ^5.6 | Use diskcache if cache needs shared across multiple processes; aiosqlite preferred because it's async-native, diskcache is sync-only (last release 2023-08-31), would require run_in_executor wrapping |
+| aiosqlite for embedding cache | Redis | Use Redis only for distributed multi-machine deployments; violates local-first philosophy, adds service dependency |
+| cachetools TTLCache | aiocache | Use aiocache for multi-backend needs (Redis, memcached); cachetools is simpler, pure Python, no dependencies, fits single-process FastAPI server |
+| cachetools TTLCache | functools.lru_cache | Use lru_cache for sync code without TTL; no TTL support, not thread-safe with async code |
+| Two uvicorn.Server instances | nginx reverse proxy | Use nginx only in production deployment behind load balancer; for local developer use, two-server pattern is self-contained |
 
 ---
 
@@ -84,246 +91,256 @@ poetry add filetype  # Only if extension-based detection proves insufficient
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| watchdog / inotify | File watching deferred to future optimization milestone per PROJECT.md | Manual reindex triggered by CLI |
-| MD5 hashing | Collision attacks make it unsuitable for integrity checks | hashlib SHA256 |
-| Separate manifest database | Adds complexity, PostgreSQL not required for this | JSONL file in state directory |
-| Custom metadata extractor implementations | LlamaIndex already provides 5+ extractors with LLM backing | LlamaIndex SummaryExtractor, TitleExtractor, etc. |
-| pymimetype or python-magic | Heavy dependencies (libmagic C library), overkill for extension-based filtering | stdlib mimetypes + existing LanguageDetector |
+| watchdog | Requires threading.Event bridge for asyncio; watchfiles is already in Uvicorn's dependency tree, zero cost; watchdog adds ~3MB and threading complexity | watchfiles awatch() |
+| diskcache | Last release 2023-08-31 (unmaintained); sync-only API requires run_in_executor in async context; adds C extension compile step | aiosqlite (async-native, stdlib-backed) |
+| Redis for caching | Adds external service dependency; violates local-first philosophy; overkill for single-process server | cachetools TTLCache (in-memory) + aiosqlite (persistent) |
+| celery / rq for background tasks | Heavy frameworks for simple asyncio task; existing JSONL job queue already handles indexing jobs | asyncio.create_task() wrapping watchfiles awatch() loop |
+| threading.Thread for watcher | Creates thread-safety complexity with asyncio event loop; watchfiles awatch() runs natively in the same event loop | watchfiles awatch() as asyncio background task |
+| aiocache | Adds dependency for use case that cachetools covers; aiocache's SQLite backend has poor async performance | cachetools + aiosqlite separately |
 
 ---
 
-## Implementation Patterns
+## Integration Patterns
 
-### Pattern 1: File Manifest Tracking
+### Pattern 1: watchfiles Per-Folder Watcher with Debounce
 
-**What:** JSONL file storing indexed file metadata (path, hash, mtime, indexed_at)
-**When:** Every index operation
-**Example:**
 ```python
-import json
+import asyncio
+from watchfiles import awatch, Change
+
+async def folder_watcher(
+    folders: list[str],
+    debounce_ms: int = 30_000,  # 30s default per PROJECT.md spec
+    watch_filter: callable = None,
+) -> None:
+    """Watch multiple folders; yield batched changes with debounce."""
+    async for changes in awatch(
+        *folders,
+        debounce=debounce_ms,     # watchfiles native debounce (ms)
+        watch_filter=watch_filter,
+        recursive=True,
+    ):
+        # changes is set[tuple[Change, str]] — batched by debounce window
+        paths_changed = {path for _, path in changes}
+        await trigger_incremental_index(paths_changed)
+```
+
+**Per-folder read-only vs auto-reindex config** is handled at the application layer:
+- Load folder config (already stored in JSONL manifest/folder config from v7.0)
+- Filter `changes` set to exclude paths under read-only folders before calling indexer
+- watchfiles itself watches all paths; the routing decision is a Python dict lookup
+
+### Pattern 2: Persistent Embedding Cache with aiosqlite
+
+```python
+import asyncio
 import hashlib
+import json
+import aiosqlite
 from pathlib import Path
 
-def compute_file_hash(file_path: Path) -> str:
-    """SHA256 hash of file content in 64KB chunks."""
-    hasher = hashlib.sha256()
-    with file_path.open("rb") as f:
-        while chunk := f.read(65536):
-            hasher.update(chunk)
-    return hasher.hexdigest()
+class EmbeddingCache:
+    """SHA256 content hash → embedding vector, persisted in SQLite."""
 
-def append_to_manifest(manifest_path: Path, file_path: Path, hash: str):
-    """Append file record to JSONL manifest."""
-    record = {
-        "file_path": str(file_path.absolute()),
-        "hash": hash,
-        "mtime": file_path.stat().st_mtime,
-        "indexed_at": datetime.now(timezone.utc).isoformat()
-    }
-    with manifest_path.open("a") as f:
-        f.write(json.dumps(record) + "\n")
-```
+    def __init__(self, cache_path: Path) -> None:
+        self._path = cache_path
+        self._db: aiosqlite.Connection | None = None
 
-**Why this works:**
-- JSONL append-safe (crash recovery)
-- Line-by-line reading doesn't load entire manifest into memory
-- SHA256 detects renames, moves, content changes
-- mtime provides fast pre-filter before hashing
-
-### Pattern 2: File Type Presets
-
-**What:** Predefined extension sets for common use cases
-**When:** User wants "just markdown" or "just code" without listing extensions
-**Example:**
-```python
-FILE_TYPE_PRESETS = {
-    "markdown": {".md", ".markdown"},
-    "text": {".txt", ".md", ".rst"},
-    "code": DocumentLoader.CODE_EXTENSIONS,  # Already defined: 25+ extensions
-    "docs": DocumentLoader.DOCUMENT_EXTENSIONS,  # Already defined: 6 extensions
-    "python": {".py", ".pyw", ".pyi"},
-    "typescript": {".ts", ".tsx"},
-    "javascript": {".js", ".jsx", ".mjs", ".cjs"},
-    "all": DocumentLoader.SUPPORTED_EXTENSIONS,  # 31+ extensions
-}
-
-def resolve_presets(presets: list[str]) -> set[str]:
-    """Convert preset names to extension set."""
-    extensions = set()
-    for preset in presets:
-        extensions.update(FILE_TYPE_PRESETS.get(preset, set()))
-    return extensions
-```
-
-**Why this works:**
-- Reuses existing DocumentLoader extension definitions
-- No new dependencies
-- User-friendly names instead of glob patterns
-- Composable (e.g., `["python", "markdown"]`)
-
-### Pattern 3: Chunk Eviction by Source
-
-**What:** Remove all chunks from a specific file path
-**When:** File deleted, moved, or changed (before reindexing)
-**Example:**
-```python
-# ChromaDB backend
-async def evict_chunks_by_source(self, file_path: str) -> int:
-    """Delete all chunks from a specific source file."""
-    collection = self.vector_store.get_collection()
-    # Query by metadata filter
-    results = collection.get(where={"file_path": file_path})
-    if results["ids"]:
-        collection.delete(ids=results["ids"])
-    return len(results["ids"])
-
-# PostgreSQL backend
-async def evict_chunks_by_source(self, file_path: str) -> int:
-    """Delete all chunks from a specific source file."""
-    async with self.conn_manager.get_session() as session:
-        result = await session.execute(
-            text("DELETE FROM documents WHERE metadata->>'file_path' = :path"),
-            {"path": file_path}
+    async def initialize(self) -> None:
+        self._db = await aiosqlite.connect(self._path)
+        await self._db.execute("""
+            CREATE TABLE IF NOT EXISTS embeddings (
+                content_hash TEXT PRIMARY KEY,
+                model_id      TEXT NOT NULL,
+                embedding     BLOB NOT NULL,
+                created_at    REAL NOT NULL
+            )
+        """)
+        await self._db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_model ON embeddings(model_id)"
         )
-        return result.rowcount
+        await self._db.commit()
+
+    @staticmethod
+    def content_hash(text: str, model_id: str) -> str:
+        """Cache key: SHA256(content + model_id) — model change invalidates."""
+        return hashlib.sha256(f"{model_id}:{text}".encode()).hexdigest()
+
+    async def get(self, text: str, model_id: str) -> list[float] | None:
+        hash_key = self.content_hash(text, model_id)
+        async with self._db.execute(
+            "SELECT embedding FROM embeddings WHERE content_hash = ? AND model_id = ?",
+            (hash_key, model_id),
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return json.loads(row[0])
+        return None
+
+    async def put(self, text: str, model_id: str, embedding: list[float]) -> None:
+        hash_key = self.content_hash(text, model_id)
+        import time
+        await self._db.execute(
+            "INSERT OR REPLACE INTO embeddings VALUES (?, ?, ?, ?)",
+            (hash_key, model_id, json.dumps(embedding), time.time()),
+        )
+        await self._db.commit()
 ```
 
-**Why this works:**
-- Metadata already stored with every chunk (file_path field)
-- Both ChromaDB and PostgreSQL support metadata filtering
-- Idempotent (safe to call multiple times)
-- Enables "live reindex" workflow (evict → reindex)
+### Pattern 3: In-Memory Query Cache with TTL
 
-### Pattern 4: Content Enrichment Pipeline
-
-**What:** Optional LLM-based metadata extraction during indexing
-**When:** User wants enhanced summaries, Q&A pairs, or custom metadata
-**Example:**
 ```python
-from llama_index.core.extractors import (
-    SummaryExtractor,
-    QuestionsAnsweredExtractor,
-    TitleExtractor
-)
+import asyncio
+from cachetools import TTLCache
 
-# Already exists in agent_brain_server/indexing/chunking.py
-# User configures via YAML which extractors to enable
-def build_enrichment_pipeline(config: dict) -> list[BaseExtractor]:
-    """Build metadata extractor pipeline from config."""
-    extractors = []
-    if config.get("enable_summaries"):
-        extractors.append(SummaryExtractor(llm=get_llm()))
-    if config.get("enable_questions"):
-        extractors.append(QuestionsAnsweredExtractor(llm=get_llm()))
-    if config.get("enable_titles"):
-        extractors.append(TitleExtractor(llm=get_llm()))
-    return extractors
+class QueryCache:
+    """In-memory LRU+TTL cache for query results."""
 
-# Apply during chunking
-def enrich_chunks(chunks: list[TextNode], extractors: list[BaseExtractor]):
-    """Apply metadata extractors to chunks."""
-    for extractor in extractors:
-        chunks = extractor.process_nodes(chunks)
-    return chunks
+    def __init__(self, maxsize: int = 512, ttl: int = 300) -> None:
+        self._cache: TTLCache = TTLCache(maxsize=maxsize, ttl=ttl)
+        self._lock = asyncio.Lock()  # asyncio.Lock for async safety
+
+    def _cache_key(self, query: str, mode: str, top_k: int) -> str:
+        return f"{mode}:{top_k}:{query}"
+
+    async def get(self, query: str, mode: str, top_k: int) -> list | None:
+        async with self._lock:
+            return self._cache.get(self._cache_key(query, mode, top_k))
+
+    async def put(self, query: str, mode: str, top_k: int, results: list) -> None:
+        async with self._lock:
+            self._cache[self._cache_key(query, mode, top_k)] = results
+
+    async def invalidate_all(self) -> None:
+        """Call after any indexing operation to prevent stale results."""
+        async with self._lock:
+            self._cache.clear()
 ```
 
-**Why this works:**
-- LlamaIndex extractors already battle-tested
-- Uses existing provider infrastructure (OpenAI, Anthropic, Ollama, etc.)
-- Configurable via YAML (matches v3.0 pluggable provider pattern)
-- No new dependencies
+**TTL invalidation strategy**: Clear entire query cache on every index write.
+Query results reference chunk IDs that may be evicted/replaced during indexing.
+Cache hit rates remain high for read-heavy developer workflows between index runs.
 
----
+### Pattern 4: Dual TCP + UDS Transport
 
-## Version Compatibility
+Uvicorn does NOT support single-instance dual binding. The solution is two `uvicorn.Server` instances sharing the same FastAPI app object:
 
-| Package | Compatible With | Notes |
-|---------|-----------------|-------|
-| hashlib (stdlib) | Python 3.10+ | SHA256 available since Python 2.5, no compatibility issues |
-| json (stdlib) | Python 3.10+ | JSONL line-by-line processing standard pattern |
-| llama-index-core ^0.14.0 | SummaryExtractor, QuestionsAnsweredExtractor | Already in pyproject.toml, metadata extractors stable API |
-| ChromaDB ^0.5.0 | Metadata filtering with `where` clause | Already validated in existing backend |
-| PostgreSQL/pgvector | JSONB metadata queries with `->>'` operator | Already validated in v6.0 milestone |
+```python
+import asyncio
+import uvicorn
+from app.main import app  # single FastAPI app instance
 
----
+async def serve_dual_transport(
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    uds_path: str = "/tmp/agent-brain.sock",
+) -> None:
+    """Run both TCP (for health/remote) and UDS (for local speed)."""
+    tcp_config = uvicorn.Config(app, host=host, port=port, log_level="warning")
+    uds_config = uvicorn.Config(app, uds=uds_path, log_level="warning")
 
-## Anti-Patterns to Avoid
+    tcp_server = uvicorn.Server(tcp_config)
+    uds_server = uvicorn.Server(uds_config)
 
-### Anti-Pattern 1: Embedding Cache with Content Hashing
-**What:** Reusing embeddings when file content unchanged
-**Why bad:** Out of scope for v7.0 per PROJECT.md "Out of Scope" section
-**Instead:** Track changes with manifest, evict + reindex on change
+    # Run both; stop when either exits (e.g., SIGTERM)
+    done, pending = await asyncio.wait(
+        [
+            asyncio.create_task(tcp_server.serve()),
+            asyncio.create_task(uds_server.serve()),
+        ],
+        return_when=asyncio.FIRST_COMPLETED,
+    )
+    for task in pending:
+        task.cancel()
+```
 
-### Anti-Pattern 2: Real-time File Watching
-**What:** Using watchdog to auto-reindex on file changes
-**Why bad:** Deferred to future optimization milestone per PROJECT.md
-**Instead:** CLI-triggered reindex with manifest-based change detection
+**CLI UDS client** uses httpx transport override:
+```python
+import httpx
 
-### Anti-Pattern 3: Custom Metadata Extractors from Scratch
-**What:** Writing LLM prompts manually for chunk enrichment
-**Why bad:** LlamaIndex extractors already optimized, tested, configurable
-**Instead:** Use LlamaIndex SummaryExtractor, QuestionsAnsweredExtractor, TitleExtractor
-
-### Anti-Pattern 4: Database for Manifest Tracking
-**What:** Storing file manifest in PostgreSQL or ChromaDB
-**Why bad:** Adds coupling, complexity, no clear benefit over JSONL
-**Instead:** JSONL file in state directory (crash-safe, line-by-line, human-readable)
+def get_httpx_client(uds_path: str | None = None) -> httpx.AsyncClient:
+    """Return async client that prefers UDS when available locally."""
+    if uds_path and Path(uds_path).exists():
+        transport = httpx.AsyncHTTPTransport(uds=uds_path)
+        # URL host is ignored for UDS; use placeholder
+        return httpx.AsyncClient(transport=transport, base_url="http://agent-brain")
+    return httpx.AsyncClient(base_url="http://127.0.0.1:8000")
+```
 
 ---
 
 ## Stack Patterns by Variant
 
-**If user wants offline operation:**
-- Use hashlib (stdlib) for change detection — no network required
-- Use Ollama provider (already supported) for content enrichment
-- JSONL manifest (stdlib) — no database needed
+**If offline / Ollama-only deployment:**
+- All patterns apply unchanged — aiosqlite, cachetools, watchfiles are pure Python or Rust, no network required
+- Embedding cache hit rate is especially high: Ollama models are deterministic for same content
 
-**If user wants maximum performance:**
-- mtime pre-filter before SHA256 hashing (skip hash if mtime unchanged)
-- Batch eviction queries (delete multiple sources in one call)
-- Optional: LlamaIndex extractors run only on new/changed files
+**If performance is critical:**
+- Increase `TTLCache(maxsize=1024)` for busier query patterns
+- Use `debounce=5000` (5s) instead of 30s for faster developer feedback when latency matters more than API cost
+- UDS transport is ~20% lower latency than TCP loopback for local CLI calls
 
-**If user wants minimal dependencies:**
-- Use ONLY stdlib (hashlib, json, pathlib) — no external packages
-- Disable content enrichment (LLM-based metadata extraction)
-- Extension-based filtering (no filetype library)
+**If running on Linux without inotify:**
+- Set `force_polling=True` in `awatch()` — watchfiles falls back to polling automatically, but explicit is safer in container/CI environments
+
+**If running on macOS development machine:**
+- FSEvents (macOS-native) is used automatically by watchfiles Rust backend
+- No special configuration needed
 
 ---
 
-## Open Questions (RESEARCH GAPS)
+## Version Compatibility
 
-None. All v7.0 features can be implemented with:
-1. Python stdlib (hashlib, json, pathlib)
-2. Existing LlamaIndex metadata extractors
-3. Existing ChromaDB/PostgreSQL metadata filtering
+| Package | Version | Compatible With | Notes |
+|---------|---------|-----------------|-------|
+| watchfiles ^1.1.1 | Python 3.9–3.14 | uvicorn ^0.18+ (transitive dep match) | Already in dependency graph; verify with `poetry show watchfiles` before explicit add |
+| aiosqlite ^0.20.0 | Python 3.8+ | asyncio (stdlib) | Pure Python async wrapper; no C extensions; compatible with Python 3.10 server venv |
+| cachetools ^7.0.3 | Python 3.8+ | asyncio.Lock (stdlib) | Thread lock not sufficient for async; must pair with asyncio.Lock, not threading.Lock |
+| types-cachetools | matches cachetools | mypy strict | Required for mypy strict mode; add to dev dependencies group |
+| httpx ^0.27 (existing) | Python 3.8+ | httpx.AsyncHTTPTransport(uds=...) | UDS transport is built-in; no separate package needed |
 
-**Next Steps:**
-- Roadmap creator will structure phases
-- Implementation will reuse existing patterns (JSONL queue, provider config, metadata storage)
+---
+
+## What Already Exists (DO NOT ADD)
+
+| Capability | Already Available | Location |
+|------------|-------------------|----------|
+| JSONL job queue for indexing | `services/job_queue.py` | Background index jobs dispatched here |
+| Folder config storage | JSONL manifest from v7.0 | Per-folder metadata already persisted |
+| httpx async client | `agent-brain-cli` deps | Just needs UDS transport configuration |
+| asyncio task infrastructure | stdlib | `asyncio.create_task()` for background watcher |
+| SHA256 content hashing | `hashlib` stdlib via v7.0 | ManifestTracker already uses SHA256 |
+| Incremental indexing logic | `services/indexing_service.py` | Watcher calls existing IndexingService |
+
+---
+
+## Open Questions / Research Gaps
+
+1. **watchfiles as explicit dep vs transitive**: Must verify with `poetry show watchfiles` in agent-brain-server venv before deciding whether to add explicitly. If already present as transitive dep of uvicorn, explicit pin preferred for stability.
+
+2. **SQLite WAL mode for embedding cache**: Under concurrent read/write during indexing, WAL mode (`PRAGMA journal_mode=WAL`) may be needed. Test with concurrent aiosqlite connections before shipping.
+
+3. **Query cache invalidation granularity**: Current recommendation is full cache clear on any write. If write-heavy use cases emerge, per-folder invalidation keyed by folder path would reduce cache churn. Defer until profiling shows it matters.
+
+4. **UDS socket file path**: Must be stored in `runtime.json` (existing per-instance state file from v2.0 MULTI features) so CLI can discover the socket path without configuration.
 
 ---
 
 ## Sources
 
-**File Content Hashing:**
-- [Python hashlib — Secure hashes and message digests](https://docs.python.org/3/library/hashlib.html) — Official stdlib documentation
-- [How To Detect File Changes Using Python - GeeksforGeeks](https://www.geeksforgeeks.org/python/how-to-detect-file-changes-using-python/) — SHA256 + mtime pattern
-- [How to Hash Files in Python - Nitratine](https://nitratine.net/blog/post/how-to-hash-files-in-python/) — Chunked hashing for large files
-
-**MIME Type Detection:**
-- [mimetypes — Map filenames to MIME types](https://docs.python.org/3/library/mimetypes.html) — Stdlib option for extension-based detection
-- [filetype · PyPI](https://pypi.org/project/filetype/) — Lightweight alternative if content-based detection needed
-
-**LlamaIndex Metadata Extraction:**
-- [Metadata Extraction | LlamaIndex Python Documentation](https://docs.llamaindex.ai/en/stable/module_guides/indexing/metadata_extraction/) — SummaryExtractor, QuestionsAnsweredExtractor, TitleExtractor
-- [Metadata Extraction Usage Pattern | LlamaIndex Python Documentation](https://docs.llamaindex.ai/en/stable/module_guides/loading/documents_and_nodes/usage_metadata_extractor/) — Integration with chunking pipeline
-
-**JSONL Best Practices:**
-- [How to Read and Parse JSONL Files in Python - Tim Santeford](https://www.timsanteford.com/posts/how-to-read-and-parse-jsonl-files-in-python/) — Line-by-line processing pattern
-- [JSONL for Developers: Complete Guide to JSON Lines Format - JSONL Tools](https://jsonltools.com/jsonl-for-developers) — Append-safe writes for crash recovery
+- [watchfiles PyPI — v1.1.1](https://pypi.org/project/watchfiles/) — version, Python support matrix
+- [watchfiles awatch API docs](https://watchfiles.helpmanual.io/api/watch/) — debounce parameter (default 1600ms), watch_filter, recursive, force_polling
+- [GitHub samuelcolvin/watchfiles](https://github.com/samuelcolvin/watchfiles) — Rust-backed via notify crate; Uvicorn replaced watchdog with watchfiles since v0.18
+- [aiosqlite PyPI — v0.20](https://pypi.org/project/aiosqlite/) — async SQLite wrapper, Python 3.8+ support
+- [cachetools PyPI — v7.0.3](https://pypi.org/project/cachetools/) — released 2026-03-05, TTLCache API
+- [cachetools readthedocs v7.0.3](https://cachetools.readthedocs.io/en/stable/) — TTLCache(maxsize, ttl), thread safety note: NOT thread-safe, requires Lock
+- [Uvicorn Settings docs](https://www.uvicorn.org/settings/) — `--uds` parameter for Unix domain socket binding; mutually exclusive with `--host/--port`
+- [Multiple uvicorn instances gist](https://gist.github.com/tenuki/ff67f87cba5c4c04fd08d9c800437477) — asyncio.gather() pattern for dual TCP+UDS serving
+- [HTTPX Transports docs](https://www.python-httpx.org/advanced/transports/) — `httpx.AsyncHTTPTransport(uds=...)` for UDS client connections
+- [diskcache PyPI — v5.6.3](https://pypi.org/project/diskcache/) — last release 2023-08-31, sync-only (eliminated in favor of aiosqlite)
 
 ---
 
-*Stack research for: v7.0 Index Management & Content Pipeline*
-*Researched: 2026-02-23*
-*Confidence: HIGH — All findings verified against existing codebase and official documentation*
+*Stack research for: v8.0 Performance & Developer Experience (file watching, caching, UDS transport)*
+*Researched: 2026-03-06*
+*Confidence: HIGH for watchfiles/aiosqlite/cachetools; MEDIUM for dual UDS+TCP server pattern (asyncio.gather approach confirmed via community gist, not official Uvicorn docs)*
