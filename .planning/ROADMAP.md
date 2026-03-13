@@ -128,8 +128,8 @@ Plans:
 **Plans:** TBD
 
 Plans:
-- [ ] 17-01: QueryCache service (cachetools TTLCache + asyncio.Lock, index_generation counter, graph/multi exclusion, invalidate_all on job DONE)
-- [ ] 17-02: Integration into QueryService + JobWorker; cache hit/miss metrics in /health/status; env var config; config documentation
+- [x] 17-01: QueryCache service (cachetools TTLCache + asyncio.Lock, index_generation counter, graph/multi exclusion, invalidate_all on job DONE)
+- [x] 17-02: Integration into QueryService + JobWorker; cache hit/miss metrics in /health/status; env var config; config documentation
 
 ---
 
