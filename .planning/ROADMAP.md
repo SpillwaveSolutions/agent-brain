@@ -220,6 +220,26 @@ Feature 101: AST-aware code ingestion, code summaries
 - 114: Agent Brain plugin
 - 115: Server-side job queue
 
+### Phase 20: Plugin skill next-step hints should suggest slash commands
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 19
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 20 to break down)
+
+### Phase 21: Fix duplicate chunk ID crash during indexing
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 20
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 21 to break down)
+
 ---
 *Roadmap created: 2026-02-07*
 *Last updated: 2026-03-12 — Phase 17 planned: 2 plans in 2 waves*

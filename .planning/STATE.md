@@ -112,6 +112,10 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 - Phase 17 (Query Cache): Requires Phase 15 (watcher generates reindex events needing cache invalidation) + Phase 16 (index_generation counter)
 - Phase 18 (UDS + Quality Gate): Ship last — touches api/main.py server startup (widest blast radius)
 
+### Roadmap Evolution
+- Phase 20 added: Plugin skill next-step hints should suggest slash commands (not just CLI commands)
+- Phase 21 added: Fix duplicate chunk ID crash during indexing (ChromaDB DuplicateIDError when duplicate files exist)
+
 ### Research Flags for Planning
 - Phase 15: watchfiles confirmed as transitive dep via Uvicorn (resolved)
 - Phase 16: aiosqlite WAL mode verified working under concurrent access (resolved)
