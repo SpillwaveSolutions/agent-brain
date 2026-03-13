@@ -66,6 +66,7 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 | Phase 16: Embedding Cache | 2 | 14 min total (10+4) | Complete |
 | Phase 19-plugin-and-skill-updates-for-embedding-cache-management P01 | 2 | 2 tasks | 6 files |
 | Phase 20-plugin-skill-next-step-hints-should-suggest-slash-commands P01 | 25 | 2 tasks | 32 files |
+| Phase 23: XDG migration + uninstall cleanup | 3 | ~50 min total | Complete |
 
 ## Accumulated Context
 
@@ -129,15 +130,22 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 ### Blockers/Concerns
 - Phase 18 UDS dual-server pattern is MEDIUM confidence (community-verified, not official Uvicorn docs)
 
+### Key Phase 23 Decisions
+- LEGACY_DIR constant uses Path.home() at module load, but migration functions call Path.home() dynamically for test mockability
+- Server provider_config.py inlines XDG logic (cannot import from CLI package)
+- migrate_legacy_paths() checks if XDG config OR state dir exists to skip double-migrate
+- storage_paths.resolve_shared_project_dir respects AGENT_BRAIN_SHARED_DIR then XDG_DATA_HOME
+- uninstall command uses shutil.rmtree(ignore_errors=True) for idempotent removal
+
 ### Pending Todos
 0 pending todos.
 
 ## Session Continuity
 
 **Last Session:** 2026-03-13T02:24:31.346Z
-**Stopped At:** Completed 20-01-PLAN.md
+**Stopped At:** Completed 23-03-PLAN.md
 **Resume File:** None
-**Next Action:** Phase 17 — Query Cache (freshness guarantees after auto-reindex)
+**Next Action:** Phase 24 — Setup agent permissions + helper script
 
 ---
 *State updated: 2026-03-10*
