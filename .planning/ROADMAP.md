@@ -271,6 +271,16 @@ Plans:
 Plans:
 - [ ] TBD (run /gsd:plan-phase 23 to break down)
 
+### Phase 24: Setup agent permissions and helper script to eliminate permission prompts
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 23
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 24 to break down)
+
 ---
 *Roadmap created: 2026-02-07*
 *Last updated: 2026-03-12 — Phase 22 planned: 2 plans in 2 waves*
