@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Performance & Developer Experience
-current_phase: 19
-current_plan: Not started
+current_phase: 22
+current_plan: 02
 status: completed
-stopped_at: Completed 19-01-PLAN.md
-last_updated: "2026-03-12T22:17:46.303Z"
-last_activity: "2026-03-10 — Phase 16 Plan 2 complete: `agent-brain cache` command group + embedding cache metrics in `agent-brain status` + 12 tests"
+stopped_at: Completed 22-02-PLAN.md
+last_updated: "2026-03-13T02:21:50.786Z"
+last_activity: "2026-03-12 — Phase 22 Plan 2 complete: Full interactive setup wizard with 6 AskUserQuestion blocks + 11 regression tests in test_plugin_wizard_spec.py"
 progress:
   total_phases: 5
   completed_phases: 3
@@ -16,21 +16,21 @@ progress:
 ---
 
 # Agent Brain — Project State
-**Last Updated:** 2026-03-10
+**Last Updated:** 2026-03-12
 **Current Milestone:** v8.0 Performance & Developer Experience
-**Status:** Milestone complete
-**Current Phase:** 19
-**Total Phases:** 4 (Phases 15-18)
-**Current Plan:** Not started
+**Status:** Phase 22 complete
+**Current Phase:** 22
+**Total Phases:** Phase 22 complete
+**Current Plan:** 02 of 02
 **Total Plans in Phase:** 2
 
 ## Current Position
-Phase: 16 of 18 (Embedding Cache)
+Phase: 22 (Restore Setup Wizard with Full Configuration Prompts)
 Plan: 2 of 2
-Status: Phase 16 complete
-Last activity: 2026-03-10 — Phase 16 Plan 2 complete: `agent-brain cache` command group + embedding cache metrics in `agent-brain status` + 12 tests
+Status: Phase 22 complete
+Last activity: 2026-03-12 — Phase 22 Plans 1+2 complete: Full interactive wizard in agent-brain-setup.md (6 AskUserQuestion blocks for embedding, summarization, storage, GraphRAG, query mode, config.yaml write) + 11 regression tests in test_plugin_wizard_spec.py
 
-**Progress (v8.0):** [█████░░░░░] 50%
+**Progress (v8.0):** [██████████] 100%
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-06)
@@ -65,6 +65,7 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 | Phase 15: File Watcher & BGINC | 2 | 13 min total (7+6) | Complete |
 | Phase 16: Embedding Cache | 2 | 14 min total (10+4) | Complete |
 | Phase 19-plugin-and-skill-updates-for-embedding-cache-management P01 | 2 | 2 tasks | 6 files |
+| Phase 22: Restore Setup Wizard with Full Config Prompts | 2 | ~15 min | Complete |
 
 ## Accumulated Context
 
@@ -112,6 +113,14 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 - Phase 17 (Query Cache): Requires Phase 15 (watcher generates reindex events needing cache invalidation) + Phase 16 (index_generation counter)
 - Phase 18 (UDS + Quality Gate): Ship last — touches api/main.py server startup (widest blast radius)
 
+### Key Phase 22 Decisions (Restore Setup Wizard)
+- query.default_mode written as YAML comment only — server has no global default_mode config key; mode is per-request via --mode flag
+- Python yaml.dump used for safe config.yaml serialization in wizard write step — avoids manual YAML string quoting errors
+- chmod 600 applied automatically after config.yaml write — security enforcement without extra user steps
+- Wizard detects existing config and offers update/fresh/skip — preserves user's existing configuration
+- autouse pytest fixture skips wizard regression tests if plugin dir not found — graceful CI degradation
+- 11 regression tests instead of planned 10 — added test_setup_wizard_writes_config_yaml for config.yaml write step coverage
+
 ### Research Flags for Planning
 - Phase 15: watchfiles confirmed as transitive dep via Uvicorn (resolved)
 - Phase 16: aiosqlite WAL mode verified working under concurrent access (resolved)
@@ -125,10 +134,10 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 
 ## Session Continuity
 
-**Last Session:** 2026-03-12T22:14:31.220Z
-**Stopped At:** Completed 19-01-PLAN.md
+**Last Session:** 2026-03-13T02:21:50.784Z
+**Stopped At:** Completed 22-02-PLAN.md
 **Resume File:** None
-**Next Action:** Phase 17 — Query Cache (freshness guarantees after auto-reindex)
+**Next Action:** Phase 23 — XDG Migration and Uninstall Cleanup
 
 ---
 *State updated: 2026-03-10*
