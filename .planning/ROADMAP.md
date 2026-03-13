@@ -249,14 +249,18 @@ Plans:
 
 ### Phase 22: Restore setup wizard with full configuration prompts
 
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 21
-**Plans:** 0 plans
+**Goal:** `/agent-brain-setup` is a complete interactive wizard that asks about embedding provider, summarization provider, storage backend, GraphRAG, and default query mode before writing a comprehensive config.yaml and running init/start. A regression test prevents future wizard degradation.
+
+**Requirements:** WIZARD-01, WIZARD-02, WIZARD-03, WIZARD-04, WIZARD-05, WIZARD-06
+
+**Depends on:** None (plugin markdown + regression test only, no server changes)
+
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 22 to break down)
+- [ ] 22-01-PLAN.md — Full wizard steps in /agent-brain-setup (embedding, summarization, storage, GraphRAG, query mode) + SKILL.md and config guide updates
+- [ ] 22-02-PLAN.md — Regression test (test_plugin_wizard_spec.py) asserting all wizard sections present in command files
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-12 — Phase 20 planned: 1 plan in 1 wave*
+*Last updated: 2026-03-12 — Phase 22 planned: 2 plans in 2 waves*
