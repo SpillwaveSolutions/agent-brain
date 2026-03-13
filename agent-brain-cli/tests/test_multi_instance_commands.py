@@ -244,6 +244,101 @@ class TestCLIIntegration:
         assert (temp_project / ".claude" / "agent-brain" / "config.json").exists()
 
 
+class TestXdgRegistryPaths:
+    """Tests for XDG path usage in registry operations."""
+
+    def test_registry_uses_xdg_state_dir(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """update_registry writes to XDG state dir, not legacy ~/.agent-brain."""
+        from agent_brain_cli.commands.start import update_registry
+
+        project_root = tmp_path / "project"
+        project_root.mkdir()
+        state_dir = project_root / ".claude" / "agent-brain"
+        state_dir.mkdir(parents=True)
+
+        xdg_state = tmp_path / "xdg_state" / "agent-brain"
+
+        with patch(
+            "agent_brain_cli.commands.start.get_xdg_state_dir",
+            return_value=xdg_state,
+        ):
+            update_registry(project_root, state_dir)
+
+        # Should write to XDG dir, NOT legacy
+        registry_file = xdg_state / "registry.json"
+        assert registry_file.exists()
+        registry = json.loads(registry_file.read_text())
+        assert str(project_root) in registry
+
+    def test_remove_registry_uses_xdg_path(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """remove_from_registry reads from XDG path via get_registry_path."""
+        from agent_brain_cli.commands.stop import remove_from_registry
+
+        project_root = tmp_path / "project"
+        project_root.mkdir()
+
+        # Create a registry at a controlled path
+        xdg_registry = tmp_path / "xdg_state" / "agent-brain" / "registry.json"
+        xdg_registry.parent.mkdir(parents=True)
+        xdg_registry.write_text(
+            json.dumps(
+                {
+                    str(project_root): {
+                        "state_dir": str(tmp_path),
+                        "project_name": "test",
+                    }
+                }
+            )
+        )
+
+        with patch(
+            "agent_brain_cli.commands.stop.get_registry_path",
+            return_value=xdg_registry,
+        ):
+            remove_from_registry(project_root)
+
+        # Entry should be removed
+        registry = json.loads(xdg_registry.read_text())
+        assert str(project_root) not in registry
+
+    def test_start_triggers_migration(
+        self, runner: CliRunner, temp_project: Path
+    ) -> None:
+        """start_command calls migrate_legacy_paths() early in execution."""
+        # Initialize the project first
+        runner.invoke(init_command, ["--path", str(temp_project)])
+
+        with patch(
+            "agent_brain_cli.commands.start.migrate_legacy_paths"
+        ) as mock_migrate:
+            mock_migrate.return_value = False
+            # Start will fail (no actual server) but migration should be called
+            runner.invoke(
+                start_command,
+                ["--path", str(temp_project), "--timeout", "1"],
+            )
+            mock_migrate.assert_called_once()
+
+    def test_init_triggers_migration(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """init_command calls migrate_legacy_paths() early in execution."""
+        project = tmp_path / "new_project"
+        project.mkdir()
+        (project / "pyproject.toml").write_text("[tool.poetry]\nname = 'test'\n")
+
+        with patch(
+            "agent_brain_cli.commands.init.migrate_legacy_paths"
+        ) as mock_migrate:
+            mock_migrate.return_value = False
+            runner.invoke(init_command, ["--path", str(project)])
+            mock_migrate.assert_called_once()
+
+
 class TestProjectRootResolution:
     """Tests for project root resolution in commands."""
 

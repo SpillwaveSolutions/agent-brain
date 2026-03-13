@@ -10,6 +10,8 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+from agent_brain_cli.xdg_paths import get_registry_path, get_xdg_state_dir
+
 console = Console()
 
 RUNTIME_FILE = "runtime.json"
@@ -50,7 +52,7 @@ def check_health(base_url: str, timeout: float = 2.0) -> bool:
 
 def get_registry() -> dict[str, Any]:
     """Load the global registry of Agent Brain projects."""
-    registry_path = Path.home() / ".agent-brain" / "registry.json"
+    registry_path = get_registry_path()
     if not registry_path.exists():
         return {}
     try:
@@ -62,7 +64,7 @@ def get_registry() -> dict[str, Any]:
 
 def save_registry(registry: dict[str, Any]) -> None:
     """Save the global registry."""
-    registry_dir = Path.home() / ".agent-brain"
+    registry_dir = get_xdg_state_dir()
     registry_dir.mkdir(parents=True, exist_ok=True)
     registry_path = registry_dir / "registry.json"
     registry_path.write_text(json.dumps(registry, indent=2))

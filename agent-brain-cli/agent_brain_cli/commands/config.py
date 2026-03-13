@@ -2,12 +2,15 @@
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
 import click
 from rich.console import Console
 from rich.table import Table
+
+from agent_brain_cli.xdg_paths import get_xdg_config_dir
 
 console = Console()
 
@@ -20,8 +23,8 @@ def _find_config_file() -> Path | None:
     2. State directory config.yaml (if AGENT_BRAIN_STATE_DIR set)
     3. Current directory config.yaml
     4. Walk up from CWD looking for .claude/agent-brain/config.yaml
-    5. User home ~/.agent-brain/config.yaml
-    6. XDG config ~/.config/agent-brain/config.yaml
+    5. XDG config ~/.config/agent-brain/config.yaml (preferred)
+    6. Legacy ~/.agent-brain/config.yaml (deprecated, prints warning)
 
     Returns:
         Path to config file or None if not found
@@ -54,15 +57,31 @@ def _find_config_file() -> Path | None:
             return claude_config
         current = current.parent
 
-    # 5. User home
+    # 5. XDG config (checked before legacy per XDG standard)
+    xdg_config_path = get_xdg_config_dir() / "config.yaml"
+    if xdg_config_path.exists():
+        return xdg_config_path
+
+    xdg_alt = get_xdg_config_dir() / "agent-brain.yaml"
+    if xdg_alt.exists():
+        return xdg_alt
+
+    # 6. Legacy path ~/.agent-brain/ (deprecated, fallback only)
     home_config = Path.home() / ".agent-brain" / "config.yaml"
     if home_config.exists():
+        sys.stderr.write(
+            "Warning: Using legacy config path ~/.agent-brain/config.yaml. "
+            "Run 'agent-brain start' to migrate to ~/.config/agent-brain/.\n"
+        )
         return home_config
 
-    # 6. XDG config
-    xdg_config = Path.home() / ".config" / "agent-brain" / "config.yaml"
-    if xdg_config.exists():
-        return xdg_config
+    home_alt = Path.home() / ".agent-brain" / "agent-brain.yaml"
+    if home_alt.exists():
+        sys.stderr.write(
+            "Warning: Using legacy config path ~/.agent-brain/agent-brain.yaml. "
+            "Run 'agent-brain start' to migrate to ~/.config/agent-brain/.\n"
+        )
+        return home_alt
 
     return None
 

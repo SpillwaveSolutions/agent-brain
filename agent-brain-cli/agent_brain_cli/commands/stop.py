@@ -12,6 +12,8 @@ from urllib.request import Request, urlopen
 import click
 from rich.console import Console
 
+from agent_brain_cli.xdg_paths import get_registry_path
+
 console = Console()
 
 STATE_DIR_NAME = ".claude/agent-brain"
@@ -121,7 +123,7 @@ def wait_for_process_exit(pid: int, timeout: float = 10.0) -> bool:
 
 def remove_from_registry(project_root: Path) -> None:
     """Remove project from global registry."""
-    registry_path = Path.home() / ".agent-brain" / "registry.json"
+    registry_path = get_registry_path()
     if not registry_path.exists():
         return
 

@@ -270,3 +270,64 @@ server:
         with patch.dict(os.environ, {}, clear=True):
             config = load_config(tmp_path)
             assert config.server.url == "http://project:8000"
+
+
+class TestXdgConfigPriority:
+    """Tests for XDG-first config search priority."""
+
+    def test_xdg_before_legacy(self, tmp_path: Path) -> None:
+        """XDG config path is checked before legacy ~/.agent-brain."""
+        from agent_brain_cli.config import _find_config_file
+
+        # Create config at both XDG and legacy locations
+        xdg_config_dir = tmp_path / "xdg_config" / "agent-brain"
+        xdg_config_dir.mkdir(parents=True)
+        xdg_config = xdg_config_dir / "config.yaml"
+        xdg_config.write_text("server:\n  url: http://xdg:8000\n")
+
+        legacy_dir = tmp_path / ".agent-brain"
+        legacy_dir.mkdir(parents=True)
+        legacy_config = legacy_dir / "config.yaml"
+        legacy_config.write_text("server:\n  url: http://legacy:8000\n")
+
+        # Remove all env var overrides and set XDG_CONFIG_HOME
+        env = {
+            k: v
+            for k, v in os.environ.items()
+            if k not in ("AGENT_BRAIN_CONFIG", "AGENT_BRAIN_STATE_DIR",
+                         "DOC_SERVE_STATE_DIR", "XDG_CONFIG_HOME")
+        }
+        env["XDG_CONFIG_HOME"] = str(tmp_path / "xdg_config")
+        with patch.dict(os.environ, env, clear=True):
+            # Use a non-existent start_path to skip steps 2 and 3
+            result = _find_config_file(start_path=Path("/nonexistent/path/for/testing"))
+            # Should find XDG config
+            assert result == xdg_config
+
+    def test_legacy_fallback_when_no_xdg_config(self, tmp_path: Path) -> None:
+        """Legacy path used as fallback when XDG config doesn't exist."""
+        from agent_brain_cli.config import _find_config_file
+
+        # Only legacy config exists
+        legacy_dir = tmp_path / ".agent-brain"
+        legacy_dir.mkdir(parents=True)
+        legacy_config = legacy_dir / "config.yaml"
+        legacy_config.write_text("server:\n  url: http://legacy:8000\n")
+
+        # Set XDG_CONFIG_HOME to tmp_path/xdg (no config.yaml there)
+        xdg_dir = tmp_path / "xdg_config" / "agent-brain"
+        xdg_dir.mkdir(parents=True)  # dir exists but no config.yaml
+
+        env = {
+            k: v
+            for k, v in os.environ.items()
+            if k not in ("AGENT_BRAIN_CONFIG", "AGENT_BRAIN_STATE_DIR",
+                         "DOC_SERVE_STATE_DIR", "XDG_CONFIG_HOME")
+        }
+        env["XDG_CONFIG_HOME"] = str(tmp_path / "xdg_config")
+        with patch.dict(os.environ, env, clear=True):
+            with patch("pathlib.Path.home", return_value=tmp_path):
+                result = _find_config_file(
+                    start_path=Path("/nonexistent/path/for/testing")
+                )
+                assert result == legacy_config

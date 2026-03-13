@@ -15,6 +15,8 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 
+from agent_brain_cli.xdg_paths import get_xdg_state_dir, migrate_legacy_paths
+
 console = Console()
 
 STATE_DIR_NAME = ".claude/agent-brain"
@@ -145,7 +147,7 @@ def find_available_port(host: str, start_port: int, end_port: int) -> int | None
 
 def update_registry(project_root: Path, state_dir: Path) -> None:
     """Add project to global registry."""
-    registry_dir = Path.home() / ".agent-brain"
+    registry_dir = get_xdg_state_dir()
     registry_dir.mkdir(parents=True, exist_ok=True)
     registry_path = registry_dir / "registry.json"
 
@@ -223,6 +225,9 @@ def start_command(
       agent-brain start --path /my/project # Start for specific project
     """
     try:
+        # Trigger one-time migration from legacy ~/.agent-brain to XDG dirs
+        migrate_legacy_paths()
+
         # Resolve project root
         if path:
             project_root = Path(path).resolve()

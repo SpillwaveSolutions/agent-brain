@@ -7,6 +7,8 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 
+from agent_brain_cli.xdg_paths import migrate_legacy_paths
+
 console = Console()
 
 # Default configuration values for config.json (project settings only)
@@ -132,6 +134,9 @@ def init_command(
       agent-brain init --force                      # Overwrite existing config
     """
     try:
+        # Trigger one-time migration from legacy ~/.agent-brain to XDG dirs
+        migrate_legacy_paths()
+
         # Resolve project root
         if path:
             project_root = Path(path).resolve()

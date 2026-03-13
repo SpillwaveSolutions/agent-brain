@@ -6,11 +6,14 @@ allowing projects and users to configure Agent Brain without environment variabl
 
 import logging
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
 import yaml
 from pydantic import BaseModel, Field
+
+from agent_brain_cli.xdg_paths import get_xdg_config_dir
 
 logger = logging.getLogger(__name__)
 
@@ -155,18 +158,37 @@ def _find_config_file(start_path: Path | None = None) -> Path | None:
             return claude_config
         current = current.parent
 
-    # 4. User home ~/.agent-brain/
+    # 4. XDG config (checked before legacy per XDG standard)
+    xdg_config_path = get_xdg_config_dir() / "config.yaml"
+    if xdg_config_path.exists():
+        logger.debug(f"Using config from XDG: {xdg_config_path}")
+        return xdg_config_path
+
+    # Also check agent-brain.yaml in XDG dir
+    xdg_alt = get_xdg_config_dir() / "agent-brain.yaml"
+    if xdg_alt.exists():
+        logger.debug(f"Using config from XDG: {xdg_alt}")
+        return xdg_alt
+
+    # 5. Legacy path ~/.agent-brain/ (deprecated, fallback only)
     home = Path.home()
     home_config = home / ".agent-brain" / "config.yaml"
     if home_config.exists():
-        logger.debug(f"Using config from home: {home_config}")
+        logger.debug(f"Using config from legacy home: {home_config}")
+        sys.stderr.write(
+            "Warning: Using legacy config path ~/.agent-brain/config.yaml. "
+            "Run 'agent-brain start' to migrate to ~/.config/agent-brain/.\n"
+        )
         return home_config
 
-    # 5. XDG config
-    xdg_config = home / ".config" / "agent-brain" / "config.yaml"
-    if xdg_config.exists():
-        logger.debug(f"Using config from XDG: {xdg_config}")
-        return xdg_config
+    home_alt = home / ".agent-brain" / "agent-brain.yaml"
+    if home_alt.exists():
+        logger.debug(f"Using config from legacy home: {home_alt}")
+        sys.stderr.write(
+            "Warning: Using legacy config path ~/.agent-brain/agent-brain.yaml. "
+            "Run 'agent-brain start' to migrate to ~/.config/agent-brain/.\n"
+        )
+        return home_alt
 
     return None
 

@@ -294,8 +294,8 @@ def _find_config_file() -> Path | None:
     2. State directory config.yaml (if AGENT_BRAIN_STATE_DIR or DOC_SERVE_STATE_DIR set)
     3. Current directory config.yaml
     4. Walk up from CWD looking for .claude/agent-brain/config.yaml
-    5. User home ~/.agent-brain/config.yaml
-    6. XDG config ~/.config/agent-brain/config.yaml
+    5. XDG config ~/.config/agent-brain/config.yaml (preferred)
+    6. Legacy ~/.agent-brain/config.yaml (deprecated, logs warning)
 
     Returns:
         Path to config file or None if not found
@@ -333,17 +333,40 @@ def _find_config_file() -> Path | None:
             return claude_config
         current = current.parent
 
-    # 5. User home directory ~/.agent-brain/config.yaml
-    home_config = Path.home() / ".agent-brain" / "config.yaml"
-    if home_config.exists():
-        logger.debug(f"Found config in home directory: {home_config}")
-        return home_config
+    # 5. XDG config directory (checked before legacy per XDG standard)
+    # Server cannot import from CLI package — inline the XDG logic
+    xdg_config_home = os.environ.get("XDG_CONFIG_HOME")
+    if xdg_config_home:
+        xdg_config_dir = Path(xdg_config_home) / "agent-brain"
+    else:
+        xdg_config_dir = Path.home() / ".config" / "agent-brain"
 
-    # 6. XDG config directory ~/.config/agent-brain/config.yaml
-    xdg_config = Path.home() / ".config" / "agent-brain" / "config.yaml"
+    xdg_config = xdg_config_dir / "config.yaml"
     if xdg_config.exists():
         logger.debug(f"Found config in XDG config directory: {xdg_config}")
         return xdg_config
+
+    xdg_alt = xdg_config_dir / "agent-brain.yaml"
+    if xdg_alt.exists():
+        logger.debug(f"Found config in XDG config directory: {xdg_alt}")
+        return xdg_alt
+
+    # 6. Legacy path ~/.agent-brain/ (deprecated, fallback only)
+    home_config = Path.home() / ".agent-brain" / "config.yaml"
+    if home_config.exists():
+        logger.warning(
+            "Using legacy config path ~/.agent-brain/config.yaml. "
+            "Run 'agent-brain start' to migrate to ~/.config/agent-brain/."
+        )
+        return home_config
+
+    home_alt = Path.home() / ".agent-brain" / "agent-brain.yaml"
+    if home_alt.exists():
+        logger.warning(
+            "Using legacy config path ~/.agent-brain/agent-brain.yaml. "
+            "Run 'agent-brain start' to migrate to ~/.config/agent-brain/."
+        )
+        return home_alt
 
     return None
 

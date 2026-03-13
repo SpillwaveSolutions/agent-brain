@@ -1,6 +1,7 @@
 """State directory and storage path resolution."""
 
 import logging
+import os
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -67,12 +68,33 @@ def resolve_storage_paths(state_dir: Path) -> dict[str, Path]:
 def resolve_shared_project_dir(project_id: str) -> Path:
     """Resolve per-project storage under shared daemon.
 
+    Checks AGENT_BRAIN_SHARED_DIR env var first, then XDG_DATA_HOME/agent-brain,
+    falling back to ~/.local/share/agent-brain.
+
     Args:
         project_id: Unique project identifier.
 
     Returns:
         Path to shared project data directory.
     """
-    shared_dir = Path.home() / ".agent-brain" / "projects" / project_id / "data"
+    base_env = os.environ.get("AGENT_BRAIN_SHARED_DIR")
+    if base_env:
+        shared_dir = Path(base_env) / "projects" / project_id / "data"
+    else:
+        xdg_data_home = os.environ.get("XDG_DATA_HOME")
+        if xdg_data_home:
+            shared_dir = (
+                Path(xdg_data_home) / "agent-brain" / "projects" / project_id / "data"
+            )
+        else:
+            shared_dir = (
+                Path.home()
+                / ".local"
+                / "share"
+                / "agent-brain"
+                / "projects"
+                / project_id
+                / "data"
+            )
     shared_dir.mkdir(parents=True, exist_ok=True)
     return shared_dir
