@@ -391,6 +391,6 @@ Agent Brain installs these major dependencies:
 
 After installation:
 1. [Configure providers](configuration-guide.md) (API keys or Ollama)
-2. Initialize project: `agent-brain init`
-3. Start server: `agent-brain start`
-4. Index documents: `agent-brain index /path/to/docs`
+2. Initialize project: `/agent-brain:agent-brain-init`
+3. Start server: `/agent-brain:agent-brain-start`
+4. Index documents: `/agent-brain:agent-brain-index /path/to/docs`

@@ -466,7 +466,7 @@ export AGENT_BRAIN_URL="http://127.0.0.1:49321"
 ## Next Steps
 
 After configuration:
-1. Initialize project: `agent-brain init`
-2. Start server: `agent-brain start`
-3. Index documents: `agent-brain index /path/to/docs`
-4. Search: `agent-brain query "your search"`
+1. Initialize project: `/agent-brain:agent-brain-init`
+2. Start server: `/agent-brain:agent-brain-start`
+3. Index documents: `/agent-brain:agent-brain-index /path/to/docs`
+4. Search: `/agent-brain:agent-brain-search "your search"`

@@ -279,8 +279,8 @@ agent-brain stop              # Stop when done
 ```
 
 **Progress Checklist:**
-- [ ] `agent-brain init` succeeded
-- [ ] `agent-brain status` shows healthy
+- [ ] `/agent-brain:agent-brain-init` succeeded
+- [ ] `/agent-brain:agent-brain-status` shows healthy
 - [ ] Document count > 0
 - [ ] Query returns results (or "no matches" - not error)
 
@@ -288,11 +288,11 @@ agent-brain stop              # Stop when done
 
 | Command | Description |
 |---------|-------------|
-| `agent-brain init` | Initialize project config |
-| `agent-brain start` | Start with auto-port |
-| `agent-brain status` | Show port, mode, document count |
-| `agent-brain list` | List all running instances |
-| `agent-brain stop` | Graceful shutdown |
+| `/agent-brain:agent-brain-init` | Initialize project config |
+| `/agent-brain:agent-brain-start` | Start with auto-port |
+| `/agent-brain:agent-brain-status` | Show port, mode, document count |
+| `/agent-brain:agent-brain-list` | List all running instances |
+| `/agent-brain:agent-brain-stop` | Graceful shutdown |
 
 ### Pre-Query Validation
 
