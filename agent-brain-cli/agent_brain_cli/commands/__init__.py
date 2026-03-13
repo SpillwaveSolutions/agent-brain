@@ -14,6 +14,7 @@ from .start import start_command
 from .status import status_command
 from .stop import stop_command
 from .types import types_group
+from .uninstall import uninstall_command
 
 __all__ = [
     "cache_group",
@@ -30,4 +31,5 @@ __all__ = [
     "status_command",
     "stop_command",
     "types_group",
+    "uninstall_command",
 ]

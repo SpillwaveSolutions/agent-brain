@@ -22,6 +22,7 @@ from .commands import (
     status_command,
     stop_command,
     types_group,
+    uninstall_command,
 )
 
 
@@ -99,6 +100,7 @@ cli.add_command(config_group, name="config")
 cli.add_command(folders_group, name="folders")
 cli.add_command(types_group, name="types")
 cli.add_command(cache_group, name="cache")
+cli.add_command(uninstall_command, name="uninstall")
 
 
 if __name__ == "__main__":
