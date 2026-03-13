@@ -263,13 +263,17 @@ Plans:
 
 ### Phase 23: Migrate global config from ~/.agent-brain to ~/.config/agent-brain + uninstall cleanup
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** All global Agent Brain state lives under XDG-compliant paths (`~/.config/agent-brain/`, `~/.local/state/agent-brain/`), with auto-migration from `~/.agent-brain` on start/init, deprecation warnings on legacy fallback, and an `agent-brain uninstall` command for clean global removal.
+
+**Requirements:** XDG-01, XDG-02, XDG-03, MIG-01, MIG-02, MIG-03, CFG-01, CFG-02, REG-01, REG-02, REG-03, REG-04, UNI-01, UNI-02, UNI-03
+
 **Depends on:** Phase 22
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 23 to break down)
+- [ ] 23-01-PLAN.md — XDG path helper module (xdg_paths.py) with path resolution + migration logic + tests
+- [ ] 23-02-PLAN.md — Update all callers: config search priority flip, registry paths in start/stop/list/init, server storage_paths, deprecation warnings
+- [ ] 23-03-PLAN.md — `agent-brain uninstall` command with server auto-stop, confirmation prompt, global cleanup
 
 ### Phase 24: Setup agent permissions and helper script to eliminate permission prompts
 
@@ -293,4 +297,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-12 — Phase 22 planned: 2 plans in 2 waves*
+*Last updated: 2026-03-12 — Phase 23 planned: 3 plans in 2 waves*
