@@ -295,6 +295,33 @@ agent-brain start --project-dir /path/to/project
 
 ---
 
+## Query Cache Configuration
+
+Agent Brain caches query results in memory to avoid redundant storage lookups
+for repeated identical queries.  The cache is invalidated automatically whenever
+a reindex job completes, ensuring freshness after every index update.
+
+### Query Cache
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `QUERY_CACHE_TTL` | `300` | Time-to-live for cached query results in seconds. Set to a high value for mostly-static indexes, lower for frequently-updated ones. |
+| `QUERY_CACHE_MAX_SIZE` | `256` | Maximum number of query results to cache. When full, least-recently-used entries are evicted by TTLCache. |
+
+Notes:
+- Query cache is in-memory only (no disk persistence). Cache is empty after server restart.
+- `graph` and `multi` query modes are never cached (non-deterministic LLM extraction).
+- Cache is automatically invalidated on every successful reindex job completion.
+- Cache statistics are visible in the `/health/status` response under the `query_cache` key.
+
+```bash
+# Example: longer TTL for a static documentation server
+QUERY_CACHE_TTL=3600
+QUERY_CACHE_MAX_SIZE=512
+```
+
+---
+
 ## Storage Configuration
 
 ### Storage Backend Selection

@@ -204,6 +204,12 @@ async def indexing_status(request: Request) -> dict[str, Any]:
             # Non-blocking: don't fail status if cache stats error
             pass
 
+    # Query cache stats (Phase 17)
+    query_cache_info: dict[str, Any] | None = None
+    query_cache_svc = getattr(request.app.state, "query_cache", None)
+    if query_cache_svc is not None:
+        query_cache_info = query_cache_svc.get_stats()
+
     response = IndexingStatus(
         total_documents=service_status.get("total_documents", 0),
         total_chunks=total_chunks,
@@ -228,6 +234,8 @@ async def indexing_status(request: Request) -> dict[str, Any]:
         file_watcher=file_watcher_info,
         # Embedding cache status (Phase 16)
         embedding_cache=embedding_cache_info,
+        # Query cache status (Phase 17)
+        query_cache=query_cache_info,
     )
 
     # Always serialize via model_dump so we can narrowly omit

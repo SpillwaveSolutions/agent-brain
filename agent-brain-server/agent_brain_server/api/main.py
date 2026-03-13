@@ -331,6 +331,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.embedding_cache = embedding_cache
         logger.info("Embedding cache service initialized")
 
+        # Initialize query cache (Phase 17)
+        from agent_brain_server.services.query_cache import (
+            QueryCacheService,
+            set_query_cache,
+        )
+
+        query_cache = QueryCacheService(
+            ttl=settings.QUERY_CACHE_TTL,
+            max_size=settings.QUERY_CACHE_MAX_SIZE,
+        )
+        set_query_cache(query_cache)
+        app.state.query_cache = query_cache
+        logger.info(
+            "Query cache initialized (TTL=%ds, max_size=%d)",
+            settings.QUERY_CACHE_TTL,
+            settings.QUERY_CACHE_MAX_SIZE,
+        )
+
         # Load project config for exclude patterns
         exclude_patterns = None
         if state_dir:
@@ -386,6 +404,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # Create query service with storage_backend (Phase 9)
         query_service = QueryService(
             storage_backend=storage_backend,
+            query_cache=query_cache,
         )
         app.state.query_service = query_service
 
@@ -431,6 +450,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             # Wire JobWorker to FileWatcherService and FolderManager (Phase 15-02)
             _job_worker.set_file_watcher_service(_file_watcher)
             _job_worker.set_folder_manager(folder_manager)
+            # Wire JobWorker to QueryCacheService (Phase 17)
+            _job_worker.set_query_cache(query_cache)
         else:
             # No state directory - create minimal job service for backward compat
             # Jobs will not be persisted in this mode
@@ -474,6 +495,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             # Wire JobWorker to FileWatcherService and FolderManager (Phase 15-02)
             _job_worker.set_file_watcher_service(_file_watcher)
             _job_worker.set_folder_manager(folder_manager)
+            # Wire JobWorker to QueryCacheService (Phase 17)
+            _job_worker.set_query_cache(query_cache)
 
         # Set multi-instance metadata on app.state for health endpoint
         app.state.mode = mode
@@ -507,6 +530,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await _job_worker.stop()
         logger.info("Job worker stopped")
         _job_worker = None
+
+    # Reset query cache singleton (Phase 17)
+    from agent_brain_server.services.query_cache import reset_query_cache
+
+    reset_query_cache()
 
     # Close storage backend if it has a close method (PostgreSQL pool)
     shutdown_backend = getattr(app.state, "storage_backend", None)
