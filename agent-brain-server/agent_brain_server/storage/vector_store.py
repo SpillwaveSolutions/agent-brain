@@ -273,10 +273,35 @@ class VectorStoreManager:
         if not (len(ids) == len(embeddings) == len(documents)):
             raise ValueError("ids, embeddings, and documents must have the same length")
 
+        # Resolve metadatas before deduplication so the dict is keyed
+        # with the correct (emb, doc, meta) tuples.
+        safe_metadatas = metadatas or [{}] * len(ids)
+
+        # Deduplicate by ID with last-occurrence-wins semantics.
+        # This prevents ChromaDB's DuplicateIDError when two files in a
+        # corpus share the same filename (e.g. Confluence exports).
+        seen: dict[str, tuple[list[float], str, dict[str, Any]]] = {}
+        for id_, emb, doc, meta in zip(ids, embeddings, documents, safe_metadatas):
+            seen[id_] = (emb, doc, meta)
+
+        if len(seen) < len(ids):
+            dup_count = len(ids) - len(seen)
+            # Build a sample of the IDs that were duplicated for debuggability
+            seen_set = set(seen.keys())
+            sample_dups = list({i for i in ids if ids.count(i) > 1})[:5]
+            logger.warning(
+                f"upsert_documents: removed {dup_count} duplicate chunk ID(s) "
+                f"from batch of {len(ids)}. Keeping last occurrence. "
+                f"Sample duplicate IDs: {sample_dups}"
+            )
+            ids = list(seen.keys())
+            embeddings = [v[0] for v in seen.values()]
+            documents = [v[1] for v in seen.values()]
+            safe_metadatas = [v[2] for v in seen.values()]
+
         async with self._lock:
             assert self._collection is not None
             collection = self._collection
-            safe_metadatas = metadatas or [{}] * len(ids)
 
             # ChromaDB upsert is synchronous and CPU/IO-heavy for large
             # batches.  Run in a thread so the event loop stays responsive
@@ -288,8 +313,6 @@ class VectorStoreManager:
                     documents=documents,
                     metadatas=safe_metadatas,  # type: ignore[arg-type]
                 )
-
-            import asyncio
 
             await asyncio.to_thread(_upsert)
 
