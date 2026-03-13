@@ -197,7 +197,7 @@ Phases execute in numeric order: 15 → 16 → 17 → 18
 | 17. Query Cache | v8.0 | 0/2 | Not started | - |
 | 18. UDS Transport & Quality Gate | v8.0 | 0/2 | Not started | - |
 | 19. Plugin Cache Docs | 1/1 | Complete    | 2026-03-12 | - |
-| 20. Slash Command Hints | 0/1 | Not started | - | - |
+| 20. Slash Command Hints | 1/1 | Complete   | 2026-03-13 | - |
 
 ---
 
@@ -229,7 +229,7 @@ Feature 101: AST-aware code ingestion, code summaries
 
 **Depends on:** Phase 19
 
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 20-01-PLAN.md — Update all 29 command files + 4 skill/reference files with slash command format in guidance positions
