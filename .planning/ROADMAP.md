@@ -232,13 +232,16 @@ Plans:
 
 ### Phase 21: Fix duplicate chunk ID crash during indexing
 
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 20
-**Plans:** 0 plans
+**Goal:** Indexing directories with duplicate files (e.g., Confluence exports) completes without crashing -- duplicate chunk IDs within upsert batches are silently deduplicated at the storage layer.
+
+**Requirements:** DEDUP-01, DEDUP-02, DEDUP-03
+
+**Depends on:** None (standalone bug fix)
+
+**Plans:** 1 plan
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 21 to break down)
+- [ ] 21-01-PLAN.md — Dict-based deduplication in ChromaDB and PostgreSQL upsert_documents() + regression tests
 
 ### Phase 22: Restore setup wizard with full configuration prompts
 
@@ -252,4 +255,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-12 — Phase 17 planned: 2 plans in 2 waves*
+*Last updated: 2026-03-12 — Phase 21 planned: 1 plan in 1 wave*
