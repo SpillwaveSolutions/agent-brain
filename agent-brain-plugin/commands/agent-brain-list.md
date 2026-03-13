@@ -15,7 +15,7 @@ Displays all running Agent Brain server instances across all projects. Shows eac
 ## Usage
 
 ```
-/agent-brain-list
+/agent-brain:agent-brain-list
 ```
 
 ## Execution

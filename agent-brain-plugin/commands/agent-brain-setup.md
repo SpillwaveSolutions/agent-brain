@@ -15,7 +15,7 @@ Runs a complete guided setup flow for Agent Brain, taking the user from zero to 
 ## Usage
 
 ```
-/agent-brain-setup
+/agent-brain:agent-brain-setup
 ```
 
 ## Execution
@@ -28,7 +28,7 @@ Run each step in sequence, proceeding only if the previous step succeeds.
 agent-brain --version 2>/dev/null || echo "NOT_INSTALLED"
 ```
 
-If not installed, run `/agent-brain-install` first.
+If not installed, run `/agent-brain:agent-brain-install` first.
 
 ### Step 2: Configure Provider
 
@@ -44,7 +44,7 @@ echo "OpenAI: ${OPENAI_API_KEY:+SET}"
 echo "Anthropic: ${ANTHROPIC_API_KEY:+SET}"
 ```
 
-If no provider is configured, run `/agent-brain-config` to choose:
+If no provider is configured, run `/agent-brain:agent-brain-config` to choose:
 - **Ollama** (FREE, local, no API keys)
 - **OpenAI** (cloud, requires API key)
 - **Other cloud providers**
@@ -172,12 +172,12 @@ Setup Complete!
 Agent Brain is ready to use.
 
 Next steps:
-  1. Index documents: /agent-brain-index <path>
-  2. Search: /agent-brain-search "your query"
+  1. Index documents: /agent-brain:agent-brain-index <path>
+  2. Search: /agent-brain:agent-brain-search "your query"
 
 Quick start:
-  agent-brain index ./docs
-  agent-brain query "authentication"
+  /agent-brain:agent-brain-index ./docs
+  /agent-brain:agent-brain-search "authentication"
 ```
 
 ## Error Handling
@@ -190,7 +190,7 @@ Quick start:
 Agent Brain is not installed.
 
 Running installation...
-[Invoke /agent-brain-install]
+[Invoke /agent-brain:agent-brain-install]
 ```
 
 ### Provider Not Configured
@@ -207,7 +207,7 @@ Options:
 4. Other cloud providers
 
 Running configuration...
-[Invoke /agent-brain-config]
+[Invoke /agent-brain:agent-brain-config]
 ```
 
 ### Init Failed
@@ -252,7 +252,7 @@ Diagnostics:
 
 ## Resume Capability
 
-If setup is interrupted, running `/agent-brain-setup` again will:
+If setup is interrupted, running `/agent-brain:agent-brain-setup` again will:
 1. Skip already-completed steps
 2. Resume from the failed step
 3. Complete remaining steps

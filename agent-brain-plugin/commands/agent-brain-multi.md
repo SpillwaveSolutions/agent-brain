@@ -33,7 +33,7 @@ Multi-mode search is ideal for:
 ## Usage
 
 ```
-/agent-brain-multi <query> [--top-k <n>] [--threshold <t>]
+/agent-brain:agent-brain-multi <query> [--top-k <n>] [--threshold <t>]
 ```
 
 ### Parameters
@@ -200,7 +200,7 @@ Error: Embedding provider not configured (vector component requires embeddings)
 ```
 
 **Resolution:**
-Run `/agent-brain-config` to configure a provider:
+Run `/agent-brain:agent-brain-config` to configure a provider:
 - **Ollama** (FREE, local): No API keys needed
 - **OpenAI** (cloud): `export OPENAI_API_KEY="sk-proj-..."`
 
@@ -262,7 +262,7 @@ agent-brain status
 
 ## Related Commands
 
-- `/agent-brain-hybrid` - Balanced BM25 + semantic
-- `/agent-brain-graph` - Relationship-focused search
-- `/agent-brain-bm25` - Fast keyword search
-- `/agent-brain-vector` - Semantic concept search
+- `/agent-brain:agent-brain-hybrid` - Balanced BM25 + semantic
+- `/agent-brain:agent-brain-graph` - Relationship-focused search
+- `/agent-brain:agent-brain-bm25` - Fast keyword search
+- `/agent-brain:agent-brain-vector` - Semantic concept search

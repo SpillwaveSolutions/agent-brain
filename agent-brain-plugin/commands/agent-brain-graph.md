@@ -32,7 +32,7 @@ Graph search is ideal for:
 ## Usage
 
 ```
-/agent-brain-graph <query> [--top-k <n>] [--threshold <t>]
+/agent-brain:agent-brain-graph <query> [--top-k <n>] [--threshold <t>]
 ```
 
 ### Parameters
@@ -82,7 +82,7 @@ Current backend: 'postgres'.
 To use graph queries, set AGENT_BRAIN_STORAGE_BACKEND=chroma.
 ```
 
-To use graph search, switch to ChromaDB backend or use `/agent-brain-hybrid` for hybrid BM25 + vector search on any backend.
+To use graph search, switch to ChromaDB backend or use `/agent-brain:agent-brain-hybrid` for hybrid BM25 + vector search on any backend.
 
 ## Execution
 
@@ -252,6 +252,6 @@ Graph search is not supported on the PostgreSQL backend. Options:
 
 ## Related Commands
 
-- `/agent-brain-multi` - Multi-mode search including graph
-- `/agent-brain-hybrid` - Hybrid BM25 + semantic search
-- `/agent-brain-search` - Default hybrid search
+- `/agent-brain:agent-brain-multi` - Multi-mode search including graph
+- `/agent-brain:agent-brain-hybrid` - Hybrid BM25 + semantic search
+- `/agent-brain:agent-brain-search` - Default hybrid search

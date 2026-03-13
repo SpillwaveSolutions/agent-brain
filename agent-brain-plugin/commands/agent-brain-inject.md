@@ -30,10 +30,10 @@ At least one of `--script` or `--folder-metadata` must be provided.
 ## Usage
 
 ```
-/agent-brain-inject <path> --script <script.py>
-/agent-brain-inject <path> --folder-metadata <metadata.json>
-/agent-brain-inject <path> --script <script.py> --folder-metadata <metadata.json>
-/agent-brain-inject <path> --script <script.py> --dry-run
+/agent-brain:agent-brain-inject <path> --script <script.py>
+/agent-brain:agent-brain-inject <path> --folder-metadata <metadata.json>
+/agent-brain:agent-brain-inject <path> --script <script.py> --folder-metadata <metadata.json>
+/agent-brain:agent-brain-inject <path> --script <script.py> --dry-run
 ```
 
 ### Parameters
@@ -64,19 +64,19 @@ At least one of `--script` or `--folder-metadata` must be provided.
 
 ```
 # Add project tags via script
-/agent-brain-inject ./docs --script enrich.py
+/agent-brain:agent-brain-inject ./docs --script enrich.py
 
 # Merge static metadata from JSON
-/agent-brain-inject ./src --folder-metadata project-meta.json --include-code
+/agent-brain:agent-brain-inject ./src --folder-metadata project-meta.json --include-code
 
 # Combine script + static metadata
-/agent-brain-inject ./docs --script classify.py --folder-metadata team-meta.json
+/agent-brain:agent-brain-inject ./docs --script classify.py --folder-metadata team-meta.json
 
 # Validate before indexing
-/agent-brain-inject ./docs --script enrich.py --dry-run
+/agent-brain:agent-brain-inject ./docs --script enrich.py --dry-run
 
 # With file type presets
-/agent-brain-inject ./src --script enrich.py --include-type python,docs
+/agent-brain:agent-brain-inject ./src --script enrich.py --include-type python,docs
 ```
 
 ## Execution

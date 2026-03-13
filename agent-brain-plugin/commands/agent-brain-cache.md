@@ -36,8 +36,8 @@ and clear it when changing embedding providers or models.
 ## Usage
 
 ```
-/agent-brain-cache status [--json] [--url <url>]
-/agent-brain-cache clear [--yes] [--url <url>]
+/agent-brain:agent-brain-cache status [--json] [--url <url>]
+/agent-brain:agent-brain-cache clear [--yes] [--url <url>]
 ```
 
 ### Parameters
@@ -52,10 +52,10 @@ and clear it when changing embedding providers or models.
 ### Examples
 
 ```
-/agent-brain-cache status                # Show cache metrics (human-readable)
-/agent-brain-cache status --json         # Show metrics as JSON
-/agent-brain-cache clear                 # Clear cache (prompts for confirmation)
-/agent-brain-cache clear --yes           # Clear cache (skips confirmation)
+/agent-brain:agent-brain-cache status                # Show cache metrics (human-readable)
+/agent-brain:agent-brain-cache status --json         # Show metrics as JSON
+/agent-brain:agent-brain-cache clear                 # Clear cache (prompts for confirmation)
+/agent-brain:agent-brain-cache clear --yes           # Clear cache (skips confirmation)
 ```
 
 ## Execution: Status Path
@@ -167,13 +167,13 @@ Report to the user:
 Report to the user:
 - Confirmation that clear completed
 - Number of embeddings removed and space freed
-- Next steps: reindex to rebuild the cache
+- Next steps: run /agent-brain:agent-brain-index to rebuild the cache
 
 ## Error Handling
 
 | Error | Cause | Resolution |
 |-------|-------|------------|
-| Connection refused | Agent Brain server is not running | Start with `agent-brain start` |
+| Connection refused | Agent Brain server is not running | Start with `/agent-brain:agent-brain-start` |
 | Cache not initialized (503) | Server started but cache subsystem not ready | Wait a moment and retry; restart server if persistent |
 | Cache already empty | No cached embeddings to clear | No action needed — this is not an error |
 | Permission denied | Cannot write to cache database file | Check directory permissions for `.claude/agent-brain/` |
@@ -207,13 +207,13 @@ agent-brain cache status
 
 | Command | Description |
 |---------|-------------|
-| `/agent-brain-status` | Show server status, document count, and overall health |
-| `/agent-brain-reset` | Clear the document index (requires confirmation) |
-| `/agent-brain-index` | Index documents for search |
+| `/agent-brain:agent-brain-status` | Show server status, document count, and overall health |
+| `/agent-brain:agent-brain-reset` | Clear the document index (requires confirmation) |
+| `/agent-brain:agent-brain-index` | Index documents for search |
 
 ## Safety Notes
 
 - **Cache clear is reversible** — clearing removes cached embeddings, not source documents
 - Clearing the cache does NOT remove indexed documents or search data
 - The cache will be rebuilt automatically on the next reindex
-- If you want to remove indexed documents, use `/agent-brain-reset` instead
+- If you want to remove indexed documents, use `/agent-brain:agent-brain-reset` instead

@@ -22,7 +22,7 @@ Shows current Agent Brain version and manages version installations. Use this co
 ## Usage
 
 ```
-/agent-brain-version [action] [--version <ver>]
+/agent-brain:agent-brain-version [action] [--version <ver>]
 ```
 
 ### Actions
@@ -209,7 +209,7 @@ agent-brain index /path/to/docs
 Error: Version '9.9.9' not found
 ```
 
-**Resolution:** Use `/agent-brain-version list` to see available versions
+**Resolution:** Use `/agent-brain:agent-brain-version list` to see available versions
 
 ### Network Error
 
@@ -253,6 +253,6 @@ pip install agent-brain-rag==$VERSION agent-brain-cli==$VERSION
 
 ## Related Commands
 
-- `/agent-brain-install` - Install Agent Brain packages
-- `/agent-brain-verify` - Verify installation
-- `/agent-brain-status` - Show server status
+- `/agent-brain:agent-brain-install` - Install Agent Brain packages
+- `/agent-brain:agent-brain-verify` - Verify installation
+- `/agent-brain:agent-brain-status` - Show server status

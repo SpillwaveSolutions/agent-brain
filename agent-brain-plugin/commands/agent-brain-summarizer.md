@@ -21,7 +21,7 @@ Configures the summarization provider used during document indexing. Summarizati
 ## Usage
 
 ```
-/agent-brain-summarizer [provider] [--model <model>]
+/agent-brain:agent-brain-summarizer [provider] [--model <model>]
 ```
 
 ### Parameters
@@ -143,13 +143,13 @@ Options:
 
 ```bash
 # Set to Anthropic
-/agent-brain-summarizer anthropic --model claude-haiku-4-5-20251001
+/agent-brain:agent-brain-summarizer anthropic --model claude-haiku-4-5-20251001
 
 # Set to OpenAI
-/agent-brain-summarizer openai --model gpt-5-mini
+/agent-brain:agent-brain-summarizer openai --model gpt-5-mini
 
 # Set to Ollama
-/agent-brain-summarizer ollama --model llama4:scout
+/agent-brain:agent-brain-summarizer ollama --model llama4:scout
 ```
 
 ### Apply Configuration
@@ -251,6 +251,6 @@ Resolution: export ANTHROPIC_API_KEY="sk-ant-..."
 
 ## Related Commands
 
-- `/agent-brain-providers` - List all available providers
-- `/agent-brain-embeddings` - Configure embedding provider
-- `/agent-brain-verify` - Verify configuration
+- `/agent-brain:agent-brain-providers` - List all available providers
+- `/agent-brain:agent-brain-embeddings` - Configure embedding provider
+- `/agent-brain:agent-brain-verify` - Verify configuration

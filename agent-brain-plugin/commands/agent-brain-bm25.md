@@ -30,7 +30,7 @@ BM25 search is ideal for:
 ## Usage
 
 ```
-/agent-brain-bm25 <query> [--top-k <n>]
+/agent-brain:agent-brain-bm25 <query> [--top-k <n>]
 ```
 
 ### Parameters
@@ -229,6 +229,6 @@ Default parameters:
 
 ## Related Commands
 
-- `/agent-brain-vector` - Pure semantic search
-- `/agent-brain-hybrid` - Combined BM25 + semantic
-- `/agent-brain-keyword` - Alias for BM25 search
+- `/agent-brain:agent-brain-vector` - Pure semantic search
+- `/agent-brain:agent-brain-hybrid` - Combined BM25 + semantic
+- `/agent-brain:agent-brain-keyword` - Alias for BM25 search

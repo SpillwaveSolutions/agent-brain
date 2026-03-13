@@ -15,7 +15,7 @@ Performs a comprehensive verification of the Agent Brain installation, checking 
 ## Usage
 
 ```
-/agent-brain-verify
+/agent-brain:agent-brain-verify
 ```
 
 ## Execution
@@ -98,9 +98,9 @@ Verification Complete!
 All checks passed. Agent Brain is ready to use.
 
 Quick commands:
-  Search: agent-brain query "your query"
-  Index:  agent-brain index /path/to/docs
-  Status: agent-brain status
+  Search: /agent-brain:agent-brain-search "your query"
+  Index:  /agent-brain:agent-brain-index /path/to/docs
+  Status: /agent-brain:agent-brain-status
 ```
 
 ### Some Checks Failing
@@ -139,7 +139,7 @@ Issues Found: 2
 2. Server not running
    Fix: agent-brain start
 
-Run /agent-brain-setup to fix all issues automatically.
+Run /agent-brain:agent-brain-setup to fix all issues automatically.
 ```
 
 ## Checklist Format
@@ -183,7 +183,7 @@ The Agent Brain CLI is not installed.
 Fix:
   pip install agent-brain-cli agent-brain-rag
 
-Or run: /agent-brain-install
+Or run: /agent-brain:agent-brain-install
 ```
 
 ### Python Version Too Low
@@ -209,7 +209,7 @@ The OpenAI API key is required for semantic search.
 Fix:
   export OPENAI_API_KEY="sk-proj-..."
 
-Or run: /agent-brain-config
+Or run: /agent-brain:agent-brain-config
 ```
 
 ### Project Not Initialized
@@ -222,7 +222,7 @@ No .claude/agent-brain/ directory found.
 Fix:
   agent-brain init
 
-Or run: /agent-brain-init
+Or run: /agent-brain:agent-brain-init
 ```
 
 ### Server Not Running
@@ -273,7 +273,7 @@ If verification fails, suggest the automated fix:
 ```
 Verification found 3 issues.
 
-Quick fix: Run /agent-brain-setup to resolve all issues automatically.
+Quick fix: Run /agent-brain:agent-brain-setup to resolve all issues automatically.
 
 Or fix manually:
   1. pip install agent-brain-cli agent-brain-rag

@@ -15,7 +15,7 @@ Initializes the current project for Agent Brain by creating the necessary config
 ## Usage
 
 ```
-/agent-brain-init
+/agent-brain:agent-brain-init
 ```
 
 ## Execution
@@ -60,9 +60,9 @@ Configuration file: .claude/agent-brain/config.json
 }
 
 Next steps:
-  1. Start server: agent-brain start
-  2. Index documents: agent-brain index ./docs
-  3. Search: agent-brain query "your query"
+  1. Start server: /agent-brain:agent-brain-start
+  2. Index documents: /agent-brain:agent-brain-index ./docs
+  3. Search: /agent-brain:agent-brain-search "your query"
 ```
 
 ## What Gets Created

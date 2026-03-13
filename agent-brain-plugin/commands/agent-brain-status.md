@@ -26,7 +26,7 @@ Use this command to verify the server is running before performing searches.
 ## Usage
 
 ```
-/agent-brain-status [--json]
+/agent-brain:agent-brain-status [--json]
 ```
 
 ### Parameters
@@ -202,6 +202,6 @@ done
 
 | Command | Description |
 |---------|-------------|
-| `/agent-brain-start` | Start the server |
-| `/agent-brain-stop` | Stop the server |
-| `/agent-brain-list` | List all running instances |
+| `/agent-brain:agent-brain-start` | Start the server |
+| `/agent-brain:agent-brain-stop` | Stop the server |
+| `/agent-brain:agent-brain-list` | List all running instances |

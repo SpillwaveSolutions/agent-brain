@@ -19,7 +19,7 @@ Displays available Agent Brain commands and usage information. Without parameter
 ## Usage
 
 ```
-/agent-brain-help [--command <name>]
+/agent-brain:agent-brain-help [--command <name>]
 ```
 
 ### Parameters
@@ -31,9 +31,9 @@ Displays available Agent Brain commands and usage information. Without parameter
 ### Examples
 
 ```
-/agent-brain-help                        # Show all commands
-/agent-brain-help --command search       # Detailed help for search
-/agent-brain-help --command index        # Detailed help for index
+/agent-brain:agent-brain-help                        # Show all commands
+/agent-brain:agent-brain-help --command search       # Detailed help for search
+/agent-brain:agent-brain-help --command index        # Detailed help for index
 ```
 
 ## Execution
@@ -74,7 +74,7 @@ CACHE COMMANDS
 HELP
   agent-brain-help       Show this help message
 
-Use '/agent-brain-help --command <name>' for detailed help on any command.
+Use '/agent-brain:agent-brain-help --command <name>' for detailed help on any command.
 ```
 
 ### With --command Parameter: Show Detailed Help
@@ -85,7 +85,7 @@ Display detailed information for the specified command:
 agent-brain <command> --help
 ```
 
-**Example output for `/agent-brain-help --command search`:**
+**Example output for `/agent-brain:agent-brain-help --command search`:**
 
 ```
 agent-brain-search
@@ -95,7 +95,7 @@ Hybrid BM25+semantic search combining keyword matching with semantic similarity.
 This is the recommended default search mode for most queries.
 
 USAGE
-  /agent-brain-search <query> [options]
+  /agent-brain:agent-brain-search <query> [options]
 
 PARAMETERS
   query       Required. The search query text.
@@ -104,9 +104,9 @@ PARAMETERS
   --alpha     Hybrid blend (0=BM25, 1=semantic). Default: 0.5
 
 EXAMPLES
-  /agent-brain-search "authentication flow"
-  /agent-brain-search "error handling" --top-k 10
-  /agent-brain-search "OAuth" --alpha 0.3 --threshold 0.5
+  /agent-brain:agent-brain-search "authentication flow"
+  /agent-brain:agent-brain-search "error handling" --top-k 10
+  /agent-brain:agent-brain-search "OAuth" --alpha 0.3 --threshold 0.5
 
 SEE ALSO
   agent-brain-semantic   For pure conceptual queries
@@ -160,13 +160,13 @@ Show comprehensive details:
 
 | Error | Cause | Resolution |
 |-------|-------|------------|
-| Unknown command | Invalid command name specified | Check spelling, use `/agent-brain-help` for list |
+| Unknown command | Invalid command name specified | Check spelling, use `/agent-brain:agent-brain-help` for list |
 | Command not found | Typo in command parameter | Refer to command reference table above |
 
 ## Notes
 
 - All commands use the `agent-brain-` prefix
-- Commands can be invoked as `/agent-brain-<name>` in Claude Code
+- Commands can be invoked as `/agent-brain:agent-brain-<name>` in Claude Code
 - Setup commands are typically run once per project
 - Search commands require a running server with indexed documents
 - GraphRAG is disabled by default. Enable with `export ENABLE_GRAPH_INDEX=true` before starting the server, then re-index documents

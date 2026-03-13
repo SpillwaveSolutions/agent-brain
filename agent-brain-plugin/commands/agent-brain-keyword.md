@@ -29,7 +29,7 @@ Keyword search is ideal for:
 ## Usage
 
 ```
-/agent-brain-keyword <query> [--top-k <n>]
+/agent-brain:agent-brain-keyword <query> [--top-k <n>]
 ```
 
 ### Parameters

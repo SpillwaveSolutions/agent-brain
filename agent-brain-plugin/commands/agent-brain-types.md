@@ -17,13 +17,13 @@ easy to index specific categories of files without writing individual patterns.
 ## Usage
 
 ```
-/agent-brain-types
+/agent-brain:agent-brain-types
 ```
 
 ### Examples
 
 ```
-/agent-brain-types
+/agent-brain:agent-brain-types
 ```
 
 ## Execution

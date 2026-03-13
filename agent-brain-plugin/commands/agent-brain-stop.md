@@ -15,7 +15,7 @@ Gracefully stops the Agent Brain server running for the current project. This te
 ## Usage
 
 ```
-/agent-brain-stop
+/agent-brain:agent-brain-stop
 ```
 
 ## Execution
@@ -51,7 +51,7 @@ Format the result as follows:
 
 **Server Not Running:**
 - Inform the user no server was found
-- Suggest running `agent-brain status` to verify
+- Suggest running `/agent-brain:agent-brain-status` to verify
 
 ## Error Handling
 
@@ -80,4 +80,4 @@ agent-brain status
 - The stop command only affects the server for the current project
 - Other project instances remain running
 - The document index is preserved; only the server process is stopped
-- Restart with `agent-brain start` when needed
+- Restart with `/agent-brain:agent-brain-start` when needed

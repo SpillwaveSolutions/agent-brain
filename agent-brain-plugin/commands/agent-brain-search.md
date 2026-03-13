@@ -35,7 +35,7 @@ Hybrid search is ideal for:
 ## Usage
 
 ```
-/agent-brain-search <query> [--top-k <n>] [--threshold <t>] [--alpha <a>]
+/agent-brain:agent-brain-search <query> [--top-k <n>] [--threshold <t>] [--alpha <a>]
 ```
 
 ### Parameters

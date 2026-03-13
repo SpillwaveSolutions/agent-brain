@@ -36,7 +36,7 @@ Hybrid search is ideal for:
 ## Usage
 
 ```
-/agent-brain-hybrid <query> [--alpha <a>] [--top-k <n>] [--threshold <t>]
+/agent-brain:agent-brain-hybrid <query> [--alpha <a>] [--top-k <n>] [--threshold <t>]
 ```
 
 ### Parameters
@@ -227,7 +227,7 @@ agent-brain index /path/to/docs
 
 ## Related Commands
 
-- `/agent-brain-bm25` - Pure keyword search
-- `/agent-brain-vector` - Pure semantic search
-- `/agent-brain-search` - Alias for hybrid search
-- `/agent-brain-multi` - Multi-mode fusion search
+- `/agent-brain:agent-brain-bm25` - Pure keyword search
+- `/agent-brain:agent-brain-vector` - Pure semantic search
+- `/agent-brain:agent-brain-search` - Alias for hybrid search
+- `/agent-brain:agent-brain-multi` - Multi-mode fusion search

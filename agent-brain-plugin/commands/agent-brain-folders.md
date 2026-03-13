@@ -27,9 +27,9 @@ remove all chunks associated with a folder.
 ## Usage
 
 ```
-/agent-brain-folders list
-/agent-brain-folders add <path>
-/agent-brain-folders remove <path>
+/agent-brain:agent-brain-folders list
+/agent-brain:agent-brain-folders add <path>
+/agent-brain:agent-brain-folders remove <path>
 ```
 
 ### Parameters
@@ -48,13 +48,13 @@ remove all chunks associated with a folder.
 ### Examples
 
 ```
-/agent-brain-folders list
-/agent-brain-folders add ./docs
-/agent-brain-folders add ./src --include-code
-/agent-brain-folders add ./src --include-type python,docs
-/agent-brain-folders add ./docs --force
-/agent-brain-folders remove ./old-docs
-/agent-brain-folders remove ./old-docs --yes
+/agent-brain:agent-brain-folders list
+/agent-brain:agent-brain-folders add ./docs
+/agent-brain:agent-brain-folders add ./src --include-code
+/agent-brain:agent-brain-folders add ./src --include-type python,docs
+/agent-brain:agent-brain-folders add ./docs --force
+/agent-brain:agent-brain-folders remove ./old-docs
+/agent-brain:agent-brain-folders remove ./old-docs --yes
 ```
 
 ## Execution

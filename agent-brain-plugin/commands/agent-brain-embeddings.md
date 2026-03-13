@@ -21,7 +21,7 @@ Configures the embedding provider used for vector/semantic search. Embeddings co
 ## Usage
 
 ```
-/agent-brain-embeddings [provider] [--model <model>]
+/agent-brain:agent-brain-embeddings [provider] [--model <model>]
 ```
 
 ### Parameters
@@ -109,13 +109,13 @@ Options:
 
 ```bash
 # Set to OpenAI
-/agent-brain-embeddings openai --model text-embedding-3-large
+/agent-brain:agent-brain-embeddings openai --model text-embedding-3-large
 
 # Set to Cohere
-/agent-brain-embeddings cohere --model embed-english-v3.0
+/agent-brain:agent-brain-embeddings cohere --model embed-english-v3.0
 
 # Set to Ollama
-/agent-brain-embeddings ollama --model nomic-embed-text
+/agent-brain:agent-brain-embeddings ollama --model nomic-embed-text
 ```
 
 ### Apply Configuration
@@ -218,6 +218,6 @@ Resolution: export OPENAI_API_KEY="sk-proj-..."
 
 ## Related Commands
 
-- `/agent-brain-providers` - List all available providers
-- `/agent-brain-summarizer` - Configure summarization provider
-- `/agent-brain-verify` - Verify configuration
+- `/agent-brain:agent-brain-providers` - List all available providers
+- `/agent-brain:agent-brain-summarizer` - Configure summarization provider
+- `/agent-brain:agent-brain-verify` - Verify configuration

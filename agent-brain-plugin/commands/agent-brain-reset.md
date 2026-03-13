@@ -19,7 +19,7 @@ Clears all indexed documents from the Agent Brain server. This removes all vecto
 ## Usage
 
 ```
-/agent-brain-reset [--yes]
+/agent-brain:agent-brain-reset [--yes]
 ```
 
 ### Parameters
@@ -31,8 +31,8 @@ Clears all indexed documents from the Agent Brain server. This removes all vecto
 ### Examples
 
 ```
-/agent-brain-reset           # Prompts for confirmation
-/agent-brain-reset --yes     # Skips confirmation
+/agent-brain:agent-brain-reset           # Prompts for confirmation
+/agent-brain:agent-brain-reset --yes     # Skips confirmation
 ```
 
 ## Execution
@@ -90,7 +90,7 @@ Index reset complete.
   Documents removed: 156
   Storage freed: 45.2 MB
 
-The index is now empty. Run 'agent-brain index <path>' to add documents.
+The index is now empty. Run '/agent-brain:agent-brain-index <path>' to add documents.
 ```
 
 ## Output
@@ -105,7 +105,7 @@ After reset, report:
 
 | Error | Cause | Resolution |
 |-------|-------|------------|
-| Server not running | Agent Brain server is stopped | Start with `agent-brain start` |
+| Server not running | Agent Brain server is stopped | Start with `/agent-brain:agent-brain-start` |
 | Index already empty | No documents to clear | No action needed |
 | Permission denied | Cannot write to storage directory | Check directory permissions |
 | Lock file present | Another operation in progress | Wait and retry |
@@ -136,4 +136,4 @@ agent-brain status
 - The reset only affects the current project's index
 - Other project instances are not affected
 - Server remains running after reset
-- Re-index with `agent-brain index <path>` after reset
+- Re-index with `/agent-brain:agent-brain-index <path>` after reset

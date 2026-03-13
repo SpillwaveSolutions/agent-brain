@@ -32,7 +32,7 @@ Semantic search is ideal for:
 ## Usage
 
 ```
-/agent-brain-semantic <query> [--top-k <n>] [--threshold <t>]
+/agent-brain:agent-brain-semantic <query> [--top-k <n>] [--threshold <t>]
 ```
 
 ### Parameters

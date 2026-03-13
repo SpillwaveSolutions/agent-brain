@@ -204,9 +204,9 @@ Installed Version: $VERSION
 Resolved from: PyPI (latest) or (user-specified)
 
 Next steps:
-  1. Configure: /agent-brain-config
-  2. Initialize: /agent-brain-init
-  3. Start server: /agent-brain-start
+  1. Configure: /agent-brain:agent-brain-config
+  2. Initialize: /agent-brain:agent-brain-init
+  3. Start server: /agent-brain:agent-brain-start
 ```
 
 ---

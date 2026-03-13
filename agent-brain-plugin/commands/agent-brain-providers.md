@@ -19,7 +19,7 @@ Lists available providers and shows current configuration for embeddings and sum
 ## Usage
 
 ```
-/agent-brain-providers [action]
+/agent-brain:agent-brain-providers [action]
 ```
 
 ### Actions
@@ -167,6 +167,6 @@ Set it with: export OPENAI_API_KEY="sk-proj-..."
 
 ## Related Commands
 
-- `/agent-brain-embeddings` - Configure embedding provider specifically
-- `/agent-brain-summarizer` - Configure summarization provider specifically
-- `/agent-brain-verify` - Verify provider configuration works
+- `/agent-brain:agent-brain-embeddings` - Configure embedding provider specifically
+- `/agent-brain:agent-brain-summarizer` - Configure summarization provider specifically
+- `/agent-brain:agent-brain-verify` - Verify provider configuration works

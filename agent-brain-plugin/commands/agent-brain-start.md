@@ -22,7 +22,7 @@ Starts the Agent Brain server for the current project. The server provides:
 ## Usage
 
 ```
-/agent-brain-start 
+/agent-brain:agent-brain-start 
 ```
 
 ### Parameters
@@ -79,8 +79,8 @@ Server started successfully!
 
 Runtime config saved to: .claude/agent-brain/runtime.json
 
-To check status:  agent-brain status
-To stop server:   agent-brain stop
+To check status:  /agent-brain:agent-brain-status
+To stop server:   /agent-brain:agent-brain-stop
 ```
 
 ### Runtime Configuration
@@ -231,10 +231,10 @@ AGENT_BRAIN_MODE=shared agent-brain start
 
 | Command | Description |
 |---------|-------------|
-| `/agent-brain-init` | Initialize project for Agent Brain |
-| `/agent-brain-status` | Check server status |
-| `/agent-brain-stop` | Stop the server |
-| `/agent-brain-list` | List all running instances |
+| `/agent-brain:agent-brain-init` | Initialize project for Agent Brain |
+| `/agent-brain:agent-brain-status` | Check server status |
+| `/agent-brain:agent-brain-stop` | Stop the server |
+| `/agent-brain:agent-brain-list` | List all running instances |
 
 ## Troubleshooting
 

@@ -35,7 +35,7 @@ Indexes documents at the specified path for semantic search. Processes markdown,
 ## Usage
 
 ```
-/agent-brain-index <path> [options]
+/agent-brain:agent-brain-index <path> [options]
 ```
 
 ### Parameters
@@ -62,14 +62,14 @@ Indexes documents at the specified path for semantic search. Processes markdown,
 ### Examples
 
 ```
-/agent-brain-index docs/
-/agent-brain-index ./src --include-code
-/agent-brain-index ./project --include-type python,docs
-/agent-brain-index ./src --include-type typescript --include-patterns "*.json"
-/agent-brain-index ./docs --force
-/agent-brain-index ./src --include-code --chunk-size 1024 --generate-summaries
-/agent-brain-index ./src --watch auto --include-code
-/agent-brain-index ./src --watch auto --debounce 10
+/agent-brain:agent-brain-index docs/
+/agent-brain:agent-brain-index ./src --include-code
+/agent-brain:agent-brain-index ./project --include-type python,docs
+/agent-brain:agent-brain-index ./src --include-type typescript --include-patterns "*.json"
+/agent-brain:agent-brain-index ./docs --force
+/agent-brain:agent-brain-index ./src --include-code --chunk-size 1024 --generate-summaries
+/agent-brain:agent-brain-index ./src --watch auto --include-code
+/agent-brain:agent-brain-index ./src --watch auto --debounce 10
 ```
 
 ## Execution
@@ -182,7 +182,7 @@ Use `agent-brain types list` to see all available presets.
 | Path not found | Invalid path specified | Verify the path exists |
 | No files found | Path contains no supported files | Check file extensions or use --include-type |
 | Server not running | Agent Brain server is stopped | Run `agent-brain start` first |
-| Embedding provider error | Provider not configured | Run `/agent-brain-config` |
+| Embedding provider error | Provider not configured | Run `/agent-brain:agent-brain-config` |
 | Permission denied | Cannot read files | Check file permissions |
 | Queue full (429) | Too many concurrent jobs | Wait or cancel with `agent-brain jobs JOB_ID --cancel` |
 
@@ -213,7 +213,7 @@ agent-brain index <path> --force
 - Code files require AST parsing and may be slower
 - Binary files and images are automatically skipped
 - Relative paths are resolved from the current directory
-- Use `/agent-brain-inject` to enrich chunks with custom metadata during indexing
+- Use `/agent-brain:agent-brain-inject` to enrich chunks with custom metadata during indexing
 - Use `--watch auto` to enable automatic re-indexing when files change
 - Watcher-triggered jobs use incremental diff for efficiency (only changed files processed)
 - Directories like `.git/`, `node_modules/`, `__pycache__/`, `dist/`, `build/` are excluded from watching

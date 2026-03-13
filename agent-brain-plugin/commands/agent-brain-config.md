@@ -17,7 +17,7 @@ Guides users through configuring Agent Brain:
 ## Usage
 
 ```
-/agent-brain-config
+/agent-brain:agent-brain-config
 ```
 
 ## Execution
@@ -78,7 +78,7 @@ To start Ollama, open a NEW terminal window and run:
 
   ollama serve
 
-Keep that terminal open, then come back here and run /agent-brain-config again.
+Keep that terminal open, then come back here and run /agent-brain:agent-brain-config again.
 ```
 
 ### Step 3: Use AskUserQuestion for Provider Selection
@@ -142,7 +142,7 @@ Ollama runs locally - no API keys or cloud costs!
    export SUMMARIZATION_MODEL=llama3.2
 
 5. Start Agent Brain:
-   /agent-brain-start
+   /agent-brain:agent-brain-start
 
 No API keys needed!
 ```
@@ -178,7 +178,7 @@ No API keys needed!
    export ANTHROPIC_API_KEY="sk-ant-..."
 
 3. Start Agent Brain:
-   /agent-brain-start
+   /agent-brain:agent-brain-start
 ```
 
 **For Gemini (Option 3):**
@@ -198,7 +198,7 @@ export SUMMARIZATION_MODEL=gemini-2.0-flash
 
 **For Custom Mix (Option 4):**
 
-Redirect to: `/agent-brain-providers switch`
+Redirect to: `/agent-brain:agent-brain-providers switch`
 
 **For Ollama + Mistral (Option 5):**
 
@@ -236,7 +236,7 @@ Uses Mistral's small model for better summarization quality.
    export SUMMARIZATION_MODEL=mistral-small3.2:latest
 
 4. Start Agent Brain:
-   /agent-brain-start
+   /agent-brain:agent-brain-start
 
 No API keys needed! Mistral-small3.2 provides better summarization than llama3.2.
 ```
@@ -274,7 +274,7 @@ Provider Options:
 
 4. CUSTOM MIX
    - Choose different providers for each function
-   - Run: /agent-brain-providers switch
+   - Run: /agent-brain:agent-brain-providers switch
 
 5. OLLAMA + MISTRAL (Local, Free)
    - Better summarization than llama3.2
@@ -309,8 +309,8 @@ Config file created: ~/.agent-brain/config.yaml
 
 Next steps:
 1. Ensure Ollama is running: ollama serve
-2. Initialize project: /agent-brain-init
-3. Start server: /agent-brain-start
+2. Initialize project: /agent-brain:agent-brain-init
+3. Start server: /agent-brain:agent-brain-start
 ```
 
 **Note:** Configuration is loaded once at server startup. After changing
@@ -543,9 +543,9 @@ These are excluded by default (no config needed):
 
 ## Related Commands
 
-- `/agent-brain-providers` - List all available providers
-- `/agent-brain-providers switch` - Interactive provider switching
-- `/agent-brain-embeddings` - Configure embedding provider only
-- `/agent-brain-summarizer` - Configure summarization provider only
-- `/agent-brain-verify` - Verify provider configuration works
-- `/agent-brain-index` - Index documents with current exclude settings
+- `/agent-brain:agent-brain-providers` - List all available providers
+- `/agent-brain:agent-brain-providers switch` - Interactive provider switching
+- `/agent-brain:agent-brain-embeddings` - Configure embedding provider only
+- `/agent-brain:agent-brain-summarizer` - Configure summarization provider only
+- `/agent-brain:agent-brain-verify` - Verify provider configuration works
+- `/agent-brain:agent-brain-index` - Index documents with current exclude settings

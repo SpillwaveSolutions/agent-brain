@@ -26,10 +26,10 @@ Monitor and manage async indexing jobs. Indexing runs in the background via a jo
 ## Usage
 
 ```
-/agent-brain-jobs
-/agent-brain-jobs --watch
-/agent-brain-jobs <job_id>
-/agent-brain-jobs <job_id> --cancel
+/agent-brain:agent-brain-jobs
+/agent-brain:agent-brain-jobs --watch
+/agent-brain:agent-brain-jobs <job_id>
+/agent-brain:agent-brain-jobs <job_id> --cancel
 ```
 
 ### Parameters
@@ -46,16 +46,16 @@ Monitor and manage async indexing jobs. Indexing runs in the background via a jo
 
 ```
 # List all jobs
-/agent-brain-jobs
+/agent-brain:agent-brain-jobs
 
 # Watch queue with live updates
-/agent-brain-jobs --watch
+/agent-brain:agent-brain-jobs --watch
 
 # Inspect a specific job
-/agent-brain-jobs abc123
+/agent-brain:agent-brain-jobs abc123
 
 # Cancel a running job
-/agent-brain-jobs abc123 --cancel
+/agent-brain:agent-brain-jobs abc123 --cancel
 ```
 
 ## Execution

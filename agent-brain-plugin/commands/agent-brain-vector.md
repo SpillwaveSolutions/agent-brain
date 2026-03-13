@@ -33,7 +33,7 @@ Vector search is ideal for:
 ## Usage
 
 ```
-/agent-brain-vector <query> [--top-k <n>] [--threshold <t>]
+/agent-brain:agent-brain-vector <query> [--top-k <n>] [--threshold <t>]
 ```
 
 ### Parameters
@@ -250,7 +250,7 @@ similarity(q, d) = dot(q, d) / (||q|| * ||d||)
 
 ## Related Commands
 
-- `/agent-brain-bm25` - Pure keyword search
-- `/agent-brain-hybrid` - Combined BM25 + semantic
-- `/agent-brain-semantic` - Alias for vector search
-- `/agent-brain-multi` - Multi-mode fusion search
+- `/agent-brain:agent-brain-bm25` - Pure keyword search
+- `/agent-brain:agent-brain-hybrid` - Combined BM25 + semantic
+- `/agent-brain:agent-brain-semantic` - Alias for vector search
+- `/agent-brain:agent-brain-multi` - Multi-mode fusion search
