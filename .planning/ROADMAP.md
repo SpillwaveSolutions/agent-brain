@@ -261,6 +261,16 @@ Plans:
 - [ ] 22-01-PLAN.md — Full wizard steps in /agent-brain-setup (embedding, summarization, storage, GraphRAG, query mode) + SKILL.md and config guide updates
 - [ ] 22-02-PLAN.md — Regression test (test_plugin_wizard_spec.py) asserting all wizard sections present in command files
 
+### Phase 23: Migrate global config from ~/.agent-brain to ~/.config/agent-brain + uninstall cleanup
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 22
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 23 to break down)
+
 ---
 *Roadmap created: 2026-02-07*
 *Last updated: 2026-03-12 — Phase 22 planned: 2 plans in 2 waves*

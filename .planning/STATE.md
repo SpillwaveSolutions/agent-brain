@@ -116,6 +116,7 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 - Phase 20 added: Plugin skill next-step hints should suggest slash commands (not just CLI commands)
 - Phase 21 added: Fix duplicate chunk ID crash during indexing (ChromaDB DuplicateIDError when duplicate files exist)
 - Phase 22 added: Restore setup wizard with full configuration prompts (storage backend, embedding provider, query mode, index types)
+- Phase 23 added: Migrate global config from ~/.agent-brain to ~/.config/agent-brain + uninstall cleanup (XDG compliance + clean uninstall)
 
 ### Research Flags for Planning
 - Phase 15: watchfiles confirmed as transitive dep via Uvicorn (resolved)
