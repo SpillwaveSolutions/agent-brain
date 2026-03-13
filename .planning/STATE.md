@@ -118,6 +118,7 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 - Phase 22 added: Restore setup wizard with full configuration prompts (storage backend, embedding provider, query mode, index types)
 - Phase 23 added: Migrate global config from ~/.agent-brain to ~/.config/agent-brain + uninstall cleanup (XDG compliance + clean uninstall)
 - Phase 24 added: Setup agent permissions + helper script — eliminate permission prompts during setup wizard (config detection, Ollama checks, dir creation, large-dir scanning)
+- Phase 25 added: Setup wizard coverage gaps — GraphRAG opt-in prompt, BM25 unavailable with PostgreSQL (uses built-in keyword search), search mode education, cache mention, GraphRAG+PostgreSQL compatibility research
 
 ### Research Flags for Planning
 - Phase 15: watchfiles confirmed as transitive dep via Uvicorn (resolved)

@@ -281,6 +281,16 @@ Plans:
 Plans:
 - [ ] TBD (run /gsd:plan-phase 24 to break down)
 
+### Phase 25: Setup wizard coverage gaps — GraphRAG opt-in, BM25/PostgreSQL awareness, search mode education
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 24
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 25 to break down)
+
 ---
 *Roadmap created: 2026-02-07*
 *Last updated: 2026-03-12 — Phase 22 planned: 2 plans in 2 waves*
