@@ -5,8 +5,8 @@ milestone_name: Performance & Developer Experience
 current_phase: 19
 current_plan: Not started
 status: completed
-stopped_at: Completed 19-01-PLAN.md
-last_updated: "2026-03-12T22:17:46.303Z"
+stopped_at: Completed 21-01-PLAN.md
+last_updated: "2026-03-13T02:28:00.778Z"
 last_activity: "2026-03-10 — Phase 16 Plan 2 complete: `agent-brain cache` command group + embedding cache metrics in `agent-brain status` + 12 tests"
 progress:
   total_phases: 5
@@ -65,6 +65,7 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 | Phase 15: File Watcher & BGINC | 2 | 13 min total (7+6) | Complete |
 | Phase 16: Embedding Cache | 2 | 14 min total (10+4) | Complete |
 | Phase 19-plugin-and-skill-updates-for-embedding-cache-management P01 | 2 | 2 tasks | 6 files |
+| Phase 21-fix-duplicate-chunk-id-crash-during-indexing P01 | 11 min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -125,8 +126,8 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 
 ## Session Continuity
 
-**Last Session:** 2026-03-12T22:14:31.220Z
-**Stopped At:** Completed 19-01-PLAN.md
+**Last Session:** 2026-03-13T02:28:00.776Z
+**Stopped At:** Completed 21-01-PLAN.md
 **Resume File:** None
 **Next Action:** Phase 17 — Query Cache (freshness guarantees after auto-reindex)
 
