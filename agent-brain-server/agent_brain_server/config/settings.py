@@ -82,6 +82,10 @@ class Settings(BaseSettings):
     EMBEDDING_CACHE_MAX_MEM_ENTRIES: int = 1_000  # In-memory LRU size
     EMBEDDING_CACHE_PERSIST_STATS: bool = False  # Persist hit/miss across restarts
 
+    # Query Cache Configuration (Phase 17)
+    QUERY_CACHE_TTL: int = 300  # TTL in seconds (5 minutes)
+    QUERY_CACHE_MAX_SIZE: int = 256  # Max cached query results
+
     # Reranking Configuration (Feature 123)
     ENABLE_RERANKING: bool = False  # Off by default
     RERANKER_PROVIDER: str = "sentence-transformers"  # or "ollama"
