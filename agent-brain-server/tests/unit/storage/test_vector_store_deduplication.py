@@ -9,7 +9,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -114,7 +113,9 @@ async def test_upsert_logs_warning_on_duplicates(
     documents = ["first", "second", "third"]
     metadatas = [{"x": 1}, {"x": 2}, {"x": 3}]
 
-    with caplog.at_level(logging.WARNING, logger="agent_brain_server.storage.vector_store"):
+    with caplog.at_level(
+        logging.WARNING, logger="agent_brain_server.storage.vector_store"
+    ):
         await initialized_store.upsert_documents(ids, embeddings, documents, metadatas)
 
     # Warning should be emitted
@@ -145,7 +146,7 @@ async def test_upsert_empty_batch(
 
 @pytest.mark.asyncio
 async def test_postgres_upsert_deduplicates(caplog: pytest.LogCaptureFixture) -> None:
-    """DEDUP-03: PostgreSQL backend deduplicates batch before calling keyword_ops/vector_ops."""
+    """DEDUP-03: PostgreSQL backend deduplicates batch before ops calls."""
     from agent_brain_server.storage.postgres.backend import PostgresBackend
     from agent_brain_server.storage.postgres.config import PostgresConfig
 

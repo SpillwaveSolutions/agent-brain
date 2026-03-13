@@ -281,13 +281,14 @@ class VectorStoreManager:
         # This prevents ChromaDB's DuplicateIDError when two files in a
         # corpus share the same filename (e.g. Confluence exports).
         seen: dict[str, tuple[list[float], str, dict[str, Any]]] = {}
-        for id_, emb, doc, meta in zip(ids, embeddings, documents, safe_metadatas):
+        for id_, emb, doc, meta in zip(
+            ids, embeddings, documents, safe_metadatas, strict=True
+        ):
             seen[id_] = (emb, doc, meta)
 
         if len(seen) < len(ids):
             dup_count = len(ids) - len(seen)
             # Build a sample of the IDs that were duplicated for debuggability
-            seen_set = set(seen.keys())
             sample_dups = list({i for i in ids if ids.count(i) > 1})[:5]
             logger.warning(
                 f"upsert_documents: removed {dup_count} duplicate chunk ID(s) "

@@ -158,7 +158,9 @@ class PostgresBackend:
         # chunk ID more than once (e.g. Confluence exports with identical
         # filenames across subdirectories).
         seen: dict[str, tuple[list[float], str, dict[str, Any]]] = {}
-        for id_, emb, doc, meta in zip(ids, embeddings, documents, metadatas):
+        for id_, emb, doc, meta in zip(
+            ids, embeddings, documents, metadatas, strict=True
+        ):
             seen[id_] = (emb, doc, meta)
 
         if len(seen) < len(ids):
