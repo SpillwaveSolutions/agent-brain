@@ -197,6 +197,7 @@ Phases execute in numeric order: 15 → 16 → 17 → 18
 | 17. Query Cache | v8.0 | 0/2 | Not started | - |
 | 18. UDS Transport & Quality Gate | v8.0 | 0/2 | Not started | - |
 | 19. Plugin Cache Docs | 1/1 | Complete    | 2026-03-12 | - |
+| 20. Slash Command Hints | 0/1 | Not started | - | - |
 
 ---
 
@@ -222,13 +223,16 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ### Phase 20: Plugin skill next-step hints should suggest slash commands
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** All next-step guidance in plugin command files and skill docs uses the full `/agent-brain:agent-brain-{cmd}` slash command format so Claude Code autocomplete works for follow-on actions.
+
+**Requirements:** HINT-01, HINT-02, HINT-03
+
 **Depends on:** Phase 19
-**Plans:** 0 plans
+
+**Plans:** 1 plan
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 20 to break down)
+- [ ] 20-01-PLAN.md — Update all 29 command files + 4 skill/reference files with slash command format in guidance positions
 
 ### Phase 21: Fix duplicate chunk ID crash during indexing
 
@@ -255,4 +259,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-12 — Phase 21 planned: 1 plan in 1 wave*
+*Last updated: 2026-03-12 — Phase 20 planned: 1 plan in 1 wave*
