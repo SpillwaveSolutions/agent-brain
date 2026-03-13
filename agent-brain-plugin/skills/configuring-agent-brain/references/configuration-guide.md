@@ -59,6 +59,26 @@ summarization:
   # api_key_env: "ANTHROPIC_API_KEY"  # OR read from environment variable
 
   base_url: null
+
+# Storage backend configuration
+storage:
+  backend: "chroma"  # "chroma" (default) or "postgres"
+  # postgres:  # Only needed when backend is "postgres"
+  #   host: "localhost"
+  #   port: 5432
+  #   database: "agent_brain"
+  #   user: "agent_brain"
+  #   password: "agent_brain_dev"
+
+# GraphRAG configuration (optional, default: disabled)
+graphrag:
+  enabled: false
+  store_type: "simple"  # "simple" (in-memory) or "kuzu" (persistent disk)
+  use_code_metadata: true
+
+# Query mode (informational — set per-request with --mode flag)
+# query:
+#   default_mode: "hybrid"  # vector | bm25 | hybrid | graph | multi
 ```
 
 ### Method 2: Environment Variables

@@ -25,6 +25,7 @@ Installation and configuration for Agent Brain document search with pluggable pr
 ## Contents
 
 - [Quick Setup](#quick-setup)
+- [Setup Wizard](#setup-wizard)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Provider Configuration](#provider-configuration)
@@ -78,6 +79,60 @@ agent-brain status
 ```
 
 **Validation**: After each step, verify success before proceeding to the next.
+
+---
+
+## Setup Wizard
+
+The canonical entry point for a complete guided setup is `/agent-brain-setup`. It asks all configuration questions interactively before running any CLI commands, then writes a comprehensive `config.yaml`.
+
+### Wizard Configuration Questions
+
+The wizard asks the following questions in sequence:
+
+| Step | Question | Config Keys Set |
+|------|----------|----------------|
+| 2 | Embedding Provider | `embedding.provider`, `embedding.model`, optionally `embedding.base_url`, `embedding.api_key` or `embedding.api_key_env` |
+| 3 | Summarization Provider | `summarization.provider`, `summarization.model`, optionally `summarization.base_url`, `summarization.api_key` or `summarization.api_key_env` |
+| 4 | Storage Backend | `storage.backend` (`chroma` or `postgres`) |
+| 5 | GraphRAG | `graphrag.enabled`, `graphrag.store_type`, `graphrag.use_code_metadata` |
+| 6 | Default Query Mode | Written as YAML comment: `# query.default_mode` |
+
+### Embedding Provider Options
+
+| Option | Provider Key | Model | Notes |
+|--------|-------------|-------|-------|
+| Ollama (FREE, local) | `ollama` | `nomic-embed-text` | Requires Ollama running locally |
+| OpenAI | `openai` | `text-embedding-3-large` | Requires `OPENAI_API_KEY` |
+| Cohere | `cohere` | `embed-multilingual-v3.0` | Requires `COHERE_API_KEY`, multi-language support |
+| Google Gemini | `gemini` | `text-embedding-004` | Requires `GOOGLE_API_KEY` |
+| Custom | (user-specified) | (user-specified) | Specify provider, model, and base_url |
+
+### Summarization Provider Options
+
+| Option | Provider Key | Model | Notes |
+|--------|-------------|-------|-------|
+| Ollama (FREE, local) | `ollama` | `llama3.2` | Requires Ollama running locally |
+| Ollama + Mistral (FREE, local) | `ollama` | `mistral-small3.2` | Better summarization quality |
+| Anthropic | `anthropic` | `claude-haiku-4-5-20251001` | Requires `ANTHROPIC_API_KEY` |
+| OpenAI | `openai` | `gpt-4o-mini` | Requires `OPENAI_API_KEY` |
+| Google Gemini | `gemini` | `gemini-2.0-flash` | Requires `GOOGLE_API_KEY` |
+| Grok (xAI) | `grok` | `grok-3-mini-fast` | Requires `XAI_API_KEY` |
+
+### Config.yaml Written by Wizard
+
+After answering all questions, the wizard writes a comprehensive `config.yaml` covering:
+- `embedding.*` — provider, model, api_key or api_key_env, optional base_url
+- `summarization.*` — provider, model, api_key or api_key_env, optional base_url
+- `storage.*` — backend selection and (if PostgreSQL) connection settings
+- `graphrag.*` — enabled flag, store_type, use_code_metadata
+- `# query.default_mode` as a YAML comment (informational)
+
+The file is chmod 600 automatically. A security warning is shown: never commit config.yaml to git.
+
+### Standalone Config Command
+
+`/agent-brain-config` handles provider-specific details when called standalone (without the full wizard). It includes storage backend selection, indexing exclude patterns, and Ollama status checks.
 
 ---
 
@@ -288,6 +343,61 @@ summarization:
   provider: "ollama"
   model: "llama3.2"
 ```
+
+### GraphRAG Configuration
+
+GraphRAG enables graph-based entity-relationship extraction for advanced query modes.
+
+**YAML config keys** (`config.yaml`):
+
+```yaml
+graphrag:
+  enabled: false          # Master switch (default: false)
+  store_type: "simple"    # "simple" (in-memory) or "kuzu" (persistent disk)
+  use_code_metadata: true # Extract entities from AST metadata (imports, classes)
+```
+
+**Corresponding environment variables**:
+
+| Env Var | Config Key | Default | Description |
+|---------|-----------|---------|-------------|
+| `ENABLE_GRAPH_INDEX` | `graphrag.enabled` | `false` | Master switch |
+| `GRAPH_STORE_TYPE` | `graphrag.store_type` | `simple` | `simple` or `kuzu` |
+| `GRAPH_USE_CODE_METADATA` | `graphrag.use_code_metadata` | `true` | AST metadata extraction |
+
+**Note**: GraphRAG requires the `--include-code` flag during indexing to extract code structure:
+
+```bash
+agent-brain index ./src --include-code
+```
+
+For Kuzu (persistent), install the optional extra first:
+
+```bash
+pip install "agent-brain-rag[graphrag-kuzu]"
+```
+
+### Query Mode Selection
+
+Agent Brain supports the following query modes, selectable per request with `--mode`:
+
+| Mode | Description | Requires GraphRAG |
+|------|-------------|------------------|
+| `hybrid` | Vector similarity + BM25 keyword (recommended default) | No |
+| `semantic` | Pure vector similarity search | No |
+| `bm25` | Keyword-only search (fast, no embedding needed) | No |
+| `graph` | Entity relationship graph traversal | Yes |
+| `multi` | Fuses vector + BM25 + graph with RRF | Yes |
+
+**Per-request override**:
+
+```bash
+agent-brain query "authentication flow" --mode hybrid
+agent-brain query "class relationships" --mode graph    # GraphRAG required
+agent-brain query "how do services work" --mode multi   # GraphRAG required
+```
+
+**Note**: There is no global `query.default_mode` config key yet. Mode is per-request only. The setup wizard writes the selected default mode as a YAML comment for documentation purposes.
 
 ### Verify Configuration
 
