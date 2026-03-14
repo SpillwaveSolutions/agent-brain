@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Performance & Developer Experience
-current_phase: 19
-current_plan: Not started
+current_phase: 22
+current_plan: 02
 status: completed
-stopped_at: Completed 17-02-PLAN.md
-last_updated: "2026-03-13T02:28:16.570Z"
-last_activity: "2026-03-10 — Phase 16 Plan 2 complete: `agent-brain cache` command group + embedding cache metrics in `agent-brain status` + 12 tests"
+stopped_at: Completed 22-02-PLAN.md
+last_updated: "2026-03-13T02:21:50.786Z"
+last_activity: "2026-03-12 — Phase 22 Plan 2 complete: Full interactive setup wizard with 6 AskUserQuestion blocks + 11 regression tests in test_plugin_wizard_spec.py"
 progress:
   total_phases: 5
   completed_phases: 3
@@ -16,26 +16,26 @@ progress:
 ---
 
 # Agent Brain — Project State
-**Last Updated:** 2026-03-10
+**Last Updated:** 2026-03-12
 **Current Milestone:** v8.0 Performance & Developer Experience
-**Status:** Milestone complete
-**Current Phase:** 19
-**Total Phases:** 4 (Phases 15-18)
-**Current Plan:** Not started
+**Status:** Phase 22 complete
+**Current Phase:** 22
+**Total Phases:** Phase 22 complete
+**Current Plan:** 02 of 02
 **Total Plans in Phase:** 2
 
 ## Current Position
-Phase: 17 of 18 (Query Cache)
+Phase: 22 (Restore Setup Wizard with Full Configuration Prompts)
 Plan: 2 of 2
-Status: Phase 17 complete
-Last activity: 2026-03-12 — Phase 17 complete: QueryCacheService with TTLCache, wired into QueryService/JobWorker/health, 20 tests, CONFIGURATION.md docs
+Status: Phase 22 complete
+Last activity: 2026-03-12 — Phase 22 Plans 1+2 complete: Full interactive wizard in agent-brain-setup.md (6 AskUserQuestion blocks for embedding, summarization, storage, GraphRAG, query mode, config.yaml write) + 11 regression tests in test_plugin_wizard_spec.py
 
-**Progress (v8.0):** [███████░░░] 75%
+**Progress (v8.0):** [██████████] 100%
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-06)
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** v8.0 Performance & Developer Experience — Phase 17 complete, ready for Phase 18: UDS Transport and Quality Gate
+**Current focus:** v8.0 Performance & Developer Experience — Phase 16 complete, ready for Phase 17: Query Cache
 
 ## Milestone Summary
 ```
@@ -43,7 +43,7 @@ v3.0 Advanced RAG:          [██████████] 100% (shipped 2026-
 v6.0 PostgreSQL Backend:    [██████████] 100% (shipped 2026-02-13)
 v6.0.4 Plugin & Install:   [██████████] 100% (shipped 2026-02-22)
 v7.0 Index Mgmt & Pipeline: [██████████] 100% (shipped 2026-03-05)
-v8.0 Performance & DX:      [███████░░░]  75% (Phase 15+16+17 complete)
+v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 complete)
 ```
 
 ## Performance Metrics
@@ -64,8 +64,8 @@ v8.0 Performance & DX:      [███████░░░]  75% (Phase 15+16+1
 |-------|-------|----------|--------|
 | Phase 15: File Watcher & BGINC | 2 | 13 min total (7+6) | Complete |
 | Phase 16: Embedding Cache | 2 | 14 min total (10+4) | Complete |
-| Phase 17: Query Cache | 2 | ~25 min total | Complete |
 | Phase 19-plugin-and-skill-updates-for-embedding-cache-management P01 | 2 | 2 tasks | 6 files |
+| Phase 22: Restore Setup Wizard with Full Config Prompts | 2 | ~15 min | Complete |
 
 ## Accumulated Context
 
@@ -101,14 +101,6 @@ v8.0 Performance & DX:      [███████░░░]  75% (Phase 15+16+1
 - No pre-fetch in --yes path: cache clear --yes skips count lookup (avoids extra API call)
 - Connection-safe count fetch in cache clear confirmation: try/except shows 0 if fetch fails
 
-### Key v8.0 Decisions (Phase 17)
-- QueryCacheService uses cachetools TTLCache with SHA-256:generation keys for automatic invalidation without per-entry eviction
-- graph and multi modes excluded from caching (non-deterministic LLM extraction)
-- Cache invalidated on DONE job completion only (not FAILED/CANCELLED)
-- Inline import of QueryCacheService inside execute_query avoids circular import
-- JobWorker.set_query_cache setter follows Phase 15 setter injection pattern
-- reset_query_cache() in lifespan shutdown for clean test restarts
-
 ### v8.0 Phase Order Rationale (revised 2026-03-06)
 - Phase 15 (File Watcher + BGINC): DX first — user's top priority; builds on Phase 14 ManifestTracker
 - Phase 16 (Embedding Cache): Cost optimization for the now-running watcher — prevents API bill from automatic reindexing
@@ -120,6 +112,14 @@ v8.0 Performance & DX:      [███████░░░]  75% (Phase 15+16+1
 - Phase 16 (Embedding Cache): Watcher must be running first — cache makes repeated auto-reindexing cheap
 - Phase 17 (Query Cache): Requires Phase 15 (watcher generates reindex events needing cache invalidation) + Phase 16 (index_generation counter)
 - Phase 18 (UDS + Quality Gate): Ship last — touches api/main.py server startup (widest blast radius)
+
+### Key Phase 22 Decisions (Restore Setup Wizard)
+- query.default_mode written as YAML comment only — server has no global default_mode config key; mode is per-request via --mode flag
+- Python yaml.dump used for safe config.yaml serialization in wizard write step — avoids manual YAML string quoting errors
+- chmod 600 applied automatically after config.yaml write — security enforcement without extra user steps
+- Wizard detects existing config and offers update/fresh/skip — preserves user's existing configuration
+- autouse pytest fixture skips wizard regression tests if plugin dir not found — graceful CI degradation
+- 11 regression tests instead of planned 10 — added test_setup_wizard_writes_config_yaml for config.yaml write step coverage
 
 ### Research Flags for Planning
 - Phase 15: watchfiles confirmed as transitive dep via Uvicorn (resolved)
@@ -134,10 +134,10 @@ v8.0 Performance & DX:      [███████░░░]  75% (Phase 15+16+1
 
 ## Session Continuity
 
-**Last Session:** 2026-03-13T02:28:16.568Z
-**Stopped At:** Completed 17-02-PLAN.md
+**Last Session:** 2026-03-13T02:21:50.784Z
+**Stopped At:** Completed 22-02-PLAN.md
 **Resume File:** None
-**Next Action:** Phase 18 — UDS Transport and Quality Gate
+**Next Action:** Phase 23 — XDG Migration and Uninstall Cleanup
 
 ---
 *State updated: 2026-03-10*
