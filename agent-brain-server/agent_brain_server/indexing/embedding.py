@@ -183,7 +183,7 @@ class EmbeddingGenerator:
             )
             # Collect results and batch-write to cache in one transaction
             cache_items: list[tuple[str, list[float]]] = []
-            for idx, embedding in zip(miss_indices, miss_embeddings):
+            for idx, embedding in zip(miss_indices, miss_embeddings, strict=True):
                 results[idx] = embedding
                 cache_items.append((keys[idx], embedding))
             await cache.put_many(cache_items)

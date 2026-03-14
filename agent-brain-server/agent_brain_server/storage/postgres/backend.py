@@ -153,6 +153,32 @@ class PostgresBackend:
                 f"metadatas={len(metadatas)}"
             )
 
+        # Deduplicate by ID with last-occurrence-wins semantics.
+        # Prevents duplicate-key errors when a batch contains the same
+        # chunk ID more than once (e.g. Confluence exports with identical
+        # filenames across subdirectories).
+        seen: dict[str, tuple[list[float], str, dict[str, Any]]] = {}
+        for id_, emb, doc, meta in zip(
+            ids, embeddings, documents, metadatas, strict=True
+        ):
+            seen[id_] = (emb, doc, meta)
+
+        if len(seen) < len(ids):
+            dup_count = len(ids) - len(seen)
+            sample_dups = list({i for i in ids if ids.count(i) > 1})[:5]
+            logger.warning(
+                "upsert_documents: removed %d duplicate chunk ID(s) from "
+                "batch of %d. Keeping last occurrence. "
+                "Sample duplicate IDs: %s",
+                dup_count,
+                len(ids),
+                sample_dups,
+            )
+            ids = list(seen.keys())
+            embeddings = [v[0] for v in seen.values()]
+            documents = [v[1] for v in seen.values()]
+            metadatas = [v[2] for v in seen.values()]
+
         try:
             count = 0
             for i in range(len(ids)):

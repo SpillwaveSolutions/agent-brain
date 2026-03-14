@@ -5,14 +5,14 @@ milestone_name: Performance & Developer Experience
 current_phase: 19
 current_plan: Not started
 status: completed
-stopped_at: Completed 20-01-PLAN.md
-last_updated: "2026-03-13T02:24:31.349Z"
+stopped_at: Completed 21-01-PLAN.md
+last_updated: "2026-03-13T02:28:00.778Z"
 last_activity: "2026-03-10 — Phase 16 Plan 2 complete: `agent-brain cache` command group + embedding cache metrics in `agent-brain status` + 12 tests"
 progress:
-  total_phases: 11
-  completed_phases: 4
-  total_plans: 14
-  completed_plans: 9
+  total_phases: 5
+  completed_phases: 3
+  total_plans: 5
+  completed_plans: 5
 ---
 
 # Agent Brain — Project State
@@ -65,8 +65,7 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 | Phase 15: File Watcher & BGINC | 2 | 13 min total (7+6) | Complete |
 | Phase 16: Embedding Cache | 2 | 14 min total (10+4) | Complete |
 | Phase 19-plugin-and-skill-updates-for-embedding-cache-management P01 | 2 | 2 tasks | 6 files |
-| Phase 20-plugin-skill-next-step-hints-should-suggest-slash-commands P01 | 25 | 2 tasks | 32 files |
-| Phase 23: XDG migration + uninstall cleanup | 3 | ~50 min total | Complete |
+| Phase 21-fix-duplicate-chunk-id-crash-during-indexing P01 | 11 min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -114,14 +113,6 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 - Phase 17 (Query Cache): Requires Phase 15 (watcher generates reindex events needing cache invalidation) + Phase 16 (index_generation counter)
 - Phase 18 (UDS + Quality Gate): Ship last — touches api/main.py server startup (widest blast radius)
 
-### Roadmap Evolution
-- Phase 20 added: Plugin skill next-step hints should suggest slash commands (not just CLI commands)
-- Phase 21 added: Fix duplicate chunk ID crash during indexing (ChromaDB DuplicateIDError when duplicate files exist)
-- Phase 22 added: Restore setup wizard with full configuration prompts (storage backend, embedding provider, query mode, index types)
-- Phase 23 added: Migrate global config from ~/.agent-brain to ~/.config/agent-brain + uninstall cleanup (XDG compliance + clean uninstall)
-- Phase 24 added: Setup agent permissions + helper script — eliminate permission prompts during setup wizard (config detection, Ollama checks, dir creation, large-dir scanning)
-- Phase 25 added: Setup wizard coverage gaps — GraphRAG opt-in prompt, BM25 unavailable with PostgreSQL (uses built-in keyword search), search mode education, cache mention, GraphRAG+PostgreSQL compatibility research
-
 ### Research Flags for Planning
 - Phase 15: watchfiles confirmed as transitive dep via Uvicorn (resolved)
 - Phase 16: aiosqlite WAL mode verified working under concurrent access (resolved)
@@ -130,22 +121,15 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 ### Blockers/Concerns
 - Phase 18 UDS dual-server pattern is MEDIUM confidence (community-verified, not official Uvicorn docs)
 
-### Key Phase 23 Decisions
-- LEGACY_DIR constant uses Path.home() at module load, but migration functions call Path.home() dynamically for test mockability
-- Server provider_config.py inlines XDG logic (cannot import from CLI package)
-- migrate_legacy_paths() checks if XDG config OR state dir exists to skip double-migrate
-- storage_paths.resolve_shared_project_dir respects AGENT_BRAIN_SHARED_DIR then XDG_DATA_HOME
-- uninstall command uses shutil.rmtree(ignore_errors=True) for idempotent removal
-
 ### Pending Todos
 0 pending todos.
 
 ## Session Continuity
 
-**Last Session:** 2026-03-13T02:24:31.346Z
-**Stopped At:** Completed 23-03-PLAN.md
+**Last Session:** 2026-03-13T02:28:00.776Z
+**Stopped At:** Completed 21-01-PLAN.md
 **Resume File:** None
-**Next Action:** Phase 24 — Setup agent permissions + helper script
+**Next Action:** Phase 17 — Query Cache (freshness guarantees after auto-reindex)
 
 ---
 *State updated: 2026-03-10*

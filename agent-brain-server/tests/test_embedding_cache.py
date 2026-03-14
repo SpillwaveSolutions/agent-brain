@@ -119,7 +119,7 @@ async def test_put_and_get_round_trip(tmp_path):
 
     assert result is not None
     assert len(result) == len(embedding)
-    for a, b in zip(result, embedding):
+    for a, b in zip(result, embedding, strict=True):
         assert abs(a - b) < 1e-6, f"Mismatch: {a} vs {b}"
     assert svc._hits == 1
     assert svc._misses == 0
@@ -359,7 +359,7 @@ async def test_float32_round_trip(tmp_path):
 
     assert result is not None
     assert len(result) == dims
-    for orig, recovered in zip(embedding, result):
+    for orig, recovered in zip(embedding, result, strict=True):
         assert (
             abs(orig - recovered) < 1e-6
         ), f"float32 round-trip failed: original={orig}, recovered={recovered}"
@@ -383,7 +383,7 @@ async def test_float32_cosine_similarity_preserved(tmp_path):
     result = await svc.get(key)
 
     assert result is not None
-    dot = sum(a * b for a, b in zip(embedding, result))
+    dot = sum(a * b for a, b in zip(embedding, result, strict=True))
     mag_a = math.sqrt(sum(x**2 for x in embedding))
     mag_b = math.sqrt(sum(x**2 for x in result))
     cos_sim = dot / (mag_a * mag_b)
