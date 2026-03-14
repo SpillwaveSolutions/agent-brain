@@ -1,8 +1,10 @@
 """Query service for executing semantic search queries."""
 
+from __future__ import annotations
+
 import logging
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from llama_index.core.retrievers import BaseRetriever
 from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
@@ -10,6 +12,9 @@ from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
 # Import reranker module to trigger provider registration
 import agent_brain_server.providers.reranker  # noqa: F401
 from agent_brain_server.config import settings
+
+if TYPE_CHECKING:
+    from agent_brain_server.services.query_cache import QueryCacheService
 from agent_brain_server.config.provider_config import load_provider_settings
 from agent_brain_server.indexing import EmbeddingGenerator, get_embedding_generator
 from agent_brain_server.indexing.bm25_index import BM25IndexManager, get_bm25_manager
@@ -39,7 +44,7 @@ class VectorManagerRetriever(BaseRetriever):
 
     def __init__(
         self,
-        service: "QueryService",
+        service: QueryService,
         top_k: int,
         threshold: float,
     ):
@@ -85,6 +90,7 @@ class QueryService:
         bm25_manager: BM25IndexManager | None = None,
         graph_index_manager: GraphIndexManager | None = None,
         storage_backend: StorageBackendProtocol | None = None,
+        query_cache: QueryCacheService | None = None,
     ):
         """
         Initialize the query service.
@@ -127,6 +133,7 @@ class QueryService:
 
         self.embedding_generator = embedding_generator or get_embedding_generator()
         self.graph_index_manager = graph_index_manager or get_graph_index_manager()
+        self.query_cache = query_cache
 
     def is_ready(self) -> bool:
         """
@@ -160,6 +167,31 @@ class QueryService:
             )
 
         start_time = time.time()
+
+        # Query cache check (Phase 17 — QCACHE-01, QCACHE-03)
+        from agent_brain_server.services.query_cache import (
+            QueryCacheService,
+        )
+
+        cache = self.query_cache
+        cache_key: str | None = None
+        if cache is not None and QueryCacheService.is_cacheable_mode(
+            request.mode.value
+        ):
+            cache_params: dict[str, Any] = {
+                "query": request.query,
+                "mode": request.mode.value,
+                "top_k": request.top_k,
+                "similarity_threshold": request.similarity_threshold,
+                "alpha": request.alpha,
+                "source_types": sorted(request.source_types or []),
+                "languages": sorted(request.languages or []),
+                "file_paths": sorted(request.file_paths or []),
+            }
+            cache_key = cache.make_cache_key(cache_params)
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return cached  # type: ignore[no-any-return]
 
         # Early return for empty index — avoids top_k=0 errors downstream
         corpus_size = await self.storage_backend.get_count()
@@ -247,11 +279,17 @@ class QueryService:
             f"{' (reranked)' if enable_reranking else ''}"
         )
 
-        return QueryResponse(
+        response = QueryResponse(
             results=results,
             query_time_ms=query_time_ms,
             total_results=len(results),
         )
+
+        # Store in query cache (Phase 17 — QCACHE-01)
+        if cache is not None and cache_key is not None:
+            await cache.put(cache_key, response)
+
+        return response
 
     async def _execute_vector_query(self, request: QueryRequest) -> list[QueryResult]:
         """Execute pure semantic search."""

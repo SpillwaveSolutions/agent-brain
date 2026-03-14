@@ -125,11 +125,11 @@ Plans:
 4. `graph` and `multi` query modes are never served from cache — each call reaches storage
 5. `QUERY_CACHE_TTL` and `QUERY_CACHE_MAX_SIZE` are documented in env vars reference and YAML config reference
 
-**Plans:** 2 plans
+**Plans:** TBD
 
 Plans:
-- [ ] 17-01-PLAN.md — QueryCacheService with cachetools TTLCache, settings fields, IndexingStatus model field, unit tests
-- [ ] 17-02-PLAN.md — Wire cache into QueryService + JobWorker + lifespan + health endpoint; integration tests; CONFIGURATION.md docs
+- [x] 17-01: QueryCache service (cachetools TTLCache + asyncio.Lock, index_generation counter, graph/multi exclusion, invalidate_all on job DONE)
+- [x] 17-02: Integration into QueryService + JobWorker; cache hit/miss metrics in /health/status; env var config; config documentation
 
 ---
 
@@ -197,7 +197,6 @@ Phases execute in numeric order: 15 → 16 → 17 → 18
 | 17. Query Cache | v8.0 | 0/2 | Not started | - |
 | 18. UDS Transport & Quality Gate | v8.0 | 0/2 | Not started | - |
 | 19. Plugin Cache Docs | 1/1 | Complete    | 2026-03-12 | - |
-| 20. Slash Command Hints | 1/1 | Complete   | 2026-03-13 | - |
 
 ---
 
@@ -221,80 +220,6 @@ Feature 101: AST-aware code ingestion, code summaries
 - 114: Agent Brain plugin
 - 115: Server-side job queue
 
-### Phase 20: Plugin skill next-step hints should suggest slash commands
-
-**Goal:** All next-step guidance in plugin command files and skill docs uses the full `/agent-brain:agent-brain-{cmd}` slash command format so Claude Code autocomplete works for follow-on actions.
-
-**Requirements:** HINT-01, HINT-02, HINT-03
-
-**Depends on:** Phase 19
-
-**Plans:** 1/1 plans complete
-
-Plans:
-- [ ] 20-01-PLAN.md — Update all 29 command files + 4 skill/reference files with slash command format in guidance positions
-
-### Phase 21: Fix duplicate chunk ID crash during indexing
-
-**Goal:** Indexing directories with duplicate files (e.g., Confluence exports) completes without crashing -- duplicate chunk IDs within upsert batches are silently deduplicated at the storage layer.
-
-**Requirements:** DEDUP-01, DEDUP-02, DEDUP-03
-
-**Depends on:** None (standalone bug fix)
-
-**Plans:** 1 plan
-
-Plans:
-- [ ] 21-01-PLAN.md — Dict-based deduplication in ChromaDB and PostgreSQL upsert_documents() + regression tests
-
-### Phase 22: Restore setup wizard with full configuration prompts
-
-**Goal:** `/agent-brain-setup` is a complete interactive wizard that asks about embedding provider, summarization provider, storage backend, GraphRAG, and default query mode before writing a comprehensive config.yaml and running init/start. A regression test prevents future wizard degradation.
-
-**Requirements:** WIZARD-01, WIZARD-02, WIZARD-03, WIZARD-04, WIZARD-05, WIZARD-06
-
-**Depends on:** None (plugin markdown + regression test only, no server changes)
-
-**Plans:** 2 plans
-
-Plans:
-- [ ] 22-01-PLAN.md — Full wizard steps in /agent-brain-setup (embedding, summarization, storage, GraphRAG, query mode) + SKILL.md and config guide updates
-- [ ] 22-02-PLAN.md — Regression test (test_plugin_wizard_spec.py) asserting all wizard sections present in command files
-
-### Phase 23: Migrate global config from ~/.agent-brain to ~/.config/agent-brain + uninstall cleanup
-
-**Goal:** All global Agent Brain state lives under XDG-compliant paths (`~/.config/agent-brain/`, `~/.local/state/agent-brain/`), with auto-migration from `~/.agent-brain` on start/init, deprecation warnings on legacy fallback, and an `agent-brain uninstall` command for clean global removal.
-
-**Requirements:** XDG-01, XDG-02, XDG-03, MIG-01, MIG-02, MIG-03, CFG-01, CFG-02, REG-01, REG-02, REG-03, REG-04, UNI-01, UNI-02, UNI-03
-
-**Depends on:** Phase 22
-**Plans:** 3 plans
-
-Plans:
-- [ ] 23-01-PLAN.md — XDG path helper module (xdg_paths.py) with path resolution + migration logic + tests
-- [ ] 23-02-PLAN.md — Update all callers: config search priority flip, registry paths in start/stop/list/init, server storage_paths, deprecation warnings
-- [ ] 23-03-PLAN.md — `agent-brain uninstall` command with server auto-stop, confirmation prompt, global cleanup
-
-### Phase 24: Setup agent permissions and helper script to eliminate permission prompts
-
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 23
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 24 to break down)
-
-### Phase 25: Setup wizard coverage gaps — GraphRAG opt-in, BM25/PostgreSQL awareness, search mode education
-
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 24
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 25 to break down)
-
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-12 — Phase 23 planned: 3 plans in 2 waves*
+*Last updated: 2026-03-12 — Phase 19 planned: 1 plan in 1 wave*

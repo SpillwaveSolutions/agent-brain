@@ -140,6 +140,14 @@ class IndexingStatus(BaseModel):
             "size_bytes. Omitted for fresh installs with empty cache."
         ),
     )
+    # Query cache status (Phase 17)
+    query_cache: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Query cache status with hits, misses, hit_rate, cached_entries, "
+            "index_generation. None when cache not initialized."
+        ),
+    )
 
     model_config = {
         "json_schema_extra": {

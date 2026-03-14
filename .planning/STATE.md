@@ -5,8 +5,8 @@ milestone_name: Performance & Developer Experience
 current_phase: 19
 current_plan: Not started
 status: completed
-stopped_at: Completed 21-01-PLAN.md
-last_updated: "2026-03-13T02:28:00.778Z"
+stopped_at: Completed 17-02-PLAN.md
+last_updated: "2026-03-13T02:28:16.570Z"
 last_activity: "2026-03-10 — Phase 16 Plan 2 complete: `agent-brain cache` command group + embedding cache metrics in `agent-brain status` + 12 tests"
 progress:
   total_phases: 5
@@ -25,17 +25,17 @@ progress:
 **Total Plans in Phase:** 2
 
 ## Current Position
-Phase: 16 of 18 (Embedding Cache)
+Phase: 17 of 18 (Query Cache)
 Plan: 2 of 2
-Status: Phase 16 complete
-Last activity: 2026-03-10 — Phase 16 Plan 2 complete: `agent-brain cache` command group + embedding cache metrics in `agent-brain status` + 12 tests
+Status: Phase 17 complete
+Last activity: 2026-03-12 — Phase 17 complete: QueryCacheService with TTLCache, wired into QueryService/JobWorker/health, 20 tests, CONFIGURATION.md docs
 
-**Progress (v8.0):** [█████░░░░░] 50%
+**Progress (v8.0):** [███████░░░] 75%
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-06)
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** v8.0 Performance & Developer Experience — Phase 16 complete, ready for Phase 17: Query Cache
+**Current focus:** v8.0 Performance & Developer Experience — Phase 17 complete, ready for Phase 18: UDS Transport and Quality Gate
 
 ## Milestone Summary
 ```
@@ -43,7 +43,7 @@ v3.0 Advanced RAG:          [██████████] 100% (shipped 2026-
 v6.0 PostgreSQL Backend:    [██████████] 100% (shipped 2026-02-13)
 v6.0.4 Plugin & Install:   [██████████] 100% (shipped 2026-02-22)
 v7.0 Index Mgmt & Pipeline: [██████████] 100% (shipped 2026-03-05)
-v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 complete)
+v8.0 Performance & DX:      [███████░░░]  75% (Phase 15+16+17 complete)
 ```
 
 ## Performance Metrics
@@ -64,8 +64,8 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 |-------|-------|----------|--------|
 | Phase 15: File Watcher & BGINC | 2 | 13 min total (7+6) | Complete |
 | Phase 16: Embedding Cache | 2 | 14 min total (10+4) | Complete |
+| Phase 17: Query Cache | 2 | ~25 min total | Complete |
 | Phase 19-plugin-and-skill-updates-for-embedding-cache-management P01 | 2 | 2 tasks | 6 files |
-| Phase 21-fix-duplicate-chunk-id-crash-during-indexing P01 | 11 min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -101,6 +101,14 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 - No pre-fetch in --yes path: cache clear --yes skips count lookup (avoids extra API call)
 - Connection-safe count fetch in cache clear confirmation: try/except shows 0 if fetch fails
 
+### Key v8.0 Decisions (Phase 17)
+- QueryCacheService uses cachetools TTLCache with SHA-256:generation keys for automatic invalidation without per-entry eviction
+- graph and multi modes excluded from caching (non-deterministic LLM extraction)
+- Cache invalidated on DONE job completion only (not FAILED/CANCELLED)
+- Inline import of QueryCacheService inside execute_query avoids circular import
+- JobWorker.set_query_cache setter follows Phase 15 setter injection pattern
+- reset_query_cache() in lifespan shutdown for clean test restarts
+
 ### v8.0 Phase Order Rationale (revised 2026-03-06)
 - Phase 15 (File Watcher + BGINC): DX first — user's top priority; builds on Phase 14 ManifestTracker
 - Phase 16 (Embedding Cache): Cost optimization for the now-running watcher — prevents API bill from automatic reindexing
@@ -126,10 +134,10 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 
 ## Session Continuity
 
-**Last Session:** 2026-03-13T02:28:00.776Z
-**Stopped At:** Completed 21-01-PLAN.md
+**Last Session:** 2026-03-13T02:28:16.568Z
+**Stopped At:** Completed 17-02-PLAN.md
 **Resume File:** None
-**Next Action:** Phase 17 — Query Cache (freshness guarantees after auto-reindex)
+**Next Action:** Phase 18 — UDS Transport and Quality Gate
 
 ---
 *State updated: 2026-03-10*

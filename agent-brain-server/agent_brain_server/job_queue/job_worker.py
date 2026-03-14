@@ -15,6 +15,7 @@ from agent_brain_server.services.indexing_service import IndexingService
 if TYPE_CHECKING:
     from agent_brain_server.services.file_watcher_service import FileWatcherService
     from agent_brain_server.services.folder_manager import FolderManager
+    from agent_brain_server.services.query_cache import QueryCacheService
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,8 @@ class JobWorker:
         # Optional references for watch_mode integration (Phase 15)
         self._file_watcher_service: FileWatcherService | None = None
         self._folder_manager: FolderManager | None = None
+        # Optional query cache for invalidation on job completion (Phase 17)
+        self._query_cache: QueryCacheService | None = None
 
         # Internal state
         self._running = False
@@ -103,6 +106,14 @@ class JobWorker:
             manager: FolderManager instance or None.
         """
         self._folder_manager = manager
+
+    def set_query_cache(self, cache: QueryCacheService | None) -> None:
+        """Set query cache for invalidation on job completion (Phase 17).
+
+        Args:
+            cache: QueryCacheService instance or None.
+        """
+        self._query_cache = cache
 
     @property
     def is_running(self) -> bool:
@@ -375,6 +386,13 @@ class JobWorker:
                         started_at=job.started_at,
                         completed_at=job.finished_at,
                         error=None,
+                    )
+
+                # Invalidate query cache on successful reindex (Phase 17 — QCACHE-04)
+                if self._query_cache is not None:
+                    await self._query_cache.invalidate_all()
+                    logger.debug(
+                        "Query cache invalidated after job %s completed", job.id
                     )
 
                 # Update watch config and start watcher if watch_mode is set
