@@ -130,6 +130,12 @@ After answering all questions, the wizard writes a comprehensive `config.yaml` c
 
 The file is chmod 600 automatically. A security warning is shown: never commit config.yaml to git.
 
+**PostgreSQL + BM25**: When `storage.backend: "postgres"` is selected, the
+disk-based BM25 index is replaced by PostgreSQL's built-in full-text search
+(`tsvector` + `websearch_to_tsquery`). The `--mode bm25` command works
+identically from the user's perspective. Language is configurable via
+`storage.postgres.language` (default: `"english"`).
+
 ### Standalone Config Command
 
 `/agent-brain-config` handles provider-specific details when called standalone (without the full wizard). It includes storage backend selection, indexing exclude patterns, and Ollama status checks.
@@ -381,20 +387,24 @@ pip install "agent-brain-rag[graphrag-kuzu]"
 
 Agent Brain supports the following query modes, selectable per request with `--mode`:
 
-| Mode | Description | Requires GraphRAG |
-|------|-------------|------------------|
-| `hybrid` | Vector similarity + BM25 keyword (recommended default) | No |
-| `semantic` | Pure vector similarity search | No |
-| `bm25` | Keyword-only search (fast, no embedding needed) | No |
-| `graph` | Entity relationship graph traversal | Yes |
-| `multi` | Fuses vector + BM25 + graph with RRF | Yes |
+| Mode | Description | Requirements |
+|------|-------------|-------------|
+| `hybrid` | Vector similarity + BM25 keyword (recommended default) | None |
+| `semantic` | Pure vector similarity search | None |
+| `bm25` | Keyword-only search (fast, no embedding needed) | None |
+| `graph` | Entity relationship graph traversal | GraphRAG + ChromaDB backend |
+| `multi` | Fuses vector + BM25 + graph with RRF | GraphRAG + ChromaDB backend |
+
+**Note**: `graph` and `multi` modes are not available with PostgreSQL backend.
+GraphRAG uses an in-memory/Kuzu graph store that is separate from the vector
+store — it currently integrates only with ChromaDB.
 
 **Per-request override**:
 
 ```bash
 agent-brain query "authentication flow" --mode hybrid
-agent-brain query "class relationships" --mode graph    # GraphRAG required
-agent-brain query "how do services work" --mode multi   # GraphRAG required
+agent-brain query "class relationships" --mode graph    # GraphRAG + ChromaDB required
+agent-brain query "how do services work" --mode multi   # GraphRAG + ChromaDB required
 ```
 
 **Note**: There is no global `query.default_mode` config key yet. Mode is per-request only. The setup wizard writes the selected default mode as a YAML comment for documentation purposes.
@@ -616,7 +626,9 @@ agent-brain index ./docs
 
 **Note**: Environment variables override config file values. Config file values override defaults.
 
-### Embedding Cache Tuning
+### Caching
+
+#### Embedding Cache
 
 The embedding cache is **automatic** — no setup required. Embeddings are cached on first compute
 and reused on subsequent reindexes of unchanged content, significantly reducing OpenAI API costs
@@ -631,6 +643,18 @@ The two cache env vars allow tuning for specific environments:
   cache database size; oldest entries are evicted when the limit is reached
 
 The disk cache uses SQLite with WAL mode for safe concurrent access during indexing operations.
+
+#### Query Cache
+
+The query cache is **automatic** — no setup required. Identical queries within
+the TTL window return instantly without hitting storage.
+
+- **`graph` and `multi` modes bypass the cache** — each call reaches storage
+  for fresh results.
+- Cache is **invalidated on every completed reindex job** (file watcher or manual).
+- Configurable via environment variables (see Configuration Guide for details):
+  - `QUERY_CACHE_TTL` — cache TTL in seconds (default: 300, i.e., 5 minutes)
+  - `QUERY_CACHE_MAX_SIZE` — max cached query results (default: 256)
 
 ---
 
