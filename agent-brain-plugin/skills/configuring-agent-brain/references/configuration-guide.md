@@ -167,6 +167,17 @@ export AGENT_BRAIN_STORAGE_BACKEND="postgres"
 export DATABASE_URL="postgresql+asyncpg://agent_brain:agent_brain_dev@localhost:5432/agent_brain"
 ```
 
+**BM25 and Full-Text Search with PostgreSQL**
+
+When using the PostgreSQL backend, the disk-based BM25 index is replaced by
+PostgreSQL's built-in full-text search (`tsvector` + `websearch_to_tsquery`).
+
+- `--mode bm25` queries use `ts_rank` scoring with `websearch_to_tsquery` syntax
+- Scores are normalized to 0-1 to match ChromaDB BM25 output format
+- The `storage.postgres.language` setting (default: `"english"`) controls the
+  tsvector language configuration
+- No BM25 configuration or index files are needed with PostgreSQL
+
 ---
 
 ## API Keys
@@ -241,6 +252,8 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 | `SUMMARIZATION_PROVIDER` | No | `anthropic` | Summarization provider |
 | `SUMMARIZATION_MODEL` | No | `claude-haiku-4-5-20251001` | Summarization model |
 | `DEBUG` | No | `false` | Enable debug logging |
+| `QUERY_CACHE_TTL` | No | 300 | Query cache TTL in seconds (0 = disabled) |
+| `QUERY_CACHE_MAX_SIZE` | No | 256 | Max number of cached query results |
 
 ---
 
@@ -300,6 +313,45 @@ export GRAPH_USE_LLM_EXTRACTION=true
 export GRAPH_TRAVERSAL_DEPTH=2
 export GRAPH_RRF_K=60
 ```
+
+---
+
+## Query Cache Configuration
+
+The query cache stores identical query results for a configurable TTL window.
+It is auto-enabled — no setup required.
+
+### Behavior
+
+- Identical queries within the TTL return instantly without hitting storage
+- Cache is invalidated when any reindex job completes (watcher or manual)
+- `graph` and `multi` query modes are **never cached** — each call reaches storage
+- Cache is in-memory and does not persist across server restarts
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `QUERY_CACHE_TTL` | `300` | Cache TTL in seconds. Set to `0` to disable. |
+| `QUERY_CACHE_MAX_SIZE` | `256` | Maximum cached query results (LRU eviction) |
+
+### Example
+
+```bash
+# Extend cache TTL to 10 minutes for stable codebases
+export QUERY_CACHE_TTL=600
+
+# Increase cache size for large query workloads
+export QUERY_CACHE_MAX_SIZE=512
+```
+
+### Disable Query Cache
+
+```bash
+export QUERY_CACHE_TTL=0
+```
+
+---
 
 ### GraphRAG Query Modes
 
