@@ -66,7 +66,7 @@ def _resolve_git_root(start: Path) -> Path | None:
 def _walk_up_for_marker(start: Path) -> Path | None:
     """Walk up directories looking for project markers.
 
-    Looks for .claude/ directory or pyproject.toml file.
+    Looks for .agent-brain/, .claude/ directory, or pyproject.toml file.
 
     Args:
         start: Directory to start walking from.
@@ -76,6 +76,8 @@ def _walk_up_for_marker(start: Path) -> Path | None:
     """
     current = start
     while current != current.parent:
+        if (current / ".agent-brain").is_dir():
+            return current
         if (current / ".claude").is_dir():
             return current
         if (current / "pyproject.toml").is_file():

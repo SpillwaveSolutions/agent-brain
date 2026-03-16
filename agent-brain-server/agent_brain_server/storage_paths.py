@@ -6,7 +6,8 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-STATE_DIR_NAME = ".claude/agent-brain"
+STATE_DIR_NAME = ".agent-brain"
+LEGACY_STATE_DIR_NAME = ".claude/agent-brain"
 
 SUBDIRECTORIES = [
     "data",
@@ -23,7 +24,9 @@ SUBDIRECTORIES = [
 def resolve_state_dir(project_root: Path) -> Path:
     """Resolve the state directory for a project.
 
-    Returns <project_root>/.claude/agent-brain/
+    Checks for `.agent-brain/` first, then falls back to the legacy
+    `.claude/agent-brain/` path for backward compatibility. If neither
+    exists, returns the new `.agent-brain/` path.
 
     Args:
         project_root: Resolved project root path.
@@ -31,8 +34,16 @@ def resolve_state_dir(project_root: Path) -> Path:
     Returns:
         Path to the state directory.
     """
-    state_dir = project_root.resolve() / STATE_DIR_NAME
-    return state_dir
+    resolved = project_root.resolve()
+    new_dir = resolved / STATE_DIR_NAME
+    if new_dir.is_dir():
+        return new_dir
+
+    legacy_dir = resolved / LEGACY_STATE_DIR_NAME
+    if legacy_dir.is_dir():
+        return legacy_dir
+
+    return new_dir
 
 
 def resolve_storage_paths(state_dir: Path) -> dict[str, Path]:

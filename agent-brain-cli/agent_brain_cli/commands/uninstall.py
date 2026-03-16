@@ -102,7 +102,7 @@ def uninstall_command(yes: bool, json_output: bool) -> None:
       - ~/.local/state/agent-brain/  (XDG state directory)
       - ~/.agent-brain/           (legacy directory, if present)
 
-    Does NOT remove project-level .claude/agent-brain/ directories.
+    Does NOT remove project-level .agent-brain/ directories.
 
     \b
     Examples:

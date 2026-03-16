@@ -22,7 +22,7 @@ def _find_config_file() -> Path | None:
     1. AGENT_BRAIN_CONFIG environment variable
     2. State directory config.yaml (if AGENT_BRAIN_STATE_DIR set)
     3. Current directory config.yaml
-    4. Walk up from CWD looking for .claude/agent-brain/config.yaml
+    4. Walk up from CWD: .agent-brain/config.yaml (or legacy path)
     5. XDG config ~/.config/agent-brain/config.yaml (preferred)
     6. Legacy ~/.agent-brain/config.yaml (deprecated, prints warning)
 
@@ -48,13 +48,16 @@ def _find_config_file() -> Path | None:
     if cwd_config.exists():
         return cwd_config
 
-    # 4. Walk up from CWD
+    # 4. Walk up from CWD looking for .agent-brain/ or legacy .claude/agent-brain/
     current = Path.cwd()
     root = Path(current.anchor)
     while current != root:
-        claude_config = current / ".claude" / "agent-brain" / "config.yaml"
-        if claude_config.exists():
-            return claude_config
+        new_config = current / ".agent-brain" / "config.yaml"
+        if new_config.exists():
+            return new_config
+        legacy_config = current / ".claude" / "agent-brain" / "config.yaml"
+        if legacy_config.exists():
+            return legacy_config
         current = current.parent
 
     # 5. XDG config (checked before legacy per XDG standard)

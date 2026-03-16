@@ -159,7 +159,7 @@ class TestGetStateDir:
         with patch.dict(os.environ, {}, clear=True):
             project_root = Path("/my/project")
             state_dir = get_state_dir(project_root=project_root)
-            assert state_dir == project_root / ".claude/agent-brain"
+            assert state_dir == project_root / ".agent-brain"
 
     def test_env_var_takes_precedence(self) -> None:
         """Test environment variable takes precedence."""
@@ -255,9 +255,9 @@ summarization:
             assert config.summarization.api_key == "sk-ant-test-key"
 
     def test_project_config_file(self, tmp_path: Path) -> None:
-        """Test loading from project .claude/agent-brain/config.yaml."""
+        """Test loading from project .agent-brain/config.yaml."""
         # Create project structure
-        state_dir = tmp_path / ".claude" / "agent-brain"
+        state_dir = tmp_path / ".agent-brain"
         state_dir.mkdir(parents=True)
         config_file = state_dir / "config.yaml"
         config_file.write_text(

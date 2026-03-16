@@ -17,7 +17,7 @@ fi
 # --- Config file detection (XDG + legacy) ---
 CONFIG_FILE=""
 CONFIG_FOUND="false"
-for candidate in ".claude/agent-brain/config.yaml" \
+for candidate in ".agent-brain/config.yaml" \
     "${XDG_CONFIG_HOME:-$HOME/.config}/agent-brain/config.yaml" \
     "$HOME/.agent-brain/config.yaml"; do
   if [ -f "$candidate" ]; then

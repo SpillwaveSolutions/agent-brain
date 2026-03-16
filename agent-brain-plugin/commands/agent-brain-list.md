@@ -87,7 +87,7 @@ ps aux | grep agent-brain
 
 ## Notes
 
-- Instances are discovered from `.claude/agent-brain/runtime.json` files
+- Instances are discovered from `.agent-brain/runtime.json` files
 - Each project has its own isolated instance
 - Ports are automatically assigned in the 49000-49999 range
 - Health checks query the `/health` endpoint of each instance

@@ -58,10 +58,10 @@ agent-brain start
 **Permission Errors:**
 ```bash
 # Check directory permissions
-ls -la .claude/agent-brain/
+ls -la .agent-brain/
 
 # Fix permissions
-chmod 755 .claude/agent-brain/
+chmod 755 .agent-brain/
 ```
 
 ### Connection Refused Errors
@@ -80,7 +80,7 @@ agent-brain status
 
 **Check Runtime File:**
 ```bash
-cat .claude/agent-brain/runtime.json | jq '.base_url'
+cat .agent-brain/runtime.json | jq '.base_url'
 ```
 
 **Override URL if Needed:**
@@ -131,9 +131,9 @@ agent-brain index /path/to/docs
 
 ```bash
 # Manual cleanup
-rm .claude/agent-brain/runtime.json
-rm .claude/agent-brain/lock.json
-rm .claude/agent-brain/pid
+rm .agent-brain/runtime.json
+rm .agent-brain/lock.json
+rm .agent-brain/pid
 
 # Start fresh
 agent-brain start
@@ -390,8 +390,8 @@ chmod 644 /path/to/docs/*.md
 
 **Check Index Directory:**
 ```bash
-ls -la .claude/agent-brain/
-chmod 755 .claude/agent-brain/
+ls -la .agent-brain/
+chmod 755 .agent-brain/
 ```
 
 ---
@@ -412,7 +412,7 @@ echo "Anthropic: ${ANTHROPIC_API_KEY:+SET}"
 agent-brain status
 
 # 4. Check runtime file
-cat .claude/agent-brain/runtime.json 2>/dev/null || echo "No runtime file"
+cat .agent-brain/runtime.json 2>/dev/null || echo "No runtime file"
 
 # 5. Test BM25 (no API needed)
 agent-brain query "test" --mode bm25 --threshold 0.01

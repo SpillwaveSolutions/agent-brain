@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from agent_brain_server.storage_paths import (
+    LEGACY_STATE_DIR_NAME,
     STATE_DIR_NAME,
     resolve_state_dir,
     resolve_storage_paths,
@@ -12,10 +13,31 @@ from agent_brain_server.storage_paths import (
 class TestResolveStateDir:
     """Tests for resolve_state_dir function."""
 
-    def test_returns_correct_path(self, tmp_path):
-        """Test state dir is under project root."""
+    def test_returns_new_path_when_neither_exists(self, tmp_path):
+        """Test returns new .agent-brain path when nothing exists."""
         result = resolve_state_dir(tmp_path)
         assert result == tmp_path / STATE_DIR_NAME
+
+    def test_returns_new_path_when_it_exists(self, tmp_path):
+        """Test returns new .agent-brain path when it exists."""
+        (tmp_path / ".agent-brain").mkdir()
+        result = resolve_state_dir(tmp_path)
+        assert result == tmp_path / ".agent-brain"
+
+    def test_returns_legacy_path_when_only_legacy_exists(self, tmp_path):
+        """Test falls back to legacy path when only it exists."""
+        legacy = tmp_path / ".claude" / "agent-brain"
+        legacy.mkdir(parents=True)
+        result = resolve_state_dir(tmp_path)
+        assert result == legacy
+
+    def test_prefers_new_over_legacy(self, tmp_path):
+        """Test new path takes priority over legacy when both exist."""
+        (tmp_path / ".agent-brain").mkdir()
+        legacy = tmp_path / ".claude" / "agent-brain"
+        legacy.mkdir(parents=True)
+        result = resolve_state_dir(tmp_path)
+        assert result == tmp_path / ".agent-brain"
 
     def test_resolves_symlinks(self, tmp_path):
         """Test symlinks are resolved."""
@@ -28,8 +50,12 @@ class TestResolveStateDir:
         assert result == real_dir / STATE_DIR_NAME
 
     def test_state_dir_name_constant(self):
-        """Test STATE_DIR_NAME is correct."""
-        assert STATE_DIR_NAME == ".claude/agent-brain"
+        """Test STATE_DIR_NAME is the new runtime-neutral path."""
+        assert STATE_DIR_NAME == ".agent-brain"
+
+    def test_legacy_state_dir_name_constant(self):
+        """Test LEGACY_STATE_DIR_NAME preserves the old path."""
+        assert LEGACY_STATE_DIR_NAME == ".claude/agent-brain"
 
 
 class TestResolveStoragePaths:
@@ -37,7 +63,7 @@ class TestResolveStoragePaths:
 
     def test_creates_all_directories(self, tmp_path):
         """Test all storage directories are created."""
-        state_dir = tmp_path / ".claude" / "agent-brain"
+        state_dir = tmp_path / ".agent-brain"
         paths = resolve_storage_paths(state_dir)
 
         for name, path in paths.items():
@@ -46,7 +72,7 @@ class TestResolveStoragePaths:
 
     def test_returns_expected_keys(self, tmp_path):
         """Test returned dict has expected keys."""
-        state_dir = tmp_path / ".claude" / "agent-brain"
+        state_dir = tmp_path / ".agent-brain"
         paths = resolve_storage_paths(state_dir)
 
         expected_keys = {
@@ -64,7 +90,7 @@ class TestResolveStoragePaths:
 
     def test_paths_are_under_state_dir(self, tmp_path):
         """Test all paths are under the state directory."""
-        state_dir = tmp_path / ".claude" / "agent-brain"
+        state_dir = tmp_path / ".agent-brain"
         paths = resolve_storage_paths(state_dir)
 
         for name, path in paths.items():
@@ -72,7 +98,7 @@ class TestResolveStoragePaths:
 
     def test_idempotent(self, tmp_path):
         """Test calling twice returns same paths."""
-        state_dir = tmp_path / ".claude" / "agent-brain"
+        state_dir = tmp_path / ".agent-brain"
         paths1 = resolve_storage_paths(state_dir)
         paths2 = resolve_storage_paths(state_dir)
         assert paths1 == paths2

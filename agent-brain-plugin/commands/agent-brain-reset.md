@@ -129,7 +129,7 @@ agent-brain status
 - The original source documents are NOT affected
 - Only the search index is cleared
 - Re-indexing will require re-processing all documents
-- Consider backing up the `.claude/agent-brain/` directory before resetting
+- Consider backing up the `.agent-brain/` directory before resetting
 
 ## Notes
 

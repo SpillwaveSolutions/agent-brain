@@ -4,7 +4,7 @@
 
 Discover from runtime file (multi-instance mode):
 ```bash
-cat .claude/agent-brain/runtime.json | jq -r '.base_url'
+cat .agent-brain/runtime.json | jq -r '.base_url'
 # Example: http://127.0.0.1:54321
 ```
 

@@ -71,6 +71,9 @@ INDEXING COMMANDS
 CACHE COMMANDS
   agent-brain-cache      View cache metrics or clear embedding cache
 
+RUNTIME COMMANDS
+  agent-brain-install-agent  Install plugin for a runtime (Claude, OpenCode, Gemini)
+
 HELP
   agent-brain-help       Show this help message
 
@@ -152,6 +155,7 @@ Show comprehensive details:
 | agent-brain-index | Indexing | Index documents |
 | agent-brain-reset | Indexing | Clear the index |
 | agent-brain-cache | Cache | View cache metrics or clear embedding cache |
+| agent-brain-install-agent | Runtime | Install plugin for Claude, OpenCode, or Gemini |
 | agent-brain-help | Help | Show help |
 
 *Graph search requires `ENABLE_GRAPH_INDEX=true` (disabled by default)

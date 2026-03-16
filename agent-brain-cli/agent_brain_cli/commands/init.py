@@ -7,6 +7,7 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 
+from agent_brain_cli.migration import migrate_state_dir
 from agent_brain_cli.xdg_paths import migrate_legacy_paths
 
 console = Console()
@@ -33,7 +34,7 @@ DEFAULT_CONFIG = {
     ],
 }
 
-STATE_DIR_NAME = ".claude/agent-brain"
+STATE_DIR_NAME = ".agent-brain"
 
 
 def resolve_project_root(start_path: Path | None = None) -> Path:
@@ -72,6 +73,8 @@ def resolve_project_root(start_path: Path | None = None) -> Path:
     # Walk up looking for markers
     current = start
     while current != current.parent:
+        if (current / ".agent-brain").is_dir():
+            return current
         if (current / ".claude").is_dir():
             return current
         if (current / "pyproject.toml").is_file():
@@ -110,7 +113,7 @@ def resolve_project_root(start_path: Path | None = None) -> Path:
     "--state-dir",
     "-s",
     type=click.Path(file_okay=False, resolve_path=True),
-    help="Custom state directory for index data (default: .claude/agent-brain)",
+    help="Custom state directory for index data (default: .agent-brain)",
 )
 def init_command(
     path: str | None,
@@ -122,7 +125,7 @@ def init_command(
 ) -> None:
     """Initialize a new Agent Brain project.
 
-    Creates the .claude/agent-brain/ directory structure and writes
+    Creates the .agent-brain/ directory structure and writes
     a default config.json file.
 
     \b
@@ -147,7 +150,8 @@ def init_command(
         if state_dir:
             resolved_state_dir = Path(state_dir).resolve()
         else:
-            resolved_state_dir = project_root / STATE_DIR_NAME
+            # Auto-migrate from legacy .claude/agent-brain if needed
+            resolved_state_dir = migrate_state_dir(project_root)
         config_path = resolved_state_dir / "config.json"
 
         # Check for existing configuration

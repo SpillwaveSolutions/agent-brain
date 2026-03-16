@@ -243,8 +243,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Determine project root for path validation
     project_root: Path | None = None
     if state_dir is not None:
-        # Project root is 3 levels up from .claude/agent-brain
-        project_root = state_dir.parent.parent.parent
+        # Project root is parent of .agent-brain (depth 1)
+        # or 3 levels up from legacy .claude/agent-brain (depth 3)
+        from agent_brain_server.storage_paths import LEGACY_STATE_DIR_NAME
+
+        if state_dir.name == ".agent-brain":
+            project_root = state_dir.parent
+        elif str(state_dir).endswith(LEGACY_STATE_DIR_NAME):
+            project_root = state_dir.parent.parent.parent
+        else:
+            # Custom state dir — use env var or resolve
+            env_root = os.environ.get("AGENT_BRAIN_PROJECT_ROOT")
+            if env_root:
+                project_root = Path(env_root).resolve()
+            else:
+                project_root = resolve_project_root(state_dir)
 
     try:
         # Initialize storage backend (Phase 5)
@@ -633,10 +646,18 @@ def run(
     if state_dir:
         _state_dir = Path(state_dir).resolve()
 
+        # Determine project root from state dir layout
+        if _state_dir.name == ".agent-brain":
+            _project_root = str(_state_dir.parent)
+        else:
+            # Legacy .claude/agent-brain or custom path
+            env_root = os.environ.get("AGENT_BRAIN_PROJECT_ROOT")
+            _project_root = env_root or str(_state_dir.parent.parent.parent)
+
         # Create runtime state
         _runtime_state = RuntimeState(
             mode="project",
-            project_root=str(_state_dir.parent.parent.parent),  # .claude/agent-brain
+            project_root=_project_root,
             bind_host=resolved_host,
             port=resolved_port,
             pid=os.getpid(),
@@ -688,7 +709,7 @@ def run(
     "--project-dir",
     "-d",
     default=None,
-    help="Project directory (auto-resolves state-dir to .claude/agent-brain)",
+    help="Project directory (auto-resolves state-dir to .agent-brain)",
 )
 def cli(
     host: str | None,
@@ -709,7 +730,7 @@ def cli(
       agent-brain-serve --host 0.0.0.0            # Bind to all interfaces
       agent-brain-serve --reload                  # Enable auto-reload
       agent-brain-serve --project-dir /my/project # Per-project mode
-      agent-brain-serve --state-dir /path/.claude/agent-brain  # Explicit state dir
+      agent-brain-serve --state-dir /path/.agent-brain          # Explicit state dir
 
     \b
     Environment Variables:

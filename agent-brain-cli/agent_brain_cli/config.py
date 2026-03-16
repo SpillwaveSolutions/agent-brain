@@ -18,7 +18,8 @@ from agent_brain_cli.xdg_paths import get_xdg_config_dir
 logger = logging.getLogger(__name__)
 
 # Default state directory name within project root
-STATE_DIR_NAME = ".claude/agent-brain"
+STATE_DIR_NAME = ".agent-brain"
+LEGACY_STATE_DIR_NAME = ".claude/agent-brain"
 
 
 class ServerConfig(BaseModel):
@@ -47,7 +48,7 @@ class ProjectConfig(BaseModel):
 
     state_dir: str | None = Field(
         default=None,
-        description="Custom state directory path (default: .claude/agent-brain)",
+        description="Custom state directory path (default: .agent-brain)",
     )
     project_root: str | None = Field(
         default=None,
@@ -120,7 +121,7 @@ def _find_config_file(start_path: Path | None = None) -> Path | None:
     Search order:
     1. AGENT_BRAIN_CONFIG environment variable
     2. Current directory: agent-brain.yaml or config.yaml
-    3. Project .claude/agent-brain/config.yaml
+    3. Project .agent-brain/config.yaml (or legacy .claude/agent-brain/)
     4. User home: ~/.agent-brain/config.yaml
     5. User home: ~/.config/agent-brain/config.yaml (XDG)
 
@@ -148,14 +149,18 @@ def _find_config_file(start_path: Path | None = None) -> Path | None:
             logger.debug(f"Using config from current directory: {cwd_config}")
             return cwd_config
 
-    # 3. Project .claude/agent-brain directory
-    # Walk up looking for .claude directory
+    # 3. Project .agent-brain directory (or legacy .claude/agent-brain)
+    # Walk up looking for state directory
     current = start
     while current != current.parent:
-        claude_config = current / ".claude" / "agent-brain" / "config.yaml"
-        if claude_config.exists():
-            logger.debug(f"Using config from project: {claude_config}")
-            return claude_config
+        new_config = current / ".agent-brain" / "config.yaml"
+        if new_config.exists():
+            logger.debug(f"Using config from project: {new_config}")
+            return new_config
+        legacy_config = current / ".claude" / "agent-brain" / "config.yaml"
+        if legacy_config.exists():
+            logger.debug(f"Using config from project: {legacy_config}")
+            return legacy_config
         current = current.parent
 
     # 4. XDG config (checked before legacy per XDG standard)
@@ -281,6 +286,8 @@ def _find_project_root(start_path: Path | None = None) -> Path:
     # Walk up looking for markers
     current = start
     while current != current.parent:
+        if (current / ".agent-brain").is_dir():
+            return current
         if (current / ".claude").is_dir():
             return current
         if (current / "pyproject.toml").is_file():
@@ -297,10 +304,10 @@ def get_state_dir(
     """Get the resolved state directory path.
 
     Resolution order:
-    1. Detect project root and check for .claude/agent-brain/
+    1. Detect project root and check for .agent-brain/ (or legacy .claude/agent-brain/)
     2. config.project.state_dir from config file
     3. AGENT_BRAIN_STATE_DIR environment variable (explicit override)
-    4. Default: {project_root}/.claude/agent-brain
+    4. Default: {project_root}/.agent-brain
 
     Args:
         config: Optional pre-loaded config.
@@ -313,9 +320,14 @@ def get_state_dir(
     if project_root is None:
         project_root = _find_project_root()
 
-    detected_state_dir = project_root / STATE_DIR_NAME
-    if detected_state_dir.exists() and (detected_state_dir / "config.json").exists():
-        return detected_state_dir
+    # Check new path first, then legacy
+    new_state_dir = project_root / STATE_DIR_NAME
+    if new_state_dir.exists() and (new_state_dir / "config.json").exists():
+        return new_state_dir
+
+    legacy_state_dir = project_root / LEGACY_STATE_DIR_NAME
+    if legacy_state_dir.exists() and (legacy_state_dir / "config.json").exists():
+        return legacy_state_dir
 
     # 2. Check config file setting
     if config is None:
@@ -329,7 +341,7 @@ def get_state_dir(
     if env_state_dir:
         return Path(env_state_dir).expanduser().resolve()
 
-    # 4. Default: project_root/.claude/agent-brain
+    # 4. Default: project_root/.agent-brain
     return project_root / STATE_DIR_NAME
 
 

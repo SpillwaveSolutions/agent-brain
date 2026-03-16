@@ -85,7 +85,7 @@ echo "${OPENAI_API_KEY:+SET}"
 ### 3. Check Project Initialization
 
 ```bash
-ls .claude/agent-brain/config.json 2>/dev/null
+ls .agent-brain/config.json 2>/dev/null
 ```
 
 **If not initialized:**
@@ -191,7 +191,7 @@ To start it:
   agent-brain start
 
 If that fails, try:
-1. Check for stale state: rm -f .claude/agent-brain/runtime.json
+1. Check for stale state: rm -f .agent-brain/runtime.json
 2. Start again: agent-brain start
 3. Verify: agent-brain status
 

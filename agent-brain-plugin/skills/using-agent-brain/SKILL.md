@@ -12,6 +12,7 @@ description: |
   Supports multi-instance architecture with automatic server discovery.
   GraphRAG mode enables relationship-aware queries for code dependencies and entity connections.
   Pluggable providers for embeddings (OpenAI, Cohere, Ollama) and summarization (Anthropic, OpenAI, Gemini, Grok, Ollama).
+  Supports multiple runtimes (Claude Code, OpenCode, Gemini CLI) with shared .agent-brain/ data directory.
 license: MIT
 allowed-tools:
   - Bash

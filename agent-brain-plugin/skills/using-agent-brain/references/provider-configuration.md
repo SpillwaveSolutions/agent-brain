@@ -34,7 +34,7 @@ Create a `config.yaml` file with API keys and settings. Agent Brain searches the
 
 1. `AGENT_BRAIN_CONFIG` environment variable (explicit path)
 2. Current directory: `./agent-brain.yaml` or `./config.yaml`
-3. Project directory: `./.claude/agent-brain/config.yaml`
+3. Project directory: `./.agent-brain/config.yaml`
 4. User home: `~/.agent-brain/config.yaml`
 5. XDG config: `~/.config/agent-brain/config.yaml`
 
@@ -50,7 +50,7 @@ server:
 
 # Project settings
 project:
-  state_dir: null  # null = default (.claude/agent-brain)
+  state_dir: null  # null = default (.agent-brain)
   # state_dir: "/custom/path/agent-brain"  # Custom location
 
 # Embedding configuration
@@ -96,13 +96,13 @@ export OPENAI_API_KEY=sk-proj-...
 export ANTHROPIC_API_KEY=sk-ant-...
 
 # State directory (optional)
-export AGENT_BRAIN_STATE_DIR=/custom/path/.claude/agent-brain
+export AGENT_BRAIN_STATE_DIR=/custom/path/.agent-brain
 export AGENT_BRAIN_URL=http://127.0.0.1:8000
 ```
 
 ### Method 3: .env File
 
-Create `.claude/agent-brain/.env` in your project:
+Create `.agent-brain/.env` in your project:
 
 ```bash
 # Provider settings

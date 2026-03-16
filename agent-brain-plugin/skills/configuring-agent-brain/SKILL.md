@@ -36,6 +36,22 @@ Installation and configuration for Agent Brain document search with pluggable pr
 
 ---
 
+## Multi-Runtime Support
+
+Agent Brain supports multiple AI coding runtimes from a single canonical plugin source:
+
+| Runtime | Install Command |
+|---------|----------------|
+| Claude Code | `agent-brain install-agent --agent claude` |
+| OpenCode | `agent-brain install-agent --agent opencode` |
+| Gemini CLI | `agent-brain install-agent --agent gemini` |
+
+All runtimes share the same `.agent-brain/` data directory for indexes, configuration, and server state. The `install-agent` command converts the canonical plugin format into each runtime's native format automatically.
+
+Use `--global` for user-level installation, or `--dry-run` to preview files before writing.
+
+---
+
 ## Quick Setup
 
 ### Option A: Local with Ollama (FREE, No API Keys)
@@ -236,7 +252,7 @@ Agent Brain supports pluggable providers with two configuration methods.
 
 Create a `config.yaml` file in one of these locations:
 
-1. **Project-level**: `.claude/agent-brain/config.yaml`
+1. **Project-level**: `.agent-brain/config.yaml`
 2. **User-level**: `~/.agent-brain/config.yaml`
 3. **XDG config**: `~/.config/agent-brain/config.yaml`
 4. **Current directory**: `./config.yaml` or `./agent-brain.yaml`
@@ -248,7 +264,7 @@ server:
   port: 8000
 
 project:
-  state_dir: null  # null = use default (.claude/agent-brain)
+  state_dir: null  # null = use default (.agent-brain)
 
 embedding:
   provider: "openai"
@@ -445,7 +461,7 @@ agent-brain init
 
 **Verify initialization succeeded**:
 ```bash
-ls .claude/agent-brain/config.json
+ls .agent-brain/config.json
 ```
 
 Expected: File exists
@@ -500,7 +516,7 @@ Run each command and verify expected output:
 
 - [ ] `agent-brain --version` shows version number (7.0.0+)
 - [ ] `echo ${OPENAI_API_KEY:+SET}` shows "SET" (if using OpenAI)
-- [ ] `ls .claude/agent-brain/config.json` file exists
+- [ ] `ls .agent-brain/config.json` file exists
 - [ ] `agent-brain status` shows "healthy"
 - [ ] `agent-brain status` shows document count > 0
 - [ ] `agent-brain query "test"` returns results or "no matches"
@@ -578,8 +594,8 @@ Expected: JSON response (not error)
 
 ```bash
 # Check for stale state
-rm -f .claude/agent-brain/runtime.json
-rm -f .claude/agent-brain/lock.json
+rm -f .agent-brain/runtime.json
+rm -f .agent-brain/lock.json
 agent-brain start
 ```
 
@@ -611,7 +627,7 @@ agent-brain index ./docs
 |----------|----------|---------|-------------|
 | `AGENT_BRAIN_CONFIG` | No | - | Path to config.yaml file |
 | `AGENT_BRAIN_URL` | No | `http://127.0.0.1:8000` | Server URL for CLI |
-| `AGENT_BRAIN_STATE_DIR` | No | `.claude/agent-brain` | State directory path |
+| `AGENT_BRAIN_STATE_DIR` | No | `.agent-brain` | State directory path |
 | `EMBEDDING_PROVIDER` | No | `openai` | Provider: openai, cohere, ollama |
 | `EMBEDDING_MODEL` | No | `text-embedding-3-large` | Model name |
 | `SUMMARIZATION_PROVIDER` | No | `anthropic` | Provider: anthropic, openai, gemini, grok, ollama |

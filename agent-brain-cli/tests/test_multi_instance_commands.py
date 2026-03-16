@@ -40,7 +40,7 @@ class TestInitCommand:
         assert result.exit_code == 0
         assert "initialized successfully" in result.output.lower()
 
-        state_dir = temp_project / ".claude" / "agent-brain"
+        state_dir = temp_project / ".agent-brain"
         assert state_dir.exists()
         assert (state_dir / "config.json").exists()
         assert (state_dir / "data").exists()
@@ -56,7 +56,7 @@ class TestInitCommand:
 
         assert result.exit_code == 0
 
-        config_path = temp_project / ".claude" / "agent-brain" / "config.json"
+        config_path = temp_project / ".agent-brain" / "config.json"
         config = json.loads(config_path.read_text())
 
         assert config["port"] == 9000
@@ -87,7 +87,7 @@ class TestInitCommand:
         )
         assert result.exit_code == 0
 
-        config_path = temp_project / ".claude" / "agent-brain" / "config.json"
+        config_path = temp_project / ".agent-brain" / "config.json"
         config = json.loads(config_path.read_text())
         assert config["port"] == 9000
 
@@ -187,7 +187,7 @@ class TestListCommand:
     ) -> None:
         """Test that list handles stale instances."""
         # Create a stale registry entry
-        state_dir = temp_project / ".claude" / "agent-brain"
+        state_dir = temp_project / ".agent-brain"
         state_dir.mkdir(parents=True)
 
         # Write a runtime.json with a non-existent PID
@@ -241,7 +241,7 @@ class TestCLIIntegration:
         result = runner.invoke(cli, ["init", "--path", str(temp_project)])
 
         assert result.exit_code == 0
-        assert (temp_project / ".claude" / "agent-brain" / "config.json").exists()
+        assert (temp_project / ".agent-brain" / "config.json").exists()
 
 
 class TestXdgRegistryPaths:
@@ -255,7 +255,7 @@ class TestXdgRegistryPaths:
 
         project_root = tmp_path / "project"
         project_root.mkdir()
-        state_dir = project_root / ".claude" / "agent-brain"
+        state_dir = project_root / ".agent-brain"
         state_dir.mkdir(parents=True)
 
         xdg_state = tmp_path / "xdg_state" / "agent-brain"

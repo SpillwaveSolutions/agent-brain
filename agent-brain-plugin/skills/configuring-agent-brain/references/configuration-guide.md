@@ -14,7 +14,7 @@ The config.yaml file provides a centralized configuration without needing to mod
 
 1. `AGENT_BRAIN_CONFIG` environment variable (explicit path)
 2. Current directory: `./agent-brain.yaml` or `./config.yaml`
-3. Project directory: `./.claude/agent-brain/config.yaml`
+3. Project directory: `./.agent-brain/config.yaml`
 4. User home: `~/.agent-brain/config.yaml`
 5. XDG config: `~/.config/agent-brain/config.yaml`
 
@@ -33,7 +33,7 @@ server:
 
 # Project settings
 project:
-  state_dir: null  # null = use default (.claude/agent-brain)
+  state_dir: null  # null = use default (.agent-brain)
   # state_dir: "/custom/path/state"  # Custom state directory
   project_root: null  # null = auto-detect
 
@@ -88,7 +88,7 @@ Traditional approach using shell environment:
 ```bash
 # Core settings
 export AGENT_BRAIN_URL="http://127.0.0.1:8000"
-export AGENT_BRAIN_STATE_DIR=".claude/agent-brain"
+export AGENT_BRAIN_STATE_DIR=".agent-brain"
 export AGENT_BRAIN_CONFIG="/path/to/config.yaml"
 
 # Provider configuration
@@ -104,7 +104,7 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 
 ### Method 3: .env File
 
-Create `.claude/agent-brain/.env` or project root `.env`:
+Create `.agent-brain/.env` or project root `.env`:
 
 ```bash
 OPENAI_API_KEY=sk-proj-...
@@ -240,7 +240,7 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 |----------|----------|---------|-------------|
 | `AGENT_BRAIN_CONFIG` | No | - | Path to config.yaml file |
 | `AGENT_BRAIN_URL` | No | Auto-detect | Server URL for CLI |
-| `AGENT_BRAIN_STATE_DIR` | No | `.claude/agent-brain` | State directory path |
+| `AGENT_BRAIN_STATE_DIR` | No | `.agent-brain` | State directory path |
 | `AGENT_BRAIN_MODE` | No | `project` | Instance mode: `project` or `shared` |
 | `OPENAI_API_KEY` | Conditional | - | OpenAI API key |
 | `ANTHROPIC_API_KEY` | Conditional | - | Anthropic API key |
@@ -299,7 +299,7 @@ export ENABLE_GRAPH_INDEX=true
 
 # Use Kuzu for persistent graph storage (optional)
 export GRAPH_STORE_TYPE=kuzu
-export GRAPH_INDEX_PATH=".claude/agent-brain/graph_index"
+export GRAPH_INDEX_PATH=".agent-brain/graph_index"
 
 # Entity extraction settings
 export GRAPH_EXTRACTION_MODEL=claude-haiku-4-5
@@ -527,7 +527,7 @@ echo ${OPENAI_API_KEY:+SET}
 
 ```bash
 # Check runtime.json for actual port
-cat .claude/agent-brain/runtime.json
+cat .agent-brain/runtime.json
 
 # Override URL
 export AGENT_BRAIN_URL="http://127.0.0.1:49321"
