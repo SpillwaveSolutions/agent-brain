@@ -171,6 +171,51 @@ Plans:
 
 ---
 
+### Phase 24: Setup Agent Permissions and Helper Script
+
+**Goal:** Eliminate Claude Code permission prompts during Agent Brain setup by pre-writing `.claude/settings.json` and consolidating environment detection into a single JSON-outputting helper script.
+
+**Depends on:** Phase 23 (XDG migration complete — new config paths must be accounted for in detection)
+
+**Requirements:** PERM-01, PERM-02, PERM-03, PERM-04
+
+**Success Criteria** (what must be TRUE):
+1. Running `/agent-brain-setup` on a fresh project with no existing `.claude/settings.json` completes without any permission prompts
+2. `agent-brain-plugin/templates/settings.json` documents the full wizard allowlist and is auditable
+3. `ab-setup-check.sh` outputs valid JSON with Ollama status, Docker availability, config path, available PostgreSQL port, and large directories in a single invocation
+4. `agent-brain-config.md` and `agent-brain-setup.md` use `ab-setup-check.sh` for detection instead of 15+ individual Bash commands
+
+**Plans:** 2 plans
+
+Plans:
+- [x] 24-01-PLAN.md — settings.json template + Step 0 bootstrap in agent-brain-setup.md (Write-tool-first permission injection)
+- [x] 24-02-PLAN.md — ab-setup-check.sh detection script + update agent-brain-config.md and agent-brain-setup.md to use it
+
+---
+
+### Phase 25: Setup Wizard Coverage Gaps
+
+**Goal:** Close setup wizard coverage gaps so users are guided through ALL configuration dimensions during setup — GraphRAG opt-in with PostgreSQL incompatibility gate, BM25/PostgreSQL awareness, search mode education with cache mention.
+
+**Depends on:** Phase 22 (Setup wizard must be complete and tested)
+
+**Requirements:** WIZARD-GAP-01, WIZARD-GAP-02, WIZARD-GAP-03, WIZARD-GAP-04, WIZARD-GAP-05
+
+**Success Criteria** (what must be TRUE):
+1. When PostgreSQL backend is selected in Step 4, wizard informs user that BM25 is replaced by tsvector full-text search
+2. When PostgreSQL backend is selected, Step 5 blocks GraphRAG options and sets graphrag.enabled: false automatically (GraphRAG requires ChromaDB — hard error in query_service.py)
+3. Step 6 mentions that both embedding and query caches are auto-enabled with no configuration needed
+4. SKILL.md and configuration-guide.md document query cache (QUERY_CACHE_TTL, QUERY_CACHE_MAX_SIZE) and PostgreSQL BM25 replacement
+5. Regression tests verify all three new wizard behaviors
+
+**Plans:** 2 plans
+
+Plans:
+- [x] 25-01-PLAN.md — Update agent-brain-setup.md wizard (Steps 4/5/6 coverage gaps) + regression tests
+- [x] 25-02-PLAN.md — Update SKILL.md and configuration-guide.md (query cache docs + PostgreSQL BM25 note)
+
+---
+
 ## Progress
 
 **Execution Order:**
@@ -197,6 +242,8 @@ Phases execute in numeric order: 15 → 16 → 17 → 18
 | 17. Query Cache | v8.0 | 0/2 | Not started | - |
 | 18. UDS Transport & Quality Gate | v8.0 | 0/2 | Not started | - |
 | 19. Plugin Cache Docs | 1/1 | Complete    | 2026-03-12 | - |
+| 24. Setup Permissions & Helper Script | plugin | 2/2 | Complete | 2026-03-15 |
+| 25. Setup Wizard Coverage Gaps | plugin | 2/2 | Complete | 2026-03-15 |
 
 ---
 
@@ -222,4 +269,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-12 — Phase 19 planned: 1 plan in 1 wave*
+*Last updated: 2026-03-15 — Phase 25 planned: 2 plans in 1 wave (parallel)*

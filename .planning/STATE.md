@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Performance & Developer Experience
-current_phase: 22
+current_phase: 25
 current_plan: 02
 status: completed
-stopped_at: Completed 22-02-PLAN.md
-last_updated: "2026-03-13T02:21:50.786Z"
-last_activity: "2026-03-12 — Phase 22 Plan 2 complete: Full interactive setup wizard with 6 AskUserQuestion blocks + 11 regression tests in test_plugin_wizard_spec.py"
+stopped_at: Completed 25-02-PLAN.md
+last_updated: "2026-03-15T00:00:00Z"
+last_activity: "2026-03-15 — Phase 25 Plans 1+2 complete: Setup wizard BM25/PostgreSQL awareness, GraphRAG gate, cache awareness note + skill docs query cache + PostgreSQL BM25 note"
 progress:
   total_phases: 5
-  completed_phases: 3
-  total_plans: 5
-  completed_plans: 5
+  completed_phases: 5
+  total_plans: 9
+  completed_plans: 9
 ---
 
 # Agent Brain — Project State
@@ -25,10 +25,10 @@ progress:
 **Total Plans in Phase:** 2
 
 ## Current Position
-Phase: 22 (Restore Setup Wizard with Full Configuration Prompts)
+Phase: 25 (Setup Wizard Coverage Gaps)
 Plan: 2 of 2
-Status: Phase 22 complete
-Last activity: 2026-03-12 — Phase 22 Plans 1+2 complete: Full interactive wizard in agent-brain-setup.md (6 AskUserQuestion blocks for embedding, summarization, storage, GraphRAG, query mode, config.yaml write) + 11 regression tests in test_plugin_wizard_spec.py
+Status: Phase 25 complete
+Last activity: 2026-03-15 — Phase 25 Plans 1+2 complete: Setup wizard now gates GraphRAG on ChromaDB backend, explains tsvector BM25 replacement for PostgreSQL, informs users about auto-enabled caches; SKILL.md and configuration-guide.md document query cache (QUERY_CACHE_TTL/MAX_SIZE) and PostgreSQL BM25 note; 15 regression tests pass
 
 **Progress (v8.0):** [██████████] 100%
 
@@ -66,6 +66,8 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 | Phase 16: Embedding Cache | 2 | 14 min total (10+4) | Complete |
 | Phase 19-plugin-and-skill-updates-for-embedding-cache-management P01 | 2 | 2 tasks | 6 files |
 | Phase 22: Restore Setup Wizard with Full Config Prompts | 2 | ~15 min | Complete |
+| Phase 24: Setup Permissions & Helper Script | 2 | ~12 min | Complete |
+| Phase 25: Setup Wizard Coverage Gaps | 2 | ~14 min | Complete |
 
 ## Accumulated Context
 
@@ -113,6 +115,24 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 - Phase 17 (Query Cache): Requires Phase 15 (watcher generates reindex events needing cache invalidation) + Phase 16 (index_generation counter)
 - Phase 18 (UDS + Quality Gate): Ship last — touches api/main.py server startup (widest blast radius)
 
+### Key Phase 24 Decisions (Setup Permissions & Helper Script)
+- Write-tool-first bootstrap: .claude/settings.json written with Write tool (always pre-authorized), not Bash — no permission gate
+- 24 Bash entries in allowlist: agent-brain, lsof, ollama, docker, mkdir, cat, jq, mv, du, ps, pgrep, pip, pipx, uv, python, python3, rg, wc, curl, ls, find, chmod, grep, bash
+- ab-setup-check.sh uses set -uo pipefail (not -e) to avoid aborting on missing optional tools
+- SETUP_STATE variable stored in memory for reuse across all wizard steps — single detection call
+- MERGE semantics on existing .claude/settings.json — avoids destroying custom user permissions
+- Full JSON permission block inlined in agent-brain-setup.md — command is self-contained
+
+### Key Phase 25 Decisions (Setup Wizard Coverage Gaps)
+- GraphRAG gate in Step 5: two-branch conditional — PostgreSQL gets informational block, ChromaDB gets existing 3-option prompt
+- BM25/tsvector note placed inside "If PostgreSQL is selected" section in Step 4 as a blockquote
+- Cache awareness note uses blockquote format in Step 6 after the --mode override note
+- tests/ directory created in agent-brain-plugin (did not exist before Phase 25)
+- 15 regression tests written (12 structural + 3 new); plan expected 14 = 11 existing + 3 new
+- SKILL.md "Embedding Cache Tuning" renamed to "Caching" with two subsections (Embedding Cache + Query Cache)
+- Query Mode table column renamed from "Requires GraphRAG" to "Requirements"
+- Query Cache Configuration section added to configuration-guide.md after GraphRAG via Environment Variables
+
 ### Key Phase 22 Decisions (Restore Setup Wizard)
 - query.default_mode written as YAML comment only — server has no global default_mode config key; mode is per-request via --mode flag
 - Python yaml.dump used for safe config.yaml serialization in wizard write step — avoids manual YAML string quoting errors
@@ -134,10 +154,10 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 
 ## Session Continuity
 
-**Last Session:** 2026-03-13T02:21:50.784Z
-**Stopped At:** Completed 22-02-PLAN.md
+**Last Session:** 2026-03-15T00:00:00Z
+**Stopped At:** Completed 25-02-PLAN.md
 **Resume File:** None
-**Next Action:** Phase 23 — XDG Migration and Uninstall Cleanup
+**Next Action:** Phase 24 — Setup Permissions & Helper Script (parallel, independent of Phase 25)
 
 ---
 *State updated: 2026-03-10*
