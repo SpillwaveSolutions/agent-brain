@@ -171,6 +171,28 @@ Plans:
 
 ---
 
+### Phase 24: Setup Agent Permissions and Helper Script
+
+**Goal:** Eliminate Claude Code permission prompts during Agent Brain setup by pre-writing `.claude/settings.json` and consolidating environment detection into a single JSON-outputting helper script.
+
+**Depends on:** Phase 23 (XDG migration complete — new config paths must be accounted for in detection)
+
+**Requirements:** PERM-01, PERM-02, PERM-03, PERM-04
+
+**Success Criteria** (what must be TRUE):
+1. Running `/agent-brain-setup` on a fresh project with no existing `.claude/settings.json` completes without any permission prompts
+2. `agent-brain-plugin/templates/settings.json` documents the full wizard allowlist and is auditable
+3. `ab-setup-check.sh` outputs valid JSON with Ollama status, Docker availability, config path, available PostgreSQL port, and large directories in a single invocation
+4. `agent-brain-config.md` and `agent-brain-setup.md` use `ab-setup-check.sh` for detection instead of 15+ individual Bash commands
+
+**Plans:** 2 plans
+
+Plans:
+- [ ] 24-01-PLAN.md — settings.json template + Step 0 bootstrap in agent-brain-setup.md (Write-tool-first permission injection)
+- [ ] 24-02-PLAN.md — ab-setup-check.sh detection script + update agent-brain-config.md and agent-brain-setup.md to use it
+
+---
+
 ## Progress
 
 **Execution Order:**
@@ -197,6 +219,7 @@ Phases execute in numeric order: 15 → 16 → 17 → 18
 | 17. Query Cache | v8.0 | 0/2 | Not started | - |
 | 18. UDS Transport & Quality Gate | v8.0 | 0/2 | Not started | - |
 | 19. Plugin Cache Docs | 1/1 | Complete    | 2026-03-12 | - |
+| 24. Setup Permissions & Helper Script | plugin | 0/2 | Planned | - |
 
 ---
 
@@ -222,4 +245,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-12 — Phase 19 planned: 1 plan in 1 wave*
+*Last updated: 2026-03-15 — Phase 24 planned: 2 plans in 2 waves*
