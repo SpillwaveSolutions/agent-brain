@@ -79,8 +79,8 @@ Multi-runtime converter system with Claude, OpenCode, and Gemini support.
 **Plans:** 2 plans
 
 Plans:
-- [ ] 26-01-PLAN.md — Types, parser extensions, SkillRuntimeConverter core
-- [ ] 26-02-PLAN.md — CLI integration, tests, dry-run support
+- [x] 26-01-PLAN.md — Types, parser extensions, SkillRuntimeConverter core
+- [x] 26-02-PLAN.md — CLI integration, tests, dry-run support
 
 ---
 
@@ -99,7 +99,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 27-01-PLAN.md — CodexConverter, AGENTS.md generation, CLI integration, tests
+- [x] 27-01-PLAN.md — CodexConverter, AGENTS.md generation, CLI integration, tests
 
 ---
 
@@ -118,7 +118,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 28-01-PLAN.md — Integration tests, user guide, CLAUDE.md updates
+- [x] 28-01-PLAN.md — Integration tests, user guide, CLAUDE.md updates
 
 ---
 
@@ -132,9 +132,9 @@ Plans:
 | 12-14 | v7.0 | 7/7 | Complete | 2026-03-05 |
 | 15-25 | v8.0 | 9/9 | Complete | 2026-03-15 |
 | - | v9.0 | - | Complete | 2026-03-16 |
-| 26 | v9.1.0 | 0/2 | Not started | - |
-| 27 | v9.1.0 | 0/1 | Not started | - |
-| 28 | v9.1.0 | 0/1 | Not started | - |
+| 26 | v9.1.0 | 2/2 | Complete | 2026-03-16 |
+| 27 | v9.1.0 | 1/1 | Complete | 2026-03-16 |
+| 28 | v9.1.0 | 1/1 | Complete | 2026-03-16 |
 
 ---
 *Roadmap created: 2026-02-07*

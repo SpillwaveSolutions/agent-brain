@@ -4,15 +4,15 @@ milestone: v9.1.0
 milestone_name: Generic Skills-Based Runtime Portability
 current_phase: 26
 current_plan: 0
-status: not_started
-stopped_at: null
+status: completed
+stopped_at: Phase 28 complete
 last_updated: "2026-03-16T00:00:00Z"
-last_activity: "2026-03-16 — Milestone v9.1.0 started, archiving v8.0/v9.0"
+last_activity: "2026-03-16 — All 3 phases complete: skill-runtime converter, Codex adapter, docs+tests"
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 3
   total_plans: 4
-  completed_plans: 0
+  completed_plans: 4
 ---
 
 # Agent Brain — Project State
@@ -28,7 +28,7 @@ Plan: 0 of 2
 Status: Not started
 Last activity: 2026-03-16 — Milestone setup complete
 
-**Progress (v9.1.0):** [░░░░░░░░░░] 0%
+**Progress (v9.1.0):** [██████████] 100%
 
 ## Project Reference
 See: .planning/PROJECT.md
@@ -43,7 +43,7 @@ v6.0.4 Plugin & Install:   [██████████] 100% (shipped 2026-0
 v7.0 Index Mgmt & Pipeline: [██████████] 100% (shipped 2026-03-05)
 v8.0 Performance & DX:      [██████████] 100% (shipped 2026-03-15)
 v9.0 Multi-Runtime:         [██████████] 100% (shipped 2026-03-16)
-v9.1.0 Skill-Runtime:       [░░░░░░░░░░]   0% (in progress)
+v9.1.0 Skill-Runtime:       [██████████] 100% (complete)
 ```
 
 ## Accumulated Context
