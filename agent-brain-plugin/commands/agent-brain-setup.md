@@ -91,8 +91,32 @@ Record the selection as `storage.backend` (value: `"chroma"` or `"postgres"`).
 
 If PostgreSQL is selected, note that the PostgreSQL setup step (Step 8) will handle Docker port auto-discovery and container startup. The config will be updated with the discovered port automatically.
 
+If PostgreSQL is selected, add this informational note to wizard output:
+
+> **BM25 + PostgreSQL:** PostgreSQL replaces the disk-based BM25 index with
+> built-in full-text search (`tsvector` + `websearch_to_tsquery`). The
+> `--mode bm25` command still works identically from your perspective.
+> Language is configurable via `storage.postgres.language` (default: `english`).
+
 ### Step 5: Wizard — GraphRAG
 
+Check the storage backend selected in Step 4:
+
+**If storage backend is `postgres`:**
+Use AskUserQuestion to inform the user (not a choice — informational only):
+
+```
+GraphRAG requires ChromaDB backend and is not available with PostgreSQL.
+
+GraphRAG will be disabled (graphrag.enabled: false).
+
+If you want GraphRAG in the future, switch to ChromaDB storage backend.
+```
+
+Record `graphrag.enabled: false` and `graphrag.store_type: "simple"`.
+Skip to Step 6.
+
+**If storage backend is `chroma`:**
 Use AskUserQuestion to ask whether to enable GraphRAG:
 
 ```
@@ -150,6 +174,14 @@ Options:
 Record the selected mode. This will be written as a YAML comment in config.yaml (the server does not yet support a global `query.default_mode` setting — use `--mode` flag per request to override).
 
 Note in wizard output: "Use --mode flag on queries to override, e.g.: `agent-brain query 'text' --mode hybrid`"
+
+After the mode selection, add this informational note to wizard output:
+
+> **Caching (auto-enabled):** Both embedding and query caches are automatically
+> active — no configuration needed.
+> - **Embedding cache**: Reindexing unchanged files costs zero API calls.
+> - **Query cache**: Repeat queries return instantly (TTL: 5 minutes by default).
+> - **Note**: `graph` and `multi` modes bypass the query cache (always fresh).
 
 ### Step 7: Wizard — Write config.yaml
 
