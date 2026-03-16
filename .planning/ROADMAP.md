@@ -11,7 +11,7 @@
 - ✅ **v7.0 Index Management & Content Pipeline** — Phases 12-14 (shipped 2026-03-05)
 - ✅ **v8.0 Performance & Developer Experience** — Phases 15-25 (shipped 2026-03-15)
 - ✅ **v9.0 Multi-Runtime Support** — Multi-runtime converter system (shipped 2026-03-16)
-- 🚧 **v9.1.0 Generic Skills-Based Runtime Portability** — Phases 26-28 (in progress)
+- ✅ **v9.1.0 Generic Skills-Based Runtime Portability** — Phases 26-28 (shipped 2026-03-16)
 
 ## Phases
 
@@ -59,7 +59,8 @@ Multi-runtime converter system with Claude, OpenCode, and Gemini support.
 
 ---
 
-## 🚧 v9.1.0 Generic Skills-Based Runtime Portability (In Progress)
+<details>
+<summary>✅ v9.1.0 Generic Skills-Based Runtime Portability (Phases 26-28) — SHIPPED 2026-03-16</summary>
 
 **Milestone Goal:** Add installer-based runtime transformation that converts Claude plugin format into skill-directory installations for Codex and any skill-based runtime.
 
@@ -120,6 +121,8 @@ Plans:
 Plans:
 - [x] 28-01-PLAN.md — Integration tests, user guide, CLAUDE.md updates
 
+</details>
+
 ---
 
 ## Progress
@@ -138,4 +141,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-16 — v9.1.0 milestone started*
+*Last updated: 2026-03-16 — v9.1.0 milestone complete*
