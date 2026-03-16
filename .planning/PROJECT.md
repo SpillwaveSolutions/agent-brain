@@ -101,16 +101,15 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ### Active
 
-## Current Milestone: v8.0 Performance & Developer Experience
+## Current Milestone: v9.1.0 Generic Skills-Based Runtime Portability
 
-**Goal:** Improve developer workflow with automatic index maintenance and faster query/indexing through caching and optimized transport.
+**Goal:** Add installer-based runtime transformation that converts Claude plugin format into skill-directory installations for Codex and any skill-based runtime.
 
 **Target features:**
-- Embedding cache — avoid re-embedding unchanged content, reduce API calls and latency
-- File watcher — per-folder config (read-only vs auto-reindex), configurable debounce (default 30s)
-- Background incremental updates — auto-triggered from watcher, seamless index maintenance
-- Query cache — cache frequent query results with TTL-based invalidation
-- UDS transport — hybrid TCP + Unix domain socket (UDS for local speed, TCP for remote/health)
+- Generic skill-runtime converter (commands/agents → skills)
+- Codex named adapter with AGENTS.md generation
+- `--dir` option for arbitrary skill directories
+- Templates and scripts as skill assets
 
 ### Out of Scope
 
