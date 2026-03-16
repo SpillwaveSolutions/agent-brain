@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from agent_brain_cli.runtime.claude_converter import ClaudeConverter
+from agent_brain_cli.runtime.codex_converter import CodexConverter
 from agent_brain_cli.runtime.gemini_converter import GeminiConverter
 from agent_brain_cli.runtime.opencode_converter import OpenCodeConverter
 from agent_brain_cli.runtime.parser import parse_plugin_dir
@@ -45,6 +46,7 @@ ConverterType = type[
     | OpenCodeConverter
     | GeminiConverter
     | SkillRuntimeConverter
+    | CodexConverter
 ]
 
 CONVERTERS: dict[str, ConverterType] = {
@@ -52,7 +54,7 @@ CONVERTERS: dict[str, ConverterType] = {
     "opencode": OpenCodeConverter,
     "gemini": GeminiConverter,
     "skill-runtime": SkillRuntimeConverter,
-    "codex": SkillRuntimeConverter,
+    "codex": CodexConverter,
 }
 
 
@@ -234,7 +236,13 @@ def install_agent_command(
             return
 
         # Actually install
-        files = converter.install(bundle, target, scope_enum)
+        if isinstance(converter, CodexConverter):
+            codex_root = Path(path) if path else Path.cwd()
+            files = converter.install(
+                bundle, target, scope_enum, project_root=codex_root
+            )
+        else:
+            files = converter.install(bundle, target, scope_enum)
 
         if json_output:
             result: dict[str, Any] = {
@@ -273,7 +281,8 @@ def _handle_dry_run(
     converter: ClaudeConverter
     | OpenCodeConverter
     | GeminiConverter
-    | SkillRuntimeConverter,
+    | SkillRuntimeConverter
+    | CodexConverter,
     bundle: Any,
     target: Path,
     scope_enum: Scope,
@@ -286,9 +295,21 @@ def _handle_dry_run(
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_target = Path(tmp)
-        files = converter.install(bundle, tmp_target, scope_enum)
+        # For Codex, pass tmp as project_root so AGENTS.md lands in tmpdir
+        if isinstance(converter, CodexConverter):
+            files = converter.install(
+                bundle, tmp_target, scope_enum, project_root=Path(tmp)
+            )
+        else:
+            files = converter.install(bundle, tmp_target, scope_enum)
         # Remap paths to real target
-        planned = [target / f.relative_to(tmp_target) for f in files]
+        planned: list[Path] = []
+        for f in files:
+            try:
+                planned.append(target / f.relative_to(tmp_target))
+            except ValueError:
+                # AGENTS.md may be at project_root, not under target
+                planned.append(f)
 
     if json_output:
         click.echo(
