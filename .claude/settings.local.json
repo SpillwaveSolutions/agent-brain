@@ -82,7 +82,19 @@
       "Bash(poetry config:*)",
       "Bash(twine:*)",
       "Skill(gsd:plan-milestone-gaps)",
-      "Bash(python -m pytest:*)"
+      "Bash(python -m pytest:*)",
+      "Bash(git merge:*)",
+      "Bash(git -C:*)",
+      "Bash(git log:*)",
+      "Bash(git stash:*)",
+      "Bash(git diff:*)",
+      "Bash(git status:*)",
+      "Bash(git worktree:*)",
+      "Bash(for wt:*)",
+      "Bash(for f in:*)",
+      "Bash(for p in:*)",
+      "Bash(for b:*)",
+      "Bash(gh pr:*)"
     ]
   },
   "sandbox": {
