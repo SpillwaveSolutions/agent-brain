@@ -211,8 +211,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 25-01-PLAN.md — Update agent-brain-setup.md wizard (Steps 4/5/6 coverage gaps) + regression tests
-- [ ] 25-02-PLAN.md — Update SKILL.md and configuration-guide.md (query cache docs + PostgreSQL BM25 note)
+- [x] 25-01-PLAN.md — Update agent-brain-setup.md wizard (Steps 4/5/6 coverage gaps) + regression tests
+- [x] 25-02-PLAN.md — Update SKILL.md and configuration-guide.md (query cache docs + PostgreSQL BM25 note)
 
 ---
 
@@ -243,7 +243,7 @@ Phases execute in numeric order: 15 → 16 → 17 → 18
 | 18. UDS Transport & Quality Gate | v8.0 | 0/2 | Not started | - |
 | 19. Plugin Cache Docs | 1/1 | Complete    | 2026-03-12 | - |
 | 24. Setup Permissions & Helper Script | plugin | 0/2 | Planned | - |
-| 25. Setup Wizard Coverage Gaps | plugin | 0/2 | Planned | - |
+| 25. Setup Wizard Coverage Gaps | plugin | 2/2 | Complete | 2026-03-15 |
 
 ---
 
