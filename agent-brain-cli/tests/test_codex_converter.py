@@ -13,19 +13,15 @@ from agent_brain_cli.runtime.codex_converter import (
     _add_codex_header,
     _update_agents_md,
 )
-from agent_brain_cli.runtime.parser import parse_plugin_dir
 from agent_brain_cli.runtime.types import (
     PluginAgent,
     PluginBundle,
     PluginCommand,
     PluginManifest,
     PluginParameter,
-    PluginScript,
     PluginSkill,
-    PluginTemplate,
     RuntimeType,
     Scope,
-    TriggerPattern,
 )
 
 
@@ -35,9 +31,7 @@ def sample_command() -> PluginCommand:
         name="agent-brain-search",
         description="Search documents",
         parameters=[
-            PluginParameter(
-                name="query", description="Search query", required=True
-            ),
+            PluginParameter(name="query", description="Search query", required=True),
         ],
         skills=["using-agent-brain"],
         body="Run search against .claude/agent-brain data.",
@@ -94,17 +88,13 @@ class TestCodexConverter:
         assert "Codex Skill:" in result
         assert "agent-brain-search" in result
 
-    def test_convert_agent_has_codex_header(
-        self, sample_agent: PluginAgent
-    ) -> None:
+    def test_convert_agent_has_codex_header(self, sample_agent: PluginAgent) -> None:
         converter = CodexConverter()
         result = converter.convert_agent(sample_agent)
         assert "Codex Skill:" in result
         assert "search-assistant" in result
 
-    def test_convert_skill_preserves_format(
-        self, sample_skill: PluginSkill
-    ) -> None:
+    def test_convert_skill_preserves_format(self, sample_skill: PluginSkill) -> None:
         converter = CodexConverter()
         result = converter.convert_skill(sample_skill)
         parts = result.split("---\n")
@@ -124,9 +114,7 @@ class TestCodexConverter:
         # Skills should exist
         assert (target / "agent-brain-search" / "SKILL.md").exists()
         assert (target / "agent-brain-search-assistant" / "SKILL.md").exists()
-        assert (
-            target / "agent-brain-using-agent-brain" / "SKILL.md"
-        ).exists()
+        assert (target / "agent-brain-using-agent-brain" / "SKILL.md").exists()
 
         # AGENTS.md should be created at project root
         agents_md = tmp_path / "AGENTS.md"
@@ -161,9 +149,7 @@ class TestCodexConverter:
         cmd_skill = (target / "agent-brain-search" / "SKILL.md").read_text()
         assert "Codex Skill:" in cmd_skill
 
-        agent_skill = (
-            target / "agent-brain-search-assistant" / "SKILL.md"
-        ).read_text()
+        agent_skill = (target / "agent-brain-search-assistant" / "SKILL.md").read_text()
         assert "Codex Skill:" in agent_skill
 
 
@@ -173,11 +159,7 @@ class TestAgentsMdIdempotency:
     def test_creates_new_agents_md(self, tmp_path: Path) -> None:
         agents_md_path = tmp_path / "AGENTS.md"
         bundle = PluginBundle(
-            commands=[
-                PluginCommand(
-                    name="search", description="Search", body="Body"
-                )
-            ]
+            commands=[PluginCommand(name="search", description="Search", body="Body")]
         )
         _update_agents_md(agents_md_path, bundle)
         assert agents_md_path.exists()
@@ -190,11 +172,7 @@ class TestAgentsMdIdempotency:
         """Running twice should not duplicate the section."""
         agents_md_path = tmp_path / "AGENTS.md"
         bundle = PluginBundle(
-            commands=[
-                PluginCommand(
-                    name="search", description="Search", body="Body"
-                )
-            ]
+            commands=[PluginCommand(name="search", description="Search", body="Body")]
         )
         _update_agents_md(agents_md_path, bundle)
         first_content = agents_md_path.read_text()
@@ -211,17 +189,13 @@ class TestAgentsMdIdempotency:
         """Updating with different content should replace, not append."""
         agents_md_path = tmp_path / "AGENTS.md"
         bundle1 = PluginBundle(
-            commands=[
-                PluginCommand(name="old-cmd", description="Old", body="Body")
-            ]
+            commands=[PluginCommand(name="old-cmd", description="Old", body="Body")]
         )
         _update_agents_md(agents_md_path, bundle1)
         assert "old-cmd" in agents_md_path.read_text()
 
         bundle2 = PluginBundle(
-            commands=[
-                PluginCommand(name="new-cmd", description="New", body="Body")
-            ]
+            commands=[PluginCommand(name="new-cmd", description="New", body="Body")]
         )
         _update_agents_md(agents_md_path, bundle2)
         content = agents_md_path.read_text()
@@ -229,17 +203,13 @@ class TestAgentsMdIdempotency:
         assert "old-cmd" not in content
         assert content.count(AGENTS_MD_START) == 1
 
-    def test_appends_to_existing_file_without_markers(
-        self, tmp_path: Path
-    ) -> None:
+    def test_appends_to_existing_file_without_markers(self, tmp_path: Path) -> None:
         """If AGENTS.md exists without markers, append section."""
         agents_md_path = tmp_path / "AGENTS.md"
         agents_md_path.write_text("# My Project Agents\n\nCustom content.\n")
 
         bundle = PluginBundle(
-            commands=[
-                PluginCommand(name="search", description="Search", body="")
-            ]
+            commands=[PluginCommand(name="search", description="Search", body="")]
         )
         _update_agents_md(agents_md_path, bundle)
         content = agents_md_path.read_text()
@@ -255,9 +225,7 @@ class TestAgentsMdIdempotency:
             f"{AGENTS_MD_END}\n\n# After\n"
         )
         bundle = PluginBundle(
-            commands=[
-                PluginCommand(name="search", description="Search", body="")
-            ]
+            commands=[PluginCommand(name="search", description="Search", body="")]
         )
         _update_agents_md(agents_md_path, bundle)
         content = agents_md_path.read_text()
@@ -320,9 +288,7 @@ class TestCodexDryRun:
         )
         return root
 
-    def test_codex_dry_run(
-        self, tmp_path: Path, plugin_dir: Path
-    ) -> None:
+    def test_codex_dry_run(self, tmp_path: Path, plugin_dir: Path) -> None:
         """Test --agent codex --dry-run via CLI runner."""
         from click.testing import CliRunner
 
@@ -350,9 +316,7 @@ class TestCodexDryRun:
         assert output["agent"] == "codex"
         assert output["file_count"] > 0
 
-    def test_codex_install(
-        self, tmp_path: Path, plugin_dir: Path
-    ) -> None:
+    def test_codex_install(self, tmp_path: Path, plugin_dir: Path) -> None:
         """Test --agent codex installs to .codex/skills/agent-brain."""
         from click.testing import CliRunner
 
@@ -400,9 +364,7 @@ class TestCodexDryRun:
         assert result.exit_code == 1
         assert "--dir is required" in result.output
 
-    def test_skill_runtime_with_dir(
-        self, tmp_path: Path, plugin_dir: Path
-    ) -> None:
+    def test_skill_runtime_with_dir(self, tmp_path: Path, plugin_dir: Path) -> None:
         """Test --agent skill-runtime --dir works."""
         from click.testing import CliRunner
 

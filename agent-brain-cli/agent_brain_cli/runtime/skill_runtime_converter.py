@@ -195,9 +195,7 @@ class SkillRuntimeConverter:
                 )
                 for tpl in bundle.templates:
                     body += f"- `assets/{tpl.name}`\n"
-                setup_skill.write_text(
-                    _build_skill_md(fm, body), encoding="utf-8"
-                )
+                setup_skill.write_text(_build_skill_md(fm, body), encoding="utf-8")
                 created.append(setup_skill)
 
             for tpl in bundle.templates:
@@ -225,9 +223,7 @@ class SkillRuntimeConverter:
                 )
                 for script in bundle.scripts:
                     body_v += f"- `scripts/{script.name}`\n"
-                verify_skill.write_text(
-                    _build_skill_md(fm_v, body_v), encoding="utf-8"
-                )
+                verify_skill.write_text(_build_skill_md(fm_v, body_v), encoding="utf-8")
                 created.append(verify_skill)
 
             for script in bundle.scripts:

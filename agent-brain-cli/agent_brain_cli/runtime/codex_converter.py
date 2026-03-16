@@ -13,12 +13,8 @@ Key differences from base SkillRuntimeConverter:
 import logging
 from pathlib import Path
 
-import yaml
-
 from agent_brain_cli.runtime.skill_runtime_converter import (
     SkillRuntimeConverter,
-    _build_skill_md,
-    _replace_paths,
 )
 from agent_brain_cli.runtime.types import (
     PluginAgent,
@@ -123,9 +119,7 @@ class CodexConverter:
             skill_name = _skill_dir_name(cmd.name)
             skill_file = target_dir / skill_name / "SKILL.md"
             if skill_file.exists():
-                skill_file.write_text(
-                    self.convert_command(cmd), encoding="utf-8"
-                )
+                skill_file.write_text(self.convert_command(cmd), encoding="utf-8")
 
         for agent in bundle.agents:
             from agent_brain_cli.runtime.skill_runtime_converter import (
@@ -135,9 +129,7 @@ class CodexConverter:
             skill_name = _skill_dir_name(agent.name)
             skill_file = target_dir / skill_name / "SKILL.md"
             if skill_file.exists():
-                skill_file.write_text(
-                    self.convert_agent(agent), encoding="utf-8"
-                )
+                skill_file.write_text(self.convert_agent(agent), encoding="utf-8")
 
         # Generate AGENTS.md at project root
         if project_root is None:
@@ -174,9 +166,7 @@ def _add_codex_header(content: str, name: str) -> str:
     return f"---\n{parts[1]}---\n{header}{parts[2]}"
 
 
-def _update_agents_md(
-    agents_md_path: Path, bundle: PluginBundle
-) -> list[Path]:
+def _update_agents_md(agents_md_path: Path, bundle: PluginBundle) -> list[Path]:
     """Generate or update AGENTS.md with Agent Brain section.
 
     Uses HTML comment markers for idempotent updates — running this

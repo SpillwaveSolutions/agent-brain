@@ -1,6 +1,5 @@
 """Tests for the skill-runtime converter."""
 
-import json
 from pathlib import Path
 
 import pytest
@@ -32,9 +31,7 @@ def sample_command() -> PluginCommand:
         name="agent-brain-search",
         description="Search documents",
         parameters=[
-            PluginParameter(
-                name="query", description="Search query", required=True
-            ),
+            PluginParameter(name="query", description="Search query", required=True),
             PluginParameter(
                 name="top-k",
                 description="Results count",
@@ -163,9 +160,7 @@ class TestSkillRuntimeConverter:
         assert "using-agent-brain" in result
         assert ".claude/agent-brain" not in result
 
-    def test_convert_skill_preserves_format(
-        self, sample_skill: PluginSkill
-    ) -> None:
+    def test_convert_skill_preserves_format(self, sample_skill: PluginSkill) -> None:
         converter = SkillRuntimeConverter()
         result = converter.convert_skill(sample_skill)
         parts = result.split("---\n")
@@ -273,9 +268,7 @@ class TestSkillRuntimeConverter:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_target = Path(tmp)
             files = converter.install(sample_bundle, tmp_target, Scope.PROJECT)
-            planned = [
-                real_target / f.relative_to(tmp_target) for f in files
-            ]
+            planned = [real_target / f.relative_to(tmp_target) for f in files]
 
         # Real target should not exist
         assert not real_target.exists()
@@ -305,22 +298,16 @@ class TestSkillRuntimeRoundTrip:
         files = converter.install(bundle, target, Scope.PROJECT)
 
         # Should produce skill dirs for all commands + agents + skills
-        expected_count = (
-            len(bundle.commands)
-            + len(bundle.agents)
-            + len(bundle.skills)
-        )
-        skill_dirs = [
-            d for d in target.iterdir() if d.is_dir()
-        ]
+        expected_count = len(bundle.commands) + len(bundle.agents) + len(bundle.skills)
+        skill_dirs = [d for d in target.iterdir() if d.is_dir()]
         # At least expected_count dirs (plus setup/verify if templates/scripts)
         assert len(skill_dirs) >= expected_count
 
         # Every skill dir should have SKILL.md
         for skill_dir in skill_dirs:
-            assert (skill_dir / "SKILL.md").exists(), (
-                f"Missing SKILL.md in {skill_dir.name}"
-            )
+            assert (
+                skill_dir / "SKILL.md"
+            ).exists(), f"Missing SKILL.md in {skill_dir.name}"
 
         # Templates should be in setup/assets
         if bundle.templates:
@@ -345,9 +332,7 @@ class TestSkillRuntimeRoundTrip:
 
         for skill_md in target.rglob("SKILL.md"):
             content = skill_md.read_text()
-            assert content.startswith("---\n"), (
-                f"Invalid frontmatter in {skill_md}"
-            )
+            assert content.startswith("---\n"), f"Invalid frontmatter in {skill_md}"
             parts = content.split("---\n")
             fm = yaml.safe_load(parts[1])
             assert "name" in fm, f"Missing name in {skill_md}"

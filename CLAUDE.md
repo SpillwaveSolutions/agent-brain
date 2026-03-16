@@ -181,6 +181,18 @@ doc-serve/
 | `agent-brain jobs JOB_ID` | Show job details |
 | `agent-brain jobs JOB_ID --cancel` | Cancel a job |
 
+### Runtime Installation Commands
+
+| Command | Description |
+|---------|-------------|
+| `agent-brain install-agent --agent claude` | Install for Claude Code |
+| `agent-brain install-agent --agent opencode` | Install for OpenCode |
+| `agent-brain install-agent --agent gemini` | Install for Gemini CLI |
+| `agent-brain install-agent --agent codex` | Install for Codex (+ AGENTS.md) |
+| `agent-brain install-agent --agent skill-runtime --dir <path>` | Install for any skill-based runtime |
+| `agent-brain install-agent --agent <runtime> --dry-run` | Preview installation |
+| `agent-brain install-agent --agent <runtime> --global` | Install globally |
+
 ## Environment Variables
 
 ### Server (agent-brain-server/.env)

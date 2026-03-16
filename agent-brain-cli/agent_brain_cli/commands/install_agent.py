@@ -94,13 +94,7 @@ def _resolve_target_dir(
     return project_root / dir_template
 
 
-class _SkillRuntimeChoice(click.Choice):
-    """Extended choice that includes skill-runtime and codex."""
-
-    def __init__(self) -> None:
-        super().__init__(
-            ["claude", "opencode", "gemini", "skill-runtime", "codex"]
-        )
+RUNTIME_CHOICES = ["claude", "opencode", "gemini", "skill-runtime", "codex"]
 
 
 @click.command("install-agent")
@@ -108,7 +102,7 @@ class _SkillRuntimeChoice(click.Choice):
     "--agent",
     "-a",
     required=True,
-    type=_SkillRuntimeChoice(),
+    type=click.Choice(RUNTIME_CHOICES),
     help="Target runtime to install for",
 )
 @click.option(
@@ -219,9 +213,7 @@ def install_agent_command(
 
         # Resolve target directory
         project_root = Path(path) if path else None
-        target = _resolve_target_dir(
-            agent, scope, project_root, target_dir_option
-        )
+        target = _resolve_target_dir(agent, scope, project_root, target_dir_option)
 
         # Create converter
         converter_cls = CONVERTERS[agent]
@@ -230,7 +222,12 @@ def install_agent_command(
 
         if dry_run:
             _handle_dry_run(
-                converter, bundle, target, scope_enum, agent, scope,
+                converter,
+                bundle,
+                target,
+                scope_enum,
+                agent,
+                scope,
                 json_output,
             )
             return
@@ -278,11 +275,13 @@ def install_agent_command(
 
 
 def _handle_dry_run(
-    converter: ClaudeConverter
-    | OpenCodeConverter
-    | GeminiConverter
-    | SkillRuntimeConverter
-    | CodexConverter,
+    converter: (
+        ClaudeConverter
+        | OpenCodeConverter
+        | GeminiConverter
+        | SkillRuntimeConverter
+        | CodexConverter
+    ),
     bundle: Any,
     target: Path,
     scope_enum: Scope,
