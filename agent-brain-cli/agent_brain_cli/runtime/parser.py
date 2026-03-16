@@ -13,7 +13,9 @@ from agent_brain_cli.runtime.types import (
     PluginCommand,
     PluginManifest,
     PluginParameter,
+    PluginScript,
     PluginSkill,
+    PluginTemplate,
     TriggerPattern,
 )
 
@@ -195,6 +197,62 @@ def parse_manifest(path: Path) -> PluginManifest:
     )
 
 
+def parse_templates(templates_dir: Path) -> list[PluginTemplate]:
+    """Parse template files from the templates/ directory.
+
+    Args:
+        templates_dir: Path to the templates directory.
+
+    Returns:
+        List of parsed PluginTemplate objects.
+    """
+    templates: list[PluginTemplate] = []
+    if not templates_dir.is_dir():
+        return templates
+    for tpl_file in sorted(templates_dir.iterdir()):
+        if tpl_file.is_file():
+            try:
+                content = tpl_file.read_text(encoding="utf-8")
+                templates.append(
+                    PluginTemplate(
+                        name=tpl_file.name,
+                        content=content,
+                        source_path=str(tpl_file),
+                    )
+                )
+            except OSError as exc:
+                logger.warning("Failed to read template %s: %s", tpl_file, exc)
+    return templates
+
+
+def parse_scripts(scripts_dir: Path) -> list[PluginScript]:
+    """Parse script files from the scripts/ directory.
+
+    Args:
+        scripts_dir: Path to the scripts directory.
+
+    Returns:
+        List of parsed PluginScript objects.
+    """
+    scripts: list[PluginScript] = []
+    if not scripts_dir.is_dir():
+        return scripts
+    for script_file in sorted(scripts_dir.iterdir()):
+        if script_file.is_file():
+            try:
+                content = script_file.read_text(encoding="utf-8")
+                scripts.append(
+                    PluginScript(
+                        name=script_file.name,
+                        content=content,
+                        source_path=str(script_file),
+                    )
+                )
+            except OSError as exc:
+                logger.warning("Failed to read script %s: %s", script_file, exc)
+    return scripts
+
+
 def parse_plugin_dir(plugin_dir: Path) -> PluginBundle:
     """Parse an entire plugin directory into a PluginBundle.
 
@@ -255,10 +313,18 @@ def parse_plugin_dir(plugin_dir: Path) -> PluginBundle:
                 except (ValueError, OSError) as exc:
                     logger.warning("Failed to parse skill %s: %s", skill_file, exc)
 
+    # Parse templates
+    templates = parse_templates(plugin_dir / "templates")
+
+    # Parse scripts
+    scripts = parse_scripts(plugin_dir / "scripts")
+
     return PluginBundle(
         commands=commands,
         agents=agents,
         skills=skills,
+        templates=templates,
+        scripts=scripts,
         manifest=manifest,
         source_dir=str(plugin_dir),
     )

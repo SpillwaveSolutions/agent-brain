@@ -10,6 +10,8 @@ class RuntimeType(str, Enum):
     CLAUDE = "claude"
     OPENCODE = "opencode"
     GEMINI = "gemini"
+    SKILL_RUNTIME = "skill-runtime"
+    CODEX = "codex"
 
 
 class Scope(str, Enum):
@@ -76,6 +78,24 @@ class PluginSkill:
 
 
 @dataclass
+class PluginTemplate:
+    """A template file from the plugin templates/ directory."""
+
+    name: str
+    content: str
+    source_path: str = ""
+
+
+@dataclass
+class PluginScript:
+    """A script file from the plugin scripts/ directory."""
+
+    name: str
+    content: str
+    source_path: str = ""
+
+
+@dataclass
 class PluginManifest:
     """Parsed plugin.json manifest."""
 
@@ -96,5 +116,7 @@ class PluginBundle:
     commands: list[PluginCommand] = field(default_factory=list)
     agents: list[PluginAgent] = field(default_factory=list)
     skills: list[PluginSkill] = field(default_factory=list)
+    templates: list[PluginTemplate] = field(default_factory=list)
+    scripts: list[PluginScript] = field(default_factory=list)
     manifest: PluginManifest = field(default_factory=PluginManifest)
     source_dir: str = ""
