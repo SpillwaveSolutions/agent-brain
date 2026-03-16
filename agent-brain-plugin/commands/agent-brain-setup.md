@@ -82,6 +82,16 @@ agent-brain --version 2>/dev/null || echo "NOT_INSTALLED"
 
 If not installed, run `/agent-brain-install` first.
 
+**Environment pre-flight:** After confirming installation, run the detection script to collect environment state for all subsequent steps:
+
+```bash
+SCRIPT=$(find ~/.claude/plugins/agent-brain/scripts ~/.claude/skills/agent-brain/scripts agent-brain-plugin/scripts -name "ab-setup-check.sh" 2>/dev/null | head -1)
+SETUP_STATE=$( [ -n "$SCRIPT" ] && bash "$SCRIPT" || echo "{}" )
+echo "$SETUP_STATE"
+```
+
+Store `SETUP_STATE` in memory for use in Steps 2-12. This avoids re-running individual detection commands later.
+
 ### Step 2: Wizard — Embedding Provider
 
 Use AskUserQuestion to ask which embedding provider to use:

@@ -49,37 +49,50 @@ fi
 
 **When editing config: If project-level config exists, ALWAYS edit that one, NOT the user-level.**
 
-### Step 2: Check Ollama Status
+### Step 2: Run Pre-Flight Detection
 
-**Check Ollama status using multiple methods:**
+Run the environment detection script once. It consolidates Ollama check, Docker check, large-dir scan, and config detection into a single call:
+
 ```bash
-# Method 1: Check root endpoint (most reliable)
-curl -s --connect-timeout 3 http://localhost:11434/ 2>/dev/null
+# Find the script — adjust path if plugin is installed to ~/.claude/plugins/
+SCRIPT=$(find ~/.claude/plugins/agent-brain/scripts ~/.claude/skills/agent-brain/scripts agent-brain-plugin/scripts -name "ab-setup-check.sh" 2>/dev/null | head -1)
+if [ -n "$SCRIPT" ]; then
+  SETUP_STATE=$(bash "$SCRIPT")
+  echo "$SETUP_STATE"
+else
+  echo "ab-setup-check.sh not found — run detection manually (see fallback below)"
+  SETUP_STATE="{}"
+fi
+```
 
-# Method 2: Check if port is in use (fallback)
-lsof -i :11434 2>/dev/null | head -3
+Parse the JSON output into local variables for use in subsequent steps:
 
-# Method 3: List models (confirms Ollama is working)
-ollama list 2>/dev/null | head -10
+```bash
+OLLAMA_RUNNING=$(echo "$SETUP_STATE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('ollama_running','false'))" 2>/dev/null || echo "false")
+CONFIG_FILE=$(echo "$SETUP_STATE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('config_file_path',''))" 2>/dev/null || echo "")
+DOCKER_AVAILABLE=$(echo "$SETUP_STATE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('docker_available','false'))" 2>/dev/null || echo "false")
+AVAILABLE_PORT=$(echo "$SETUP_STATE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('available_postgres_port','5432'))" 2>/dev/null || echo "5432")
 ```
 
 **Interpreting results:**
-- If curl returns "Ollama is running" → Ollama IS running
-- If lsof shows a process on port 11434 → Ollama IS running
-- If `ollama list` shows models → Ollama IS running and has models
+- `ollama_running: true` → Ollama IS running; proceed with configuration
+- `ollama_running: false` → Tell user to start Ollama: `ollama serve`
+- `docker_available: true` → Docker is installed; PostgreSQL setup is possible
+- `config_file_path: "..."` → Edit THAT config file (project-level takes priority)
 
-**IMPORTANT:** If ANY of these methods show Ollama is running, proceed with configuration. Do NOT tell user to start Ollama.
+**Fallback (if ab-setup-check.sh not found):** Use the manual methods below — but `ab-setup-check.sh` should always be present if the plugin is installed.
 
-**Only if ALL checks fail**, tell the user:
+<details>
+<summary>Manual fallback (not needed when plugin is installed)</summary>
+
+```bash
+# Manual Ollama check
+curl -s --connect-timeout 3 http://localhost:11434/ 2>/dev/null
+lsof -i :11434 2>/dev/null | head -3
+ollama list 2>/dev/null | head -10
 ```
-Ollama is installed but not running.
 
-To start Ollama, open a NEW terminal window and run:
-
-  ollama serve
-
-Keep that terminal open, then come back here and run /agent-brain:agent-brain-config again.
-```
+</details>
 
 ### Step 3: Use AskUserQuestion for Provider Selection
 
@@ -460,33 +473,20 @@ After provider setup, help the user configure which directories to exclude from 
 
 ### Detect Large Directories
 
-Run this to find potential directories to exclude:
+The pre-flight detection from Step 2 already scanned for large directories. Parse the results:
 
 ```bash
-# Find large directories that are likely caches/dependencies
-echo "=== Detecting Large Directories ==="
-echo "These directories may slow down indexing:"
-echo ""
-
-# Check for common cache/dependency directories
-for dir in node_modules .venv venv __pycache__ .git dist build target .next .nuxt coverage .pytest_cache .mypy_cache .tox vendor packages Pods .gradle .m2; do
-  if [ -d "$dir" ]; then
-    size=$(du -sh "$dir" 2>/dev/null | cut -f1)
-    count=$(find "$dir" -type f 2>/dev/null | wc -l | tr -d ' ')
-    echo "  ❌ $dir/ - $size ($count files) - SHOULD EXCLUDE"
-  fi
-done
-
-# Find any directory with >1000 files
-echo ""
-echo "Other large directories (>1000 files):"
-find . -maxdepth 3 -type d 2>/dev/null | while read d; do
-  count=$(find "$d" -maxdepth 1 -type f 2>/dev/null | wc -l)
-  if [ "$count" -gt 1000 ]; then
-    size=$(du -sh "$d" 2>/dev/null | cut -f1)
-    echo "  ⚠️  $d - $size ($count files)"
-  fi
-done
+echo "$SETUP_STATE" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+dirs = d.get('large_dirs', [])
+if dirs:
+    print('Large directories found — consider excluding these:')
+    for entry in dirs:
+        print(f'  {entry[\"path\"]}/ - {entry[\"size\"]} ({entry[\"file_count\"]} files) — SHOULD EXCLUDE')
+else:
+    print('No large directories detected in current directory')
+"
 ```
 
 ### Show Current Exclude Patterns
