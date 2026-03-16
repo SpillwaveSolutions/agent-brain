@@ -193,6 +193,29 @@ Plans:
 
 ---
 
+### Phase 25: Setup Wizard Coverage Gaps
+
+**Goal:** Close setup wizard coverage gaps so users are guided through ALL configuration dimensions during setup — GraphRAG opt-in with PostgreSQL incompatibility gate, BM25/PostgreSQL awareness, search mode education with cache mention.
+
+**Depends on:** Phase 22 (Setup wizard must be complete and tested)
+
+**Requirements:** WIZARD-GAP-01, WIZARD-GAP-02, WIZARD-GAP-03, WIZARD-GAP-04, WIZARD-GAP-05
+
+**Success Criteria** (what must be TRUE):
+1. When PostgreSQL backend is selected in Step 4, wizard informs user that BM25 is replaced by tsvector full-text search
+2. When PostgreSQL backend is selected, Step 5 blocks GraphRAG options and sets graphrag.enabled: false automatically (GraphRAG requires ChromaDB — hard error in query_service.py)
+3. Step 6 mentions that both embedding and query caches are auto-enabled with no configuration needed
+4. SKILL.md and configuration-guide.md document query cache (QUERY_CACHE_TTL, QUERY_CACHE_MAX_SIZE) and PostgreSQL BM25 replacement
+5. Regression tests verify all three new wizard behaviors
+
+**Plans:** 2 plans
+
+Plans:
+- [ ] 25-01-PLAN.md — Update agent-brain-setup.md wizard (Steps 4/5/6 coverage gaps) + regression tests
+- [ ] 25-02-PLAN.md — Update SKILL.md and configuration-guide.md (query cache docs + PostgreSQL BM25 note)
+
+---
+
 ## Progress
 
 **Execution Order:**
@@ -220,6 +243,7 @@ Phases execute in numeric order: 15 → 16 → 17 → 18
 | 18. UDS Transport & Quality Gate | v8.0 | 0/2 | Not started | - |
 | 19. Plugin Cache Docs | 1/1 | Complete    | 2026-03-12 | - |
 | 24. Setup Permissions & Helper Script | plugin | 0/2 | Planned | - |
+| 25. Setup Wizard Coverage Gaps | plugin | 0/2 | Planned | - |
 
 ---
 
@@ -245,4 +269,4 @@ Feature 101: AST-aware code ingestion, code summaries
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-15 — Phase 24 planned: 2 plans in 2 waves*
+*Last updated: 2026-03-15 — Phase 25 planned: 2 plans in 1 wave (parallel)*
