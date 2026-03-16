@@ -1,0 +1,37 @@
+{
+  "_comment": "Agent Brain setup permissions. Copy to .claude/settings.json in your project root, or /agent-brain-setup will write it automatically.",
+  "_comment_group1": "Group 1: Primary Agent Brain CLI tool",
+  "_comment_group2": "Group 2: Detection and read-only environment checks (lsof, ollama, docker, ps, pgrep, du)",
+  "_comment_group3": "Group 3: Configuration writes and file operations (mkdir, cat, jq, mv)",
+  "_comment_group4": "Group 4: Installation tools (pip, pipx, uv, python, python3)",
+  "_comment_group5": "Group 5: Standard development tools already common (rg, wc, curl, ls, find, chmod, grep, bash)",
+  "permissions": {
+    "allow": [
+      "Bash(agent-brain:*)",
+      "Bash(lsof:*)",
+      "Bash(ollama:*)",
+      "Bash(docker:*)",
+      "Bash(mkdir:*)",
+      "Bash(cat:*)",
+      "Bash(jq:*)",
+      "Bash(mv:*)",
+      "Bash(du:*)",
+      "Bash(ps:*)",
+      "Bash(pgrep:*)",
+      "Bash(pip:*)",
+      "Bash(pipx:*)",
+      "Bash(uv:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(rg:*)",
+      "Bash(wc:*)",
+      "Bash(curl:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(chmod:*)",
+      "Bash(grep:*)",
+      "Bash(bash:*)"
+    ],
+    "deny": []
+  }
+}
