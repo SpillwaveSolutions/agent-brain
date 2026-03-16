@@ -38,8 +38,8 @@ Starts the Agent Brain server for the current project. The server provides:
 Verify the project is initialized:
 
 ```bash
-# Check for .claude/agent-brain/ directory
-ls -la .claude/agent-brain/
+# Check for .agent-brain/ directory
+ls -la .agent-brain/
 ```
 
 If not initialized:
@@ -77,7 +77,7 @@ Server started successfully!
   Project:  my-project
   PID:      12345
 
-Runtime config saved to: .claude/agent-brain/runtime.json
+Runtime config saved to: .agent-brain/runtime.json
 
 To check status:  /agent-brain:agent-brain-status
 To stop server:   /agent-brain:agent-brain-stop
@@ -85,7 +85,7 @@ To stop server:   /agent-brain:agent-brain-stop
 
 ### Runtime Configuration
 
-The server creates a runtime file at `.claude/agent-brain/runtime.json`:
+The server creates a runtime file at `.agent-brain/runtime.json`:
 
 ```json
 {
@@ -178,8 +178,8 @@ Error: Permission denied when creating runtime directory
 
 **Resolution**:
 ```bash
-mkdir -p .claude/agent-brain
-chmod 755 .claude/agent-brain
+mkdir -p .agent-brain
+chmod 755 .agent-brain
 agent-brain start
 ```
 
@@ -212,7 +212,7 @@ agent-brain query "test query" --mode hybrid
 ### Project Mode (Default)
 
 - Server runs for a single project
-- Data stored in `.claude/agent-brain/`
+- Data stored in `.agent-brain/`
 - Automatic port allocation
 - Isolated from other projects
 
@@ -252,7 +252,7 @@ AGENT_BRAIN_MODE=shared agent-brain start
 
 3. Check logs:
    ```bash
-   cat .claude/agent-brain/server.log
+   cat .agent-brain/server.log
    ```
 
 ### Server Crashes on Start

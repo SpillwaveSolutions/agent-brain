@@ -251,9 +251,9 @@ Detect which config file location to use:
 
 ```bash
 # Check which config files exist
-if [ -f ".claude/agent-brain/config.yaml" ]; then
-  echo "PROJECT config found: .claude/agent-brain/config.yaml"
-  CONFIG_PATH=".claude/agent-brain/config.yaml"
+if [ -f ".agent-brain/config.yaml" ]; then
+  echo "PROJECT config found: .agent-brain/config.yaml"
+  CONFIG_PATH=".agent-brain/config.yaml"
 elif [ -f "$HOME/.agent-brain/config.yaml" ]; then
   echo "USER config found: $HOME/.agent-brain/config.yaml"
   CONFIG_PATH="$HOME/.agent-brain/config.yaml"
@@ -361,7 +361,7 @@ If the user chooses Yes, restart from Step 2. If No, continue to the next step.
 agent-brain init
 ```
 
-Creates `.claude/agent-brain/` directory with configuration files.
+Creates `.agent-brain/` directory with configuration files.
 
 ### Step 10: PostgreSQL (Only When Backend Is Postgres)
 
@@ -371,7 +371,7 @@ Check backend selection (env override takes priority):
 
 ```bash
 echo "Backend override: ${AGENT_BRAIN_STORAGE_BACKEND:-unset}"
-rg -n "storage:\n  backend:" ~/.agent-brain/config.yaml .claude/agent-brain/config.yaml 2>/dev/null
+rg -n "storage:\n  backend:" ~/.agent-brain/config.yaml .agent-brain/config.yaml 2>/dev/null
 ```
 
 If the backend is `postgres`, confirm Docker and Docker Compose are available:
@@ -482,7 +482,7 @@ Agent Brain Setup
        Summarization: ollama connected [OK]
 
 [9/10] Initializing project...
-       Created: .claude/agent-brain/config.json [OK]
+       Created: .agent-brain/config.json [OK]
 
 [10/10] Starting server...
         Server started on port 49321 [OK]
@@ -532,12 +532,12 @@ Re-running wizard from Step 2...
 ```
 [9/10] Initializing project... FAILED
 
-Error: Permission denied creating .claude/agent-brain/
+Error: Permission denied creating .agent-brain/
 
 Solutions:
 1. Check directory permissions
 2. Ensure you have write access to current directory
-3. Try: mkdir -p .claude/agent-brain
+3. Try: mkdir -p .agent-brain
 ```
 
 ### Server Start Failed
@@ -550,7 +550,7 @@ Error: Port already in use
 Solutions:
 1. Check for running instance: agent-brain list
 2. Stop existing server: agent-brain stop
-3. Clean state: rm -f .claude/agent-brain/runtime.json
+3. Clean state: rm -f .agent-brain/runtime.json
 4. Retry: agent-brain start
 ```
 

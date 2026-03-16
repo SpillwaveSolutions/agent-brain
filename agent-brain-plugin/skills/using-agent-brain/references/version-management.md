@@ -125,7 +125,7 @@ TARGET_VERSION="X.Y.Z"
 agent-brain stop
 
 # 3. Backup configuration
-cp -r .claude/agent-brain .claude/agent-brain.backup
+cp -r .agent-brain .agent-brain.backup
 
 # 4. Reset index (if needed)
 agent-brain reset --yes

@@ -176,7 +176,7 @@ Report to the user:
 | Connection refused | Agent Brain server is not running | Start with `/agent-brain:agent-brain-start` |
 | Cache not initialized (503) | Server started but cache subsystem not ready | Wait a moment and retry; restart server if persistent |
 | Cache already empty | No cached embeddings to clear | No action needed — this is not an error |
-| Permission denied | Cannot write to cache database file | Check directory permissions for `.claude/agent-brain/` |
+| Permission denied | Cannot write to cache database file | Check directory permissions for `.agent-brain/` |
 
 ### Recovery Commands
 

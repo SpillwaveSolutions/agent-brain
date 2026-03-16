@@ -14,7 +14,7 @@ Automatic discovery and management of Agent Brain instances.
 
 ## Runtime File
 
-Agent Brain writes connection details to `.claude/agent-brain/runtime.json`:
+Agent Brain writes connection details to `.agent-brain/runtime.json`:
 
 ```json
 {
@@ -42,7 +42,7 @@ Agent Brain writes connection details to `.claude/agent-brain/runtime.json`:
 ## Discovery Process
 
 1. **Project Root Resolution**: `git rev-parse --show-toplevel` or marker files (`.claude/`, `pyproject.toml`)
-2. **Runtime File Check**: Look for `.claude/agent-brain/runtime.json`
+2. **Runtime File Check**: Look for `.agent-brain/runtime.json`
 3. **Health Validation**: Verify server via `/health/` endpoint
 4. **URL Extraction**: Use `base_url` for API calls
 
@@ -166,7 +166,7 @@ Warning: Server not responding, cleaning up stale state
 
 **Solution**: CLI auto-cleans stale files. Manual cleanup:
 ```bash
-rm .claude/agent-brain/runtime.json
+rm .agent-brain/runtime.json
 agent-brain start
 ```
 
@@ -182,7 +182,7 @@ Lock file prevents double-start. If blocked, run `agent-brain status` to discove
 
 ```bash
 agent-brain status                              # Recommended
-cat .claude/agent-brain/runtime.json | jq '.port' # Direct read
+cat .agent-brain/runtime.json | jq '.port' # Direct read
 agent-brain list                                # All instances
 ```
 

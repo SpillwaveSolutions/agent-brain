@@ -15,11 +15,12 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 
+from agent_brain_cli.migration import resolve_state_dir_with_fallback
 from agent_brain_cli.xdg_paths import get_xdg_state_dir, migrate_legacy_paths
 
 console = Console()
 
-STATE_DIR_NAME = ".claude/agent-brain"
+STATE_DIR_NAME = ".agent-brain"
 LOCK_FILE = "agent-brain.lock"
 PID_FILE = "agent-brain.pid"
 RUNTIME_FILE = "runtime.json"
@@ -46,6 +47,8 @@ def resolve_project_root(start_path: Path | None = None) -> Path:
     # Walk up looking for markers
     current = start
     while current != current.parent:
+        if (current / ".agent-brain").is_dir():
+            return current
         if (current / ".claude").is_dir():
             return current
         if (current / "pyproject.toml").is_file():
@@ -234,7 +237,7 @@ def start_command(
         else:
             project_root = resolve_project_root()
 
-        state_dir = project_root / STATE_DIR_NAME
+        state_dir = resolve_state_dir_with_fallback(project_root)
 
         # Check if initialized
         if not state_dir.exists():

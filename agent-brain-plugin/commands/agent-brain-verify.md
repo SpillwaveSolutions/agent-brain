@@ -46,7 +46,7 @@ echo "ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:+SET}"
 ### Step 4: Check Project Initialization
 
 ```bash
-ls -la .claude/agent-brain/config.json 2>/dev/null
+ls -la .agent-brain/config.json 2>/dev/null
 ```
 
 ### Step 5: Check Server Status (if running)
@@ -58,7 +58,7 @@ agent-brain status
 ### Step 6: Run Health Check (if server running)
 
 ```bash
-curl -s http://127.0.0.1:$(cat .claude/agent-brain/runtime.json 2>/dev/null | python -c "import sys,json; print(json.load(sys.stdin).get('port', 8000))")/health 2>/dev/null || echo "Server not running"
+curl -s http://127.0.0.1:$(cat .agent-brain/runtime.json 2>/dev/null | python -c "import sys,json; print(json.load(sys.stdin).get('port', 8000))")/health 2>/dev/null || echo "Server not running"
 ```
 
 ## Output
@@ -82,8 +82,8 @@ Configuration
 
 Project Setup
 -------------
-[OK] Project initialized: .claude/agent-brain/
-[OK] Config file: .claude/agent-brain/config.json
+[OK] Project initialized: .agent-brain/
+[OK] Config file: .agent-brain/config.json
 
 Server Status
 -------------
@@ -160,7 +160,7 @@ API Keys:
   [ ] ANTHROPIC_API_KEY set (optional)
 
 Project:
-  [x] .claude/agent-brain/ exists
+  [x] .agent-brain/ exists
   [x] config.json present
 
 Server:
@@ -217,7 +217,7 @@ Or run: /agent-brain:agent-brain-config
 ```
 [!!] Project not initialized
 
-No .claude/agent-brain/ directory found.
+No .agent-brain/ directory found.
 
 Fix:
   agent-brain init

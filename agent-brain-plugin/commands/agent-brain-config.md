@@ -27,17 +27,17 @@ Guides users through configuring Agent Brain:
 **IMPORTANT: Check BOTH locations and edit the correct one.**
 
 Config file priority (highest to lowest):
-1. **Project-level**: `.claude/agent-brain/config.yaml` (edit this if it exists)
+1. **Project-level**: `.agent-brain/config.yaml` (edit this if it exists)
 2. **User-level**: `~/.agent-brain/config.yaml` (fallback)
 
 ```bash
 # Check which config files exist
 echo "=== Config File Detection ==="
-if [ -f ".claude/agent-brain/config.yaml" ]; then
-  echo "PROJECT config: .claude/agent-brain/config.yaml [EXISTS - EDIT THIS ONE]"
-  cat .claude/agent-brain/config.yaml
+if [ -f ".agent-brain/config.yaml" ]; then
+  echo "PROJECT config: .agent-brain/config.yaml [EXISTS - EDIT THIS ONE]"
+  cat .agent-brain/config.yaml
 else
-  echo "PROJECT config: .claude/agent-brain/config.yaml [NOT FOUND]"
+  echo "PROJECT config: .agent-brain/config.yaml [NOT FOUND]"
 fi
 echo ""
 if [ -f ~/.agent-brain/config.yaml ]; then
@@ -493,8 +493,8 @@ else:
 
 ```bash
 echo "=== Current Exclude Patterns ==="
-if [ -f ".claude/agent-brain/config.json" ]; then
-  cat .claude/agent-brain/config.json | grep -A20 '"exclude_patterns"'
+if [ -f ".agent-brain/config.json" ]; then
+  cat .agent-brain/config.json | grep -A20 '"exclude_patterns"'
 else
   echo "Using defaults: node_modules, __pycache__, .venv, venv, .git, dist, build, target"
 fi
@@ -515,12 +515,12 @@ Options:
 
 **If Option 2 (Custom):**
 
-Ask the user which additional directories to exclude, then update `.claude/agent-brain/config.json`:
+Ask the user which additional directories to exclude, then update `.agent-brain/config.json`:
 
 ```bash
 # Example: Add custom exclude pattern
 # Read current config, add pattern, write back
-cat .claude/agent-brain/config.json | jq '.exclude_patterns += ["**/my-custom-dir/**"]' > /tmp/config.json && mv /tmp/config.json .claude/agent-brain/config.json
+cat .agent-brain/config.json | jq '.exclude_patterns += ["**/my-custom-dir/**"]' > /tmp/config.json && mv /tmp/config.json .agent-brain/config.json
 ```
 
 ### Default Exclude Patterns

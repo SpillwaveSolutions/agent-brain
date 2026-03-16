@@ -26,12 +26,12 @@ Initializes the current project for Agent Brain by creating the necessary config
 agent-brain init
 ```
 
-This creates the `.claude/agent-brain/` directory structure in the current project.
+This creates the `.agent-brain/` directory structure in the current project.
 
 ### Verify Initialization
 
 ```bash
-ls -la .claude/agent-brain/
+ls -la .agent-brain/
 ```
 
 ## Output
@@ -45,14 +45,14 @@ Initializing Agent Brain for current project...
 Running: agent-brain init
 
 Created directory structure:
-  .claude/agent-brain/
+  .agent-brain/
     config.json      - Project configuration
     chroma_db/       - Vector store (created on first index)
     bm25_index/      - Keyword index (created on first index)
 
 Project initialized successfully!
 
-Configuration file: .claude/agent-brain/config.json
+Configuration file: .agent-brain/config.json
 {
   "project_name": "my-project",
   "created_at": "2025-01-31T12:00:00Z",
@@ -97,10 +97,10 @@ Contains project-specific settings:
 
 ### config.yaml (Optional)
 
-Create a `config.yaml` in the project's `.claude/agent-brain/` directory for project-specific provider settings:
+Create a `config.yaml` in the project's `.agent-brain/` directory for project-specific provider settings:
 
 ```yaml
-# .claude/agent-brain/config.yaml
+# .agent-brain/config.yaml
 project:
   state_dir: null  # Use default
 
@@ -124,7 +124,7 @@ Created when server starts, contains:
   "port": 49321,
   "pid": 12345,
   "started_at": "2025-01-31T12:00:00Z",
-  "state_dir": ".claude/agent-brain"
+  "state_dir": ".agent-brain"
 }
 ```
 
@@ -135,25 +135,25 @@ Created when server starts, contains:
 ```
 Project already initialized.
 
-Existing configuration found at: .claude/agent-brain/config.json
+Existing configuration found at: .agent-brain/config.json
 
 Options:
   - Continue using existing configuration
-  - Reset with: rm -rf .claude/agent-brain && agent-brain init
+  - Reset with: rm -rf .agent-brain && agent-brain init
   - Check status: agent-brain status
 ```
 
 ### Permission Denied
 
 ```
-Error: Cannot create directory .claude/agent-brain/
+Error: Cannot create directory .agent-brain/
 
 Permission denied.
 
 Solutions:
 1. Check directory permissions: ls -la .
 2. Ensure write access to current directory
-3. Create manually: mkdir -p .claude/agent-brain
+3. Create manually: mkdir -p .agent-brain
 4. Check if .claude exists and is writable
 ```
 
@@ -190,7 +190,7 @@ To completely reset a project's Agent Brain configuration:
 agent-brain stop
 
 # Remove existing configuration
-rm -rf .claude/agent-brain
+rm -rf .agent-brain
 
 # Re-initialize
 agent-brain init
@@ -200,7 +200,7 @@ agent-brain init
 
 ## Multiple Projects
 
-Each project should be initialized separately. Agent Brain uses the `.claude/agent-brain/` directory to isolate:
+Each project should be initialized separately. Agent Brain uses the `.agent-brain/` directory to isolate:
 
 - Configuration settings
 - Vector store data

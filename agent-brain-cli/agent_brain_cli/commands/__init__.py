@@ -6,6 +6,7 @@ from .folders import folders_group
 from .index import index_command
 from .init import init_command
 from .inject import inject_command
+from .install_agent import install_agent_command
 from .jobs import jobs_command
 from .list_cmd import list_command
 from .query import query_command
@@ -23,6 +24,7 @@ __all__ = [
     "index_command",
     "inject_command",
     "init_command",
+    "install_agent_command",
     "jobs_command",
     "list_command",
     "query_command",

@@ -94,11 +94,30 @@ class TestResolveGitRoot:
 class TestWalkUpForMarker:
     """Tests for _walk_up_for_marker function."""
 
+    def test_finds_agent_brain_dir(self, tmp_path):
+        """Test finding .agent-brain directory marker."""
+        (tmp_path / ".agent-brain").mkdir()
+        child = tmp_path / "sub" / "deep"
+        child.mkdir(parents=True)
+
+        result = _walk_up_for_marker(child)
+        assert result == tmp_path
+
     def test_finds_claude_dir(self, tmp_path):
         """Test finding .claude directory marker."""
         (tmp_path / ".claude").mkdir()
         child = tmp_path / "sub" / "deep"
         child.mkdir(parents=True)
+
+        result = _walk_up_for_marker(child)
+        assert result == tmp_path
+
+    def test_prefers_agent_brain_over_claude(self, tmp_path):
+        """Test .agent-brain takes priority over .claude."""
+        (tmp_path / ".agent-brain").mkdir()
+        (tmp_path / ".claude").mkdir()
+        child = tmp_path / "src"
+        child.mkdir()
 
         result = _walk_up_for_marker(child)
         assert result == tmp_path
