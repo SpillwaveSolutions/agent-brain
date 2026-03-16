@@ -66,6 +66,7 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 | Phase 16: Embedding Cache | 2 | 14 min total (10+4) | Complete |
 | Phase 19-plugin-and-skill-updates-for-embedding-cache-management P01 | 2 | 2 tasks | 6 files |
 | Phase 22: Restore Setup Wizard with Full Config Prompts | 2 | ~15 min | Complete |
+| Phase 24: Setup Permissions & Helper Script | 2 | ~12 min | Complete |
 | Phase 25: Setup Wizard Coverage Gaps | 2 | ~14 min | Complete |
 
 ## Accumulated Context
@@ -113,6 +114,14 @@ v8.0 Performance & DX:      [█████░░░░░]  50% (Phase 15+16 c
 - Phase 16 (Embedding Cache): Watcher must be running first — cache makes repeated auto-reindexing cheap
 - Phase 17 (Query Cache): Requires Phase 15 (watcher generates reindex events needing cache invalidation) + Phase 16 (index_generation counter)
 - Phase 18 (UDS + Quality Gate): Ship last — touches api/main.py server startup (widest blast radius)
+
+### Key Phase 24 Decisions (Setup Permissions & Helper Script)
+- Write-tool-first bootstrap: .claude/settings.json written with Write tool (always pre-authorized), not Bash — no permission gate
+- 24 Bash entries in allowlist: agent-brain, lsof, ollama, docker, mkdir, cat, jq, mv, du, ps, pgrep, pip, pipx, uv, python, python3, rg, wc, curl, ls, find, chmod, grep, bash
+- ab-setup-check.sh uses set -uo pipefail (not -e) to avoid aborting on missing optional tools
+- SETUP_STATE variable stored in memory for reuse across all wizard steps — single detection call
+- MERGE semantics on existing .claude/settings.json — avoids destroying custom user permissions
+- Full JSON permission block inlined in agent-brain-setup.md — command is self-contained
 
 ### Key Phase 25 Decisions (Setup Wizard Coverage Gaps)
 - GraphRAG gate in Step 5: two-branch conditional — PostgreSQL gets informational block, ChromaDB gets existing 3-option prompt
