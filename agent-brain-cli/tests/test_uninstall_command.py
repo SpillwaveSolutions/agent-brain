@@ -1,10 +1,8 @@
 """Tests for the agent-brain uninstall command."""
 
 import json
-import os
-import signal
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
@@ -23,7 +21,7 @@ class TestUninstallRemovesDirs:
     """Tests for directory removal behavior."""
 
     def test_removes_global_dirs(self, runner: CliRunner, tmp_path: Path) -> None:
-        """Creates fake dirs at XDG + legacy paths, invokes with --yes, verify removed."""
+        """Creates fake dirs at XDG + legacy paths, verify removed."""
         xdg_config = tmp_path / "config" / "agent-brain"
         xdg_config.mkdir(parents=True)
         xdg_state = tmp_path / "state" / "agent-brain"
@@ -205,7 +203,9 @@ class TestUninstallServerStop:
         state_dir = tmp_path / "myproject" / ".claude" / "agent-brain"
         state_dir.mkdir(parents=True)
         runtime_file = state_dir / "runtime.json"
-        runtime_file.write_text(json.dumps({"pid": fake_pid, "base_url": "http://127.0.0.1:8000"}))
+        runtime_file.write_text(
+            json.dumps({"pid": fake_pid, "base_url": "http://127.0.0.1:8000"})
+        )
 
         registry = {
             str(tmp_path / "myproject"): {

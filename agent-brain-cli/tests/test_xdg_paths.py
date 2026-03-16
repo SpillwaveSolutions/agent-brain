@@ -1,11 +1,8 @@
 """Tests for XDG path resolution and migration helpers."""
 
 import os
-import shutil
 from pathlib import Path
 from unittest.mock import patch
-
-import pytest
 
 
 class TestGetXdgConfigDir:
@@ -77,9 +74,7 @@ class TestGetRegistryPath:
                     result = get_registry_path()
                     assert result == xdg_state / "registry.json"
 
-    def test_falls_back_to_legacy_when_only_legacy_exists(
-        self, tmp_path: Path
-    ) -> None:
+    def test_falls_back_to_legacy_when_only_legacy_exists(self, tmp_path: Path) -> None:
         """Falls back to legacy path if registry.json exists only there."""
         from agent_brain_cli.xdg_paths import get_registry_path
 
@@ -178,7 +173,9 @@ class TestMigrateLegacyPaths:
                 # Check XDG state dir has registry.json
                 xdg_state = tmp_path / ".local" / "state" / "agent-brain"
                 assert (xdg_state / "registry.json").exists()
-                assert (xdg_state / "registry.json").read_text() == '{"project": "test"}'
+                assert (
+                    xdg_state / "registry.json"
+                ).read_text() == '{"project": "test"}'
 
                 # Legacy dir deleted
                 assert not legacy.exists()
@@ -230,7 +227,9 @@ class TestMigrateLegacyPaths:
         }
         with patch.dict(os.environ, env, clear=True):
             with patch("pathlib.Path.home", return_value=tmp_path):
-                with patch("agent_brain_cli.xdg_paths.click.echo", side_effect=capture_echo):
+                with patch(
+                    "agent_brain_cli.xdg_paths.click.echo", side_effect=capture_echo
+                ):
                     result = migrate_legacy_paths(silent=False)
 
         assert result is True
@@ -262,7 +261,9 @@ class TestMigrateLegacyPaths:
         }
         with patch.dict(os.environ, env, clear=True):
             with patch("pathlib.Path.home", return_value=tmp_path):
-                with patch("agent_brain_cli.xdg_paths.click.echo", side_effect=capture_echo):
+                with patch(
+                    "agent_brain_cli.xdg_paths.click.echo", side_effect=capture_echo
+                ):
                     result = migrate_legacy_paths(silent=True)
 
         assert result is True

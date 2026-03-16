@@ -294,8 +294,13 @@ class TestXdgConfigPriority:
         env = {
             k: v
             for k, v in os.environ.items()
-            if k not in ("AGENT_BRAIN_CONFIG", "AGENT_BRAIN_STATE_DIR",
-                         "DOC_SERVE_STATE_DIR", "XDG_CONFIG_HOME")
+            if k
+            not in (
+                "AGENT_BRAIN_CONFIG",
+                "AGENT_BRAIN_STATE_DIR",
+                "DOC_SERVE_STATE_DIR",
+                "XDG_CONFIG_HOME",
+            )
         }
         env["XDG_CONFIG_HOME"] = str(tmp_path / "xdg_config")
         with patch.dict(os.environ, env, clear=True):
@@ -321,8 +326,13 @@ class TestXdgConfigPriority:
         env = {
             k: v
             for k, v in os.environ.items()
-            if k not in ("AGENT_BRAIN_CONFIG", "AGENT_BRAIN_STATE_DIR",
-                         "DOC_SERVE_STATE_DIR", "XDG_CONFIG_HOME")
+            if k
+            not in (
+                "AGENT_BRAIN_CONFIG",
+                "AGENT_BRAIN_STATE_DIR",
+                "DOC_SERVE_STATE_DIR",
+                "XDG_CONFIG_HOME",
+            )
         }
         env["XDG_CONFIG_HOME"] = str(tmp_path / "xdg_config")
         with patch.dict(os.environ, env, clear=True):

@@ -17,7 +17,6 @@ Integration tests (added in Plan 02 below) cover:
 """
 
 import asyncio
-import time
 from typing import Any
 
 import pytest
@@ -28,7 +27,6 @@ from agent_brain_server.services.query_cache import (
     reset_query_cache,
     set_query_cache,
 )
-
 
 # ---------------------------------------------------------------------------
 # Unit tests — QueryCacheService
@@ -350,10 +348,10 @@ async def test_job_worker_invalidates_cache_on_done() -> None:
     assert svc.get(key) is not None
 
     # Simulate what JobWorker.set_query_cache + post-DONE invalidation does
-    from agent_brain_server.job_queue.job_worker import JobWorker
-
     # Verify set_query_cache setter exists and works
     from unittest.mock import MagicMock
+
+    from agent_brain_server.job_queue.job_worker import JobWorker
 
     mock_job_store = MagicMock()
     mock_indexing_service = MagicMock()

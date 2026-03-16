@@ -177,6 +177,4 @@ def uninstall_command(yes: bool, json_output: bool) -> None:
         for path in removed:
             console.print(f"  [dim]removed:[/] {path}")
         if servers_stopped > 0:
-            console.print(
-                f"\n[dim]Stopped {servers_stopped} running server(s).[/]"
-            )
+            console.print(f"\n[dim]Stopped {servers_stopped} running server(s).[/]")

@@ -323,9 +323,7 @@ class TestXdgRegistryPaths:
             )
             mock_migrate.assert_called_once()
 
-    def test_init_triggers_migration(
-        self, runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_init_triggers_migration(self, runner: CliRunner, tmp_path: Path) -> None:
         """init_command calls migrate_legacy_paths() early in execution."""
         project = tmp_path / "new_project"
         project.mkdir()

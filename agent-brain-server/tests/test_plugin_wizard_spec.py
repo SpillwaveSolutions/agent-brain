@@ -4,6 +4,7 @@ These tests ensure that required interactive wizard prompts remain present
 in the plugin command markdown files. If a future refactor silently removes
 a wizard step, these tests fail before merge.
 """
+
 import re
 from pathlib import Path
 
