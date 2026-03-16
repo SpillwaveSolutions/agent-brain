@@ -2,7 +2,7 @@
 
 [[package]]
 name = "agent-brain-rag"
-version = "8.0.0"
+version = "9.0.0"
 description = "Agent Brain RAG - Intelligent document indexing and semantic search server that gives AI agents long-term memory"
 optional = false
 python-versions = "^3.10"
