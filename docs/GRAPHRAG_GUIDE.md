@@ -115,6 +115,29 @@ GRAPH_USE_LLM_EXTRACTION=true
 GRAPH_EXTRACTION_MODEL=claude-haiku-4-5
 ```
 
+### In config.yaml
+
+You can also configure GraphRAG via the `config.yaml` file (typically at `.agent-brain/config.yaml`):
+
+```yaml
+graphrag:
+  enabled: true             # Master switch (default: false)
+  store_type: "simple"      # "simple" (JSON) or "kuzu" (embedded DB)
+  use_code_metadata: true   # Extract entities from AST metadata
+```
+
+The corresponding environment variable mapping is:
+
+| Environment Variable | config.yaml Key | Default |
+|---------------------|-----------------|---------|
+| `ENABLE_GRAPH_INDEX` | `graphrag.enabled` | `false` |
+| `GRAPH_STORE_TYPE` | `graphrag.store_type` | `simple` |
+| `GRAPH_USE_CODE_METADATA` | `graphrag.use_code_metadata` | `true` |
+
+Environment variables override config.yaml values.
+
+**Note:** `graph` and `multi` query modes require GraphRAG enabled with the ChromaDB backend. These modes are not available with the PostgreSQL storage backend.
+
 ---
 
 ## Entity Extraction
