@@ -22,8 +22,8 @@ Requirements for documentation accuracy audit. Each maps to roadmap phases.
 
 ### User Guides
 
-- [ ] **GUIDE-01**: USER_GUIDE.md reflects current CLI and features (v7-v9)
-- [ ] **GUIDE-02**: QUICK_START.md installation steps verified working
+- [x] **GUIDE-01**: USER_GUIDE.md reflects current CLI and features (v7-v9)
+- [x] **GUIDE-02**: QUICK_START.md installation steps verified working
 - [x] **GUIDE-03**: PLUGIN_GUIDE.md matches current plugin commands/agents/skills
 - [x] **GUIDE-04**: POSTGRESQL_SETUP.md verified against Docker Compose setup
 - [x] **GUIDE-05**: GRAPHRAG_GUIDE.md matches current graph query behavior
@@ -69,8 +69,8 @@ Requirements for documentation accuracy audit. Each maps to roadmap phases.
 | CFGDOC-01 | Phase 30 | Complete |
 | CFGDOC-02 | Phase 30 | Complete |
 | CFGDOC-03 | Phase 30 | Complete |
-| GUIDE-01 | Phase 31 | Pending |
-| GUIDE-02 | Phase 31 | Pending |
+| GUIDE-01 | Phase 31 | Complete |
+| GUIDE-02 | Phase 31 | Complete |
 | GUIDE-03 | Phase 31 | Complete |
 | GUIDE-04 | Phase 31 | Complete |
 | GUIDE-05 | Phase 31 | Complete |

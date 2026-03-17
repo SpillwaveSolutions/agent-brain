@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
 current_phase: 32 — Plugin Documentation
-status: planning
-stopped_at: Completed 29-02-PLAN.md (API endpoint documentation audit)
-last_updated: "2026-03-17T02:11:02.243Z"
-last_activity: 2026-03-17 — Completed Phase 31 (User Guides), both plans done
+status: executing
+stopped_at: Completed 32-01-PLAN.md (Plugin command files A-K audit)
+last_updated: "2026-03-17T02:13:48.409Z"
+last_activity: 2026-03-17 — Completed 32-01 (Plugin command files A-K audit)
 progress:
   total_phases: 8
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 11
-  completed_plans: 5
+  completed_plans: 9
 ---
 
 # Agent Brain — Project State
@@ -62,6 +62,7 @@ v9.2.0 Doc Accuracy Audit:  [####░░░░░░]  45% (5/11 plans complete)
 - 30-01: Kept DOC_SERVE_STATE_DIR as legacy alias note in CONFIGURATION.md since provider_config.py still reads it
 - [Phase 29]: CLI doc audit: all 16 subcommands now documented in CLAUDE.md, .claude/CLAUDE.md, and USER_GUIDE.md; stale .claude/agent-brain/ paths fixed to .agent-brain/
 - [Phase 29]: API_REFERENCE.md updated: 6 new endpoints, 14+ field corrections, all TypeScript interfaces aligned
+- [Phase 31]: 31-01: Added Index Management Commands as separate table, placed v7-v9 sections between Indexing and Job Queue, multi-runtime install before All-in-One Setup in QUICK_START
 
 ### Blockers/Concerns
 None.
@@ -71,8 +72,8 @@ None.
 
 ## Session Continuity
 
-**Last Session:** 2026-03-17T02:11:02.240Z
-**Stopped At:** Completed 31-02-PLAN.md (Plugin, PostgreSQL, GraphRAG guides)
+**Last Session:** 2026-03-17T02:13:44.173Z
+**Stopped At:** Completed 31-01-PLAN.md (USER_GUIDE.md and QUICK_START.md updates)
 **Resume File:** None
 **Next Action:** Plan Phase 32 (`/gsd:plan-phase 32`)
 

@@ -184,7 +184,7 @@ Plans:
   3. PLUGIN_GUIDE.md accurately describes all current plugin slash commands, agents, and skills
   4. POSTGRESQL_SETUP.md Docker Compose instructions produce a working PostgreSQL backend when followed
   5. GRAPHRAG_GUIDE.md query examples return results consistent with current graph query behavior
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 31-01-PLAN.md — Update USER_GUIDE.md and QUICK_START.md with v7-v9 features
@@ -242,7 +242,7 @@ Plans:
 | 28 | v9.1.0 | 1/1 | Complete | 2026-03-16 |
 | 29 | 2/2 | Complete   | 2026-03-17 | - |
 | 30 | v9.2.0 | 2/2 | Complete | 2026-03-17 |
-| 31 | v9.2.0 | 2/2 | Complete | 2026-03-17 |
+| 31 | 2/2 | Complete   | 2026-03-17 | 2026-03-17 |
 | 32 | v9.2.0 | 0/3 | Not started | - |
 | 33 | v9.2.0 | 0/2 | Not started | - |
 
