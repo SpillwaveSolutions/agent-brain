@@ -17,6 +17,27 @@ parameters:
     description: Hybrid blend (0=BM25 only, 1=semantic only)
     required: false
     default: 0.5
+  - name: source-types
+    description: Comma-separated source types to filter by (doc,code,test)
+    required: false
+  - name: languages
+    description: Comma-separated programming languages to filter by
+    required: false
+  - name: file-paths
+    description: Comma-separated file path patterns to filter by (wildcards supported)
+    required: false
+  - name: scores
+    description: Show individual vector/BM25 scores
+    required: false
+    default: false
+  - name: full
+    description: Show full text content (not truncated)
+    required: false
+    default: false
+  - name: json
+    description: Output as JSON
+    required: false
+    default: false
 skills:
   - using-agent-brain
 ---
@@ -43,9 +64,16 @@ Hybrid search is ideal for:
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
 | query | Yes | - | The search query text |
-| top-k | No | 5 | Number of results (1-20) |
-| threshold | No | 0.3 | Minimum relevance score (0.0-1.0) |
-| alpha | No | 0.5 | Hybrid blend factor |
+| --top-k, -k | No | 5 | Number of results (1-20) |
+| --threshold, -t | No | 0.3 | Minimum relevance score (0.0-1.0) |
+| --alpha, -a | No | 0.5 | Hybrid blend factor |
+| --source-types | No | - | Filter by source type (doc,code,test) |
+| --languages | No | - | Filter by programming language |
+| --file-paths | No | - | Filter by file path patterns (wildcards supported) |
+| --scores | No | false | Show individual vector/BM25 scores |
+| --full | No | false | Show full text content (not truncated) |
+| --json | No | false | Output as JSON |
+| --url | No | from config | Server URL (env: AGENT_BRAIN_URL) |
 
 ### Alpha Tuning
 
@@ -93,6 +121,18 @@ agent-brain query "AuthenticationError" --mode hybrid --alpha 0.3
 
 # Favor semantic matching for concepts
 agent-brain query "how does caching work" --mode hybrid --alpha 0.7
+
+# Filter by source type and language
+agent-brain query "user model" --mode hybrid --source-types code --languages python
+
+# Filter by file path pattern
+agent-brain query "config" --mode hybrid --file-paths "src/config/*"
+
+# Show full text and individual scores
+agent-brain query "authentication" --mode hybrid --full --scores
+
+# JSON output for scripting
+agent-brain query "auth" --mode hybrid --json
 ```
 
 ## Output

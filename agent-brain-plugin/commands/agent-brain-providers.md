@@ -34,31 +34,22 @@ Lists available providers and shows current configuration for embeddings and sum
 
 ### List Available Providers
 
-Show all supported embedding and summarization providers:
+Show all supported embedding and summarization providers. This is a plugin-level informational command. To view the active provider configuration from the CLI, use:
 
 ```bash
-# Display provider information
-echo "=== Embedding Providers ==="
-echo "1. OpenAI (text-embedding-3-large, text-embedding-3-small)"
-echo "2. Cohere (embed-english-v3.0, embed-multilingual-v3.0)"
-echo "3. Ollama (nomic-embed-text, mxbai-embed-large) - Local"
-echo ""
-echo "=== Summarization Providers ==="
-echo "1. Anthropic (claude-haiku-4-5-20251001, claude-sonnet-4-5-20250514)"
-echo "2. OpenAI (gpt-5, gpt-5-mini)"
-echo "3. Gemini (gemini-3-flash, gemini-3-pro)"
-echo "4. Grok (grok-4)"
-echo "5. Ollama (llama4:scout, mistral-small3.2, qwen3-coder) - Local"
+agent-brain config show
 ```
 
-### Show Current Configuration
+Or for JSON output:
 
 ```bash
-# Check environment variables
-echo "Current Embedding Provider: ${EMBEDDING_PROVIDER:-openai}"
-echo "Current Embedding Model: ${EMBEDDING_MODEL:-text-embedding-3-large}"
-echo "Current Summarization Provider: ${SUMMARIZATION_PROVIDER:-anthropic}"
-echo "Current Summarization Model: ${SUMMARIZATION_MODEL:-claude-haiku-4-5-20251001}"
+agent-brain config show --json
+```
+
+To find which config file is active:
+
+```bash
+agent-brain config path
 ```
 
 ### Interactive Provider Switch
@@ -165,8 +156,19 @@ Warning: OpenAI provider selected but OPENAI_API_KEY is not set.
 Set it with: export OPENAI_API_KEY="sk-proj-..."
 ```
 
+## CLI Commands
+
+Provider configuration is managed through the config file (`config.yaml`) and the CLI:
+
+```bash
+agent-brain config show           # Display active provider configuration
+agent-brain config show --json    # JSON output for scripting
+agent-brain config path           # Show config file location
+```
+
 ## Related Commands
 
-- `/agent-brain:agent-brain-embeddings` - Configure embedding provider specifically
 - `/agent-brain:agent-brain-summarizer` - Configure summarization provider specifically
+- `/agent-brain:agent-brain-embeddings` - Configure embedding provider specifically
 - `/agent-brain:agent-brain-verify` - Verify provider configuration works
+- `/agent-brain:agent-brain-setup` - Full guided setup including provider selection

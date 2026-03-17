@@ -1,7 +1,15 @@
 ---
 name: agent-brain-list
 description: List all running Agent Brain instances across projects
-parameters: []
+parameters:
+  - name: all
+    description: Show all instances including stale ones
+    required: false
+    default: false
+  - name: json
+    description: Output as JSON
+    required: false
+    default: false
 skills:
   - using-agent-brain
 ---
@@ -10,12 +18,12 @@ skills:
 
 ## Purpose
 
-Displays all running Agent Brain server instances across all projects. Shows each instance's project path, port, process ID, and health status.
+Displays all running Agent Brain server instances across all projects. Shows each instance's project name, URL, process ID, mode, and health status by scanning the global registry.
 
 ## Usage
 
 ```
-/agent-brain:agent-brain-list
+/agent-brain:agent-brain-list [--all] [--json]
 ```
 
 ## Execution
@@ -26,19 +34,47 @@ Run the following command to list all instances:
 agent-brain list
 ```
 
+### Options
+
+```bash
+agent-brain list              # List running instances only
+agent-brain list --all        # Include stale/unhealthy instances
+agent-brain list -a           # Short form of --all
+agent-brain list --json       # Output as JSON for scripting
+```
+
 ### Expected Output
 
 ```
-Agent Brain Instances
-=====================
+         Agent Brain Instances
+Project         URL                      PID   Mode     Status
+my-project      http://127.0.0.1:8000    12345 project  running
+api-docs        http://127.0.0.1:8001    12678 project  running
 
-| Project                | Port  | PID   | Status  | Documents |
-|------------------------|-------|-------|---------|-----------|
-| /home/user/my-project  | 49321 | 12345 | healthy | 156       |
-| /home/user/api-docs    | 49322 | 12678 | healthy | 89        |
-| /home/user/legacy      | 49323 | 12890 | stopped | -         |
+2 running, 0 stale/unhealthy
+```
 
-Total: 3 instances (2 running, 1 stopped)
+### JSON Output
+
+```bash
+agent-brain list --json
+```
+
+```json
+{
+  "instances": [
+    {
+      "project_root": "/home/user/my-project",
+      "project_name": "my-project",
+      "base_url": "http://127.0.0.1:8000",
+      "pid": 12345,
+      "mode": "project",
+      "status": "running",
+      "started_at": "2026-01-31T10:30:00Z"
+    }
+  ],
+  "total": 1
+}
 ```
 
 ## Output
@@ -47,32 +83,29 @@ Format the result as a table with the following columns:
 
 | Column | Description |
 |--------|-------------|
-| Project | Absolute path to the project directory |
-| Port | Server port number (49xxx range) |
+| Project | Project directory name |
+| URL | Server base URL (e.g., `http://127.0.0.1:8000`) |
 | PID | Process ID of the server |
-| Status | Health status: `healthy`, `unhealthy`, `stopped` |
-| Documents | Number of indexed documents (or `-` if unavailable) |
+| Mode | Instance mode: `project` or `shared` |
+| Status | Health status: `running`, `unhealthy`, `stale` |
 
 ### Status Indicators
 
-- **healthy**: Server is running and responding to health checks
-- **unhealthy**: Server is running but not responding properly
-- **stopped**: PID file exists but process is not running
+- **running**: Server process is alive and health endpoint responds
+- **unhealthy**: Server process is alive but health endpoint fails
+- **stale**: Process is no longer alive (auto-cleaned from registry)
 
-### Summary Line
+### Registry Cleanup
 
-Include a summary showing:
-- Total number of instances tracked
-- Number currently running
-- Number stopped or crashed
+Stale entries are automatically removed from the global registry when `agent-brain list` runs. By default, only `running` instances are shown. Use `--all` to include stale and unhealthy instances.
 
 ## Error Handling
 
 | Error | Cause | Resolution |
 |-------|-------|------------|
-| No instances found | No servers have been started | Run `agent-brain init` and `agent-brain start` |
+| No running instances found | No servers have been started | Run `agent-brain init` and `agent-brain start` |
+| Permission Error | Cannot read registry or signal processes | Check file permissions |
 | Connection refused | Server crashed or was killed externally | Clean up with `agent-brain stop` |
-| Stale PID file | Server stopped without cleanup | Run `agent-brain stop` to clean up |
 
 ### Cleanup Stale Instances
 
@@ -87,7 +120,8 @@ ps aux | grep agent-brain
 
 ## Notes
 
-- Instances are discovered from `.agent-brain/runtime.json` files
+- Instances are discovered from the global registry at `~/.local/state/agent-brain/registry.json`
+- Each instance is validated by checking process liveness and the `/health/` endpoint
 - Each project has its own isolated instance
-- Ports are automatically assigned in the 49000-49999 range
-- Health checks query the `/health` endpoint of each instance
+- Ports are automatically assigned from the 8000-8100 range (configurable)
+- Stale registry entries are automatically cleaned up during listing

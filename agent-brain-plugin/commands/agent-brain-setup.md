@@ -485,7 +485,7 @@ Agent Brain Setup
        Created: .agent-brain/config.json [OK]
 
 [10/10] Starting server...
-        Server started on port 49321 [OK]
+        Server started on http://127.0.0.1:8000 [OK]
 
 Setup Complete!
 ===============

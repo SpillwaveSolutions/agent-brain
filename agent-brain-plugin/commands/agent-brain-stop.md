@@ -1,7 +1,22 @@
 ---
 name: agent-brain-stop
 description: Stop the Agent Brain server for this project
-parameters: []
+parameters:
+  - name: path
+    description: Project path (default auto-detect project root)
+    required: false
+  - name: force
+    description: Force stop with SIGKILL if SIGTERM fails
+    required: false
+    default: false
+  - name: timeout
+    description: Timeout for graceful shutdown in seconds
+    required: false
+    default: 10
+  - name: json
+    description: Output as JSON
+    required: false
+    default: false
 skills:
   - using-agent-brain
 ---
@@ -10,34 +25,69 @@ skills:
 
 ## Purpose
 
-Gracefully stops the Agent Brain server running for the current project. This terminates the background server process and frees up the port for other uses.
+Gracefully stops the Agent Brain server running for the current project. Sends SIGTERM and waits for graceful shutdown. If `--force` is specified and the process does not exit within the timeout, sends SIGKILL.
 
 ## Usage
 
 ```
-/agent-brain:agent-brain-stop
+/agent-brain:agent-brain-stop [--path <dir>] [--force] [--timeout <sec>] [--json]
 ```
+
+### Parameters
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| --path, -p | No | auto-detect | Project path |
+| --force, -f | No | false | Force stop with SIGKILL if SIGTERM fails |
+| --timeout | No | 10 | Graceful shutdown timeout in seconds |
+| --json | No | false | Output as JSON |
 
 ## Execution
 
-Run the following command to stop the server:
-
 ```bash
+# Stop server for current project
 agent-brain stop
+
+# Force stop if graceful shutdown fails
+agent-brain stop --force
+
+# Stop a specific project's server
+agent-brain stop --path /my/project
+
+# JSON output for scripting
+agent-brain stop --json
 ```
 
 ### Expected Output (Success)
 
 ```
-Agent Brain server stopped successfully.
-PID 12345 terminated.
-Port 49321 is now available.
+Stopping server (PID 12345)...
+Server stopped gracefully (PID 12345).
+```
+
+### JSON Output (Success)
+
+```json
+{
+  "status": "stopped",
+  "message": "Server stopped gracefully",
+  "pid": 12345,
+  "project_root": "/home/user/my-project"
+}
 ```
 
 ### Expected Output (Server Not Running)
 
 ```
-No Agent Brain server is running for this project.
+No server running for this project.
+```
+
+### Force Kill Output
+
+```
+Stopping server (PID 12345)...
+Graceful shutdown timeout, sending SIGKILL...
+Server force killed (PID 12345).
 ```
 
 ## Output
@@ -47,11 +97,13 @@ Format the result as follows:
 **Server Stopped Successfully:**
 - Confirm the server was stopped
 - Report the PID that was terminated
-- Confirm the port is now available
+- State files and registry entry are cleaned up automatically
 
 **Server Not Running:**
 - Inform the user no server was found
-- Suggest running `/agent-brain:agent-brain-status` to verify
+
+**Server Already Stopped:**
+- If the process is no longer alive but state files exist, they are cleaned up
 
 ## Error Handling
 
@@ -59,16 +111,19 @@ Format the result as follows:
 |-------|-------|------------|
 | No server running | Server already stopped or never started | No action needed |
 | Permission denied | Process owned by different user | Run with appropriate permissions |
-| PID file missing | Unclean shutdown | Check for orphaned processes with `agent-brain list` |
-| Failed to terminate | Process unresponsive | May need to manually kill the process |
+| Graceful shutdown timeout | Process unresponsive within timeout | Use `--force` to send SIGKILL |
+| No Agent Brain state found | State directory missing | Project may not be initialized |
 
 ### Recovery Commands
 
 ```bash
 # Check if any instances are still running
-agent-brain list
+agent-brain list --all
 
-# Force kill if process is unresponsive (use PID from list)
+# Force stop if graceful fails
+agent-brain stop --force
+
+# Force kill manually if all else fails (use PID from list)
 kill -9 <pid>
 
 # Verify cleanup
@@ -80,4 +135,6 @@ agent-brain status
 - The stop command only affects the server for the current project
 - Other project instances remain running
 - The document index is preserved; only the server process is stopped
+- State files (runtime.json, lock, PID) are cleaned up on stop
+- The project is removed from the global registry on stop
 - Restart with `/agent-brain:agent-brain-start` when needed
