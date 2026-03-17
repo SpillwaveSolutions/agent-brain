@@ -1,33 +1,32 @@
 ---
 gsd_state_version: 1.0
-milestone: v9.2.0
-milestone_name: Documentation Accuracy Audit
-current_phase: 30
-current_plan: 2
-status: executing
-stopped_at: "Completed 30-02-PLAN.md"
-last_updated: "2026-03-17T02:06:11Z"
-last_activity: "2026-03-17 — Completed 30-02 provider configuration audit"
+milestone: v3.0
+milestone_name: milestone
+current_phase: 31 — User Guides
+status: planning
+stopped_at: Completed 29-01-PLAN.md
+last_updated: "2026-03-17T02:10:17.235Z"
+last_activity: 2026-03-17 — Completed 30-01 env var audit, Phase 30 complete
 progress:
-  total_phases: 5
-  completed_phases: 0
+  total_phases: 8
+  completed_phases: 1
   total_plans: 11
-  completed_plans: 1
+  completed_plans: 3
 ---
 
 # Agent Brain — Project State
 **Last Updated:** 2026-03-17
 **Current Milestone:** v9.2.0 Documentation Accuracy Audit
-**Status:** Executing Phase 30
-**Current Phase:** 30 — Configuration Documentation
+**Status:** Ready to plan Phase 31
+**Current Phase:** 31 — User Guides
 
 ## Current Position
-Phase: 30 of 33 (Configuration Documentation)
-Plan: 2 of 2 in current phase (30-02 complete)
-Status: Executing
-Last activity: 2026-03-17 — Completed 30-02 provider configuration audit
+Phase: 31 of 33 (User Guides)
+Plan: 0 of 2 in current phase
+Status: Ready to plan
+Last activity: 2026-03-17 — Completed 30-01 env var audit, Phase 30 complete
 
-**Progress (v9.2.0):** [#░░░░░░░░░] 9%
+**Progress (v9.2.0):** [##░░░░░░░░] 18%
 
 ## Project Reference
 See: .planning/PROJECT.md
@@ -43,7 +42,7 @@ v7.0 Index Mgmt & Pipeline: [██████████] 100% (shipped 2026-
 v8.0 Performance & DX:      [██████████] 100% (shipped 2026-03-15)
 v9.0 Multi-Runtime:         [██████████] 100% (shipped 2026-03-16)
 v9.1.0 Skill-Runtime:       [██████████] 100% (complete)
-v9.2.0 Doc Accuracy Audit:  [#░░░░░░░░░]   9% (1/11 plans complete)
+v9.2.0 Doc Accuracy Audit:  [##░░░░░░░░]  18% (2/11 plans complete)
 ```
 
 ## Accumulated Context
@@ -59,6 +58,8 @@ v9.2.0 Doc Accuracy Audit:  [#░░░░░░░░░]   9% (1/11 plans comp
 
 ### Decisions
 - 30-02: Used .agent-brain/ as canonical project config path, .claude/agent-brain/ as legacy fallback in docs
+- 30-01: Kept DOC_SERVE_STATE_DIR as legacy alias note in CONFIGURATION.md since provider_config.py still reads it
+- [Phase 29]: CLI doc audit: all 16 subcommands now documented in CLAUDE.md, .claude/CLAUDE.md, and USER_GUIDE.md; stale .claude/agent-brain/ paths fixed to .agent-brain/
 
 ### Blockers/Concerns
 None.
@@ -68,10 +69,10 @@ None.
 
 ## Session Continuity
 
-**Last Session:** 2026-03-17T02:06:11Z
-**Stopped At:** Completed 30-02-PLAN.md
+**Last Session:** 2026-03-17T02:10:17.233Z
+**Stopped At:** Completed 29-01-PLAN.md
 **Resume File:** None
-**Next Action:** Execute remaining Phase 30 plan (30-01) or advance to Phase 31
+**Next Action:** Plan Phase 31 (`/gsd:plan-phase 31`)
 
 ---
 *State updated: 2026-03-17*

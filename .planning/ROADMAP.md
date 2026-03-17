@@ -130,8 +130,8 @@ Plans:
 
 **Milestone Goal:** Ensure all documentation accurately reflects current software behavior — CLI commands, configuration schemas, APIs, examples, file paths, and installation instructions — serving as the quality gate before release.
 
-- [ ] **Phase 29: CLI & API Documentation** — Audit and fix CLI command docs and API endpoint docs
-- [ ] **Phase 30: Configuration Documentation** — Audit and fix YAML config and environment variable docs
+- [x] **Phase 29: CLI & API Documentation** — Audit and fix CLI command docs and API endpoint docs (completed 2026-03-17)
+- [x] **Phase 30: Configuration Documentation** — Audit and fix YAML config and environment variable docs
 - [ ] **Phase 31: User Guides** — Audit and fix all user-facing guides for v7-v9 feature accuracy
 - [ ] **Phase 32: Plugin Documentation** — Audit and fix plugin commands, skills, and agent descriptions
 - [ ] **Phase 33: Cross-References & Metadata** — Verify all internal links, file paths, and add audit metadata
@@ -148,7 +148,7 @@ Plans:
   2. All 5 runtime installation commands (install-agent) are documented with correct syntax and options
   3. Every API endpoint documented in API reference matches the OpenAPI spec produced by the running server
   4. Job queue commands (`jobs`, `jobs --watch`, `jobs JOB_ID`, `jobs JOB_ID --cancel`) are documented accurately
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 29-01-PLAN.md — CLI command documentation audit (--help vs docs)
@@ -168,7 +168,7 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 30-01-PLAN.md — YAML config fields and env var audit (settings.py vs CONFIGURATION.md + CLAUDE.md)
+- [x] 30-01-PLAN.md — YAML config fields and env var audit (settings.py vs CONFIGURATION.md + CLAUDE.md)
 - [x] 30-02-PLAN.md — Provider configuration audit (provider_config.py vs PROVIDER_CONFIGURATION.md)
 
 ---
@@ -240,12 +240,12 @@ Plans:
 | 26 | v9.1.0 | 2/2 | Complete | 2026-03-16 |
 | 27 | v9.1.0 | 1/1 | Complete | 2026-03-16 |
 | 28 | v9.1.0 | 1/1 | Complete | 2026-03-16 |
-| 29 | v9.2.0 | 0/2 | Not started | - |
-| 30 | v9.2.0 | 1/2 | In progress | - |
+| 29 | 2/2 | Complete   | 2026-03-17 | - |
+| 30 | v9.2.0 | 2/2 | Complete | 2026-03-17 |
 | 31 | v9.2.0 | 0/2 | Not started | - |
 | 32 | v9.2.0 | 0/3 | Not started | - |
 | 33 | v9.2.0 | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-16 — v9.2.0 Phase 32 planned (3 plans)*
+*Last updated: 2026-03-17 — Phase 30 complete (2/2 plans)*
