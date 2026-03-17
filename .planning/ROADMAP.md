@@ -222,7 +222,7 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 33-01-PLAN.md — Scan and fix broken internal links and file path references
+- [x] 33-01-PLAN.md — Scan and fix broken internal links and file path references
 - [ ] 33-02-PLAN.md — Add last_validated frontmatter metadata to all audited docs
 
 ---
@@ -244,7 +244,7 @@ Plans:
 | 30 | v9.2.0 | 2/2 | Complete | 2026-03-17 |
 | 31 | 2/2 | Complete   | 2026-03-17 | 2026-03-17 |
 | 32 | v9.2.0 | 3/3 | Complete | 2026-03-17 |
-| 33 | v9.2.0 | 0/2 | Not started | - |
+| 33 | v9.2.0 | 1/2 | In progress | - |
 
 ---
 *Roadmap created: 2026-02-07*

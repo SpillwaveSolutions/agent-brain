@@ -36,8 +36,8 @@ Requirements for documentation accuracy audit. Each maps to roadmap phases.
 
 ### Cross-References & Metadata
 
-- [ ] **XREF-01**: All internal doc links resolve correctly
-- [ ] **XREF-02**: File paths referenced in docs exist
+- [x] **XREF-01**: All internal doc links resolve correctly
+- [x] **XREF-02**: File paths referenced in docs exist
 - [ ] **XREF-03**: Audited docs have last_validated frontmatter
 
 ## Future Requirements
@@ -77,8 +77,8 @@ Requirements for documentation accuracy audit. Each maps to roadmap phases.
 | PLUGDOC-01 | Phase 32 | Complete |
 | PLUGDOC-02 | Phase 32 | Complete |
 | PLUGDOC-03 | Phase 32 | Complete |
-| XREF-01 | Phase 33 | Pending |
-| XREF-02 | Phase 33 | Pending |
+| XREF-01 | Phase 33 | Complete |
+| XREF-02 | Phase 33 | Complete |
 | XREF-03 | Phase 33 | Pending |
 
 **Coverage:**

@@ -3,30 +3,30 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
 current_phase: 33 — Cross-References & Metadata
-status: ready_to_plan
+status: completed
 stopped_at: Completed 32-03-PLAN.md (Skill reference guides and agent descriptions audit)
-last_updated: "2026-03-17T02:15:22.900Z"
+last_updated: "2026-03-17T02:22:19.563Z"
 last_activity: 2026-03-17 — Completed 32-03 (Skill reference guides and agent descriptions audit)
 progress:
   total_phases: 8
   completed_phases: 4
   total_plans: 11
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Agent Brain — Project State
 **Last Updated:** 2026-03-17
 **Current Milestone:** v9.2.0 Documentation Accuracy Audit
-**Status:** Phase 32 complete, ready for Phase 33
+**Status:** Phase 33 in progress, plan 1 of 2 complete
 **Current Phase:** 33 — Cross-References & Metadata
 
 ## Current Position
 Phase: 33 of 33 (Cross-References & Metadata)
-Plan: 0 of 2 in current phase
-Status: Ready to plan
-Last activity: 2026-03-17 — Completed 32-03 (Skill reference guides and agent descriptions audit)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-03-17 — Completed 33-01 (Scan and fix broken internal links)
 
-**Progress (v9.2.0):** [######░░░░] 64%
+**Progress (v9.2.0):** [█████████░] 91%
 
 ## Project Reference
 See: .planning/PROJECT.md
@@ -42,7 +42,7 @@ v7.0 Index Mgmt & Pipeline: [██████████] 100% (shipped 2026-
 v8.0 Performance & DX:      [██████████] 100% (shipped 2026-03-15)
 v9.0 Multi-Runtime:         [██████████] 100% (shipped 2026-03-16)
 v9.1.0 Skill-Runtime:       [██████████] 100% (complete)
-v9.2.0 Doc Accuracy Audit:  [████████░░]  82% (9/11 plans complete)
+v9.2.0 Doc Accuracy Audit:  [█████████░]  91% (10/11 plans complete)
 ```
 
 ## Accumulated Context
@@ -66,6 +66,7 @@ v9.2.0 Doc Accuracy Audit:  [████████░░]  82% (9/11 plans co
 - [Phase 32]: 32-01: 4/7 Task 1 files already correct from plan 29-01; removed stale --watch/--debounce from index.md; updated init.md to .agent-brain/ paths; added codex/skill-runtime to install-agent.md
 - [Phase 32]: 32-02: Kept plugin-level workflows as conceptual guides; updated port ranges from 49000-49999 to 8000-8100; added all missing CLI options to command docs
 - [Phase 32]: 32-03: SentenceTransformers documented as reranker (not embedding) per source code; fixed stale .claude/doc-serve paths to .agent-brain; v7-v9 version history added
+- [Phase 33]: 33-01: Excluded code block paths from verification (illustrative examples); fixed stale agent-brain-skill/doc-serve/ link to docs/API_REFERENCE.md
 
 ### Blockers/Concerns
 None.
@@ -75,10 +76,10 @@ None.
 
 ## Session Continuity
 
-**Last Session:** 2026-03-17T02:14:13.760Z
-**Stopped At:** Completed 32-03-PLAN.md (Skill reference guides and agent descriptions audit)
+**Last Session:** 2026-03-17T02:22:00Z
+**Stopped At:** Completed 33-01-PLAN.md (Scan and fix broken internal links)
 **Resume File:** None
-**Next Action:** Plan Phase 33 (`/gsd:plan-phase 33`)
+**Next Action:** Execute 33-02-PLAN.md (Add last_validated frontmatter metadata)
 
 ---
 *State updated: 2026-03-17*
