@@ -1,6 +1,6 @@
 # Agent Brain Plugin Guide
 
-Complete reference for the Agent Brain Claude Code plugin - 24 commands, 3 agents, and 2 skills for intelligent document and code search.
+Complete reference for the Agent Brain Claude Code plugin - 30 commands, 3 agents, and 2 skills for intelligent document and code search.
 
 ## Table of Contents
 
@@ -8,6 +8,7 @@ Complete reference for the Agent Brain Claude Code plugin - 24 commands, 3 agent
 - [Quick Setup](#quick-setup)
 - [Search Commands](#search-commands)
 - [Server Commands](#server-commands)
+- [Index Management Commands](#index-management-commands)
 - [Setup Commands](#setup-commands)
 - [Provider Commands](#provider-commands)
 - [Intelligent Agents](#intelligent-agents)
@@ -28,7 +29,7 @@ claude plugins install github:SpillwaveSolutions/agent-brain
 ```
 
 This provides:
-- **24 slash commands** for all operations
+- **30 slash commands** for all operations
 - **3 intelligent agents** for complex tasks
 - **2 skills** for context-aware assistance
 
@@ -229,6 +230,103 @@ Clear all indexed documents.
 
 ---
 
+## Index Management Commands
+
+### `/agent-brain-folders`
+
+Manage indexed folders -- list, add, or remove tracked folders and their chunks.
+
+```
+/agent-brain-folders list
+/agent-brain-folders add ./docs
+/agent-brain-folders add ./src --include-code --include-type python,docs
+/agent-brain-folders remove ./old-docs --yes
+```
+
+**Actions:**
+
+| Action | Description |
+|--------|-------------|
+| `list` | Show all indexed folders with chunk counts and last indexed timestamps |
+| `add` | Queue an indexing job for a folder (supports `--include-code`, `--include-type`, `--force`) |
+| `remove` | Remove all indexed chunks for a folder (requires confirmation or `--yes`) |
+
+### `/agent-brain-inject`
+
+Inject custom metadata into chunks during indexing via Python scripts or JSON metadata files. Injectors run after chunking but before embedding.
+
+```
+/agent-brain-inject ./docs --script enrich.py
+/agent-brain-inject ./src --folder-metadata project-meta.json --include-code
+/agent-brain-inject ./docs --script enrich.py --dry-run
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--script` | Python script exporting `process_chunk(chunk: dict) -> dict` |
+| `--folder-metadata` | JSON file with static key-value metadata to merge into all chunks |
+| `--dry-run` | Validate injector against sample chunks without indexing |
+
+At least one of `--script` or `--folder-metadata` is required.
+
+### `/agent-brain-types`
+
+List available file type presets for indexing. Presets are named groups of glob patterns for use with the `--include-type` flag.
+
+```
+/agent-brain-types
+```
+
+Shows presets like `python`, `javascript`, `typescript`, `docs`, `code`, etc. Use with indexing commands:
+
+```
+/agent-brain-index ./src --include-type python,docs
+/agent-brain-folders add ./repo --include-type code
+```
+
+### `/agent-brain-cache`
+
+View embedding cache metrics or clear the cache. The embedding cache avoids redundant API calls during reindexing.
+
+```
+/agent-brain-cache status
+/agent-brain-cache status --json
+/agent-brain-cache clear
+/agent-brain-cache clear --yes
+```
+
+**Subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| `status` | Show hit rate, entry counts, and cache size |
+| `clear` | Flush all cached embeddings (prompts for confirmation unless `--yes`) |
+
+### `/agent-brain-install-agent`
+
+Install Agent Brain plugin for a specific AI coding runtime. Converts the canonical plugin format into the target runtime's native format.
+
+```
+/agent-brain-install-agent --agent claude
+/agent-brain-install-agent --agent opencode --project
+/agent-brain-install-agent --agent gemini --global
+/agent-brain-install-agent --agent claude --dry-run
+```
+
+**Supported Runtimes:**
+
+| Runtime | Project Directory | Global Directory |
+|---------|-------------------|------------------|
+| Claude Code | `.claude/plugins/agent-brain/` | `~/.claude/plugins/agent-brain/` |
+| OpenCode | `.opencode/plugins/agent-brain/` | `~/.config/opencode/plugins/agent-brain/` |
+| Gemini CLI | `.gemini/plugins/agent-brain/` | `~/.config/gemini/plugins/agent-brain/` |
+
+Use `--dry-run` to preview files that would be created without writing them.
+
+---
+
 ## Setup Commands
 
 ### `/agent-brain-setup`
@@ -343,13 +441,14 @@ The plugin includes three agents that handle complex, multi-step tasks autonomou
 
 ### Search Assistant
 
-Performs multi-step searches across different modes and synthesizes answers.
+Performs multi-step searches across different modes and synthesizes answers. Can also check embedding cache performance when queries seem slow.
 
 **Triggers:**
 - "Find all references to..."
 - "Search for..."
 - "What files contain..."
 - "Where is... defined"
+- "Cache performance / slow queries / hit rate"
 
 **Example:**
 ```
@@ -385,13 +484,15 @@ Research Assistant:
 
 ### Setup Assistant
 
-Guided installation, configuration, and troubleshooting.
+Guided installation, configuration, and troubleshooting. Handles PostgreSQL connection issues, pgvector extension errors, pool exhaustion, and embedding dimension mismatches.
 
 **Triggers:**
 - "Help me set up Agent Brain"
 - "Configure..."
 - "Why isn't... working"
 - "Troubleshoot..."
+- PostgreSQL connection errors, pgvector missing, pool exhaustion
+- Embedding dimension mismatch errors
 
 **Example:**
 ```
@@ -414,22 +515,29 @@ The plugin includes two skills that provide context-aware assistance.
 ### using-agent-brain
 
 Provides Claude with knowledge about:
-- Optimal search mode selection
+- Optimal search mode selection (BM25, vector, hybrid, graph, multi)
 - Query optimization techniques
-- Result interpretation
-- API usage patterns
+- Folder management and file type presets for indexing
+- Content injection with custom scripts and metadata
+- Embedding cache monitoring and management
+- File watcher behavior and incremental indexing
+- Job queue monitoring
+- Result interpretation and API usage patterns
 
-**When Active:** Claude automatically selects the best search mode for your query type.
+**When Active:** Claude automatically selects the best search mode for your query type and can manage folders, cache, and indexing jobs.
 
 ### configuring-agent-brain
 
 Provides Claude with knowledge about:
-- Installation procedures
-- Provider configuration
-- Troubleshooting steps
-- Environment setup
+- Installation procedures for packages and plugins
+- Multi-runtime installation (Claude Code, OpenCode, Gemini CLI) via `install-agent`
+- Provider configuration (7 providers: OpenAI, Anthropic, Ollama, Cohere, Gemini, Grok, SentenceTransformers)
+- Embedding cache configuration and tuning
+- GraphRAG setup and graph store selection
+- Setup wizard configuration flow
+- Troubleshooting steps and environment setup
 
-**When Active:** Claude can guide you through setup and resolve configuration issues.
+**When Active:** Claude can guide you through setup, configure providers, install for multiple runtimes, and resolve configuration issues.
 
 ---
 
