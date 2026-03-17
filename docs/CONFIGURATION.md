@@ -12,6 +12,10 @@ This document provides a comprehensive reference for all Agent Brain configurati
 - [GraphRAG Configuration](#graphrag-configuration)
 - [Multi-Instance Configuration](#multi-instance-configuration)
 - [Storage Configuration](#storage-configuration)
+- [Strict Mode](#strict-mode)
+- [Job Queue Configuration](#job-queue-configuration)
+- [Embedding Cache Configuration](#embedding-cache-configuration)
+- [Reranking Configuration](#reranking-configuration)
 - [Per-Project Configuration](#per-project-configuration)
 - [Example Configurations](#example-configurations)
 
@@ -66,7 +70,7 @@ agent-brain start --host 0.0.0.0 --port 8080 --reload
 | `shared` | Single server for multiple projects (future) |
 
 ```bash
-export DOC_SERVE_MODE="project"
+export AGENT_BRAIN_MODE="project"
 ```
 
 ---
@@ -268,19 +272,21 @@ export GRAPH_RRF_K="40"
 
 ### State Directory
 
-| Variable | Description |
-|----------|-------------|
-| `DOC_SERVE_STATE_DIR` | Override state directory location |
-| `DOC_SERVE_MODE` | Instance mode: `project` or `shared` |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AGENT_BRAIN_STATE_DIR` | `None` | Override state directory location |
+| `AGENT_BRAIN_MODE` | `project` | Instance mode: `project` or `shared` |
+
+> **Legacy aliases:** `DOC_SERVE_STATE_DIR` is still read by `provider_config.py` as a fallback if `AGENT_BRAIN_STATE_DIR` is not set.
 
 **Examples**:
 
 ```bash
 # Explicit state directory
-export DOC_SERVE_STATE_DIR="/path/to/.claude/agent-brain"
+export AGENT_BRAIN_STATE_DIR="/path/to/.claude/agent-brain"
 
 # Project mode (default)
-export DOC_SERVE_MODE="project"
+export AGENT_BRAIN_MODE="project"
 ```
 
 ### CLI Options
@@ -318,6 +324,104 @@ Notes:
 # Example: longer TTL for a static documentation server
 QUERY_CACHE_TTL=3600
 QUERY_CACHE_MAX_SIZE=512
+```
+
+---
+
+## Strict Mode
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AGENT_BRAIN_STRICT_MODE` | `false` | Fail on critical validation errors instead of logging warnings |
+
+When enabled, the server will raise errors for validation issues that would otherwise be logged as warnings (e.g., invalid chunk sizes, missing required metadata).
+
+```bash
+# Enable strict validation
+export AGENT_BRAIN_STRICT_MODE="true"
+```
+
+---
+
+## Job Queue Configuration
+
+Controls the background job queue used for indexing operations.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AGENT_BRAIN_MAX_QUEUE` | `100` | Maximum number of pending jobs in the queue |
+| `AGENT_BRAIN_JOB_TIMEOUT` | `7200` | Job timeout in seconds (default: 2 hours) |
+| `AGENT_BRAIN_MAX_RETRIES` | `3` | Maximum retry attempts for failed jobs |
+| `AGENT_BRAIN_CHECKPOINT_INTERVAL` | `50` | Save progress checkpoint every N files |
+| `AGENT_BRAIN_WATCH_DEBOUNCE_SECONDS` | `30` | File watcher debounce delay in seconds |
+
+**Examples**:
+
+```bash
+# Increase queue size for large projects
+export AGENT_BRAIN_MAX_QUEUE="500"
+
+# Longer timeout for very large codebases
+export AGENT_BRAIN_JOB_TIMEOUT="14400"
+
+# More frequent checkpoints
+export AGENT_BRAIN_CHECKPOINT_INTERVAL="25"
+
+# Shorter debounce for faster file-watch response
+export AGENT_BRAIN_WATCH_DEBOUNCE_SECONDS="10"
+```
+
+---
+
+## Embedding Cache Configuration
+
+Controls the two-tier (memory + disk) embedding cache that avoids redundant OpenAI API calls for previously-seen content.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `EMBEDDING_CACHE_MAX_DISK_MB` | `500` | Maximum disk cache size in megabytes |
+| `EMBEDDING_CACHE_MAX_MEM_ENTRIES` | `1000` | Maximum in-memory LRU cache entries |
+| `EMBEDDING_CACHE_PERSIST_STATS` | `false` | Persist hit/miss statistics across server restarts |
+
+**Examples**:
+
+```bash
+# Larger disk cache for big repos
+export EMBEDDING_CACHE_MAX_DISK_MB="2000"
+
+# Larger in-memory cache
+export EMBEDDING_CACHE_MAX_MEM_ENTRIES="5000"
+
+# Persist cache statistics for monitoring
+export EMBEDDING_CACHE_PERSIST_STATS="true"
+```
+
+---
+
+## Reranking Configuration
+
+Controls the optional two-stage reranking pipeline that improves search relevance by using a cross-encoder model to rescore initial retrieval results.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ENABLE_RERANKING` | `false` | Master switch for reranking |
+| `RERANKER_PROVIDER` | `sentence-transformers` | Reranker backend (`sentence-transformers` or `ollama`) |
+| `RERANKER_MODEL` | `cross-encoder/ms-marco-MiniLM-L-6-v2` | Cross-encoder model name |
+| `RERANKER_TOP_K_MULTIPLIER` | `10` | Stage 1 retrieves `top_k * multiplier` candidates |
+| `RERANKER_MAX_CANDIDATES` | `100` | Maximum Stage 1 candidates (caps the multiplier) |
+
+**Examples**:
+
+```bash
+# Enable reranking
+export ENABLE_RERANKING="true"
+
+# Use a different cross-encoder model
+export RERANKER_MODEL="cross-encoder/ms-marco-TinyBERT-L-2-v2"
+
+# Retrieve more candidates for reranking
+export RERANKER_TOP_K_MULTIPLIER="20"
+export RERANKER_MAX_CANDIDATES="200"
 ```
 
 ---
@@ -386,7 +490,7 @@ export DATABASE_URL="postgresql+asyncpg://agent_brain:agent_brain_dev@localhost:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `CHROMA_PERSIST_DIR` | `./chroma_db` | ChromaDB storage location |
-| `COLLECTION_NAME` | `doc_serve_collection` | Collection name |
+| `COLLECTION_NAME` | `agent_brain_collection` | Collection name |
 
 **Examples**:
 
@@ -500,6 +604,19 @@ GRAPH_USE_CODE_METADATA=true
 GRAPH_USE_LLM_EXTRACTION=true
 GRAPH_EXTRACTION_MODEL=claude-haiku-4-5
 GRAPH_TRAVERSAL_DEPTH=2
+
+# Embedding cache
+EMBEDDING_CACHE_MAX_DISK_MB=2000
+EMBEDDING_CACHE_MAX_MEM_ENTRIES=5000
+
+# Job queue
+AGENT_BRAIN_MAX_QUEUE=500
+AGENT_BRAIN_JOB_TIMEOUT=7200
+AGENT_BRAIN_CHECKPOINT_INTERVAL=50
+
+# Reranking (optional)
+ENABLE_RERANKING=true
+RERANKER_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2
 ```
 
 ### Code-Heavy Repository
