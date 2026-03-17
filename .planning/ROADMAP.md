@@ -165,7 +165,7 @@ Plans:
   1. Every YAML key documented in configuration reference matches a field in the server's Pydantic settings schema
   2. Every environment variable listed in docs matches a variable actually read by the server or CLI source code
   3. All 7 provider configurations (OpenAI, Anthropic, Ollama, Cohere, Gemini, Grok, SentenceTransformers) are documented with correct YAML structure
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 30-01-PLAN.md — YAML config fields and env var audit (settings.py vs CONFIGURATION.md + CLAUDE.md)
@@ -201,7 +201,7 @@ Plans:
   1. All 30+ plugin command files contain descriptions and usage examples that match current CLI behavior
   2. Plugin skill reference guides list current features including file watcher, embedding cache, and multi-runtime install
   3. Plugin agent descriptions (researcher, indexer) match the actual capabilities and available tools in the current implementation
-**Plans:** 3/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 32-01-PLAN.md — Audit plugin command files A-K (bm25 through keyword, 15 files)
@@ -219,7 +219,7 @@ Plans:
   1. Every internal link in audited docs (`[text](path)`) resolves to an existing file or anchor
   2. Every file path referenced in code examples, installation steps, and configuration examples exists in the repository
   3. Every audited documentation file has a `last_validated` frontmatter field set to the audit date
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 33-01-PLAN.md — Scan and fix broken internal links and file path references
@@ -240,11 +240,11 @@ Plans:
 | 26 | v9.1.0 | 2/2 | Complete | 2026-03-16 |
 | 27 | v9.1.0 | 1/1 | Complete | 2026-03-16 |
 | 28 | v9.1.0 | 1/1 | Complete | 2026-03-16 |
-| 29 | 2/2 | Complete   | 2026-03-17 | - |
-| 30 | v9.2.0 | 2/2 | Complete | 2026-03-17 |
-| 31 | 2/2 | Complete   | 2026-03-17 | 2026-03-17 |
-| 32 | v9.2.0 | 3/3 | Complete | 2026-03-17 |
-| 33 | v9.2.0 | 2/2 | Complete | 2026-03-17 |
+| 29 | 2/2 | Complete    | 2026-03-17 | - |
+| 30 | v9.2.0 | Complete    | 2026-03-17 | 2026-03-17 |
+| 31 | 2/2 | Complete    | 2026-03-17 | 2026-03-17 |
+| 32 | v9.2.0 | Complete    | 2026-03-17 | 2026-03-17 |
+| 33 | v9.2.0 | Complete    | 2026-03-17 | 2026-03-17 |
 
 ---
 *Roadmap created: 2026-02-07*
