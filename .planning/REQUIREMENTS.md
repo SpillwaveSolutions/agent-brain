@@ -1,64 +1,91 @@
-# Agent Brain v9.1.0 — Generic Skills-Based Runtime Portability Requirements
+# Requirements: Agent Brain v9.2.0 Documentation Accuracy Audit
 
-**Milestone:** v9.1.0
-**Goal:** Add installer-based runtime transformation that converts Claude plugin format into skill-directory installations for Codex and any skill-based runtime.
-**Created:** 2026-03-16
+**Defined:** 2026-03-16
+**Core Value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
 
-## v9.1.0 Requirements
+## v9.2.0 Requirements
 
-### Generic Skill-Runtime Converter (SKILL)
+Requirements for documentation accuracy audit. Each maps to roadmap phases.
 
-- [x] **SKILL-01**: `install-agent --agent skill-runtime --dir <path>` converts all plugin artifacts into skill directories
-- [x] **SKILL-02**: Commands become individual skill directories with SKILL.md and shell wrapper scripts
-- [x] **SKILL-03**: Agents become orchestration skill directories referencing dependent skills
-- [x] **SKILL-04**: Existing skills copied with references intact
-- [x] **SKILL-05**: Templates and scripts included as skill assets
-- [x] **SKILL-06**: `--dir` is required for skill-runtime target (no default)
-- [x] **SKILL-07**: Parser extracts templates and scripts into PluginBundle
+### CLI & API Documentation
 
-### Codex Named Adapter (CODEX)
+- [ ] **CLIDOC-01**: CLI root and all subcommand docs match `agent-brain --help` output
+- [ ] **CLIDOC-02**: Runtime installation commands (install-agent) documented for all 5 runtimes
+- [ ] **CLIDOC-03**: API endpoint docs match OpenAPI spec and source code
+- [ ] **CLIDOC-04**: Job queue commands documented accurately
 
-- [x] **CODEX-01**: `install-agent --agent codex` installs to `.codex/skills/agent-brain/`
-- [x] **CODEX-02**: AGENTS.md generated/updated at project root with Agent Brain guidance
-- [x] **CODEX-03**: AGENTS.md update is idempotent (HTML comment markers)
-- [x] **CODEX-04**: Codex skills include invocation guidance headers
+### Configuration Documentation
 
-### Compatibility (COMPAT)
+- [ ] **CFGDOC-01**: YAML configuration fields match source schema definitions
+- [ ] **CFGDOC-02**: Environment variable docs match actual env var usage in code
+- [ ] **CFGDOC-03**: Provider configuration docs match pluggable provider implementations
 
-- [x] **COMPAT-01**: Existing claude/opencode/gemini converters unaffected
-- [x] **COMPAT-02**: All existing tests continue to pass
-- [x] **COMPAT-03**: `--dry-run` works for skill-runtime and codex targets
+### User Guides
 
-### Documentation (DOC)
+- [ ] **GUIDE-01**: USER_GUIDE.md reflects current CLI and features (v7-v9)
+- [ ] **GUIDE-02**: QUICK_START.md installation steps verified working
+- [ ] **GUIDE-03**: PLUGIN_GUIDE.md matches current plugin commands/agents/skills
+- [ ] **GUIDE-04**: POSTGRESQL_SETUP.md verified against Docker Compose setup
+- [ ] **GUIDE-05**: GRAPHRAG_GUIDE.md matches current graph query behavior
 
-- [x] **DOC-01**: User guide covers skill-runtime and codex installation
-- [x] **DOC-02**: Developer guide explains adding new converters
-- [x] **DOC-03**: Original plan spec archived in docs/plans/
+### Plugin Documentation
 
-## Traceability
+- [ ] **PLUGDOC-01**: All 30+ plugin command files match CLI behavior
+- [ ] **PLUGDOC-02**: Plugin skill reference guides match current features
+- [ ] **PLUGDOC-03**: Plugin agent descriptions match current capabilities
 
-| REQ-ID | Phase | Status |
-|--------|-------|--------|
-| SKILL-01 | Phase 26 | Complete |
-| SKILL-02 | Phase 26 | Complete |
-| SKILL-03 | Phase 26 | Complete |
-| SKILL-04 | Phase 26 | Complete |
-| SKILL-05 | Phase 26 | Complete |
-| SKILL-06 | Phase 26 | Complete |
-| SKILL-07 | Phase 26 | Complete |
-| CODEX-01 | Phase 27 | Complete |
-| CODEX-02 | Phase 27 | Complete |
-| CODEX-03 | Phase 27 | Complete |
-| CODEX-04 | Phase 27 | Complete |
-| COMPAT-01 | Phase 26 | Complete |
-| COMPAT-02 | Phase 26 | Complete |
-| COMPAT-03 | Phase 26 | Complete |
-| DOC-01 | Phase 28 | Complete |
-| DOC-02 | Phase 28 | Complete |
-| DOC-03 | Phase 28 | Complete |
+### Cross-References & Metadata
+
+- [ ] **XREF-01**: All internal doc links resolve correctly
+- [ ] **XREF-02**: File paths referenced in docs exist
+- [ ] **XREF-03**: Audited docs have last_validated frontmatter
+
+## Future Requirements
+
+### Automated Documentation Testing
+
+- **AUTODOC-01**: CI job that validates CLI --help against docs
+- **AUTODOC-02**: Link checker in pre-push pipeline
+- **AUTODOC-03**: Schema-to-docs diff detection
 
 ## Out of Scope
 
-- **MCP Server**: User prefers Skill + CLI model
-- **Cursor/Qwen specific adapters**: Users use `--agent skill-runtime --dir` for these
-- **Codex TOML config generation**: Not needed — Codex uses skills, not agent configs
+| Feature | Reason |
+|---------|--------|
+| Rewriting docs from scratch | Audit and fix, not rewrite |
+| docs/plans/ audit | Historical plans are point-in-time artifacts, not user-facing |
+| docs/design/ rewrite | Design docs are architectural records, only fix broken links |
+| .claude/agents/ rewrite | Internal agent configs, not user documentation |
+| New documentation creation | Only fix existing docs, no new guides |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| CLIDOC-01 | Phase 29 | Pending |
+| CLIDOC-02 | Phase 29 | Pending |
+| CLIDOC-03 | Phase 29 | Pending |
+| CLIDOC-04 | Phase 29 | Pending |
+| CFGDOC-01 | Phase 30 | Pending |
+| CFGDOC-02 | Phase 30 | Pending |
+| CFGDOC-03 | Phase 30 | Pending |
+| GUIDE-01 | Phase 31 | Pending |
+| GUIDE-02 | Phase 31 | Pending |
+| GUIDE-03 | Phase 31 | Pending |
+| GUIDE-04 | Phase 31 | Pending |
+| GUIDE-05 | Phase 31 | Pending |
+| PLUGDOC-01 | Phase 32 | Pending |
+| PLUGDOC-02 | Phase 32 | Pending |
+| PLUGDOC-03 | Phase 32 | Pending |
+| XREF-01 | Phase 33 | Pending |
+| XREF-02 | Phase 33 | Pending |
+| XREF-03 | Phase 33 | Pending |
+
+**Coverage:**
+- v9.2.0 requirements: 18 total
+- Mapped to phases: 18
+- Unmapped: 0 ✓
+
+---
+*Requirements defined: 2026-03-16*
+*Last updated: 2026-03-16 after initial definition*
