@@ -513,6 +513,68 @@ If these solutions don't resolve your issue:
 3. **Include error messages**: Copy full error output
 4. **Describe your setup**: OS, Python version, installation method
 
+## File Watcher Issues (v8.0+)
+
+### Watcher Not Triggering Re-index
+
+**Symptoms:**
+- Edited files not automatically re-indexed
+- No auto-triggered jobs in `agent-brain jobs`
+
+**Solutions:**
+
+```bash
+# Verify watch mode is enabled on folder
+agent-brain folders list
+
+# Enable watching
+agent-brain folders add ./src --watch auto --include-code
+
+# Lower debounce for faster response (default 30s)
+agent-brain folders add ./src --watch auto --debounce 10
+```
+
+**Excluded directories:** `.git/`, `node_modules/`, `__pycache__/`, `dist/`, `build/`, `.next/`, `.nuxt/`, `coverage/`, `htmlcov/`
+
+---
+
+## Embedding Cache Issues (v8.0+)
+
+### Low Hit Rate or Slow Re-indexing
+
+```bash
+# Check cache health
+agent-brain cache status
+
+# If you changed embedding provider, clear old cached embeddings
+agent-brain cache clear --yes
+
+# Re-index to rebuild cache
+agent-brain index /path/to/docs
+```
+
+**Configuration:** `EMBEDDING_CACHE_MAX_DISK_MB` (default: 500MB), `EMBEDDING_CACHE_MAX_MEM_ENTRIES` (default: 1000)
+
+---
+
+## Multi-Runtime Install Issues (v9.0+)
+
+### Plugin Not Found After Install
+
+```bash
+# Verify plugin was installed
+ls .claude/plugins/agent-brain/  # For Claude
+ls .opencode/plugins/agent-brain/  # For OpenCode
+
+# Re-install
+agent-brain install-agent --agent claude
+
+# Preview what will be installed
+agent-brain install-agent --agent claude --dry-run
+```
+
+---
+
 ## Prevention Tips
 
 - Always run `task pr-qa-gate` before committing changes
@@ -521,3 +583,5 @@ If these solutions don't resolve your issue:
 - Regularly update dependencies with `poetry update`
 - Monitor server logs for early warning signs
 - Test with different search modes when queries fail
+- Use `agent-brain cache status` to monitor embedding cache health
+- Enable file watcher (`--watch auto`) for automatic re-indexing

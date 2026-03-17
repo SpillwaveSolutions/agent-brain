@@ -235,11 +235,28 @@ agent-brain query "understand microservices architecture" --alpha 0.8 --threshol
 agent-brain query "how to optimize database queries" --alpha 0.5 --top-k 10
 ```
 
+## Embedding Cache and Query Cache (v8.0+)
+
+Hybrid search benefits from two caching layers:
+
+- **Embedding Cache**: Caches computed embeddings to reduce API costs during re-indexing. Check with `agent-brain cache status`.
+- **Query Cache**: Caches identical query results for a configurable TTL (default: 5 minutes). Identical hybrid queries within the TTL return instantly. Configure with `QUERY_CACHE_TTL` and `QUERY_CACHE_MAX_SIZE`.
+
+```bash
+# Check embedding cache health
+agent-brain cache status
+
+# Disable query cache if needed
+export QUERY_CACHE_TTL=0
+```
+
+---
+
 ## Common Issues
 
 - **API key required**: Must have valid OpenAI API key for vector component
 - **Slower than BM25**: Expected due to dual algorithm execution
-- **Cost considerations**: Consumes OpenAI credits for each query
+- **Cost considerations**: Consumes OpenAI credits for each query (mitigated by embedding cache)
 - **Alpha tuning needed**: May require experimentation for optimal results
 
 ## Integration Examples

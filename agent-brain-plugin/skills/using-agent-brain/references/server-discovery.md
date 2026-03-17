@@ -73,7 +73,7 @@ def discover_server():
         project_root = Path.cwd()
 
     # Check for runtime.json
-    runtime_path = project_root / ".claude" / "agent-brain" / "runtime.json"
+    runtime_path = project_root / ".agent-brain" / "runtime.json"
     if not runtime_path.exists():
         return None
 

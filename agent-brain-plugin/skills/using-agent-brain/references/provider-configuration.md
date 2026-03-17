@@ -298,6 +298,37 @@ SUMMARIZATION_MODEL=grok-4
 XAI_API_KEY=...
 ```
 
+### SentenceTransformers Reranker Configuration (v8.0+)
+
+Agent Brain supports two-stage retrieval with reranking. The reranker re-scores initial results for higher precision.
+
+```bash
+ENABLE_RERANKING=true
+RERANKER_PROVIDER=sentence-transformers  # or "ollama"
+RERANKER_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2
+RERANKER_TOP_K_MULTIPLIER=10  # Fetch 10x candidates in Stage 1
+RERANKER_MAX_CANDIDATES=100   # Cap on Stage 1 results
+```
+
+**Reranker Providers:**
+
+| Provider | Models | API Key | Characteristics |
+|----------|--------|---------|-----------------|
+| SentenceTransformers | cross-encoder/ms-marco-MiniLM-L-6-v2 | None (local) | Fast local cross-encoder, no API costs |
+| Ollama | (reranker-compatible models) | None (local) | Uses Ollama for reranking |
+
+**YAML Configuration:**
+```yaml
+reranking:
+  enabled: true
+  provider: "sentence-transformers"
+  model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+  top_k_multiplier: 10
+  max_candidates: 100
+```
+
+---
+
 ## Verifying Configuration
 
 ```bash

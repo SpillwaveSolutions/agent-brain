@@ -281,6 +281,65 @@ xcode-select --install
 
 ---
 
+## Multi-Runtime Installation (v9.0+)
+
+Agent Brain supports installing its plugin into multiple AI coding assistant runtimes. After installing the CLI, use the `install-agent` command to deploy the plugin:
+
+```bash
+# Install for Claude Code (default)
+agent-brain install-agent --agent claude
+
+# Install for OpenCode
+agent-brain install-agent --agent opencode
+
+# Install for Gemini
+agent-brain install-agent --agent gemini
+
+# Install for Codex (skill-directory format with AGENTS.md)
+agent-brain install-agent --agent codex
+
+# Install for any skill-based runtime (requires --dir)
+agent-brain install-agent --agent skill-runtime --dir /path/to/skills
+
+# Preview what will be installed (no files written)
+agent-brain install-agent --agent claude --dry-run
+
+# Install globally (user-level) instead of project-level
+agent-brain install-agent --agent claude --scope global
+```
+
+### Supported Runtimes
+
+| Runtime | Install Dir (project) | Format |
+|---------|----------------------|--------|
+| `claude` | `.claude/plugins/agent-brain` | Claude plugin (commands, skills, agents) |
+| `opencode` | `.opencode/plugins/agent-brain` | OpenCode plugin format |
+| `gemini` | `.gemini/plugins/agent-brain` | Gemini plugin format |
+| `codex` | `.codex/skills/agent-brain` | Skill directories + AGENTS.md |
+| `skill-runtime` | (requires `--dir`) | Generic skill directories |
+
+### Uninstalling
+
+```bash
+# Remove plugin for a specific runtime
+agent-brain uninstall --agent claude
+
+# Remove from global scope
+agent-brain uninstall --agent claude --scope global
+```
+
+---
+
+## Key Features by Version
+
+| Version | Key Features |
+|---------|-------------|
+| v7.0 | Folder management, file type presets, content injection, chunk eviction |
+| v8.0 | File watcher (auto-reindex), embedding cache, setup wizard, query cache |
+| v9.0+ | Multi-runtime install (5 runtimes), pluggable providers (7 providers) |
+
+---
+
 ## Next Steps
 
 After installation:

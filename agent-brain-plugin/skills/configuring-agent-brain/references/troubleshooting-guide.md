@@ -449,6 +449,101 @@ If these solutions don't resolve your issue:
 
 ---
 
+## File Watcher Issues (v8.0+)
+
+### Watcher Not Triggering Re-index
+
+**Symptoms:**
+- Files changed but no re-index job appears
+- `agent-brain jobs` shows no auto-triggered jobs
+
+**Solutions:**
+
+```bash
+# Verify folder has watch mode enabled
+agent-brain folders list
+# Look for "Watch: auto" column
+
+# Re-add folder with watch mode
+agent-brain folders add ./src --watch auto --include-code
+
+# Check debounce interval (default 30s, changes within window are batched)
+# Lower debounce for faster response
+agent-brain folders add ./src --watch auto --debounce 10
+```
+
+### Watcher Ignoring Certain Files
+
+The watcher excludes: `.git/`, `node_modules/`, `__pycache__/`, `dist/`, `build/`, `.next/`, `.nuxt/`, `coverage/`, `htmlcov/`
+
+These directories are intentionally excluded to avoid indexing build artifacts.
+
+---
+
+## Embedding Cache Issues (v8.0+)
+
+### Low Cache Hit Rate
+
+**Symptoms:**
+- `agent-brain cache status` shows low hit rate
+- Re-indexing is slow despite no content changes
+
+**Solutions:**
+
+```bash
+# Check cache status
+agent-brain cache status
+
+# If switching embedding providers, clear old cache
+agent-brain cache clear --yes
+
+# Re-index to rebuild cache
+agent-brain index /path/to/docs
+```
+
+### Cache Disk Space
+
+```bash
+# Check cache size
+agent-brain cache status --json | jq '.size_bytes'
+
+# Clear if too large
+agent-brain cache clear --yes
+```
+
+**Configuration:** Set `EMBEDDING_CACHE_MAX_DISK_MB` (default: 500MB) to limit disk usage.
+
+---
+
+## Multi-Runtime Install Issues (v9.0+)
+
+### Install-Agent Not Finding Plugin Directory
+
+**Symptoms:**
+- `agent-brain install-agent --agent claude` fails with "plugin directory not found"
+
+**Solutions:**
+
+```bash
+# Ensure agent-brain-plugin directory exists
+ls agent-brain-plugin/commands/
+
+# Or install from an existing Claude plugin installation
+ls ~/.claude/plugins/agent-brain/commands/
+```
+
+### Uninstall Not Removing Files
+
+```bash
+# Uninstall for specific runtime
+agent-brain uninstall --agent claude
+
+# Manual cleanup if needed
+rm -rf .claude/plugins/agent-brain
+```
+
+---
+
 ## Prevention Tips
 
 - Always verify `agent-brain status` before searching
@@ -457,3 +552,5 @@ If these solutions don't resolve your issue:
 - Use BM25 mode when you don't need semantic search
 - Lower threshold values when getting no results
 - Re-index after major document changes
+- Use `agent-brain cache status` to monitor embedding cache health
+- Enable file watcher (`--watch auto`) for automatic re-indexing
