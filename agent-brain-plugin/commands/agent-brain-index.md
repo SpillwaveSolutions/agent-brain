@@ -16,12 +16,6 @@ parameters:
     description: Force re-indexing (bypass manifest, evict all prior chunks)
     required: false
     default: false
-  - name: watch
-    description: "Watch mode: 'auto' enables file watching after indexing, 'off' disables"
-    required: false
-  - name: debounce
-    description: Debounce interval in seconds for file watching (default 30)
-    required: false
 skills:
   - using-agent-brain
 ---
@@ -54,8 +48,6 @@ Indexes documents at the specified path for semantic search. Processes markdown,
 | --exclude-patterns | No | - | Additional glob exclude patterns |
 | --generate-summaries | No | false | Generate LLM summaries for better search quality |
 | --force | No | false | Force re-indexing (bypass manifest, evict all prior chunks) |
-| --watch | No | - | Watch mode: `auto` (enable file watching) or `off` (disable) |
-| --debounce | No | 30 | Debounce interval in seconds for file watching |
 | --allow-external | No | false | Allow indexing paths outside the project directory |
 | --json | No | false | Output results as JSON |
 
@@ -68,8 +60,7 @@ Indexes documents at the specified path for semantic search. Processes markdown,
 /agent-brain:agent-brain-index ./src --include-type typescript --include-patterns "*.json"
 /agent-brain:agent-brain-index ./docs --force
 /agent-brain:agent-brain-index ./src --include-code --chunk-size 1024 --generate-summaries
-/agent-brain:agent-brain-index ./src --watch auto --include-code
-/agent-brain:agent-brain-index ./src --watch auto --debounce 10
+/agent-brain:agent-brain-index ./src --allow-external
 ```
 
 ## Execution

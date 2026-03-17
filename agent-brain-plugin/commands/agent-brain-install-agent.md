@@ -3,7 +3,7 @@ name: agent-brain-install-agent
 description: Install Agent Brain plugin for a specific runtime (Claude, OpenCode, Gemini)
 parameters:
   - name: agent
-    description: "Target runtime: claude, opencode, or gemini"
+    description: "Target runtime: claude, opencode, gemini, skill-runtime, or codex"
     required: true
   - name: scope
     description: "Install scope: project (default) or global"
@@ -12,11 +12,17 @@ parameters:
   - name: plugin-dir
     description: Custom canonical plugin source directory
     required: false
+  - name: dir
+    description: Target skill directory (required for skill-runtime)
+    required: false
   - name: dry-run
     description: List files that would be created without writing
     required: false
   - name: json
     description: Output as JSON
+    required: false
+  - name: path
+    description: Project path for --project scope (default: cwd)
     required: false
 skills:
   - configuring-agent-brain
@@ -31,25 +37,28 @@ Installs Agent Brain plugin files for a specific AI coding runtime. Converts the
 Supported runtimes:
 - **Claude Code** — copies plugin as-is with path normalization
 - **OpenCode** — converts tool lists to boolean objects, maps tool names to lowercase
-- **Gemini CLI** — remaps tool names (e.g., Bash→run_shell_command), removes unsupported fields
+- **Gemini CLI** — remaps tool names (e.g., Bash->run_shell_command), removes unsupported fields
+- **Codex** — creates skill directories under `.codex/skills/agent-brain/` and generates AGENTS.md
+- **skill-runtime** — generic converter producing skill directories with SKILL.md frontmatter (requires `--dir`)
 
 ## Usage
 
 ```
-agent-brain install-agent --agent <runtime> [--project|--global] [--plugin-dir <path>] [--dry-run] [--json]
+agent-brain install-agent --agent <runtime> [--project|--global] [--plugin-dir <path>] [--dir <path>] [--dry-run] [--json] [--path <path>]
 ```
 
 ### Parameters
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| --agent | Yes | - | Target runtime: `claude`, `opencode`, or `gemini` |
+| --agent / -a | Yes | - | Target runtime: `claude`, `opencode`, `gemini`, `skill-runtime`, or `codex` |
 | --project | No | Yes | Install to project directory (default) |
 | --global | No | No | Install to user-level directory |
 | --plugin-dir | No | Auto-detect | Custom canonical plugin source directory |
+| --dir | No* | - | Target skill directory (*required for skill-runtime) |
 | --dry-run | No | No | List files without writing |
 | --json | No | No | Machine-readable JSON output |
-| --path | No | cwd | Project path for --project scope |
+| --path / -p | No | cwd | Project path for --project scope |
 
 ### Install Directories
 
@@ -58,6 +67,8 @@ agent-brain install-agent --agent <runtime> [--project|--global] [--plugin-dir <
 | Claude | `.claude/plugins/agent-brain/` | `~/.claude/plugins/agent-brain/` |
 | OpenCode | `.opencode/plugins/agent-brain/` | `~/.config/opencode/plugins/agent-brain/` |
 | Gemini | `.gemini/plugins/agent-brain/` | `~/.config/gemini/plugins/agent-brain/` |
+| Codex | `.codex/skills/agent-brain/` | `~/.codex/skills/agent-brain/` |
+| skill-runtime | Requires `--dir` | Requires `--dir` |
 
 ## Execution
 
@@ -78,6 +89,22 @@ agent-brain install-agent --agent opencode --project
 ```bash
 agent-brain install-agent --agent gemini --project
 ```
+
+### Install for Codex
+
+```bash
+agent-brain install-agent --agent codex --project
+```
+
+This creates skill directories under `.codex/skills/agent-brain/` and generates an `AGENTS.md` file at the project root.
+
+### Install for Generic Skill-Runtime
+
+```bash
+agent-brain install-agent --agent skill-runtime --dir ./my-skills
+```
+
+The `--dir` flag is required for skill-runtime (it has no default directory).
 
 ### Global Installation
 
@@ -152,7 +179,8 @@ agent-brain install-agent --agent opencode --plugin-dir ./my-custom-plugin
 | Error | Cause | Resolution |
 |-------|-------|------------|
 | Could not find canonical plugin directory | Plugin source not found | Use `--plugin-dir` to specify location |
-| Invalid agent choice | Unsupported runtime name | Use `claude`, `opencode`, or `gemini` |
+| Invalid agent choice | Unsupported runtime name | Use `claude`, `opencode`, `gemini`, `skill-runtime`, or `codex` |
+| --dir is required for --agent skill-runtime | Missing target directory | Specify `--dir ./path/to/skills` |
 
 ## Notes
 
