@@ -147,6 +147,7 @@ tasks:
   lint:yaml:
     desc: Validate YAML frontmatter in plugin command files
     cmds:
+      - python3 -c "import yaml" 2>/dev/null || pip install pyyaml --quiet
       - python3 scripts/lint_yaml_frontmatter.py agent-brain-plugin/
 
   typecheck:
