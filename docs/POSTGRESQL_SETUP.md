@@ -68,8 +68,44 @@ or schema creation will fail with `extension "vector" does not exist`.
 ## Configure Agent Brain
 
 After PostgreSQL is running, configure the storage backend and connection
-settings in `config.yaml`. See `docs/CONFIGURATION.md` for the full schema
-and `DATABASE_URL` override behavior.
+settings in `config.yaml` (typically at `.agent-brain/config.yaml`):
+
+```yaml
+storage:
+  backend: "postgres"
+  postgres:
+    host: "localhost"
+    port: 5432
+    database: "agent_brain"
+    user: "agent_brain"
+    password: "agent_brain_dev"
+    pool_size: 10
+    pool_max_overflow: 10
+    language: "english"
+    hnsw_m: 16
+    hnsw_ef_construction: 64
+    debug: false
+```
+
+These field names correspond to the `storage.backend` and `storage.postgres.*`
+keys in the server's configuration schema. See `docs/CONFIGURATION.md` for the
+full schema reference.
+
+### DATABASE_URL Override
+
+As an alternative to individual `storage.postgres.*` keys, you can set the
+`DATABASE_URL` environment variable to override the connection string. Pool
+settings and HNSW tuning parameters still come from YAML:
+
+```bash
+export DATABASE_URL="postgresql+asyncpg://agent_brain:agent_brain_dev@localhost:5432/agent_brain"
+```
+
+You can also set the storage backend via environment variable:
+
+```bash
+export AGENT_BRAIN_STORAGE_BACKEND="postgres"
+```
 
 ## Important: No Auto-Migration
 
