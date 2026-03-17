@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Agent Brain Version Management
 
 Guide for installing, upgrading, and managing Agent Brain versions.
@@ -15,6 +19,10 @@ echo "Latest: $VERSION"
 
 | Version | Release Date | Key Features |
 |---------|--------------|--------------|
+| 9.1.0 | 2026-03 | Generic skill-runtime converter, Codex adapter, AGENTS.md generation |
+| 9.0.0 | 2026-03 | Multi-runtime install (claude, opencode, gemini, codex, skill-runtime) |
+| 8.0.0 | 2026-03 | File watcher, embedding cache, setup wizard, query cache, reranking |
+| 7.0.0 | 2026-03 | Folder management, file type presets, content injection, chunk eviction |
 | 3.0.0 | 2025-02 | Job queue, async indexing, server-side processing |
 | 2.0.0 | 2024-12 | Pluggable providers, GraphRAG, multi-instance |
 | 1.4.0 | 2024-11 | Graph search mode, multi-mode fusion |
@@ -215,7 +223,39 @@ pip install git+https://github.com/SpillwaveSolutions/agent-brain.git@feature-br
 
 ## Release Notes
 
-### v3.0.0 (Latest)
+### v9.1.0
+
+**New Features:**
+- Generic skill-runtime converter for any skill-based AI assistant
+- Codex named adapter with AGENTS.md generation
+- `--dry-run` support for all runtime installs
+
+### v9.0.0
+
+**New Features:**
+- Multi-runtime plugin installation (`install-agent` command)
+- Support for 5 runtimes: Claude, OpenCode, Gemini, Codex, skill-runtime
+- Plugin uninstall command
+- Project and global scope installation
+
+### v8.0.0
+
+**New Features:**
+- File watcher for automatic re-indexing on file changes
+- Embedding cache (two-tier: in-memory LRU + SQLite disk)
+- Query cache with configurable TTL
+- Reranking with SentenceTransformers and Ollama providers
+- Setup wizard for interactive configuration
+
+### v7.0.0
+
+**New Features:**
+- Folder management (`folders add/list/remove`)
+- File type presets (`types list`, `--include-type`)
+- Content injection (`inject` command with custom scripts)
+- Chunk eviction for folder removal
+
+### v3.0.0
 
 **New Features:**
 - Server-side job queue for async indexing
@@ -262,8 +302,11 @@ For full release notes, see: https://github.com/SpillwaveSolutions/agent-brain/r
 
 | Version | Status | Support Until |
 |---------|--------|---------------|
-| 3.0.x | Active | Current |
-| 2.0.x | Maintenance | 2025-12 |
+| 9.x | Active | Current |
+| 8.x | Maintenance | 2026-12 |
+| 7.x | Maintenance | 2026-09 |
+| 3.0.x | End of Life | - |
+| 2.0.x | End of Life | - |
 | 1.x | End of Life | - |
 
 **Active**: Full support, new features

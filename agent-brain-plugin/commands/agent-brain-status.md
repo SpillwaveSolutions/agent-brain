@@ -1,13 +1,21 @@
 ---
 name: agent-brain-status
-description: Show Agent Brain server status (port, documents, health)
+description: Show Agent Brain server status (health, documents, cache, watcher)
 parameters:
+  - name: url
+    description: Server URL (default from config or http://127.0.0.1:8000)
+    required: false
   - name: json
     description: Output in JSON format
     required: false
     default: false
+  - name: verbose
+    description: Show additional detail (cache size, memory entries)
+    required: false
+    default: false
 skills:
   - using-agent-brain
+last_validated: 2026-03-16
 ---
 
 # Agent Brain Status
@@ -15,25 +23,29 @@ skills:
 ## Purpose
 
 Displays the current status of the Agent Brain server, including:
-- Server health and connectivity
-- Port and URL information
-- Document count in the index
-- Indexing status (idle, running, completed)
-- Instance mode (project or shared)
+- Server health and version
+- Document and chunk counts
+- Indexing progress (if in progress)
+- Indexed folders list
+- File watcher status
+- Embedding cache statistics
+- Graph index status (if enabled)
 
 Use this command to verify the server is running before performing searches.
 
 ## Usage
 
 ```
-/agent-brain:agent-brain-status [--json]
+/agent-brain:agent-brain-status [--url <url>] [--json] [--verbose]
 ```
 
 ### Parameters
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| json | No | false | Output in JSON format for scripting |
+| --url | No | from config or http://127.0.0.1:8000 | Server URL (env: AGENT_BRAIN_URL) |
+| --json | No | false | Output in JSON format for scripting |
+| --verbose, -v | No | false | Show additional detail (cache size, memory stats) |
 
 ## Execution
 
@@ -41,6 +53,12 @@ Use this command to verify the server is running before performing searches.
 
 ```bash
 agent-brain status
+```
+
+### Verbose Status
+
+```bash
+agent-brain status --verbose
 ```
 
 ### JSON Output
@@ -54,45 +72,46 @@ agent-brain status --json
 ### Human-Readable Format
 
 ```
-Agent Brain Status
-==================
+          Server Status
+           HEALTHY
 
-Server:     http://127.0.0.1:49321
-Status:     healthy
-Mode:       project
-Project:    my-project
-
-Index:
-  Documents:  142
-  Status:     idle
-  Last indexed: 2026-01-31 10:30:00
-
-Health:
-  API:        OK
-  Vector DB:  OK
-  BM25 Index: OK
+Metric             Value
+Server Version     9.0.0
+Total Documents    142
+Total Chunks       750
+Indexing           Idle
+Indexed Folders    ./docs
+                   ./src
+File Watcher       running (2 watched folder(s))
+Embedding Cache    1,200 entries, 85.3% hit rate (1,024 hits, 176 misses)
+Graph Index        Enabled - 45 entities, 120 rels
 ```
 
 ### JSON Format
 
 ```json
 {
-  "server": {
-    "url": "http://127.0.0.1:49321",
-    "port": 49321,
-    "status": "healthy",
-    "mode": "project",
-    "project_id": "my-project"
-  },
-  "index": {
-    "document_count": 142,
-    "status": "idle",
-    "last_indexed": "2026-01-31T10:30:00Z"
-  },
   "health": {
-    "api": "ok",
-    "vector_db": "ok",
-    "bm25_index": "ok"
+    "status": "healthy",
+    "message": "Server is running",
+    "version": "9.0.0"
+  },
+  "indexing": {
+    "total_documents": 142,
+    "total_chunks": 750,
+    "indexing_in_progress": false,
+    "progress_percent": 0.0,
+    "indexed_folders": ["./docs", "./src"],
+    "file_watcher": {
+      "running": true,
+      "watched_folders": 2
+    },
+    "embedding_cache": {
+      "entry_count": 1200,
+      "hit_rate": 0.853,
+      "hits": 1024,
+      "misses": 176
+    }
   }
 }
 ```

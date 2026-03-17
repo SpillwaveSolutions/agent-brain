@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Vector Search Guide
 
 ## Overview
@@ -213,6 +217,22 @@ response = requests.post('http://localhost:8000/query/', json={
 })
 results = response.json()['results']
 ```
+
+## Embedding Cache (v8.0+)
+
+Vector search benefits from the embedding cache. After the first query or indexing run, embeddings are cached locally to reduce API calls and improve response times:
+
+```bash
+# Check cache hit rate
+agent-brain cache status
+
+# Clear cache if switching embedding providers
+agent-brain cache clear --yes
+```
+
+A healthy cache (>80% hit rate) means most re-indexing operations skip API calls for unchanged content.
+
+---
 
 ## Comparison with Other Modes
 

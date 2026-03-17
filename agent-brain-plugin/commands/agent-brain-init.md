@@ -1,9 +1,30 @@
 ---
 name: agent-brain-init
 description: Initialize Agent Brain for the current project
-parameters: []
+parameters:
+  - name: path
+    description: "Project path (default: auto-detect project root)"
+    required: false
+  - name: host
+    description: "Server bind host (default: 127.0.0.1)"
+    required: false
+  - name: port
+    description: "Preferred server port (default: auto-select from range)"
+    required: false
+  - name: force
+    description: Overwrite existing configuration
+    required: false
+    default: false
+  - name: state-dir
+    description: Custom state directory for index data
+    required: false
+  - name: json
+    description: Output as JSON
+    required: false
+    default: false
 skills:
   - configuring-agent-brain
+last_validated: 2026-03-16
 ---
 
 # Initialize Agent Brain Project
@@ -15,7 +36,28 @@ Initializes the current project for Agent Brain by creating the necessary config
 ## Usage
 
 ```
+/agent-brain:agent-brain-init [--path <path>] [--host <host>] [--port <port>] [--force] [--state-dir <dir>] [--json]
+```
+
+### Parameters
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| --path / -p | No | Auto-detect | Project path (auto-detects git root or project markers) |
+| --host | No | 127.0.0.1 | Server bind host |
+| --port | No | Auto-select | Preferred server port (disables auto-port if set) |
+| --force / -f | No | false | Overwrite existing configuration |
+| --state-dir / -s | No | .agent-brain | Custom state directory for index data |
+| --json | No | false | Output as JSON |
+
+### Examples
+
+```
 /agent-brain:agent-brain-init
+/agent-brain:agent-brain-init --path /my/project
+/agent-brain:agent-brain-init --port 8080
+/agent-brain:agent-brain-init --state-dir /custom/path
+/agent-brain:agent-brain-init --force
 ```
 
 ## Execution
@@ -24,9 +66,13 @@ Initializes the current project for Agent Brain by creating the necessary config
 
 ```bash
 agent-brain init
+agent-brain init --path /my/project
+agent-brain init --port 8080
+agent-brain init --state-dir /custom/path
+agent-brain init --force
 ```
 
-This creates the `.agent-brain/` directory structure in the current project.
+This creates the `.agent-brain/` directory structure in the project root.
 
 ### Verify Initialization
 
@@ -70,12 +116,13 @@ Next steps:
 The initialization creates the following structure:
 
 ```
-.claude/
-  agent-brain/
-    config.json       # Project configuration
-    runtime.json      # Server state (created on start)
-    chroma_db/        # ChromaDB vector store (created on index)
-    bm25_index/       # BM25 keyword index (created on index)
+.agent-brain/
+  config.json          # Project configuration (bind_host, port, chunk settings, exclude patterns)
+  data/
+    chroma_db/         # ChromaDB vector store (created on index)
+    bm25_index/        # BM25 keyword index (created on index)
+    llamaindex/        # LlamaIndex persistence (created on index)
+  logs/                # Server logs
 ```
 
 ### config.json
@@ -84,14 +131,23 @@ Contains project-specific settings:
 
 ```json
 {
-  "project_name": "my-project",
-  "created_at": "2025-01-31T12:00:00Z",
-  "mode": "project",
-  "settings": {
-    "embedding_model": "text-embedding-3-large",
-    "chunk_size": 512,
-    "chunk_overlap": 50
-  }
+  "bind_host": "127.0.0.1",
+  "port_range_start": 8000,
+  "port_range_end": 8100,
+  "auto_port": true,
+  "chunk_size": 512,
+  "chunk_overlap": 50,
+  "exclude_patterns": [
+    "**/node_modules/**",
+    "**/__pycache__/**",
+    "**/.venv/**",
+    "**/venv/**",
+    "**/.git/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/target/**"
+  ],
+  "project_root": "/path/to/project"
 }
 ```
 

@@ -4,6 +4,7 @@ description: Complete guided setup for Agent Brain (install, config, init, verif
 parameters: []
 skills:
   - configuring-agent-brain
+last_validated: 2026-03-16
 ---
 
 # Complete Agent Brain Setup
@@ -485,7 +486,7 @@ Agent Brain Setup
        Created: .agent-brain/config.json [OK]
 
 [10/10] Starting server...
-        Server started on port 49321 [OK]
+        Server started on http://127.0.0.1:8000 [OK]
 
 Setup Complete!
 ===============

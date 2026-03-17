@@ -1,9 +1,14 @@
 ---
 name: agent-brain-types
 description: List available file type presets for indexing
-parameters: []
+parameters:
+  - name: json
+    description: Output as JSON
+    required: false
+    default: false
 skills:
   - using-agent-brain
+last_validated: 2026-03-16
 ---
 
 # File Type Presets
@@ -32,6 +37,9 @@ Display all available file type presets:
 
 ```bash
 agent-brain types list
+
+# JSON output for scripting
+agent-brain types list --json
 ```
 
 ### Expected Output

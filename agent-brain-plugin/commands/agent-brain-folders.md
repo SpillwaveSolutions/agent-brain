@@ -14,6 +14,7 @@ parameters:
     default: false
 skills:
   - using-agent-brain
+last_validated: 2026-03-16
 ---
 
 # Manage Indexed Folders
@@ -43,7 +44,9 @@ remove all chunks associated with a folder.
 | --include-type | No | - | File type presets, e.g., python,docs (for add) |
 | --chunk-size | No | 512 | Target chunk size in tokens (for add) |
 | --force | No | false | Force re-indexing, bypass manifest (for add) |
-| --json | No | false | Output as JSON (for list) |
+| --watch | No | off | Watch mode: `auto` (file watching) or `off` (for add) |
+| --debounce | No | 30 | Debounce interval in seconds for file watching (for add) |
+| --json | No | false | Output as JSON (for list, add, remove) |
 
 ### Examples
 
@@ -53,6 +56,7 @@ remove all chunks associated with a folder.
 /agent-brain:agent-brain-folders add ./src --include-code
 /agent-brain:agent-brain-folders add ./src --include-type python,docs
 /agent-brain:agent-brain-folders add ./docs --force
+/agent-brain:agent-brain-folders add ./src --watch auto --debounce 10
 /agent-brain:agent-brain-folders remove ./old-docs
 /agent-brain:agent-brain-folders remove ./old-docs --yes
 ```
@@ -95,9 +99,9 @@ agent-brain folders remove <path> --yes
 
 **List:**
 ```
-Folder Path              Chunks  Last Indexed
-/home/user/docs          312     2026-02-24T12:00:00
-/home/user/src           1024    2026-02-24T13:30:00
+Folder Path              Chunks  Last Indexed          Watch
+/home/user/docs          312     2026-02-24T12:00:00   off
+/home/user/src           1024    2026-02-24T13:30:00   auto
 ```
 
 **Add:**

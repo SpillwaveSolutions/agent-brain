@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Integration Guide
 
 Patterns for integrating Agent Brain into scripts, applications, and CI/CD pipelines.
@@ -45,7 +49,7 @@ def get_server_url():
             capture_output=True, text=True, check=True
         )
         project_root = Path(result.stdout.strip())
-        runtime_path = project_root / ".claude" / "doc-serve" / "runtime.json"
+        runtime_path = project_root / ".agent-brain" / "runtime.json"
         if runtime_path.exists():
             state = json.loads(runtime_path.read_text())
             return state.get("base_url", "http://localhost:8000")
@@ -137,10 +141,39 @@ cd /project-b && agent-brain stop
 
 ---
 
+## Additional Integration Patterns
+
+### File Watcher Integration (v8.0+)
+
+Enable auto-reindex for continuous integration workflows:
+
+```bash
+# Enable file watcher on source directory
+agent-brain folders add ./src --watch auto --include-code --debounce 10
+
+# Monitor auto-triggered jobs
+agent-brain jobs --watch
+```
+
+### Embedding Cache Integration (v8.0+)
+
+Monitor cache health in CI pipelines:
+
+```bash
+# Check cache hit rate
+agent-brain cache status --json | jq '.hit_rate'
+
+# Clear cache if switching providers
+agent-brain cache clear --yes
+```
+
+---
+
 ## Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DOC_SERVE_URL` | Override server URL | Auto-discovered |
+| `AGENT_BRAIN_URL` | Override server URL | Auto-discovered |
+| `DOC_SERVE_URL` | Legacy override (still supported) | Auto-discovered |
 | `OPENAI_API_KEY` | Required for vector/hybrid modes | - |
 | `ANTHROPIC_API_KEY` | Optional for summarization | - |

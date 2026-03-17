@@ -101,15 +101,16 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ### Active
 
-## Current Milestone: v9.1.0 Generic Skills-Based Runtime Portability
+## Current Milestone: v9.2.0 Documentation Accuracy Audit
 
-**Goal:** Add installer-based runtime transformation that converts Claude plugin format into skill-directory installations for Codex and any skill-based runtime.
+**Goal:** Ensure all documentation accurately reflects the current behavior of the software — CLI commands, configuration schemas, APIs, examples, file paths, and installation instructions — serving as the quality gate before release.
 
 **Target features:**
-- Generic skill-runtime converter (commands/agents → skills)
-- Codex named adapter with AGENTS.md generation
-- `--dir` option for arbitrary skill directories
-- Templates and scripts as skill assets
+- Cross-check all docs against CLI `--help` output and source code definitions
+- Fix stale command names, flags, paths, links, and examples
+- Validate configuration schemas match source definitions
+- Verify API endpoint documentation matches OpenAPI spec
+- Add `last_validated` frontmatter metadata to audited files
 
 ### Out of Scope
 
@@ -188,4 +189,4 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 | eviction_summary as dict[str, Any] on JobRecord | Pydantic-friendly serialization, no server import in CLI | ✓ Good |
 
 ---
-*Last updated: 2026-03-06 after v8.0 milestone started*
+*Last updated: 2026-03-16 after v9.2.0 milestone started*

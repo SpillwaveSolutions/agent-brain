@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Agent Brain Installation Guide
 
 ## Overview
@@ -384,6 +388,62 @@ Agent Brain installs these major dependencies:
 | RAM | 512MB | 2GB |
 | Disk | 500MB | 2GB |
 | Python | 3.10 | 3.11+ |
+
+---
+
+## Multi-Runtime Installation (v9.0+)
+
+After installing the CLI, deploy the Agent Brain plugin to your AI coding assistant:
+
+```bash
+# Install for Claude Code (default)
+agent-brain install-agent --agent claude
+
+# Install for OpenCode
+agent-brain install-agent --agent opencode
+
+# Install for Gemini
+agent-brain install-agent --agent gemini
+
+# Install for Codex (generates skill directories + AGENTS.md)
+agent-brain install-agent --agent codex
+
+# Install for any skill-based runtime (requires --dir)
+agent-brain install-agent --agent skill-runtime --dir /path/to/skills
+
+# Dry run to preview files
+agent-brain install-agent --agent claude --dry-run
+
+# Global (user-level) installation
+agent-brain install-agent --agent claude --scope global
+```
+
+### Supported Runtimes
+
+| Runtime | Project Install Dir | Format |
+|---------|-------------------|--------|
+| `claude` | `.claude/plugins/agent-brain` | Claude plugin |
+| `opencode` | `.opencode/plugins/agent-brain` | OpenCode plugin |
+| `gemini` | `.gemini/plugins/agent-brain` | Gemini plugin |
+| `codex` | `.codex/skills/agent-brain` | Skill dirs + AGENTS.md |
+| `skill-runtime` | (requires `--dir`) | Generic skill dirs |
+
+### Uninstalling
+
+```bash
+agent-brain uninstall --agent claude
+agent-brain uninstall --agent claude --scope global
+```
+
+---
+
+## Key Features by Version
+
+| Version | Key Features |
+|---------|-------------|
+| v7.0 | Folder management (`folders add/list/remove`), file type presets (`types list`), content injection (`inject`), chunk eviction |
+| v8.0 | File watcher (auto-reindex on file changes), embedding cache, setup wizard, query cache, reranking |
+| v9.0+ | Multi-runtime install (5 runtimes), pluggable providers (7 providers), generic skill-runtime converter |
 
 ---
 

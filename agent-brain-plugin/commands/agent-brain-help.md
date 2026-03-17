@@ -8,6 +8,7 @@ parameters:
 skills:
   - using-agent-brain
   - agent-brain-setup
+last_validated: 2026-03-16
 ---
 
 # Agent Brain Help
@@ -48,15 +49,15 @@ Agent Brain Commands
 
 SEARCH COMMANDS
   agent-brain-search     Hybrid BM25+semantic search (recommended default)
-  agent-brain-semantic   Pure semantic vector search for conceptual queries
-  agent-brain-keyword    Pure BM25 keyword search for exact terms
+  agent-brain-bm25       Pure BM25 keyword search for exact terms
+  agent-brain-keyword    Alias for BM25 keyword search
+  agent-brain-hybrid     Hybrid BM25+semantic with alpha tuning
+  agent-brain-graph      GraphRAG relationship search (requires ENABLE_GRAPH_INDEX=true)
 
 SETUP COMMANDS
   agent-brain-install    Install Agent Brain packages from PyPI
-  agent-brain-setup      Complete guided setup (install, config, init, verify)
-  agent-brain-config     Configure API keys (OPENAI_API_KEY, ANTHROPIC_API_KEY)
+  agent-brain-config     View and manage provider configuration
   agent-brain-init       Initialize Agent Brain for current project
-  agent-brain-verify     Verify installation and configuration
 
 SERVER COMMANDS
   agent-brain-start      Start the Agent Brain server for this project
@@ -66,13 +67,18 @@ SERVER COMMANDS
 
 INDEXING COMMANDS
   agent-brain-index      Index documents for search
+  agent-brain-inject     Index documents with content injection (scripts/metadata)
+  agent-brain-folders    Manage indexed folders (list, add, remove)
+  agent-brain-types      List available file type presets
+  agent-brain-jobs       Monitor and manage async indexing jobs
   agent-brain-reset      Clear the document index (requires confirmation)
 
 CACHE COMMANDS
   agent-brain-cache      View cache metrics or clear embedding cache
 
 RUNTIME COMMANDS
-  agent-brain-install-agent  Install plugin for a runtime (Claude, OpenCode, Gemini)
+  agent-brain-install-agent  Install plugin for a runtime (Claude, OpenCode, Gemini, Codex, skill-runtime)
+  agent-brain-uninstall      Uninstall Agent Brain plugin files
 
 HELP
   agent-brain-help       Show this help message
@@ -139,23 +145,27 @@ Show comprehensive details:
 | Command | Category | Description |
 |---------|----------|-------------|
 | agent-brain-search | Search | Hybrid BM25+semantic search |
-| agent-brain-semantic | Search | Pure semantic vector search |
-| agent-brain-keyword | Search | Pure BM25 keyword search |
+| agent-brain-bm25 | Search | Pure BM25 keyword search |
+| agent-brain-keyword | Search | Alias for BM25 keyword search |
+| agent-brain-hybrid | Search | Hybrid BM25+semantic with alpha tuning |
 | agent-brain-graph | Search | GraphRAG relationship search* |
-| agent-brain-multi | Search | Multi-mode fusion search* |
 | agent-brain-install | Setup | Install packages from PyPI |
-| agent-brain-setup | Setup | Complete guided setup |
-| agent-brain-config | Setup | Configure API keys |
+| agent-brain-config | Setup | View and manage provider configuration |
 | agent-brain-init | Setup | Initialize for current project |
-| agent-brain-verify | Setup | Verify installation |
+| agent-brain-embeddings | Setup | Configure embedding provider |
 | agent-brain-start | Server | Start the server |
 | agent-brain-stop | Server | Stop the server |
 | agent-brain-status | Server | Show server status |
 | agent-brain-list | Server | List all instances |
 | agent-brain-index | Indexing | Index documents |
+| agent-brain-inject | Indexing | Index with content injection |
+| agent-brain-folders | Indexing | Manage indexed folders (list, add, remove) |
+| agent-brain-types | Indexing | List file type presets |
+| agent-brain-jobs | Indexing | Monitor and manage async jobs |
 | agent-brain-reset | Indexing | Clear the index |
 | agent-brain-cache | Cache | View cache metrics or clear embedding cache |
-| agent-brain-install-agent | Runtime | Install plugin for Claude, OpenCode, or Gemini |
+| agent-brain-install-agent | Runtime | Install plugin for Claude, OpenCode, Gemini, Codex, or skill-runtime |
+| agent-brain-uninstall | Runtime | Uninstall Agent Brain plugin |
 | agent-brain-help | Help | Show help |
 
 *Graph search requires `ENABLE_GRAPH_INDEX=true` (disabled by default)

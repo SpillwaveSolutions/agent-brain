@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Agent Brain System Architecture
 
 This document provides a comprehensive overview of Agent Brain's architecture, design decisions, and unique value proposition in the RAG ecosystem.

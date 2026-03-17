@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Interactive Setup Guide
 
 Guide for configuring Agent Brain through interactive prompts.
@@ -101,6 +105,49 @@ export OPENAI_API_KEY="sk-proj-..."
 echo 'export OPENAI_API_KEY="sk-proj-..."' >> ~/.bashrc
 source ~/.bashrc
 ```
+
+## Post-Configuration: Enable v8.0+ Features
+
+After setting up providers, consider enabling these optional features:
+
+### Embedding Cache (v8.0+)
+
+Automatically enabled. Reduces API costs by caching computed embeddings. Monitor with:
+
+```bash
+agent-brain cache status
+```
+
+### File Watcher (v8.0+)
+
+Enable automatic re-indexing when files change:
+
+```bash
+agent-brain folders add ./src --watch auto --include-code
+agent-brain folders add ./docs --watch auto
+```
+
+### Reranking (v8.0+)
+
+Enable two-stage retrieval for higher precision:
+
+```bash
+export ENABLE_RERANKING=true
+export RERANKER_PROVIDER=sentence-transformers
+```
+
+### Multi-Runtime Install (v9.0+)
+
+Install the plugin for your AI coding assistant:
+
+```bash
+agent-brain install-agent --agent claude    # Claude Code
+agent-brain install-agent --agent opencode  # OpenCode
+agent-brain install-agent --agent gemini    # Gemini
+agent-brain install-agent --agent codex     # Codex
+```
+
+---
 
 ## Verification Steps
 

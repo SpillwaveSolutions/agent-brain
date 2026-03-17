@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Agent Brain Configuration Guide
 
 ## Overview
@@ -531,6 +535,157 @@ cat .agent-brain/runtime.json
 
 # Override URL
 export AGENT_BRAIN_URL="http://127.0.0.1:49321"
+```
+
+---
+
+## File Watcher Configuration (v8.0+)
+
+The file watcher enables automatic re-indexing when files change in watched folders.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AGENT_BRAIN_WATCH_DEBOUNCE_SECONDS` | `30` | Debounce interval for file change events |
+
+### Folder Watch Setup
+
+```bash
+# Enable file watching on a folder
+agent-brain folders add ./src --watch auto --include-code
+
+# Custom debounce (10 seconds)
+agent-brain folders add ./src --watch auto --debounce 10
+
+# Disable watching
+agent-brain folders add ./docs --watch off
+```
+
+### Behavior
+
+- Changes are debounced per-folder (default 30 seconds)
+- Watcher-triggered jobs use incremental diff (only changed files re-processed)
+- Excluded directories: `.git/`, `node_modules/`, `__pycache__/`, `dist/`, `build/`
+- Jobs show `source: auto` in the queue
+
+---
+
+## Embedding Cache Configuration (v8.0+)
+
+The embedding cache reduces API costs by caching computed embeddings locally.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `EMBEDDING_CACHE_MAX_DISK_MB` | `500` | Maximum disk cache size in MB |
+| `EMBEDDING_CACHE_MAX_MEM_ENTRIES` | `1000` | In-memory LRU cache size |
+| `EMBEDDING_CACHE_PERSIST_STATS` | `false` | Persist hit/miss stats across restarts |
+
+### CLI Commands
+
+```bash
+# View cache statistics
+agent-brain cache status
+
+# View as JSON
+agent-brain cache status --json
+
+# Clear all cached embeddings
+agent-brain cache clear --yes
+```
+
+### Behavior
+
+- Two-tier: in-memory LRU + SQLite disk cache
+- Identical content returns cached embedding (no API call)
+- Cache is invalidated per-chunk when content changes
+- Healthy cache shows >80% hit rate after first full index
+
+---
+
+## Reranking Configuration (v8.0+)
+
+Two-stage retrieval with reranking for higher precision results.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ENABLE_RERANKING` | `false` | Enable/disable reranking |
+| `RERANKER_PROVIDER` | `sentence-transformers` | Reranker backend (`sentence-transformers` or `ollama`) |
+| `RERANKER_MODEL` | `cross-encoder/ms-marco-MiniLM-L-6-v2` | Cross-encoder model |
+| `RERANKER_TOP_K_MULTIPLIER` | `10` | Fetch top_k * N candidates in Stage 1 |
+| `RERANKER_MAX_CANDIDATES` | `100` | Cap on Stage 1 candidates |
+
+### YAML Configuration
+
+```yaml
+reranking:
+  enabled: true
+  provider: "sentence-transformers"
+  model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+  top_k_multiplier: 10
+  max_candidates: 100
+```
+
+---
+
+## Folder Management Configuration (v7.0+)
+
+### CLI Commands
+
+```bash
+# Add folder to index
+agent-brain folders add ./docs
+
+# Add with code file support
+agent-brain folders add ./src --include-code
+
+# List indexed folders
+agent-brain folders list
+
+# Remove folder and its chunks
+agent-brain folders remove ./docs --yes
+```
+
+---
+
+## File Type Presets (v7.0+)
+
+```bash
+# List available file type presets
+agent-brain types list
+
+# Index with specific file type preset
+agent-brain index ./src --include-type python
+agent-brain index ./src --include-type typescript
+```
+
+---
+
+## Content Injection (v7.0+)
+
+Content injection allows enriching documents during indexing with custom scripts.
+
+```bash
+# Index with content injection script
+agent-brain inject --script enrich.py ./docs
+```
+
+---
+
+## Multi-Runtime Install (v9.0+)
+
+Install the Agent Brain plugin into different AI coding assistant runtimes:
+
+```bash
+agent-brain install-agent --agent claude     # Claude Code
+agent-brain install-agent --agent opencode   # OpenCode
+agent-brain install-agent --agent gemini     # Gemini
+agent-brain install-agent --agent codex      # Codex
+agent-brain install-agent --agent skill-runtime --dir /path  # Generic
 ```
 
 ---

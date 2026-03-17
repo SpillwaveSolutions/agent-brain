@@ -4,13 +4,14 @@ description: Verify Agent Brain installation and configuration
 parameters: []
 skills:
   - configuring-agent-brain
+last_validated: 2026-03-16
 ---
 
 # Verify Agent Brain Setup
 
 ## Purpose
 
-Performs a comprehensive verification of the Agent Brain installation, checking that all components are properly installed, configured, and functioning. This command provides a quick health check and identifies any issues that need attention.
+Performs a comprehensive verification of the Agent Brain installation, checking that all components are properly installed, configured, and functioning. This is a plugin-level workflow that runs multiple CLI commands to produce a consolidated health check report.
 
 ## Usage
 
@@ -36,11 +37,11 @@ python -c "import agent_brain_server; print(agent_brain_server.__version__)" 2>/
 python --version
 ```
 
-### Step 3: Check API Keys
+### Step 3: Check Provider Configuration
 
 ```bash
-echo "OPENAI_API_KEY: ${OPENAI_API_KEY:+SET}"
-echo "ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:+SET}"
+# Show active provider config
+agent-brain config show 2>/dev/null || echo "Config not available"
 ```
 
 ### Step 4: Check Project Initialization
@@ -58,7 +59,7 @@ agent-brain status
 ### Step 6: Run Health Check (if server running)
 
 ```bash
-curl -s http://127.0.0.1:$(cat .agent-brain/runtime.json 2>/dev/null | python -c "import sys,json; print(json.load(sys.stdin).get('port', 8000))")/health 2>/dev/null || echo "Server not running"
+agent-brain status --json 2>/dev/null || echo "Server not running"
 ```
 
 ## Output

@@ -2,12 +2,34 @@
 name: agent-brain-start
 description: Start the Agent Brain server for this project
 parameters:
-  - name: daemon
-    description: Run in background (default true)
+  - name: path
+    description: Project path (default auto-detect project root)
     required: false
-    default: true
+  - name: host
+    description: Server bind host (overrides config)
+    required: false
+  - name: port
+    description: Server port (overrides config)
+    required: false
+  - name: foreground
+    description: Run in foreground instead of daemonizing
+    required: false
+    default: false
+  - name: timeout
+    description: Startup timeout in seconds
+    required: false
+    default: 30
+  - name: strict
+    description: Fail on critical provider configuration errors
+    required: false
+    default: false
+  - name: json
+    description: Output as JSON
+    required: false
+    default: false
 skills:
   - using-agent-brain
+last_validated: 2026-03-16
 ---
 
 # Agent Brain Start
@@ -22,14 +44,20 @@ Starts the Agent Brain server for the current project. The server provides:
 ## Usage
 
 ```
-/agent-brain:agent-brain-start 
+/agent-brain:agent-brain-start [--path <dir>] [--host <host>] [--port <port>] [--foreground] [--strict] [--json]
 ```
 
 ### Parameters
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| daemon | No | true | Run server in background |
+| --path, -p | No | auto-detect | Project path |
+| --host | No | 127.0.0.1 | Server bind host (overrides config) |
+| --port | No | auto-select (8000-8100) | Server port (overrides config) |
+| --foreground, -f | No | false | Run in foreground (don't daemonize) |
+| --timeout | No | 30 | Startup timeout in seconds |
+| --strict | No | false | Fail on critical provider config errors |
+| --json | No | false | Output as JSON |
 
 ## Execution
 
@@ -50,11 +78,23 @@ agent-brain init
 ### Start Server
 
 ```bash
-# Start in background (recommended)
+# Start in background (default, recommended)
 agent-brain start
 
-# Start in foreground (for debugging)
-agent-brain start
+# Start on a specific port
+agent-brain start --port 8080
+
+# Start in foreground for debugging
+agent-brain start --foreground
+
+# Start with strict mode (fail on missing API keys)
+agent-brain start --strict
+
+# Start for a specific project path
+agent-brain start --path /my/project
+
+# JSON output for scripting
+agent-brain start --json
 ```
 
 ### Verify Server Started
@@ -68,33 +108,44 @@ agent-brain status
 ### Successful Start
 
 ```
-Starting Agent Brain server...
+Agent Brain Server Running
+URL: http://127.0.0.1:8000
+PID: 12345
+Project: /home/user/my-project
+Log: /home/user/my-project/.agent-brain/logs/server.log
 
-Server started successfully!
-  URL:      http://127.0.0.1:49321
-  Port:     49321
-  Mode:     project
-  Project:  my-project
-  PID:      12345
+Next steps:
+  - Query: agent-brain query 'search term' --url http://127.0.0.1:8000
+  - Stop: agent-brain stop
+```
 
-Runtime config saved to: .agent-brain/runtime.json
+### JSON Output
 
-To check status:  /agent-brain:agent-brain-status
-To stop server:   /agent-brain:agent-brain-stop
+```json
+{
+  "status": "started",
+  "base_url": "http://127.0.0.1:8000",
+  "pid": 12345,
+  "project_root": "/home/user/my-project",
+  "log_file": "/home/user/my-project/.agent-brain/logs/server.log"
+}
 ```
 
 ### Runtime Configuration
 
-The server creates a runtime file at `.agent-brain/runtime.json`:
+The server creates a runtime file (in the state directory) with:
 
 ```json
 {
+  "schema_version": "1.0",
   "mode": "project",
-  "port": 49321,
-  "base_url": "http://127.0.0.1:49321",
+  "project_root": "/home/user/my-project",
+  "instance_id": "a1b2c3d4e5f6",
+  "base_url": "http://127.0.0.1:8000",
+  "bind_host": "127.0.0.1",
+  "port": 8000,
   "pid": 12345,
-  "project_id": "my-project",
-  "started_at": "2026-01-31T10:30:00Z"
+  "started_at": "2026-01-31T10:30:00+00:00"
 }
 ```
 
@@ -105,9 +156,8 @@ This file enables automatic server discovery for CLI commands.
 ### Project Not Initialized
 
 ```
-Error: Project not initialized for Agent Brain
-
-Run 'agent-brain init' first to initialize this project.
+Error: Project not initialized at /home/user/my-project
+Run 'agent-brain init' to initialize the project.
 ```
 
 **Resolution**:
@@ -118,45 +168,45 @@ agent-brain start
 
 ### Server Already Running
 
-```
-Error: Agent Brain server already running on port 49321
-PID: 12345
+If a server is already running for this project, the command reports the existing URL instead of starting a new one:
 
-To restart: agent-brain stop && agent-brain start
+```
+Server Running
+Server already running!
+URL: http://127.0.0.1:8000
+PID: 12345
+Project: /home/user/my-project
 ```
 
 **Resolution**:
-- Use existing server, or
+- Use the existing server, or
 - Stop and restart: `agent-brain stop && agent-brain start`
 
-### Port Conflict
+### No Available Port
 
 ```
-Error: Port 8000 already in use
-
-Agent Brain will automatically find an available port.
-Starting on port 49322...
+Error: No available port in range 8000-8100
 ```
 
-Agent Brain automatically allocates an available port when the default is busy.
+**Resolution**: Specify a port explicitly or stop other instances:
+```bash
+agent-brain start --port 9000
+# or
+agent-brain list --all
+agent-brain stop
+```
 
 ### Missing API Keys
 
-```
-Warning: OPENAI_API_KEY not set
-Server will start, but semantic search will be unavailable.
-
-To enable semantic search:
-  export OPENAI_API_KEY="sk-proj-..."
-```
+The server starts even without API keys, but provider-dependent features will be unavailable. Use `--strict` to force failure on missing keys.
 
 **Resolution**: Set the API key via config file or environment variable and restart.
 
-**Option 1: Config file** (`~/.agent-brain/config.yaml`):
+**Option 1: Config file** (`.agent-brain/config.yaml` or `~/.config/agent-brain/config.yaml`):
 ```yaml
 embedding:
   provider: "openai"
-  api_key: "sk-proj-..."
+  api_key_env: "OPENAI_API_KEY"
 ```
 
 **Option 2: Environment variable**:
@@ -173,7 +223,7 @@ agent-brain start
 ### Permission Denied
 
 ```
-Error: Permission denied when creating runtime directory
+Permission Error: [Errno 13] Permission denied: ...
 ```
 
 **Resolution**:
@@ -197,8 +247,8 @@ agent-brain status
 # Index documentation
 agent-brain index docs/
 
-# Index code files
-agent-brain index src/ --include-code
+# Index code with type preset
+agent-brain index src/ --include-type python
 ```
 
 ### 3. Test Search
@@ -207,25 +257,28 @@ agent-brain index src/ --include-code
 agent-brain query "test query" --mode hybrid
 ```
 
-## Server Modes
+## Server Behavior
 
-### Project Mode (Default)
+### Project Root Resolution
 
-- Server runs for a single project
-- Data stored in `.agent-brain/`
-- Automatic port allocation
-- Isolated from other projects
+The server auto-detects the project root by:
+1. Git repository root (`git rev-parse --show-toplevel`)
+2. Walking up looking for `.agent-brain/` directory
+3. Walking up looking for `.claude/` directory
+4. Walking up looking for `pyproject.toml`
+5. Falling back to current working directory
 
-### Shared Mode
+### Port Allocation
 
-```bash
-AGENT_BRAIN_MODE=shared agent-brain start
-```
+By default, `auto_port` is enabled and the server finds an available port in the 8000-8100 range. Override with `--port` or disable auto-port in `config.json`.
 
-- Server serves multiple projects
-- Data stored in `~/.agent-brain/`
-- Fixed port (default 8000)
-- Shared index across projects
+### Stale State Cleanup
+
+If a previous server died without cleanup, `agent-brain start` automatically detects and cleans up stale state before starting.
+
+### Registry
+
+Each started server is registered in the global registry (`~/.local/state/agent-brain/registry.json`) so `agent-brain list` can discover all instances.
 
 ## Related Commands
 
@@ -252,7 +305,8 @@ AGENT_BRAIN_MODE=shared agent-brain start
 
 3. Check logs:
    ```bash
-   cat .agent-brain/server.log
+   cat .agent-brain/logs/server.log
+   cat .agent-brain/logs/server.err
    ```
 
 ### Server Crashes on Start

@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Agent Brain Development Guidelines
 
 Instructions for Claude Code when working on this repository.
@@ -153,33 +157,61 @@ doc-serve/
 
 ## CLI Commands
 
-### Multi-Instance Commands (new)
+### Project Commands
 
 | Command | Description |
 |---------|-------------|
-| `agent-brain init` | Initialize project for Agent Brain (creates .claude/agent-brain/) |
-| `agent-brain start` | Start Agent Brain server for current project |
-| `agent-brain stop` | Stop the running server |
+| `agent-brain init` | Initialize a new Agent Brain project (creates .agent-brain/) |
+| `agent-brain start` | Start an Agent Brain server for this project |
+| `agent-brain stop` | Stop the Agent Brain server for this project |
 | `agent-brain list` | List all running Agent Brain instances |
 
-### Data Commands
+### Server Commands
 
 | Command | Description |
 |---------|-------------|
-| `agent-brain status` | Check server status |
-| `agent-brain query "text"` | Search documents |
-| `agent-brain index /path` | Index documents (queued) |
-| `agent-brain index /path --force` | Index, bypass deduplication |
-| `agent-brain reset --yes` | Clear index |
+| `agent-brain status` | Check Agent Brain server status and health |
+| `agent-brain query "text"` | Search indexed documents |
+| `agent-brain index /path` | Index documents from a folder (queued) |
+| `agent-brain inject /path --script enrich.py` | Index documents with content injection |
+| `agent-brain reset --yes` | Clear all indexed documents |
 
-### Job Queue Commands (new)
+### Job Queue Commands
 
 | Command | Description |
 |---------|-------------|
 | `agent-brain jobs` | List all jobs in queue |
-| `agent-brain jobs --watch` | Watch queue with live updates |
+| `agent-brain jobs --watch` | Watch queue with live updates (refresh every 3s) |
 | `agent-brain jobs JOB_ID` | Show job details |
 | `agent-brain jobs JOB_ID --cancel` | Cancel a job |
+
+### Cache Commands
+
+| Command | Description |
+|---------|-------------|
+| `agent-brain cache status` | Show embedding cache statistics |
+| `agent-brain cache clear` | Clear all cached embeddings |
+
+### Folder Commands
+
+| Command | Description |
+|---------|-------------|
+| `agent-brain folders list` | List all indexed folders with chunk counts |
+| `agent-brain folders add /path` | Index a new folder (alias for index) |
+| `agent-brain folders remove /path` | Remove all indexed chunks for a folder |
+
+### File Type Commands
+
+| Command | Description |
+|---------|-------------|
+| `agent-brain types list` | List available file type presets and extensions |
+
+### Configuration Commands
+
+| Command | Description |
+|---------|-------------|
+| `agent-brain config show` | Display active provider configuration |
+| `agent-brain config path` | Show config file location |
 
 ### Runtime Installation Commands
 
@@ -192,6 +224,12 @@ doc-serve/
 | `agent-brain install-agent --agent skill-runtime --dir <path>` | Install for any skill-based runtime |
 | `agent-brain install-agent --agent <runtime> --dry-run` | Preview installation |
 | `agent-brain install-agent --agent <runtime> --global` | Install globally |
+
+### Other Commands
+
+| Command | Description |
+|---------|-------------|
+| `agent-brain uninstall` | Remove all global Agent Brain data and stop running servers |
 
 ## Environment Variables
 
@@ -206,14 +244,16 @@ doc-serve/
 | `API_HOST` | No | `127.0.0.1` | Server host |
 | `API_PORT` | No | `8000` | Server port |
 | `DEBUG` | No | `false` | Debug mode |
-| `DOC_SERVE_STATE_DIR` | No | - | Override state directory for multi-instance |
-| `DOC_SERVE_MODE` | No | `project` | Instance mode: 'project' or 'shared' |
+| `AGENT_BRAIN_STATE_DIR` | No | - | Override state directory for multi-instance |
+| `AGENT_BRAIN_MODE` | No | `project` | Instance mode: 'project' or 'shared' |
+| `AGENT_BRAIN_STRICT_MODE` | No | `false` | Fail on critical validation errors |
+| `AGENT_BRAIN_STORAGE_BACKEND` | No | - | Override YAML storage config ('chroma' or 'postgres') |
 
 ### CLI
 
 | Variable | Description |
 |----------|-------------|
-| `DOC_SERVE_URL` | Server URL (default: http://127.0.0.1:8000) |
+| `AGENT_BRAIN_URL` | Server URL (default: http://127.0.0.1:8000) |
 
 ## Security Notes
 
@@ -225,7 +265,7 @@ doc-serve/
 
 - [User Guide](docs/USER_GUIDE.md) - End-user documentation
 - [Developer Guide](docs/DEVELOPERS_GUIDE.md) - Development setup
-- [API Reference](agent-brain-skill/doc-serve/references/api_reference.md) - Full API docs
+- [API Reference](docs/API_REFERENCE.md) - Full API docs
 - [Original Spec](docs/ORIGINAL_SPEC.md) - Project specification
 
 ## Quality Assurance

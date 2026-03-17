@@ -6,8 +6,16 @@ parameters:
     description: Skip confirmation prompt
     required: false
     default: false
+  - name: url
+    description: Server URL (default from config or http://127.0.0.1:8000)
+    required: false
+  - name: json
+    description: Output as JSON
+    required: false
+    default: false
 skills:
   - using-agent-brain
+last_validated: 2026-03-16
 ---
 
 # Reset Document Index
@@ -19,20 +27,23 @@ Clears all indexed documents from the Agent Brain server. This removes all vecto
 ## Usage
 
 ```
-/agent-brain:agent-brain-reset [--yes]
+/agent-brain:agent-brain-reset [--yes] [--url <url>] [--json]
 ```
 
 ### Parameters
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| --yes | No | false | Skip confirmation prompt and proceed immediately |
+| --yes, -y | No | false | Skip confirmation prompt and proceed immediately |
+| --url | No | from config or http://127.0.0.1:8000 | Server URL (env: AGENT_BRAIN_URL) |
+| --json | No | false | Output as JSON |
 
 ### Examples
 
 ```
 /agent-brain:agent-brain-reset           # Prompts for confirmation
 /agent-brain:agent-brain-reset --yes     # Skips confirmation
+/agent-brain:agent-brain-reset --json    # JSON output (skips confirmation)
 ```
 
 ## Execution
@@ -106,9 +117,9 @@ After reset, report:
 | Error | Cause | Resolution |
 |-------|-------|------------|
 | Server not running | Agent Brain server is stopped | Start with `/agent-brain:agent-brain-start` |
+| Server Error (409) | Indexing is in progress | Wait for indexing to complete, then retry |
 | Index already empty | No documents to clear | No action needed |
 | Permission denied | Cannot write to storage directory | Check directory permissions |
-| Lock file present | Another operation in progress | Wait and retry |
 
 ### Recovery Commands
 

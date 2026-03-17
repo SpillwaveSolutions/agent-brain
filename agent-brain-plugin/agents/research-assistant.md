@@ -12,6 +12,7 @@ triggers:
     type: message_pattern
 skills:
   - using-agent-brain
+last_validated: 2026-03-16
 ---
 
 # Research Assistant Agent
@@ -308,6 +309,54 @@ The codebase uses a layered error handling approach with custom exception classe
 
 ---
 
+## File Type Filtering (v7.0+)
+
+When researching specific types of content, leverage file type presets:
+
+```bash
+# Search only indexed Python files
+agent-brain index ./src --include-type python
+
+# Index TypeScript/JavaScript separately
+agent-brain index ./frontend --include-type typescript
+```
+
+Use `agent-brain folders list` to see which folders are indexed and `agent-brain types list` to see available file type presets.
+
+---
+
+## Folder Management for Scoped Research (v7.0+)
+
+Organize research scope with folder management:
+
+```bash
+# Add specific folders for focused research
+agent-brain folders add ./docs
+agent-brain folders add ./src --include-code
+
+# Check what's indexed
+agent-brain folders list
+
+# Remove irrelevant folders
+agent-brain folders remove ./vendor --yes
+```
+
+---
+
+## File Watcher for Live Research (v8.0+)
+
+Enable automatic re-indexing so research results stay current:
+
+```bash
+# Enable auto-reindex on source changes
+agent-brain folders add ./src --watch auto --include-code --debounce 10
+
+# Monitor auto-triggered indexing jobs
+agent-brain jobs --watch
+```
+
+---
+
 ## Best Practices for Research
 
 1. **Start Broad, Then Focus**: Begin with a comprehensive search, then drill down
@@ -317,6 +366,8 @@ The codebase uses a layered error handling approach with custom exception classe
 5. **Summarize First**: Lead with a summary before diving into details
 6. **Show Relationships**: When relevant, visualize how components connect
 7. **Graceful Degradation**: Work with available capabilities without complaining
+8. **Use Folder Scoping**: Index only relevant directories for focused research
+9. **Enable File Watcher**: Keep research data current with auto-reindex
 
 ## Error Handling
 

@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Server Discovery Guide
 
 Automatic discovery and management of Agent Brain instances.
@@ -73,7 +77,7 @@ def discover_server():
         project_root = Path.cwd()
 
     # Check for runtime.json
-    runtime_path = project_root / ".claude" / "agent-brain" / "runtime.json"
+    runtime_path = project_root / ".agent-brain" / "runtime.json"
     if not runtime_path.exists():
         return None
 

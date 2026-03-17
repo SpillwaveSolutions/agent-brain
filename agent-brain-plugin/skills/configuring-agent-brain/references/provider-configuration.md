@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Provider Configuration Guide
 
 Agent Brain supports pluggable providers for embeddings and summarization. This guide covers all configuration options.
@@ -297,6 +301,37 @@ SUMMARIZATION_PROVIDER=grok
 SUMMARIZATION_MODEL=grok-4
 XAI_API_KEY=...
 ```
+
+### SentenceTransformers Reranker Configuration (v8.0+)
+
+Agent Brain supports two-stage retrieval with reranking for higher-precision results.
+
+```bash
+ENABLE_RERANKING=true
+RERANKER_PROVIDER=sentence-transformers  # or "ollama"
+RERANKER_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2
+RERANKER_TOP_K_MULTIPLIER=10
+RERANKER_MAX_CANDIDATES=100
+```
+
+**Reranker Providers:**
+
+| Provider | Models | API Key | Characteristics |
+|----------|--------|---------|-----------------|
+| SentenceTransformers | cross-encoder/ms-marco-MiniLM-L-6-v2 | None (local) | Fast local cross-encoder |
+| Ollama | (reranker-compatible models) | None (local) | Uses Ollama for reranking |
+
+**YAML Configuration:**
+```yaml
+reranking:
+  enabled: true
+  provider: "sentence-transformers"
+  model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+  top_k_multiplier: 10
+  max_candidates: 100
+```
+
+---
 
 ## Verifying Configuration
 

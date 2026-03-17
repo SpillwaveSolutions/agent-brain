@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Provider Configuration Reference
 
 Complete reference for Agent Brain's pluggable provider system. This document covers all supported embedding, summarization, and reranking providers with configuration examples and troubleshooting guidance.
@@ -26,11 +30,13 @@ Agent Brain uses a pluggable provider architecture that allows you to mix and ma
 Agent Brain searches for `config.yaml` in the following locations (in order):
 
 1. **AGENT_BRAIN_CONFIG environment variable** - Direct path override
-2. **State directory** - `$AGENT_BRAIN_STATE_DIR/config.yaml` or `$DOC_SERVE_STATE_DIR/config.yaml`
+2. **State directory** - `$AGENT_BRAIN_STATE_DIR/config.yaml` or `$DOC_SERVE_STATE_DIR/config.yaml` (legacy fallback)
 3. **Current directory** - `./config.yaml`
-4. **Project .claude directory** - Walk up from CWD looking for `.claude/agent-brain/config.yaml`
-5. **User home** - `~/.agent-brain/config.yaml`
-6. **XDG config** - `~/.config/agent-brain/config.yaml`
+4. **Project directory (walk up from CWD)** - `.agent-brain/config.yaml` (canonical) or `.claude/agent-brain/config.yaml` (legacy fallback)
+5. **XDG config** - `~/.config/agent-brain/config.yaml` or `~/.config/agent-brain/agent-brain.yaml`
+6. **Legacy home** - `~/.agent-brain/config.yaml` or `~/.agent-brain/agent-brain.yaml` (deprecated, logs warning)
+
+> **Note:** `.agent-brain/` is the canonical project config directory. `.claude/agent-brain/` is supported as a legacy fallback. For new projects, use `.agent-brain/config.yaml`.
 
 The first config file found is used. If no config file is found, Agent Brain uses default providers (OpenAI + Anthropic).
 
@@ -69,11 +75,17 @@ embedding:
   provider: openai
   model: text-embedding-3-large
   api_key_env: OPENAI_API_KEY
+  # api_key: sk-...          # Alternative: inline API key (not recommended for shared configs)
+  # base_url: null            # Custom endpoint URL (for proxies or compatible APIs)
+  # params: {}                # Provider-specific parameters
 
 summarization:
   provider: anthropic
   model: claude-haiku-4-5-20251001
   api_key_env: ANTHROPIC_API_KEY
+  # api_key: sk-ant-...      # Alternative: inline API key (not recommended for shared configs)
+  # base_url: null            # Custom endpoint URL
+  # params: {}                # Provider-specific parameters (max_tokens, temperature)
 ```
 
 **Reference:** `e2e/fixtures/config_openai.yaml`
@@ -83,6 +95,8 @@ summarization:
 export OPENAI_API_KEY=sk-...
 export ANTHROPIC_API_KEY=sk-ant-...
 ```
+
+> **Tip:** Each provider section supports an `api_key` field as an alternative to `api_key_env`. Use `api_key` for local-only config files that are not committed to version control. Use `api_key_env` (the default) to reference environment variables.
 
 ### Fully Offline (Ollama Only)
 
@@ -201,6 +215,111 @@ summarization:
 **Reference:** `e2e/fixtures/config_anthropic.yaml`
 
 This is the same as the default configuration but explicitly tests Anthropic summarization provider instantiation and configuration.
+
+### Gemini Summarization
+
+Use Google Gemini for summarization with OpenAI embeddings:
+
+```yaml
+# config.yaml
+embedding:
+  provider: openai
+  model: text-embedding-3-large
+  api_key_env: OPENAI_API_KEY
+
+summarization:
+  provider: gemini
+  model: gemini-1.5-flash
+  api_key_env: GOOGLE_API_KEY
+  # base_url: null            # Uses default Google AI endpoint
+  # params: {}                # Provider-specific parameters
+```
+
+**Required environment variables:**
+```bash
+export OPENAI_API_KEY=sk-...
+export GOOGLE_API_KEY=AIza...
+```
+
+### Grok Summarization
+
+Use xAI Grok for summarization with OpenAI embeddings:
+
+```yaml
+# config.yaml
+embedding:
+  provider: openai
+  model: text-embedding-3-large
+  api_key_env: OPENAI_API_KEY
+
+summarization:
+  provider: grok
+  model: grok-beta
+  api_key_env: XAI_API_KEY
+  base_url: https://api.x.ai/v1
+  # params: {}                # Provider-specific parameters
+```
+
+**Required environment variables:**
+```bash
+export OPENAI_API_KEY=sk-...
+export XAI_API_KEY=...
+```
+
+**Note:** Grok uses the xAI API endpoint. The `base_url` defaults to `https://api.x.ai/v1` if not specified, but it is recommended to include it explicitly for clarity.
+
+### Storage Backend Configuration
+
+Configure the storage backend via the top-level `storage:` key:
+
+```yaml
+# config.yaml — ChromaDB (default)
+storage:
+  backend: chroma
+
+# config.yaml — PostgreSQL
+storage:
+  backend: postgres
+  postgres:
+    host: localhost
+    port: 5432
+    database: agent_brain
+    user: postgres
+    password: secret
+```
+
+**Fields:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `backend` | string | `chroma` | Storage backend: `chroma` or `postgres` |
+| `postgres` | dict | `{}` | PostgreSQL connection parameters (host, port, database, user, password) |
+
+**Note:** If using `postgres` backend, you can alternatively set the `DATABASE_URL` environment variable instead of providing individual connection parameters in the `postgres` dict.
+
+### Complete Configuration Example
+
+A full config.yaml showing all top-level sections:
+
+```yaml
+# .agent-brain/config.yaml — complete example
+embedding:
+  provider: openai
+  model: text-embedding-3-large
+  api_key_env: OPENAI_API_KEY
+
+summarization:
+  provider: anthropic
+  model: claude-haiku-4-5-20251001
+  api_key_env: ANTHROPIC_API_KEY
+
+reranker:
+  provider: sentence-transformers
+  model: cross-encoder/ms-marco-MiniLM-L-6-v2
+
+storage:
+  backend: chroma
+```
 
 ## Environment Variables
 
@@ -339,7 +458,7 @@ agent-brain config path
 **Example output:**
 ```bash
 $ agent-brain config path
-Using config file: /Users/dev/project/.claude/agent-brain/config.yaml
+Using config file: /Users/dev/project/.agent-brain/config.yaml
 
 $ agent-brain config show
 Embedding Provider: openai
@@ -457,8 +576,8 @@ agent-brain config path
 
 1. **Create config in project directory:**
    ```bash
-   mkdir -p .claude/agent-brain
-   cp e2e/fixtures/config_openai.yaml .claude/agent-brain/config.yaml
+   mkdir -p .agent-brain
+   cp e2e/fixtures/config_openai.yaml .agent-brain/config.yaml
    ```
 
 2. **Use AGENT_BRAIN_CONFIG:**
@@ -469,11 +588,12 @@ agent-brain config path
 3. **Check search locations:**
    Agent Brain searches these locations in order:
    - `$AGENT_BRAIN_CONFIG`
-   - `$AGENT_BRAIN_STATE_DIR/config.yaml`
+   - `$AGENT_BRAIN_STATE_DIR/config.yaml` (or `$DOC_SERVE_STATE_DIR/config.yaml`)
    - `./config.yaml`
-   - `.claude/agent-brain/config.yaml` (walking up from CWD)
-   - `~/.agent-brain/config.yaml`
-   - `~/.config/agent-brain/config.yaml`
+   - `.agent-brain/config.yaml` (walking up from CWD; canonical path)
+   - `.claude/agent-brain/config.yaml` (walking up from CWD; legacy fallback)
+   - `~/.config/agent-brain/config.yaml` (XDG config)
+   - `~/.agent-brain/config.yaml` (deprecated legacy path)
 
 ### Cohere Authentication Error
 

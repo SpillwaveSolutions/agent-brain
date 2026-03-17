@@ -11,13 +11,16 @@ parameters:
     required: false
 skills:
   - using-agent-brain
+last_validated: 2026-03-16
 ---
 
 # Agent Brain Version Management
 
 ## Purpose
 
-Shows current Agent Brain version and manages version installations. Use this command to check versions, list available releases, upgrade to latest, or install specific versions.
+Shows current Agent Brain version and manages version installations. Use this plugin command to check versions, list available releases, upgrade to latest, or install specific versions.
+
+**Note:** The CLI provides `agent-brain --version` for version display. The list, install, and upgrade actions described below are plugin-level workflows that execute pip/uv commands.
 
 ## Usage
 
@@ -45,11 +48,16 @@ Shows current Agent Brain version and manages version installations. Use this co
 
 ### Show Current Version (Default)
 
-```bash
-# CLI version
-agent-brain --version
+The CLI provides a built-in version flag:
 
-# Python package versions
+```bash
+# Show CLI version
+agent-brain --version
+```
+
+To check installed Python package versions:
+
+```bash
 pip show agent-brain-rag agent-brain-cli | grep -E "^(Name|Version)"
 ```
 
@@ -58,24 +66,25 @@ pip show agent-brain-rag agent-brain-cli | grep -E "^(Name|Version)"
 ```bash
 # List all available versions on PyPI
 pip index versions agent-brain-rag 2>/dev/null | head -20
-
-# Alternative
-pip install agent-brain-rag== 2>&1 | grep -oP '\d+\.\d+\.\d+' | head -10
 ```
 
 ### Install Specific Version
 
 ```bash
-# Set desired version
-VERSION="X.Y.Z"  # e.g., 3.0.0, 2.0.0
+# Install specific version (using uv for speed)
+uv pip install agent-brain-rag==X.Y.Z agent-brain-cli==X.Y.Z
 
-# Install specific version
-pip install agent-brain-rag==$VERSION agent-brain-cli==$VERSION
+# Or with pip
+pip install agent-brain-rag==X.Y.Z agent-brain-cli==X.Y.Z
 ```
 
 ### Upgrade to Latest
 
 ```bash
+# Using uv (preferred)
+uv pip install --upgrade agent-brain-rag agent-brain-cli
+
+# Or with pip
 pip install --upgrade agent-brain-rag agent-brain-cli
 ```
 

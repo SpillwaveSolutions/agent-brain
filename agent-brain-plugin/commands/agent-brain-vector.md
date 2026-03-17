@@ -15,6 +15,7 @@ parameters:
     default: 0.3
 skills:
   - using-agent-brain
+last_validated: 2026-03-16
 ---
 
 # Agent Brain Vector Search
@@ -41,8 +42,15 @@ Vector search is ideal for:
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
 | query | Yes | - | The conceptual search query |
-| --top-k | No | 5 | Number of results (1-20) |
-| --threshold | No | 0.3 | Minimum similarity (0.0-1.0) |
+| --top-k, -k | No | 5 | Number of results (1-20) |
+| --threshold, -t | No | 0.3 | Minimum similarity (0.0-1.0) |
+| --source-types | No | - | Filter by source type (doc,code,test) |
+| --languages | No | - | Filter by programming language |
+| --file-paths | No | - | Filter by file path patterns (wildcards) |
+| --scores | No | false | Show individual vector/BM25 scores |
+| --full | No | false | Show full text content |
+| --json | No | false | Output as JSON |
+| --url | No | from config | Server URL (env: AGENT_BRAIN_URL) |
 
 ### When to Use Vector vs Other Modes
 
@@ -175,19 +183,19 @@ No results found above threshold 0.3
 - Use hybrid mode for mixed queries: `--mode hybrid`
 - Verify documents are indexed: `agent-brain status`
 
-### API Key Missing
+### Embedding Provider Not Configured
 
 ```
-Error: OPENAI_API_KEY not set
+Error: Embedding provider not configured
 ```
 
 **Resolution:**
 ```bash
+# OpenAI (cloud)
 export OPENAI_API_KEY="sk-proj-..."
 
-# Or use local embeddings:
-export EMBEDDING_PROVIDER=ollama
-export EMBEDDING_MODEL=nomic-embed-text
+# Or use local Ollama (free, no API key):
+# Configure in config.yaml: embedding.provider: ollama, embedding.model: nomic-embed-text
 ```
 
 ### Embedding Provider Error

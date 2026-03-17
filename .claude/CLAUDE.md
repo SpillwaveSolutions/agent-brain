@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with the Agent Brain repository.
@@ -143,6 +147,39 @@ This validates the complete workflow from server startup to advanced querying.
 - `scripts/quick_start_guide.sh` - End-to-end validation script
 - `e2e/integration/test_full_workflow.py` - Integration tests
 - `AGENTS.md` - AI agent guidelines for this project
+
+## CLI Commands
+
+### Project Commands
+
+| Command | Description |
+|---------|-------------|
+| `agent-brain init` | Initialize a new Agent Brain project (creates .agent-brain/) |
+| `agent-brain start` | Start an Agent Brain server for this project |
+| `agent-brain stop` | Stop the Agent Brain server for this project |
+| `agent-brain list` | List all running Agent Brain instances |
+
+### Server Commands
+
+| Command | Description |
+|---------|-------------|
+| `agent-brain status` | Check Agent Brain server status and health |
+| `agent-brain query "text"` | Search indexed documents |
+| `agent-brain index /path` | Index documents from a folder (queued) |
+| `agent-brain inject /path --script enrich.py` | Index documents with content injection |
+| `agent-brain jobs` | View and manage job queue |
+| `agent-brain reset --yes` | Clear all indexed documents |
+
+### Management Commands
+
+| Command | Description |
+|---------|-------------|
+| `agent-brain cache status/clear` | Manage the embedding cache |
+| `agent-brain folders list/add/remove` | Manage indexed folders |
+| `agent-brain types list` | List available file type presets |
+| `agent-brain config show/path` | View and manage configuration |
+| `agent-brain install-agent --agent <runtime>` | Install plugin for a specific runtime |
+| `agent-brain uninstall` | Remove all global Agent Brain data |
 
 ## Git Workflow
 

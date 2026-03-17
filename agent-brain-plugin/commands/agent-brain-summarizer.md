@@ -10,6 +10,7 @@ parameters:
     required: false
 skills:
   - using-agent-brain
+last_validated: 2026-03-16
 ---
 
 # Agent Brain Summarizer Configuration
@@ -154,7 +155,17 @@ Options:
 
 ### Apply Configuration
 
-Generate the export commands:
+Update the project configuration in `config.yaml`:
+
+```yaml
+# In .agent-brain/config.yaml or ~/.config/agent-brain/config.yaml
+summarization:
+  provider: anthropic
+  model: claude-haiku-4-5-20251001
+  api_key_env: ANTHROPIC_API_KEY
+```
+
+Or set environment variables:
 
 ```bash
 # Add to your shell profile or .env file:
@@ -162,11 +173,10 @@ export SUMMARIZATION_PROVIDER=anthropic
 export SUMMARIZATION_MODEL=claude-haiku-4-5-20251001
 ```
 
-Or update the project configuration:
+To verify the active configuration:
 
 ```bash
-agent-brain config set summarization_provider anthropic
-agent-brain config set summarization_model claude-haiku-4-5-20251001
+agent-brain config show
 ```
 
 ## Post-Configuration
@@ -184,11 +194,12 @@ agent-brain index /path/to/docs
 ## Verification
 
 ```bash
-# Verify summarization provider is working
-agent-brain verify
+# Verify current provider configuration
+agent-brain config show
 
-# Test summarization
-agent-brain test-summarize "def hello_world():\n    print('Hello, World!')"
+# Start the server and index a small file to test summarization
+agent-brain start
+agent-brain index ./src --include-type python
 ```
 
 ## Output

@@ -124,6 +124,11 @@ jobs:
       - name: Run linting
         run: task lint
 
+      - name: Lint YAML frontmatter in plugin files
+        run: |
+          pip install pyyaml --quiet
+          task lint:yaml
+
       - name: Run type checking
         run: task typecheck
 

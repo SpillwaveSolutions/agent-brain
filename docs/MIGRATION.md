@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Migration Guide: doc-serve to Agent Brain
 
 **Version**: 1.1.x to 1.2.0

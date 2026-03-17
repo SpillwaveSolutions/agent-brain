@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Agent Brain API Reference
 
 ## Base URL
@@ -387,6 +391,36 @@ agent-brain cache clear --yes        # Clear cache (skips confirmation)
 - `--alpha F` - Hybrid balance, 0=BM25, 1=Vector (default: 0.5)
 - `--traversal-depth N` - Graph traversal depth (default: 2)
 - `--include-relationships` - Include entity relationships in output
+
+**File Type Presets (v7.0+):**
+```bash
+agent-brain types list                          # Show available presets
+agent-brain index ./src --include-type python   # Index with preset filter
+agent-brain index ./src --include-type typescript
+```
+
+**Content Injection (v7.0+):**
+```bash
+agent-brain inject --script enrich.py ./docs    # Index with injection
+```
+
+**Configuration (v8.0+):**
+```bash
+agent-brain config show                         # Show current configuration
+agent-brain config set embedding.provider openai  # Set a config value
+```
+
+**Multi-Runtime Install (v9.0+):**
+```bash
+agent-brain install-agent --agent claude        # Install for Claude
+agent-brain install-agent --agent opencode      # Install for OpenCode
+agent-brain install-agent --agent gemini        # Install for Gemini
+agent-brain install-agent --agent codex         # Install for Codex
+agent-brain install-agent --agent skill-runtime --dir /path  # Generic
+agent-brain install-agent --agent claude --dry-run  # Preview
+agent-brain install-agent --agent claude --scope global  # Global install
+agent-brain uninstall --agent claude            # Uninstall
+```
 
 **Global Options:**
 - `--url URL` - Server URL (default: http://127.0.0.1:8000)

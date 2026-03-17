@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # API Reference
 
 This document provides complete REST API documentation for the Agent Brain server.
@@ -11,6 +15,8 @@ This document provides complete REST API documentation for the Agent Brain serve
   - [Health Endpoints](#health-endpoints)
   - [Query Endpoints](#query-endpoints)
   - [Index Endpoints](#index-endpoints)
+  - [Folder Management Endpoints](#folder-management-endpoints)
+  - [Cache Management Endpoints](#cache-management-endpoints)
   - [Job Queue Endpoints](#job-queue-endpoints)
 - [Request/Response Models](#requestresponse-models)
 - [Error Handling](#error-handling)
@@ -22,9 +28,12 @@ This document provides complete REST API documentation for the Agent Brain serve
 
 The Agent Brain API is a RESTful JSON API built with FastAPI. It provides endpoints for:
 
-- **Health Monitoring**: Server status and indexing progress
+- **Health Monitoring**: Server status, indexing progress, and provider health
 - **Document Querying**: Semantic, keyword, hybrid, graph, and multi-mode search
-- **Document Indexing**: Index documents and code from folders
+- **Document Indexing**: Index documents and code from folders with job queue
+- **Folder Management**: List and remove indexed folders
+- **Cache Management**: View and clear embedding cache
+- **Job Queue**: Monitor and cancel indexing jobs
 
 ### API Documentation
 
@@ -50,7 +59,7 @@ For network deployment, implement authentication via a reverse proxy (nginx, Tra
 http://127.0.0.1:8000
 ```
 
-For per-project instances, read the port from `.claude/agent-brain/runtime.json`:
+For per-project instances, read the port from `.agent-brain/runtime.json`:
 
 ```json
 {
@@ -75,11 +84,12 @@ Check server health status.
 {
   "status": "healthy",
   "message": "Server is running and ready for queries",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "version": "1.2.0",
+  "timestamp": "2026-01-15T10:30:00Z",
+  "version": "9.0.0",
   "mode": "project",
   "instance_id": "abc123",
-  "project_id": "my-project"
+  "project_id": "my-project",
+  "active_projects": null
 }
 ```
 
@@ -89,14 +99,14 @@ Check server health status.
 |--------|-------------|
 | `healthy` | Ready for queries |
 | `indexing` | Indexing in progress |
-| `degraded` | Running with issues |
+| `degraded` | Running with issues (e.g., vector store not initialized) |
 | `unhealthy` | Not operational |
 
 ---
 
 #### GET /health/status
 
-Get detailed indexing status.
+Get detailed indexing status. This endpoint never blocks, even during active indexing.
 
 **Response** `200 OK`:
 
@@ -109,7 +119,7 @@ Get detailed indexing status.
   "indexing_in_progress": false,
   "current_job_id": null,
   "progress_percent": 0.0,
-  "last_indexed_at": "2024-01-15T10:30:00Z",
+  "last_indexed_at": "2026-01-15T10:30:00Z",
   "indexed_folders": ["/path/to/docs"],
   "supported_languages": ["python", "typescript"],
   "graph_index": {
@@ -118,9 +128,103 @@ Get detailed indexing status.
     "entity_count": 120,
     "relationship_count": 250,
     "store_type": "simple"
+  },
+  "queue_pending": 0,
+  "queue_running": 0,
+  "current_job_running_time_ms": null,
+  "file_watcher": {
+    "running": true,
+    "watched_folders": 2
+  },
+  "embedding_cache": {
+    "hits": 150,
+    "misses": 30,
+    "hit_rate": 0.833,
+    "mem_entries": 180,
+    "entry_count": 500,
+    "size_bytes": 2048000
+  },
+  "query_cache": {
+    "hits": 10,
+    "misses": 5,
+    "hit_rate": 0.667,
+    "cached_entries": 5,
+    "index_generation": 3
   }
 }
 ```
+
+**Note:** The `embedding_cache` field is omitted for fresh installs with an empty cache. The `query_cache` field is `null` when the cache service is not initialized.
+
+---
+
+#### GET /health/providers
+
+Get detailed status of all configured providers with health checks.
+
+**Response** `200 OK`:
+
+```json
+{
+  "config_source": "/path/to/.agent-brain/agent-brain.yml",
+  "strict_mode": false,
+  "validation_errors": [],
+  "providers": [
+    {
+      "provider_type": "embedding",
+      "provider_name": "openai",
+      "model": "text-embedding-3-large",
+      "status": "healthy",
+      "message": null,
+      "dimensions": 3072
+    },
+    {
+      "provider_type": "summarization",
+      "provider_name": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "status": "healthy",
+      "message": null,
+      "dimensions": null
+    }
+  ],
+  "timestamp": "2026-01-15T10:30:00Z"
+}
+```
+
+A `reranker` provider entry is included when `ENABLE_RERANKING=true`.
+
+---
+
+#### GET /health/postgres
+
+Get PostgreSQL connection pool metrics and database info. Only available when storage backend is `postgres`.
+
+**Response** `200 OK`:
+
+```json
+{
+  "status": "healthy",
+  "backend": "postgres",
+  "pool": {
+    "pool_size": 5,
+    "checked_in": 4,
+    "checked_out": 1,
+    "overflow": 0
+  },
+  "database": {
+    "version": "PostgreSQL 16.2 ...",
+    "host": "localhost",
+    "port": 5432,
+    "database": "agent_brain"
+  }
+}
+```
+
+**Errors**:
+
+| Code | Description |
+|------|-------------|
+| `400` | Storage backend is not postgres |
 
 ---
 
@@ -136,12 +240,14 @@ Execute a search query.
 {
   "query": "how does authentication work",
   "top_k": 5,
-  "similarity_threshold": 0.7,
+  "similarity_threshold": 0.3,
   "mode": "hybrid",
   "alpha": 0.5,
   "source_types": ["doc", "code"],
   "languages": ["python", "typescript"],
-  "file_paths": ["src/**/*.py"]
+  "file_paths": ["src/**/*.py"],
+  "entity_types": ["Class", "Function"],
+  "relationship_types": ["calls", "extends"]
 }
 ```
 
@@ -151,12 +257,14 @@ Execute a search query.
 |-------|------|---------|-------------|
 | `query` | string | (required) | Search query (1-1000 chars) |
 | `top_k` | integer | `5` | Results to return (1-50) |
-| `similarity_threshold` | float | `0.7` | Minimum similarity (0.0-1.0) |
+| `similarity_threshold` | float | `0.3` | Minimum similarity (0.0-1.0) |
 | `mode` | string | `"hybrid"` | Search mode |
 | `alpha` | float | `0.5` | Hybrid balance (0=BM25, 1=Vector) |
-| `source_types` | array | `null` | Filter by `["doc", "code"]` |
-| `languages` | array | `null` | Filter by languages |
-| `file_paths` | array | `null` | Filter by file patterns |
+| `source_types` | array | `null` | Filter by `["doc", "code", "test"]` |
+| `languages` | array | `null` | Filter by programming languages |
+| `file_paths` | array | `null` | Filter by file patterns (supports wildcards) |
+| `entity_types` | array | `null` | Filter graph results by entity types (graph/multi modes only) |
+| `relationship_types` | array | `null` | Filter graph results by relationship types (graph/multi modes only) |
 
 **Mode Values**:
 
@@ -185,6 +293,8 @@ Execute a search query.
       "graph_score": null,
       "related_entities": null,
       "relationship_path": null,
+      "rerank_score": null,
+      "original_rank": null,
       "metadata": {
         "chunk_index": 0,
         "total_chunks": 5
@@ -203,14 +313,16 @@ Execute a search query.
 | `text` | string | Chunk content |
 | `source` | string | Source file path |
 | `score` | float | Combined/primary score |
-| `vector_score` | float | Semantic similarity score |
-| `bm25_score` | float | Keyword match score |
-| `graph_score` | float | Graph traversal score |
+| `vector_score` | float or null | Semantic similarity score |
+| `bm25_score` | float or null | Keyword match score |
+| `graph_score` | float or null | Graph traversal score |
 | `chunk_id` | string | Unique chunk identifier |
-| `source_type` | string | `"doc"` or `"code"` |
-| `language` | string | Programming language |
-| `related_entities` | array | GraphRAG related entities |
-| `relationship_path` | array | GraphRAG relationship paths |
+| `source_type` | string | `"doc"`, `"code"`, or `"test"` |
+| `language` | string or null | Programming language |
+| `related_entities` | array or null | GraphRAG related entities |
+| `relationship_path` | array or null | GraphRAG relationship paths |
+| `rerank_score` | float or null | Score from reranking stage (if enabled) |
+| `original_rank` | integer or null | Position before reranking (1-indexed) |
 | `metadata` | object | Additional metadata |
 
 **Errors**:
@@ -218,7 +330,8 @@ Execute a search query.
 | Code | Description |
 |------|-------------|
 | `400` | Invalid query (empty or too long) |
-| `503` | Index not ready |
+| `409` | Embedding provider mismatch (re-index required) |
+| `503` | Index not ready (indexing in progress or not initialized) |
 
 ---
 
@@ -241,7 +354,15 @@ Get the number of indexed chunks.
 
 #### POST /index
 
-Start indexing documents from a folder.
+Enqueue a job to index documents from a folder. Returns immediately with a job ID. The job is processed asynchronously by a background worker.
+
+**Query Parameters**:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `force` | boolean | `false` | Bypass deduplication and force a new job |
+| `allow_external` | boolean | `false` | Allow paths outside the project directory |
+| `rebuild_graph` | boolean | `false` | Rebuild only the graph index without re-indexing documents (requires `ENABLE_GRAPH_INDEX=true`) |
 
 **Request Body**:
 
@@ -255,12 +376,19 @@ Start indexing documents from a folder.
   "supported_languages": ["python", "typescript"],
   "code_chunk_strategy": "ast_aware",
   "generate_summaries": false,
+  "force": false,
   "include_patterns": ["docs/**/*.md", "src/**/*.py"],
-  "exclude_patterns": ["node_modules/**", "__pycache__/**"]
+  "include_types": ["python", "docs"],
+  "exclude_patterns": ["node_modules/**", "__pycache__/**"],
+  "injector_script": null,
+  "folder_metadata_file": null,
+  "dry_run": false,
+  "watch_mode": null,
+  "watch_debounce_seconds": null
 }
 ```
 
-**Parameters**:
+**Body Parameters**:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -271,17 +399,24 @@ Start indexing documents from a folder.
 | `include_code` | boolean | `false` | Include source code files |
 | `supported_languages` | array | `null` | Languages to index |
 | `code_chunk_strategy` | string | `"ast_aware"` | `"ast_aware"` or `"text_based"` |
-| `generate_summaries` | boolean | `false` | Generate LLM summaries |
+| `generate_summaries` | boolean | `false` | Generate LLM summaries for code chunks |
+| `force` | boolean | `false` | Force re-indexing even if embedding provider changed |
 | `include_patterns` | array | `null` | Glob patterns to include |
+| `include_types` | array | `null` | File type presets (e.g., `["python", "docs"]`) |
 | `exclude_patterns` | array | `null` | Glob patterns to exclude |
+| `injector_script` | string | `null` | Path to Python script exporting `process_chunk(chunk: dict) -> dict` |
+| `folder_metadata_file` | string | `null` | Path to JSON file with static metadata to merge into all chunks |
+| `dry_run` | boolean | `false` | Validate injector against sample chunks without indexing |
+| `watch_mode` | string | `null` | Watch mode for auto-reindex: `"auto"` or `"off"` |
+| `watch_debounce_seconds` | integer | `null` | Per-folder debounce in seconds |
 
 **Response** `202 Accepted`:
 
 ```json
 {
   "job_id": "job_abc123def456",
-  "status": "started",
-  "message": "Indexing started for /path/to/documents"
+  "status": "pending",
+  "message": "Job queued for /path/to/documents"
 }
 ```
 
@@ -289,22 +424,44 @@ Start indexing documents from a folder.
 
 | Code | Description |
 |------|-------------|
-| `400` | Invalid folder path |
-| `409` | Indexing already in progress |
+| `400` | Invalid folder path, path outside project (without `allow_external`), invalid injector script, invalid include_types preset, or `rebuild_graph=true` with GraphRAG not enabled |
+| `429` | Queue is full (backpressure) |
 
 ---
 
 #### POST /index/add
 
-Add documents from another folder to the existing index.
+Enqueue a job to add documents from another folder to the existing index. Same request body as `POST /index` (without `generate_summaries`, `injector_script`, `folder_metadata_file`, `dry_run`, `watch_mode`, `watch_debounce_seconds`).
 
-Same request/response format as `POST /index`.
+**Query Parameters**:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `force` | boolean | `false` | Bypass deduplication and force a new job |
+| `allow_external` | boolean | `false` | Allow paths outside the project directory |
+
+**Response** `202 Accepted`:
+
+```json
+{
+  "job_id": "job_abc123def456",
+  "status": "pending",
+  "message": "Job queued to add documents from /path/to/documents"
+}
+```
+
+**Errors**:
+
+| Code | Description |
+|------|-------------|
+| `400` | Invalid folder path, path outside project (without `allow_external`), or invalid include_types preset |
+| `429` | Queue is full (backpressure) |
 
 ---
 
 #### DELETE /index
 
-Reset the index (delete all documents).
+Reset the index (delete all documents). Cannot be performed while jobs are running.
 
 **Response** `200 OK`:
 
@@ -320,15 +477,134 @@ Reset the index (delete all documents).
 
 | Code | Description |
 |------|-------------|
-| `409` | Cannot reset during indexing |
+| `409` | Cannot reset while indexing jobs are in progress |
+
+---
+
+### Folder Management Endpoints
+
+#### GET /index/folders
+
+List all folders that have been indexed with chunk counts and metadata.
+
+**Response** `200 OK`:
+
+```json
+{
+  "folders": [
+    {
+      "folder_path": "/home/user/project/docs",
+      "chunk_count": 42,
+      "last_indexed": "2026-02-24T01:00:00+00:00",
+      "watch_mode": "off",
+      "watch_debounce_seconds": null
+    },
+    {
+      "folder_path": "/home/user/project/src",
+      "chunk_count": 128,
+      "last_indexed": "2026-02-24T00:30:00+00:00",
+      "watch_mode": "auto",
+      "watch_debounce_seconds": 10
+    }
+  ],
+  "total": 2
+}
+```
+
+---
+
+#### DELETE /index/folders
+
+Remove a folder from the index, deleting all its chunks from the vector store.
+
+**Request Body**:
+
+```json
+{
+  "folder_path": "/home/user/project/docs"
+}
+```
+
+**Body Parameters**:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `folder_path` | string | (required) | Path to the folder to remove from the index |
+
+**Response** `200 OK`:
+
+```json
+{
+  "folder_path": "/home/user/project/docs",
+  "chunks_deleted": 42,
+  "message": "Successfully removed 42 chunks for /home/user/project/docs"
+}
+```
+
+**Errors**:
+
+| Code | Description |
+|------|-------------|
+| `404` | Folder not found in the index |
+| `409` | Active indexing job running for this folder |
+| `500` | Failed to delete chunks |
+
+---
+
+### Cache Management Endpoints
+
+#### GET /index/cache
+
+Get embedding cache hit/miss counters and disk statistics.
+
+**Response** `200 OK`:
+
+```json
+{
+  "hits": 150,
+  "misses": 30,
+  "hit_rate": 0.833,
+  "mem_entries": 180,
+  "entry_count": 500,
+  "size_bytes": 2048000
+}
+```
+
+**Errors**:
+
+| Code | Description |
+|------|-------------|
+| `503` | Embedding cache service not initialized |
+
+---
+
+#### DELETE /index/cache
+
+Clear all cached embeddings and reclaim disk space. Safe to call while indexing jobs are running (running jobs will regenerate embeddings at normal API cost).
+
+**Response** `200 OK`:
+
+```json
+{
+  "count": 500,
+  "size_bytes": 2048000,
+  "size_mb": 1.953125
+}
+```
+
+**Errors**:
+
+| Code | Description |
+|------|-------------|
+| `503` | Embedding cache service not initialized |
 
 ---
 
 ### Job Queue Endpoints
 
-As of v3.0.0, indexing operations are queued and processed asynchronously.
+Indexing operations are queued and processed asynchronously.
 
-#### GET /index/jobs/
+#### GET /index/jobs
 
 List all jobs in the queue.
 
@@ -336,9 +612,8 @@ List all jobs in the queue.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `status` | string | null | Filter by status |
-| `limit` | integer | 100 | Maximum results (1-500) |
-| `offset` | integer | 0 | Skip first N results |
+| `limit` | integer | `50` | Maximum results (1-100) |
+| `offset` | integer | `0` | Skip first N results |
 
 **Response** `200 OK`:
 
@@ -351,6 +626,7 @@ List all jobs in the queue.
       "folder_path": "/path/to/docs",
       "operation": "index",
       "include_code": true,
+      "source": "manual",
       "enqueued_at": "2026-02-03T10:00:00Z",
       "started_at": "2026-02-03T10:00:05Z",
       "finished_at": null,
@@ -387,6 +663,7 @@ Get detailed information about a specific job.
   "folder_path": "/path/to/docs",
   "operation": "index",
   "include_code": true,
+  "source": "manual",
   "enqueued_at": "2026-02-03T10:00:00Z",
   "started_at": "2026-02-03T10:00:05Z",
   "finished_at": null,
@@ -396,13 +673,15 @@ Get detailed information about a specific job.
     "files_total": 100,
     "chunks_created": 230,
     "current_file": "src/services/auth.py",
-    "percent_complete": 45.0
+    "percent_complete": 45.0,
+    "updated_at": "2026-02-03T10:00:20Z"
   },
   "total_documents": 45,
   "total_chunks": 230,
   "error": null,
   "retry_count": 0,
-  "cancel_requested": false
+  "cancel_requested": false,
+  "eviction_summary": null
 }
 ```
 
@@ -417,6 +696,10 @@ Get detailed information about a specific job.
 #### DELETE /index/jobs/{job_id}
 
 Cancel a pending or running job.
+
+- **PENDING** jobs are cancelled immediately.
+- **RUNNING** jobs have `cancel_requested` flag set; the worker will stop at the next checkpoint.
+- Completed, failed, or already cancelled jobs return 409.
 
 **Response** `200 OK`:
 
@@ -433,7 +716,7 @@ Cancel a pending or running job.
 | Code | Description |
 |------|-------------|
 | `404` | Job not found |
-| `409` | Cannot cancel completed job |
+| `409` | Cannot cancel completed/failed/cancelled job |
 
 ---
 
@@ -443,14 +726,16 @@ Cancel a pending or running job.
 
 ```typescript
 interface QueryRequest {
-  query: string;              // 1-1000 characters
-  top_k?: number;             // 1-50, default 5
-  similarity_threshold?: number; // 0.0-1.0, default 0.7
+  query: string;                    // 1-1000 characters
+  top_k?: number;                   // 1-50, default 5
+  similarity_threshold?: number;    // 0.0-1.0, default 0.3
   mode?: "bm25" | "vector" | "hybrid" | "graph" | "multi"; // default "hybrid"
-  alpha?: number;             // 0.0-1.0, default 0.5
-  source_types?: string[];    // ["doc", "code"]
-  languages?: string[];       // ["python", "typescript", ...]
-  file_paths?: string[];      // Glob patterns
+  alpha?: number;                   // 0.0-1.0, default 0.5
+  source_types?: string[];          // ["doc", "code", "test"]
+  languages?: string[];             // ["python", "typescript", ...]
+  file_paths?: string[];            // Glob patterns
+  entity_types?: string[];          // ["Class", "Function", ...] (graph/multi modes)
+  relationship_types?: string[];    // ["calls", "extends", ...] (graph/multi modes)
 }
 ```
 
@@ -471,10 +756,12 @@ interface QueryResult {
   bm25_score?: number;
   graph_score?: number;
   chunk_id: string;
-  source_type: string;
+  source_type: string;              // "doc", "code", or "test"
   language?: string;
   related_entities?: string[];
   relationship_path?: string[];
+  rerank_score?: number;            // if reranking enabled
+  original_rank?: number;           // position before reranking (1-indexed)
   metadata: Record<string, any>;
 }
 ```
@@ -484,15 +771,22 @@ interface QueryResult {
 ```typescript
 interface IndexRequest {
   folder_path: string;
-  chunk_size?: number;        // 128-2048, default 512
-  chunk_overlap?: number;     // 0-200, default 50
-  recursive?: boolean;        // default true
-  include_code?: boolean;     // default false
+  chunk_size?: number;              // 128-2048, default 512
+  chunk_overlap?: number;           // 0-200, default 50
+  recursive?: boolean;              // default true
+  include_code?: boolean;           // default false
   supported_languages?: string[];
   code_chunk_strategy?: "ast_aware" | "text_based"; // default "ast_aware"
-  generate_summaries?: boolean; // default false
+  generate_summaries?: boolean;     // default false
+  force?: boolean;                  // default false
   include_patterns?: string[];
+  include_types?: string[];         // file type presets, e.g. ["python", "docs"]
   exclude_patterns?: string[];
+  injector_script?: string;         // path to Python injector script
+  folder_metadata_file?: string;    // path to JSON metadata file
+  dry_run?: boolean;                // default false
+  watch_mode?: string;              // "auto" or "off"
+  watch_debounce_seconds?: number;  // per-folder debounce in seconds
 }
 ```
 
@@ -512,9 +806,9 @@ interface IndexResponse {
 interface HealthStatus {
   status: "healthy" | "indexing" | "degraded" | "unhealthy";
   message?: string;
-  timestamp: string;          // ISO 8601
+  timestamp: string;                // ISO 8601
   version: string;
-  mode?: string;
+  mode?: string;                    // "project" or "shared"
   instance_id?: string;
   project_id?: string;
   active_projects?: number;
@@ -532,10 +826,16 @@ interface IndexingStatus {
   indexing_in_progress: boolean;
   current_job_id?: string;
   progress_percent: number;
-  last_indexed_at?: string;   // ISO 8601
+  last_indexed_at?: string;         // ISO 8601
   indexed_folders: string[];
   supported_languages: string[];
   graph_index?: GraphIndexStatus;
+  queue_pending: number;
+  queue_running: number;
+  current_job_running_time_ms?: number;
+  file_watcher?: FileWatcherStatus;
+  embedding_cache?: EmbeddingCacheStatus; // omitted when cache is empty
+  query_cache?: QueryCacheStatus;
 }
 
 interface GraphIndexStatus {
@@ -544,6 +844,136 @@ interface GraphIndexStatus {
   entity_count: number;
   relationship_count: number;
   store_type: string;
+}
+
+interface FileWatcherStatus {
+  running: boolean;
+  watched_folders: number;
+}
+
+interface EmbeddingCacheStatus {
+  hits: number;
+  misses: number;
+  hit_rate: number;
+  mem_entries: number;
+  entry_count: number;
+  size_bytes: number;
+}
+
+interface QueryCacheStatus {
+  hits: number;
+  misses: number;
+  hit_rate: number;
+  cached_entries: number;
+  index_generation: number;
+}
+```
+
+### ProvidersStatus
+
+```typescript
+interface ProvidersStatus {
+  config_source?: string;
+  strict_mode: boolean;
+  validation_errors: string[];
+  providers: ProviderHealth[];
+  timestamp: string;                // ISO 8601
+}
+
+interface ProviderHealth {
+  provider_type: string;            // "embedding", "summarization", "reranker"
+  provider_name: string;            // e.g. "openai", "anthropic", "ollama"
+  model: string;
+  status: string;                   // "healthy", "degraded", "unavailable"
+  message?: string;
+  dimensions?: number;              // for embedding providers
+}
+```
+
+### FolderListResponse
+
+```typescript
+interface FolderListResponse {
+  folders: FolderInfo[];
+  total: number;
+}
+
+interface FolderInfo {
+  folder_path: string;
+  chunk_count: number;
+  last_indexed: string;             // ISO 8601
+  watch_mode: string;               // "off" or "auto"
+  watch_debounce_seconds?: number;
+}
+```
+
+### FolderDeleteRequest / FolderDeleteResponse
+
+```typescript
+interface FolderDeleteRequest {
+  folder_path: string;
+}
+
+interface FolderDeleteResponse {
+  folder_path: string;
+  chunks_deleted: number;
+  message: string;
+}
+```
+
+### JobListResponse / JobDetailResponse
+
+```typescript
+interface JobListResponse {
+  jobs: JobSummary[];
+  total: number;
+  pending: number;
+  running: number;
+  completed: number;
+  failed: number;
+}
+
+interface JobSummary {
+  id: string;
+  status: "pending" | "running" | "done" | "failed" | "cancelled";
+  folder_path: string;
+  operation: string;                // "index" or "add"
+  include_code: boolean;
+  source: string;                   // "manual" or "auto"
+  enqueued_at: string;
+  started_at?: string;
+  finished_at?: string;
+  progress_percent: number;
+  error?: string;
+}
+
+interface JobDetailResponse {
+  id: string;
+  status: "pending" | "running" | "done" | "failed" | "cancelled";
+  folder_path: string;
+  operation: string;
+  include_code: boolean;
+  source: string;
+  enqueued_at: string;
+  started_at?: string;
+  finished_at?: string;
+  execution_time_ms?: number;
+  progress?: JobProgress;
+  total_documents: number;
+  total_chunks: number;
+  error?: string;
+  retry_count: number;
+  cancel_requested: boolean;
+  eviction_summary?: Record<string, any>;
+}
+
+interface JobProgress {
+  files_processed: number;
+  files_total: number;
+  chunks_created: number;
+  current_file: string;
+  percent_complete: number;
+  updated_at: string;
 }
 ```
 
@@ -567,9 +997,10 @@ interface GraphIndexStatus {
 | `202` | Accepted (async operation started) |
 | `400` | Bad Request (invalid parameters) |
 | `404` | Not Found |
-| `409` | Conflict (e.g., indexing in progress) |
+| `409` | Conflict (e.g., embedding mismatch, jobs in progress) |
+| `429` | Too Many Requests (queue full) |
 | `500` | Internal Server Error |
-| `503` | Service Unavailable (index not ready) |
+| `503` | Service Unavailable (index not ready or cache not initialized) |
 
 ### Common Errors
 
@@ -586,9 +1017,9 @@ interface GraphIndexStatus {
   "detail": "Index not ready. Indexing is in progress."
 }
 
-// GraphRAG not enabled
+// Embedding provider mismatch
 {
-  "detail": "GraphRAG not enabled. Set ENABLE_GRAPH_INDEX=true in environment."
+  "detail": "Embedding mismatch: ... Re-index with --force to resolve."
 }
 ```
 
@@ -600,9 +1031,14 @@ interface GraphIndexStatus {
   "detail": "Folder not found: /path/to/nonexistent"
 }
 
-// Already indexing
+// Queue full
 {
-  "detail": "Indexing already in progress. Please wait for completion."
+  "detail": "Queue full (3 pending, 1 running). Try again later."
+}
+
+// Path outside project
+{
+  "detail": "Path /external/path is outside project root /home/user/project"
 }
 ```
 
@@ -618,6 +1054,12 @@ interface GraphIndexStatus {
 curl http://localhost:8000/health
 ```
 
+**Provider Status**:
+
+```bash
+curl http://localhost:8000/health/providers
+```
+
 **Search Query**:
 
 ```bash
@@ -630,16 +1072,60 @@ curl -X POST http://localhost:8000/query \
   }'
 ```
 
-**Start Indexing**:
+**Start Indexing (with force)**:
 
 ```bash
-curl -X POST http://localhost:8000/index \
+curl -X POST "http://localhost:8000/index?force=true" \
   -H "Content-Type: application/json" \
   -d '{
     "folder_path": "/path/to/project",
     "include_code": true,
     "recursive": true
   }'
+```
+
+**List Indexed Folders**:
+
+```bash
+curl http://localhost:8000/index/folders
+```
+
+**Remove a Folder from Index**:
+
+```bash
+curl -X DELETE http://localhost:8000/index/folders \
+  -H "Content-Type: application/json" \
+  -d '{"folder_path": "/path/to/project/docs"}'
+```
+
+**Check Embedding Cache**:
+
+```bash
+curl http://localhost:8000/index/cache
+```
+
+**Clear Embedding Cache**:
+
+```bash
+curl -X DELETE http://localhost:8000/index/cache
+```
+
+**List Jobs**:
+
+```bash
+curl "http://localhost:8000/index/jobs?limit=10"
+```
+
+**Get Job Details**:
+
+```bash
+curl http://localhost:8000/index/jobs/job_abc123def456
+```
+
+**Cancel a Job**:
+
+```bash
+curl -X DELETE http://localhost:8000/index/jobs/job_abc123def456
 ```
 
 **Reset Index**:
@@ -674,6 +1160,7 @@ async def index_folder(folder_path: str, include_code: bool = False):
     async with httpx.AsyncClient() as client:
         response = await client.post(
             f"{BASE_URL}/index",
+            params={"force": True},
             json={
                 "folder_path": folder_path,
                 "include_code": include_code,
@@ -754,7 +1241,7 @@ The API version is included in the health response:
 
 ```json
 {
-  "version": "1.2.0"
+  "version": "9.0.0"
 }
 ```
 
