@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
 current_phase: 32 — Plugin Documentation
-status: ready_to_plan
-stopped_at: Completed 31-02-PLAN.md
-last_updated: "2026-03-17T02:10:00Z"
+status: planning
+stopped_at: Completed 29-02-PLAN.md (API endpoint documentation audit)
+last_updated: "2026-03-17T02:11:02.243Z"
 last_activity: 2026-03-17 — Completed Phase 31 (User Guides), both plans done
 progress:
   total_phases: 8
-  completed_phases: 3
+  completed_phases: 2
   total_plans: 11
   completed_plans: 5
 ---
@@ -17,16 +17,16 @@ progress:
 # Agent Brain — Project State
 **Last Updated:** 2026-03-17
 **Current Milestone:** v9.2.0 Documentation Accuracy Audit
-**Status:** Ready to plan Phase 31
-**Current Phase:** 31 — User Guides
+**Status:** Ready to plan Phase 32
+**Current Phase:** 32 — Plugin Documentation
 
 ## Current Position
-Phase: 31 of 33 (User Guides)
-Plan: 0 of 2 in current phase
+Phase: 32 of 33 (Plugin Documentation)
+Plan: 0 of 3 in current phase
 Status: Ready to plan
-Last activity: 2026-03-17 — Completed 30-01 env var audit, Phase 30 complete
+Last activity: 2026-03-17 — Completed Phase 31 (User Guides), both plans done
 
-**Progress (v9.2.0):** [##░░░░░░░░] 18%
+**Progress (v9.2.0):** [####░░░░░░] 45%
 
 ## Project Reference
 See: .planning/PROJECT.md
@@ -42,7 +42,7 @@ v7.0 Index Mgmt & Pipeline: [██████████] 100% (shipped 2026-
 v8.0 Performance & DX:      [██████████] 100% (shipped 2026-03-15)
 v9.0 Multi-Runtime:         [██████████] 100% (shipped 2026-03-16)
 v9.1.0 Skill-Runtime:       [██████████] 100% (complete)
-v9.2.0 Doc Accuracy Audit:  [##░░░░░░░░]  18% (2/11 plans complete)
+v9.2.0 Doc Accuracy Audit:  [####░░░░░░]  45% (5/11 plans complete)
 ```
 
 ## Accumulated Context
@@ -57,9 +57,11 @@ v9.2.0 Doc Accuracy Audit:  [##░░░░░░░░]  18% (2/11 plans comple
 - Phase 29 starts with CLI/API docs — feeds accuracy into subsequent guide phases
 
 ### Decisions
+- 31-02: Added Index Management Commands section to PLUGIN_GUIDE.md; added config.yaml examples to PostgreSQL and GraphRAG guides; noted graph/multi modes require ChromaDB backend
 - 30-02: Used .agent-brain/ as canonical project config path, .claude/agent-brain/ as legacy fallback in docs
 - 30-01: Kept DOC_SERVE_STATE_DIR as legacy alias note in CONFIGURATION.md since provider_config.py still reads it
 - [Phase 29]: CLI doc audit: all 16 subcommands now documented in CLAUDE.md, .claude/CLAUDE.md, and USER_GUIDE.md; stale .claude/agent-brain/ paths fixed to .agent-brain/
+- [Phase 29]: API_REFERENCE.md updated: 6 new endpoints, 14+ field corrections, all TypeScript interfaces aligned
 
 ### Blockers/Concerns
 None.
@@ -69,10 +71,10 @@ None.
 
 ## Session Continuity
 
-**Last Session:** 2026-03-17T02:10:17.233Z
-**Stopped At:** Completed 29-01-PLAN.md
+**Last Session:** 2026-03-17T02:11:02.240Z
+**Stopped At:** Completed 31-02-PLAN.md (Plugin, PostgreSQL, GraphRAG guides)
 **Resume File:** None
-**Next Action:** Plan Phase 31 (`/gsd:plan-phase 31`)
+**Next Action:** Plan Phase 32 (`/gsd:plan-phase 32`)
 
 ---
 *State updated: 2026-03-17*

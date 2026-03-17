@@ -187,8 +187,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 31-01-PLAN.md — Update USER_GUIDE.md and QUICK_START.md with v7-v9 features
-- [ ] 31-02-PLAN.md — Update PLUGIN_GUIDE.md, POSTGRESQL_SETUP.md, and GRAPHRAG_GUIDE.md
+- [x] 31-01-PLAN.md — Update USER_GUIDE.md and QUICK_START.md with v7-v9 features
+- [x] 31-02-PLAN.md — Update PLUGIN_GUIDE.md, POSTGRESQL_SETUP.md, and GRAPHRAG_GUIDE.md
 
 ---
 
