@@ -12,6 +12,7 @@
 - ✅ **v8.0 Performance & Developer Experience** — Phases 15-25 (shipped 2026-03-15)
 - ✅ **v9.0 Multi-Runtime Support** — Multi-runtime converter system (shipped 2026-03-16)
 - ✅ **v9.1.0 Generic Skills-Based Runtime Portability** — Phases 26-28 (shipped 2026-03-16)
+- 🔄 **v9.2.0 Documentation Accuracy Audit** — Phases 29-33 (in progress)
 
 ## Phases
 
@@ -125,6 +126,86 @@ Plans:
 
 ---
 
+## v9.2.0 Documentation Accuracy Audit (Phases 29-33)
+
+**Milestone Goal:** Ensure all documentation accurately reflects current software behavior — CLI commands, configuration schemas, APIs, examples, file paths, and installation instructions — serving as the quality gate before release.
+
+- [ ] **Phase 29: CLI & API Documentation** — Audit and fix CLI command docs and API endpoint docs
+- [ ] **Phase 30: Configuration Documentation** — Audit and fix YAML config and environment variable docs
+- [ ] **Phase 31: User Guides** — Audit and fix all user-facing guides for v7-v9 feature accuracy
+- [ ] **Phase 32: Plugin Documentation** — Audit and fix plugin commands, skills, and agent descriptions
+- [ ] **Phase 33: Cross-References & Metadata** — Verify all internal links, file paths, and add audit metadata
+
+## Phase Details
+
+### Phase 29: CLI & API Documentation
+
+**Goal:** All CLI command documentation and API endpoint documentation accurately reflect current software behavior.
+**Depends on:** Nothing (first phase of milestone)
+**Requirements:** CLIDOC-01, CLIDOC-02, CLIDOC-03, CLIDOC-04
+**Success Criteria** (what must be TRUE):
+  1. Every CLI subcommand documented in docs matches the output of `agent-brain --help` and subcommand `--help` flags
+  2. All 5 runtime installation commands (install-agent) are documented with correct syntax and options
+  3. Every API endpoint documented in API reference matches the OpenAPI spec produced by the running server
+  4. Job queue commands (`jobs`, `jobs --watch`, `jobs JOB_ID`, `jobs JOB_ID --cancel`) are documented accurately
+**Plans:** TBD
+
+---
+
+### Phase 30: Configuration Documentation
+
+**Goal:** All YAML configuration fields and environment variable documentation accurately reflect the source code schema definitions and actual runtime behavior.
+**Depends on:** Phase 29
+**Requirements:** CFGDOC-01, CFGDOC-02, CFGDOC-03
+**Success Criteria** (what must be TRUE):
+  1. Every YAML key documented in configuration reference matches a field in the server's Pydantic settings schema
+  2. Every environment variable listed in docs matches a variable actually read by the server or CLI source code
+  3. All 7 provider configurations (OpenAI, Anthropic, Ollama, Cohere, Gemini, Grok, SentenceTransformers) are documented with correct YAML structure
+**Plans:** TBD
+
+---
+
+### Phase 31: User Guides
+
+**Goal:** All user-facing guides accurately reflect v7-v9 features so a new user can follow them from start to finish without encountering stale instructions.
+**Depends on:** Phase 30
+**Requirements:** GUIDE-01, GUIDE-02, GUIDE-03, GUIDE-04, GUIDE-05
+**Success Criteria** (what must be TRUE):
+  1. USER_GUIDE.md reflects folder management, file type presets, content injection, eviction, file watcher, embedding cache, and multi-runtime install features
+  2. QUICK_START.md installation steps execute successfully on a clean machine without errors or missing steps
+  3. PLUGIN_GUIDE.md accurately describes all current plugin slash commands, agents, and skills
+  4. POSTGRESQL_SETUP.md Docker Compose instructions produce a working PostgreSQL backend when followed
+  5. GRAPHRAG_GUIDE.md query examples return results consistent with current graph query behavior
+**Plans:** TBD
+
+---
+
+### Phase 32: Plugin Documentation
+
+**Goal:** All plugin command files, skill reference guides, and agent descriptions accurately reflect current CLI and backend capabilities.
+**Depends on:** Phase 31
+**Requirements:** PLUGDOC-01, PLUGDOC-02, PLUGDOC-03
+**Success Criteria** (what must be TRUE):
+  1. All 30+ plugin command files contain descriptions and usage examples that match current CLI behavior
+  2. Plugin skill reference guides list current features including file watcher, embedding cache, and multi-runtime install
+  3. Plugin agent descriptions (researcher, indexer) match the actual capabilities and available tools in the current implementation
+**Plans:** TBD
+
+---
+
+### Phase 33: Cross-References & Metadata
+
+**Goal:** All internal documentation links resolve correctly, all referenced file paths exist, and audited files carry audit metadata for future validation tracking.
+**Depends on:** Phase 32
+**Requirements:** XREF-01, XREF-02, XREF-03
+**Success Criteria** (what must be TRUE):
+  1. Every internal link in audited docs (`[text](path)`) resolves to an existing file or anchor
+  2. Every file path referenced in code examples, installation steps, and configuration examples exists in the repository
+  3. Every audited documentation file has a `last_validated` frontmatter field set to the audit date
+**Plans:** TBD
+
+---
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -138,7 +219,12 @@ Plans:
 | 26 | v9.1.0 | 2/2 | Complete | 2026-03-16 |
 | 27 | v9.1.0 | 1/1 | Complete | 2026-03-16 |
 | 28 | v9.1.0 | 1/1 | Complete | 2026-03-16 |
+| 29 | v9.2.0 | 0/1 | Not started | - |
+| 30 | v9.2.0 | 0/1 | Not started | - |
+| 31 | v9.2.0 | 0/1 | Not started | - |
+| 32 | v9.2.0 | 0/1 | Not started | - |
+| 33 | v9.2.0 | 0/1 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-16 — v9.1.0 milestone complete*
+*Last updated: 2026-03-16 — v9.2.0 milestone phases 29-33 added*
