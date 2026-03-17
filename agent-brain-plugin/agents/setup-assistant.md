@@ -271,3 +271,127 @@ When errors occur, provide clear recovery paths:
 2. Check server health
 3. Validate query syntax
 4. Review index status
+
+---
+
+## Multi-Runtime Installation (v9.0+)
+
+When users want to install Agent Brain for their AI coding assistant, guide them through multi-runtime installation:
+
+```bash
+# Install for Claude Code
+agent-brain install-agent --agent claude
+
+# Install for OpenCode
+agent-brain install-agent --agent opencode
+
+# Install for Gemini
+agent-brain install-agent --agent gemini
+
+# Install for Codex (skill directories + AGENTS.md)
+agent-brain install-agent --agent codex
+
+# Install for generic skill-based runtime
+agent-brain install-agent --agent skill-runtime --dir /path/to/skills
+
+# Preview what will be installed
+agent-brain install-agent --agent claude --dry-run
+
+# Global (user-level) installation
+agent-brain install-agent --agent claude --scope global
+```
+
+### Supported Runtimes
+
+| Runtime | Install Dir (project) | Format |
+|---------|----------------------|--------|
+| `claude` | `.claude/plugins/agent-brain` | Claude plugin |
+| `opencode` | `.opencode/plugins/agent-brain` | OpenCode plugin |
+| `gemini` | `.gemini/plugins/agent-brain` | Gemini plugin |
+| `codex` | `.codex/skills/agent-brain` | Skill dirs + AGENTS.md |
+| `skill-runtime` | (requires `--dir`) | Generic skill dirs |
+
+---
+
+## Provider Configuration (All 7 Providers)
+
+Guide users through configuring all supported providers:
+
+### Embedding Providers (3)
+
+| Provider | Env Var | Models |
+|----------|---------|--------|
+| OpenAI | `OPENAI_API_KEY` | text-embedding-3-large, text-embedding-3-small |
+| Cohere | `COHERE_API_KEY` | embed-english-v3.0, embed-multilingual-v3.0 |
+| Ollama | (none - local) | nomic-embed-text, mxbai-embed-large |
+
+### Summarization Providers (5)
+
+| Provider | Env Var | Models |
+|----------|---------|--------|
+| Anthropic | `ANTHROPIC_API_KEY` | claude-haiku-4-5-20251001 |
+| OpenAI | `OPENAI_API_KEY` | gpt-5, gpt-5-mini |
+| Gemini | `GOOGLE_API_KEY` | gemini-3-flash, gemini-3-pro |
+| Grok | `XAI_API_KEY` | grok-4 |
+| Ollama | (none - local) | llama4:scout, qwen3-coder |
+
+### Reranker Providers (2, v8.0+)
+
+| Provider | Env Var | Models |
+|----------|---------|--------|
+| SentenceTransformers | (none - local) | cross-encoder/ms-marco-MiniLM-L-6-v2 |
+| Ollama | (none - local) | (reranker models) |
+
+---
+
+## v8.0+ Feature Setup
+
+### File Watcher Setup
+
+```bash
+# Enable auto-reindex on file changes
+agent-brain folders add ./src --watch auto --include-code
+agent-brain folders add ./docs --watch auto
+
+# Custom debounce interval
+agent-brain folders add ./src --watch auto --debounce 10
+```
+
+### Embedding Cache
+
+Automatically enabled. Monitor with:
+
+```bash
+agent-brain cache status
+agent-brain cache clear --yes  # Clear if switching providers
+```
+
+### Reranking Setup
+
+```bash
+export ENABLE_RERANKING=true
+export RERANKER_PROVIDER=sentence-transformers
+export RERANKER_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2
+```
+
+---
+
+## YAML Configuration Management
+
+Guide users through YAML config setup:
+
+```bash
+# Show current configuration
+agent-brain config show
+
+# Edit configuration interactively
+agent-brain config set embedding.provider openai
+agent-brain config set summarization.provider anthropic
+```
+
+Config file locations (searched in order):
+1. `AGENT_BRAIN_CONFIG` environment variable
+2. `./agent-brain.yaml` or `./config.yaml`
+3. `./.agent-brain/config.yaml`
+4. `~/.agent-brain/config.yaml`
+5. `~/.config/agent-brain/config.yaml`

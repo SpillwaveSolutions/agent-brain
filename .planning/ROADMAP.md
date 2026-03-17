@@ -132,7 +132,7 @@ Plans:
 
 - [x] **Phase 29: CLI & API Documentation** — Audit and fix CLI command docs and API endpoint docs (completed 2026-03-17)
 - [x] **Phase 30: Configuration Documentation** — Audit and fix YAML config and environment variable docs
-- [ ] **Phase 31: User Guides** — Audit and fix all user-facing guides for v7-v9 feature accuracy
+- [x] **Phase 31: User Guides** — Audit and fix all user-facing guides for v7-v9 feature accuracy
 - [ ] **Phase 32: Plugin Documentation** — Audit and fix plugin commands, skills, and agent descriptions
 - [ ] **Phase 33: Cross-References & Metadata** — Verify all internal links, file paths, and add audit metadata
 
@@ -242,7 +242,7 @@ Plans:
 | 28 | v9.1.0 | 1/1 | Complete | 2026-03-16 |
 | 29 | 2/2 | Complete   | 2026-03-17 | - |
 | 30 | v9.2.0 | 2/2 | Complete | 2026-03-17 |
-| 31 | v9.2.0 | 0/2 | Not started | - |
+| 31 | v9.2.0 | 2/2 | Complete | 2026-03-17 |
 | 32 | v9.2.0 | 0/3 | Not started | - |
 | 33 | v9.2.0 | 0/2 | Not started | - |
 

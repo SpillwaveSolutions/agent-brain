@@ -225,6 +225,79 @@ When helping users search, recommend modes based on their query type:
 - When unsure of exact terms
 - Comprehensive documentation searches
 
+### Use Graph (`--mode graph`) for:
+- Code dependency questions: "what calls this function?"
+- Inheritance hierarchies: "what extends BaseService?"
+- Import relationships: "what modules import authentication?"
+
+### Use Multi (`--mode multi`) for:
+- Most comprehensive results (vector + BM25 + graph with RRF fusion)
+- Complex code exploration across all retrieval methods
+- When uncertain which single mode works best
+
+---
+
+## Folder and File Type Filtering (v7.0+)
+
+Help users narrow search scope:
+
+```bash
+# Index specific folders
+agent-brain folders add ./docs
+agent-brain folders add ./src --include-code
+
+# Index with file type presets
+agent-brain index ./src --include-type python
+agent-brain index ./src --include-type typescript
+
+# List indexed folders
+agent-brain folders list
+
+# Remove folder and its indexed chunks
+agent-brain folders remove ./docs --yes
+```
+
+---
+
+## Job Queue Management
+
+Monitor and manage indexing operations:
+
+```bash
+# List all jobs (pending, running, done, failed, cancelled)
+agent-brain jobs
+
+# Watch queue with live updates
+agent-brain jobs --watch
+
+# Check specific job
+agent-brain jobs JOB_ID
+
+# Cancel a running or pending job
+agent-brain jobs JOB_ID --cancel
+```
+
+---
+
+## Embedding Cache Monitoring (v8.0+)
+
+When users report slow queries or high API costs:
+
+```bash
+# Check cache hit rate
+agent-brain cache status
+
+# View as JSON for scripting
+agent-brain cache status --json
+
+# Clear cache (e.g., after switching embedding providers)
+agent-brain cache clear --yes
+```
+
+A healthy cache shows >80% hit rate after the first full indexing run.
+
+---
+
 ## Handling No Results
 
 If a search returns no results:
@@ -237,6 +310,7 @@ If a search returns no results:
 2. **Try different search mode**:
    - Switch from BM25 to hybrid for conceptual queries
    - Switch from vector to BM25 for technical terms
+   - Try graph mode for relationship questions
 
 3. **Verify index status**:
    ```bash
