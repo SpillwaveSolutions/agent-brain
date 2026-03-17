@@ -165,7 +165,11 @@ Plans:
   1. Every YAML key documented in configuration reference matches a field in the server's Pydantic settings schema
   2. Every environment variable listed in docs matches a variable actually read by the server or CLI source code
   3. All 7 provider configurations (OpenAI, Anthropic, Ollama, Cohere, Gemini, Grok, SentenceTransformers) are documented with correct YAML structure
-**Plans:** TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 30-01-PLAN.md — YAML config fields and env var audit (settings.py vs CONFIGURATION.md + CLAUDE.md)
+- [ ] 30-02-PLAN.md — Provider configuration audit (provider_config.py vs PROVIDER_CONFIGURATION.md)
 
 ---
 
@@ -228,11 +232,11 @@ Plans:
 | 27 | v9.1.0 | 1/1 | Complete | 2026-03-16 |
 | 28 | v9.1.0 | 1/1 | Complete | 2026-03-16 |
 | 29 | v9.2.0 | 0/2 | Not started | - |
-| 30 | v9.2.0 | 0/1 | Not started | - |
+| 30 | v9.2.0 | 0/2 | Not started | - |
 | 31 | v9.2.0 | 0/2 | Not started | - |
 | 32 | v9.2.0 | 0/1 | Not started | - |
 | 33 | v9.2.0 | 0/1 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-16 — v9.2.0 Phase 31 planned (2 plans)*
+*Last updated: 2026-03-16 — v9.2.0 Phase 30 planned (2 plans)*
