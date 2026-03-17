@@ -2,29 +2,29 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
-current_phase: 32 — Plugin Documentation
-status: executing
-stopped_at: Completed 32-02-PLAN.md (Plugin command files L-Z audit)
-last_updated: "2026-03-17T02:14:20.197Z"
-last_activity: 2026-03-17 — Completed Phase 31 (User Guides), both plans done
+current_phase: 33 — Cross-References & Metadata
+status: ready_to_plan
+stopped_at: Completed 32-03-PLAN.md (Skill reference guides and agent descriptions audit)
+last_updated: "2026-03-17T02:15:22.900Z"
+last_activity: 2026-03-17 — Completed 32-03 (Skill reference guides and agent descriptions audit)
 progress:
   total_phases: 8
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 11
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Agent Brain — Project State
 **Last Updated:** 2026-03-17
 **Current Milestone:** v9.2.0 Documentation Accuracy Audit
-**Status:** Executing Phase 32 (1/3 plans complete)
-**Current Phase:** 32 — Plugin Documentation
+**Status:** Phase 32 complete, ready for Phase 33
+**Current Phase:** 33 — Cross-References & Metadata
 
 ## Current Position
-Phase: 32 of 33 (Plugin Documentation)
-Plan: 2 of 3 in current phase
-Status: Executing
-Last activity: 2026-03-17 — Completed 32-01 and 32-02 (Plugin command files A-Z audit)
+Phase: 33 of 33 (Cross-References & Metadata)
+Plan: 0 of 2 in current phase
+Status: Ready to plan
+Last activity: 2026-03-17 — Completed 32-03 (Skill reference guides and agent descriptions audit)
 
 **Progress (v9.2.0):** [######░░░░] 64%
 
@@ -42,7 +42,7 @@ v7.0 Index Mgmt & Pipeline: [██████████] 100% (shipped 2026-
 v8.0 Performance & DX:      [██████████] 100% (shipped 2026-03-15)
 v9.0 Multi-Runtime:         [██████████] 100% (shipped 2026-03-16)
 v9.1.0 Skill-Runtime:       [██████████] 100% (complete)
-v9.2.0 Doc Accuracy Audit:  [######░░░░]  64% (7/11 plans complete)
+v9.2.0 Doc Accuracy Audit:  [████████░░]  82% (9/11 plans complete)
 ```
 
 ## Accumulated Context
@@ -65,6 +65,7 @@ v9.2.0 Doc Accuracy Audit:  [######░░░░]  64% (7/11 plans complete)
 - [Phase 31]: 31-01: Added Index Management Commands as separate table, placed v7-v9 sections between Indexing and Job Queue, multi-runtime install before All-in-One Setup in QUICK_START
 - [Phase 32]: 32-01: 4/7 Task 1 files already correct from plan 29-01; removed stale --watch/--debounce from index.md; updated init.md to .agent-brain/ paths; added codex/skill-runtime to install-agent.md
 - [Phase 32]: 32-02: Kept plugin-level workflows as conceptual guides; updated port ranges from 49000-49999 to 8000-8100; added all missing CLI options to command docs
+- [Phase 32]: 32-03: SentenceTransformers documented as reranker (not embedding) per source code; fixed stale .claude/doc-serve paths to .agent-brain; v7-v9 version history added
 
 ### Blockers/Concerns
 None.
@@ -75,9 +76,9 @@ None.
 ## Session Continuity
 
 **Last Session:** 2026-03-17T02:14:13.760Z
-**Stopped At:** Completed 32-02-PLAN.md (Plugin command files L-Z audit)
+**Stopped At:** Completed 32-03-PLAN.md (Skill reference guides and agent descriptions audit)
 **Resume File:** None
-**Next Action:** Plan Phase 32 (`/gsd:plan-phase 32`)
+**Next Action:** Plan Phase 33 (`/gsd:plan-phase 33`)
 
 ---
 *State updated: 2026-03-17*

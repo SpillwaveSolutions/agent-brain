@@ -201,12 +201,12 @@ Plans:
   1. All 30+ plugin command files contain descriptions and usage examples that match current CLI behavior
   2. Plugin skill reference guides list current features including file watcher, embedding cache, and multi-runtime install
   3. Plugin agent descriptions (researcher, indexer) match the actual capabilities and available tools in the current implementation
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans executed
 
 Plans:
-- [ ] 32-01-PLAN.md — Audit plugin command files A-K (bm25 through keyword, 15 files)
-- [ ] 32-02-PLAN.md — Audit plugin command files L-Z (list through version, 15 files)
-- [ ] 32-03-PLAN.md — Audit skill reference guides (16 files) and agent descriptions (3 files)
+- [x] 32-01-PLAN.md — Audit plugin command files A-K (bm25 through keyword, 15 files)
+- [x] 32-02-PLAN.md — Audit plugin command files L-Z (list through version, 15 files)
+- [x] 32-03-PLAN.md — Audit skill reference guides (16 files) and agent descriptions (3 files)
 
 ---
 
@@ -243,9 +243,9 @@ Plans:
 | 29 | 2/2 | Complete   | 2026-03-17 | - |
 | 30 | v9.2.0 | 2/2 | Complete | 2026-03-17 |
 | 31 | 2/2 | Complete   | 2026-03-17 | 2026-03-17 |
-| 32 | 2/3 | In Progress|  | - |
+| 32 | v9.2.0 | 3/3 | Complete | 2026-03-17 |
 | 33 | v9.2.0 | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-17 — Phase 32 in progress (2/3 plans complete)*
+*Last updated: 2026-03-17 — Phase 32 complete (3/3 plans), ready for Phase 33*

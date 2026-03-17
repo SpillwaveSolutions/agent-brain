@@ -31,8 +31,8 @@ Requirements for documentation accuracy audit. Each maps to roadmap phases.
 ### Plugin Documentation
 
 - [x] **PLUGDOC-01**: All 30+ plugin command files match CLI behavior
-- [ ] **PLUGDOC-02**: Plugin skill reference guides match current features
-- [ ] **PLUGDOC-03**: Plugin agent descriptions match current capabilities
+- [x] **PLUGDOC-02**: Plugin skill reference guides match current features
+- [x] **PLUGDOC-03**: Plugin agent descriptions match current capabilities
 
 ### Cross-References & Metadata
 
@@ -75,8 +75,8 @@ Requirements for documentation accuracy audit. Each maps to roadmap phases.
 | GUIDE-04 | Phase 31 | Complete |
 | GUIDE-05 | Phase 31 | Complete |
 | PLUGDOC-01 | Phase 32 | Complete |
-| PLUGDOC-02 | Phase 32 | Pending |
-| PLUGDOC-03 | Phase 32 | Pending |
+| PLUGDOC-02 | Phase 32 | Complete |
+| PLUGDOC-03 | Phase 32 | Complete |
 | XREF-01 | Phase 33 | Pending |
 | XREF-02 | Phase 33 | Pending |
 | XREF-03 | Phase 33 | Pending |
