@@ -169,7 +169,7 @@ Plans:
 
 Plans:
 - [ ] 30-01-PLAN.md — YAML config fields and env var audit (settings.py vs CONFIGURATION.md + CLAUDE.md)
-- [ ] 30-02-PLAN.md — Provider configuration audit (provider_config.py vs PROVIDER_CONFIGURATION.md)
+- [x] 30-02-PLAN.md — Provider configuration audit (provider_config.py vs PROVIDER_CONFIGURATION.md)
 
 ---
 
@@ -241,7 +241,7 @@ Plans:
 | 27 | v9.1.0 | 1/1 | Complete | 2026-03-16 |
 | 28 | v9.1.0 | 1/1 | Complete | 2026-03-16 |
 | 29 | v9.2.0 | 0/2 | Not started | - |
-| 30 | v9.2.0 | 0/2 | Not started | - |
+| 30 | v9.2.0 | 1/2 | In progress | - |
 | 31 | v9.2.0 | 0/2 | Not started | - |
 | 32 | v9.2.0 | 0/3 | Not started | - |
 | 33 | v9.2.0 | 0/2 | Not started | - |

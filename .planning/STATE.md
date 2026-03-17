@@ -2,32 +2,32 @@
 gsd_state_version: 1.0
 milestone: v9.2.0
 milestone_name: Documentation Accuracy Audit
-current_phase: 29
-current_plan: 0
-status: ready_to_plan
-stopped_at: null
-last_updated: "2026-03-16T00:00:00Z"
-last_activity: "2026-03-16 — Roadmap created, phases 29-33 defined"
+current_phase: 30
+current_plan: 2
+status: executing
+stopped_at: "Completed 30-02-PLAN.md"
+last_updated: "2026-03-17T02:06:11Z"
+last_activity: "2026-03-17 — Completed 30-02 provider configuration audit"
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 5
-  completed_plans: 0
+  total_plans: 11
+  completed_plans: 1
 ---
 
 # Agent Brain — Project State
-**Last Updated:** 2026-03-16
+**Last Updated:** 2026-03-17
 **Current Milestone:** v9.2.0 Documentation Accuracy Audit
-**Status:** Ready to plan Phase 29
-**Current Phase:** 29 — CLI & API Documentation
+**Status:** Executing Phase 30
+**Current Phase:** 30 — Configuration Documentation
 
 ## Current Position
-Phase: 29 of 33 (CLI & API Documentation)
-Plan: 0 of 1 in current phase
-Status: Ready to plan
-Last activity: 2026-03-16 — Roadmap created, phases 29-33 defined
+Phase: 30 of 33 (Configuration Documentation)
+Plan: 2 of 2 in current phase (30-02 complete)
+Status: Executing
+Last activity: 2026-03-17 — Completed 30-02 provider configuration audit
 
-**Progress (v9.2.0):** [░░░░░░░░░░] 0%
+**Progress (v9.2.0):** [#░░░░░░░░░] 9%
 
 ## Project Reference
 See: .planning/PROJECT.md
@@ -43,7 +43,7 @@ v7.0 Index Mgmt & Pipeline: [██████████] 100% (shipped 2026-
 v8.0 Performance & DX:      [██████████] 100% (shipped 2026-03-15)
 v9.0 Multi-Runtime:         [██████████] 100% (shipped 2026-03-16)
 v9.1.0 Skill-Runtime:       [██████████] 100% (complete)
-v9.2.0 Doc Accuracy Audit:  [░░░░░░░░░░]   0% (phases 29-33 defined)
+v9.2.0 Doc Accuracy Audit:  [#░░░░░░░░░]   9% (1/11 plans complete)
 ```
 
 ## Accumulated Context
@@ -57,6 +57,9 @@ v9.2.0 Doc Accuracy Audit:  [░░░░░░░░░░]   0% (phases 29-33 
 - v7.0 added folder management, file type presets, content injection, eviction — docs need validation
 - Phase 29 starts with CLI/API docs — feeds accuracy into subsequent guide phases
 
+### Decisions
+- 30-02: Used .agent-brain/ as canonical project config path, .claude/agent-brain/ as legacy fallback in docs
+
 ### Blockers/Concerns
 None.
 
@@ -65,10 +68,10 @@ None.
 
 ## Session Continuity
 
-**Last Session:** 2026-03-16T00:00:00Z
-**Stopped At:** Roadmap created — phases 29-33 defined
+**Last Session:** 2026-03-17T02:06:11Z
+**Stopped At:** Completed 30-02-PLAN.md
 **Resume File:** None
-**Next Action:** Plan Phase 29 (`/gsd:plan-phase 29`)
+**Next Action:** Execute remaining Phase 30 plan (30-01) or advance to Phase 31
 
 ---
-*State updated: 2026-03-16*
+*State updated: 2026-03-17*

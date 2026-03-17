@@ -18,7 +18,7 @@ Requirements for documentation accuracy audit. Each maps to roadmap phases.
 
 - [ ] **CFGDOC-01**: YAML configuration fields match source schema definitions
 - [ ] **CFGDOC-02**: Environment variable docs match actual env var usage in code
-- [ ] **CFGDOC-03**: Provider configuration docs match pluggable provider implementations
+- [x] **CFGDOC-03**: Provider configuration docs match pluggable provider implementations
 
 ### User Guides
 
@@ -68,7 +68,7 @@ Requirements for documentation accuracy audit. Each maps to roadmap phases.
 | CLIDOC-04 | Phase 29 | Pending |
 | CFGDOC-01 | Phase 30 | Pending |
 | CFGDOC-02 | Phase 30 | Pending |
-| CFGDOC-03 | Phase 30 | Pending |
+| CFGDOC-03 | Phase 30 | Complete |
 | GUIDE-01 | Phase 31 | Pending |
 | GUIDE-02 | Phase 31 | Pending |
 | GUIDE-03 | Phase 31 | Pending |
