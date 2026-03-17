@@ -261,7 +261,7 @@ doc-serve/
 
 - [User Guide](docs/USER_GUIDE.md) - End-user documentation
 - [Developer Guide](docs/DEVELOPERS_GUIDE.md) - Development setup
-- [API Reference](agent-brain-skill/doc-serve/references/api_reference.md) - Full API docs
+- [API Reference](docs/API_REFERENCE.md) - Full API docs
 - [Original Spec](docs/ORIGINAL_SPEC.md) - Project specification
 
 ## Quality Assurance
