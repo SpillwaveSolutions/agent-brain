@@ -4,29 +4,29 @@ milestone: v3.0
 milestone_name: milestone
 current_phase: 32 — Plugin Documentation
 status: executing
-stopped_at: Completed 32-01-PLAN.md (Plugin command files A-K audit)
-last_updated: "2026-03-17T02:13:48.409Z"
-last_activity: 2026-03-17 — Completed 32-01 (Plugin command files A-K audit)
+stopped_at: Completed 32-02-PLAN.md (Plugin command files L-Z audit)
+last_updated: "2026-03-17T02:14:20.197Z"
+last_activity: 2026-03-17 — Completed Phase 31 (User Guides), both plans done
 progress:
   total_phases: 8
   completed_phases: 3
   total_plans: 11
-  completed_plans: 9
+  completed_plans: 8
 ---
 
 # Agent Brain — Project State
 **Last Updated:** 2026-03-17
 **Current Milestone:** v9.2.0 Documentation Accuracy Audit
-**Status:** Ready to plan Phase 32
+**Status:** Executing Phase 32 (1/3 plans complete)
 **Current Phase:** 32 — Plugin Documentation
 
 ## Current Position
 Phase: 32 of 33 (Plugin Documentation)
-Plan: 0 of 3 in current phase
-Status: Ready to plan
-Last activity: 2026-03-17 — Completed Phase 31 (User Guides), both plans done
+Plan: 2 of 3 in current phase
+Status: Executing
+Last activity: 2026-03-17 — Completed 32-01 and 32-02 (Plugin command files A-Z audit)
 
-**Progress (v9.2.0):** [####░░░░░░] 45%
+**Progress (v9.2.0):** [######░░░░] 64%
 
 ## Project Reference
 See: .planning/PROJECT.md
@@ -63,6 +63,7 @@ v9.2.0 Doc Accuracy Audit:  [####░░░░░░]  45% (5/11 plans complete)
 - [Phase 29]: CLI doc audit: all 16 subcommands now documented in CLAUDE.md, .claude/CLAUDE.md, and USER_GUIDE.md; stale .claude/agent-brain/ paths fixed to .agent-brain/
 - [Phase 29]: API_REFERENCE.md updated: 6 new endpoints, 14+ field corrections, all TypeScript interfaces aligned
 - [Phase 31]: 31-01: Added Index Management Commands as separate table, placed v7-v9 sections between Indexing and Job Queue, multi-runtime install before All-in-One Setup in QUICK_START
+- [Phase 32]: 32-02: Kept plugin-level workflows as conceptual guides; updated port ranges from 49000-49999 to 8000-8100; added all missing CLI options to command docs
 
 ### Blockers/Concerns
 None.
@@ -72,8 +73,8 @@ None.
 
 ## Session Continuity
 
-**Last Session:** 2026-03-17T02:13:44.173Z
-**Stopped At:** Completed 31-01-PLAN.md (USER_GUIDE.md and QUICK_START.md updates)
+**Last Session:** 2026-03-17T02:14:13.760Z
+**Stopped At:** Completed 32-02-PLAN.md (Plugin command files L-Z audit)
 **Resume File:** None
 **Next Action:** Plan Phase 32 (`/gsd:plan-phase 32`)
 

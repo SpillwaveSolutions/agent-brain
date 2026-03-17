@@ -201,7 +201,7 @@ Plans:
   1. All 30+ plugin command files contain descriptions and usage examples that match current CLI behavior
   2. Plugin skill reference guides list current features including file watcher, embedding cache, and multi-runtime install
   3. Plugin agent descriptions (researcher, indexer) match the actual capabilities and available tools in the current implementation
-**Plans:** 3 plans
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 32-01-PLAN.md — Audit plugin command files A-K (bm25 through keyword, 15 files)
@@ -243,7 +243,7 @@ Plans:
 | 29 | 2/2 | Complete   | 2026-03-17 | - |
 | 30 | v9.2.0 | 2/2 | Complete | 2026-03-17 |
 | 31 | 2/2 | Complete   | 2026-03-17 | 2026-03-17 |
-| 32 | v9.2.0 | 0/3 | Not started | - |
+| 32 | 2/3 | In Progress|  | - |
 | 33 | v9.2.0 | 0/2 | Not started | - |
 
 ---
