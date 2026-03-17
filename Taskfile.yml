@@ -144,6 +144,11 @@ tasks:
       - task: server:lint:fix
       - task: cli:lint:fix
 
+  lint:yaml:
+    desc: Validate YAML frontmatter in plugin command files
+    cmds:
+      - python3 scripts/lint_yaml_frontmatter.py agent-brain-plugin/
+
   typecheck:
     desc: Type check all code with mypy
     aliases: [mypy]
@@ -168,12 +173,14 @@ tasks:
   # ===================
 
   before-push:
-    desc: Run all checks before pushing (format, lint, typecheck, test)
+    desc: Run all checks before pushing (format, lint, typecheck, yaml, test)
     cmds:
       - echo "--- Formatting code ---"
       - task: format
       - echo "--- Linting code ---"
       - task: lint
+      - echo "--- Linting YAML frontmatter ---"
+      - task: lint:yaml
       - echo "--- Type checking ---"
       - task: typecheck
       - echo "--- Running tests with coverage ---"
@@ -191,10 +198,11 @@ tasks:
       - task: build
 
   pr-qa-gate:
-    desc: PR quality gate - lint, typecheck, test with 50% coverage minimum
+    desc: PR quality gate - lint, yaml lint, typecheck, test with 50% coverage minimum
     cmds:
       - echo "--- Running PR QA Gate ---"
       - task: lint
+      - task: lint:yaml
       - task: typecheck
       - task: server:pr-qa-gate
       - task: cli:pr-qa-gate

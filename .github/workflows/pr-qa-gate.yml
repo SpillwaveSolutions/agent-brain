@@ -124,6 +124,9 @@ jobs:
       - name: Run linting
         run: task lint
 
+      - name: Lint YAML frontmatter in plugin files
+        run: task lint:yaml
+
       - name: Run type checking
         run: task typecheck
 
