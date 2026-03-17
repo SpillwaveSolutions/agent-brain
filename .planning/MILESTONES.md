@@ -104,3 +104,18 @@
 
 ---
 
+## v9.1.0 Generic Skills-Based Runtime Portability (Shipped: 2026-03-16)
+
+**Phases completed:** 3 phases (26-28), 4 plans
+**Tests:** 1180+ passing
+
+**Key accomplishments:**
+1. `SkillRuntimeConverter` — generic skill-directory converter for any skill-based runtime
+2. Parser extensions for templates and scripts in PluginBundle
+3. Codex named adapter with `.codex/skills/agent-brain/` installation
+4. AGENTS.md idempotent generation with HTML comment markers
+5. `--dir` option for arbitrary skill directory targets
+6. All 5 converters (Claude, OpenCode, Gemini, Codex, skill-runtime) tested
+
+---
+
