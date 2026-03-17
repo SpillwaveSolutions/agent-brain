@@ -42,7 +42,7 @@ v7.0 Index Mgmt & Pipeline: [██████████] 100% (shipped 2026-
 v8.0 Performance & DX:      [██████████] 100% (shipped 2026-03-15)
 v9.0 Multi-Runtime:         [██████████] 100% (shipped 2026-03-16)
 v9.1.0 Skill-Runtime:       [██████████] 100% (complete)
-v9.2.0 Doc Accuracy Audit:  [####░░░░░░]  45% (5/11 plans complete)
+v9.2.0 Doc Accuracy Audit:  [######░░░░]  64% (7/11 plans complete)
 ```
 
 ## Accumulated Context
@@ -63,6 +63,7 @@ v9.2.0 Doc Accuracy Audit:  [####░░░░░░]  45% (5/11 plans complete)
 - [Phase 29]: CLI doc audit: all 16 subcommands now documented in CLAUDE.md, .claude/CLAUDE.md, and USER_GUIDE.md; stale .claude/agent-brain/ paths fixed to .agent-brain/
 - [Phase 29]: API_REFERENCE.md updated: 6 new endpoints, 14+ field corrections, all TypeScript interfaces aligned
 - [Phase 31]: 31-01: Added Index Management Commands as separate table, placed v7-v9 sections between Indexing and Job Queue, multi-runtime install before All-in-One Setup in QUICK_START
+- [Phase 32]: 32-01: 4/7 Task 1 files already correct from plan 29-01; removed stale --watch/--debounce from index.md; updated init.md to .agent-brain/ paths; added codex/skill-runtime to install-agent.md
 - [Phase 32]: 32-02: Kept plugin-level workflows as conceptual guides; updated port ranges from 49000-49999 to 8000-8100; added all missing CLI options to command docs
 
 ### Blockers/Concerns
