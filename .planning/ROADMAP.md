@@ -214,7 +214,11 @@ Plans:
   1. Every internal link in audited docs (`[text](path)`) resolves to an existing file or anchor
   2. Every file path referenced in code examples, installation steps, and configuration examples exists in the repository
   3. Every audited documentation file has a `last_validated` frontmatter field set to the audit date
-**Plans:** TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 33-01-PLAN.md — Scan and fix broken internal links and file path references
+- [ ] 33-02-PLAN.md — Add last_validated frontmatter metadata to all audited docs
 
 ---
 
@@ -235,7 +239,7 @@ Plans:
 | 30 | v9.2.0 | 0/2 | Not started | - |
 | 31 | v9.2.0 | 0/2 | Not started | - |
 | 32 | v9.2.0 | 0/1 | Not started | - |
-| 33 | v9.2.0 | 0/1 | Not started | - |
+| 33 | v9.2.0 | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-07*
