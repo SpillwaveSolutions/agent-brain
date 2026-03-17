@@ -180,7 +180,11 @@ Plans:
   3. PLUGIN_GUIDE.md accurately describes all current plugin slash commands, agents, and skills
   4. POSTGRESQL_SETUP.md Docker Compose instructions produce a working PostgreSQL backend when followed
   5. GRAPHRAG_GUIDE.md query examples return results consistent with current graph query behavior
-**Plans:** TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 31-01-PLAN.md — Update USER_GUIDE.md and QUICK_START.md with v7-v9 features
+- [ ] 31-02-PLAN.md — Update PLUGIN_GUIDE.md, POSTGRESQL_SETUP.md, and GRAPHRAG_GUIDE.md
 
 ---
 
@@ -225,10 +229,10 @@ Plans:
 | 28 | v9.1.0 | 1/1 | Complete | 2026-03-16 |
 | 29 | v9.2.0 | 0/2 | Not started | - |
 | 30 | v9.2.0 | 0/1 | Not started | - |
-| 31 | v9.2.0 | 0/1 | Not started | - |
+| 31 | v9.2.0 | 0/2 | Not started | - |
 | 32 | v9.2.0 | 0/1 | Not started | - |
 | 33 | v9.2.0 | 0/1 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-16 — v9.2.0 Phase 29 planned (2 plans)*
+*Last updated: 2026-03-16 — v9.2.0 Phase 31 planned (2 plans)*
