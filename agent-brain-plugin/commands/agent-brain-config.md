@@ -26,28 +26,25 @@ Guides users through configuring Agent Brain:
 
 **IMPORTANT: Check BOTH locations and edit the correct one.**
 
-Config file priority (highest to lowest):
-1. **Project-level**: `.agent-brain/config.yaml` (edit this if it exists)
-2. **User-level**: `~/.agent-brain/config.yaml` (fallback)
+Config file search order (highest to lowest):
+1. **AGENT_BRAIN_CONFIG** environment variable
+2. **State directory**: `AGENT_BRAIN_STATE_DIR/config.yaml`
+3. **Current directory**: `./config.yaml`
+4. **Project-level** (walk up from CWD): `.agent-brain/config.yaml` or `.claude/agent-brain/config.yaml`
+5. **XDG config** (preferred user-level): `~/.config/agent-brain/config.yaml`
+6. **Legacy user-level** (deprecated): `~/.agent-brain/config.yaml`
+
+Use `agent-brain config path` to see which file is active.
 
 ```bash
-# Check which config files exist
-echo "=== Config File Detection ==="
-if [ -f ".agent-brain/config.yaml" ]; then
-  echo "PROJECT config: .agent-brain/config.yaml [EXISTS - EDIT THIS ONE]"
-  cat .agent-brain/config.yaml
-else
-  echo "PROJECT config: .agent-brain/config.yaml [NOT FOUND]"
-fi
-echo ""
-if [ -f ~/.agent-brain/config.yaml ]; then
-  echo "USER config: ~/.agent-brain/config.yaml [EXISTS]"
-else
-  echo "USER config: ~/.agent-brain/config.yaml [NOT FOUND]"
-fi
+# Check which config file is active
+agent-brain config path
+
+# Show the full active configuration
+agent-brain config show
 ```
 
-**When editing config: If project-level config exists, ALWAYS edit that one, NOT the user-level.**
+**When editing config: Use the file reported by `agent-brain config path`. Project-level takes precedence over user-level.**
 
 ### Step 2: Run Pre-Flight Detection
 
@@ -541,11 +538,19 @@ These are excluded by default (no config needed):
 | `**/.nuxt/**` | Nuxt.js build cache |
 | `**/coverage/**` | Test coverage reports |
 
+## CLI Subcommands Reference
+
+The `agent-brain config` group has two subcommands:
+
+| Subcommand | Description |
+|------------|-------------|
+| `agent-brain config show` | Display active provider configuration (embedding, summarization, reranker) |
+| `agent-brain config path` | Show the path to the active config file |
+
+Both support `--json` for machine-readable output.
+
 ## Related Commands
 
-- `/agent-brain:agent-brain-providers` - List all available providers
-- `/agent-brain:agent-brain-providers switch` - Interactive provider switching
 - `/agent-brain:agent-brain-embeddings` - Configure embedding provider only
-- `/agent-brain:agent-brain-summarizer` - Configure summarization provider only
-- `/agent-brain:agent-brain-verify` - Verify provider configuration works
 - `/agent-brain:agent-brain-index` - Index documents with current exclude settings
+- `/agent-brain:agent-brain-init` - Initialize project (creates .agent-brain/ directory)

@@ -3,7 +3,7 @@ name: agent-brain-embeddings
 description: Configure the embedding provider for vector search
 parameters:
   - name: provider
-    description: Embedding provider (openai, cohere, ollama)
+    description: Embedding provider (openai, cohere, ollama, gemini, grok, sentence-transformers)
     required: false
   - name: model
     description: Model name for the provider
@@ -28,7 +28,7 @@ Configures the embedding provider used for vector/semantic search. Embeddings co
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| provider | No | - | Provider name: openai, cohere, ollama |
+| provider | No | - | Provider name: openai, cohere, ollama, gemini, grok, sentence-transformers |
 | --model | No | Provider default | Specific model to use |
 
 ## Available Providers
@@ -128,11 +128,20 @@ export EMBEDDING_PROVIDER=openai
 export EMBEDDING_MODEL=text-embedding-3-large
 ```
 
-Or update the project configuration:
+Or update the project config.yaml file directly:
+
+```yaml
+# .agent-brain/config.yaml or ~/.config/agent-brain/config.yaml
+embedding:
+  provider: "openai"
+  model: "text-embedding-3-large"
+  api_key_env: "OPENAI_API_KEY"
+```
+
+Verify the active configuration with:
 
 ```bash
-agent-brain config set embedding_provider openai
-agent-brain config set embedding_model text-embedding-3-large
+agent-brain config show
 ```
 
 ## Post-Configuration
@@ -150,11 +159,11 @@ agent-brain index /path/to/docs
 ## Verification
 
 ```bash
-# Verify embedding provider is working
-agent-brain verify
+# Verify current embedding configuration
+agent-brain config show
 
-# Test embedding generation
-agent-brain test-embedding "sample text to embed"
+# Test with a simple query to confirm embeddings work
+agent-brain query "test query" --mode vector
 ```
 
 ## Output
@@ -192,7 +201,7 @@ Multi-language    | Limited       | Excellent     | Limited
 ### Invalid Provider
 
 ```
-Error: Unknown provider 'xyz'. Valid options: openai, cohere, ollama
+Error: Unknown provider 'xyz'. Valid options: openai, cohere, ollama, gemini, grok, sentence-transformers
 ```
 
 ### Model Not Available
@@ -218,6 +227,6 @@ Resolution: export OPENAI_API_KEY="sk-proj-..."
 
 ## Related Commands
 
-- `/agent-brain:agent-brain-providers` - List all available providers
-- `/agent-brain:agent-brain-summarizer` - Configure summarization provider
-- `/agent-brain:agent-brain-verify` - Verify configuration
+- `/agent-brain:agent-brain-config` - View active provider configuration
+- `/agent-brain:agent-brain-cache` - Manage embedding cache (clear after provider change)
+- `/agent-brain:agent-brain-index` - Re-index documents after provider change

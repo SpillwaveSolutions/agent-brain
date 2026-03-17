@@ -336,7 +336,7 @@ As of v3.0.0, indexing operations are queued and processed asynchronously.
 ### How It Works
 
 1. **Submit**: `POST /index` returns immediately with a job ID
-2. **Queue**: Jobs are stored in `.claude/agent-brain/jobs/index_queue.jsonl`
+2. **Queue**: Jobs are stored in `.agent-brain/jobs/index_queue.jsonl`
 3. **Process**: Background worker processes jobs sequentially
 4. **Track**: Poll job status or use CLI `--watch` option
 
@@ -432,7 +432,7 @@ Agent Brain supports multiple isolated instances for different projects.
 /agent-brain-init
 ```
 
-Creates `.claude/agent-brain/` with project-specific configuration.
+Creates `.agent-brain/` with project-specific configuration.
 
 ### Start Project Server
 
@@ -470,7 +470,7 @@ The CLI automatically discovers the server URL without manual configuration.
 When you run `agent-brain start`, the server writes a `runtime.json` file:
 
 ```
-.claude/agent-brain/runtime.json
+.agent-brain/runtime.json
 ```
 
 Contents:
@@ -490,7 +490,7 @@ Contents:
 The CLI resolves the server URL in this priority:
 
 1. **Environment variable**: `AGENT_BRAIN_URL`
-2. **Runtime file**: `.claude/agent-brain/runtime.json` (searches cwd upward)
+2. **Runtime file**: `.agent-brain/runtime.json` (searches cwd upward)
 3. **Config file**: `config.yaml` (if contains URL)
 4. **Default**: `http://127.0.0.1:8000`
 
@@ -498,9 +498,9 @@ The CLI resolves the server URL in this priority:
 
 Config files are searched in this order:
 
-1. `.claude/agent-brain/config.yaml` (cwd, then walk upward)
-2. `~/.agent-brain/config.yaml`
-3. `~/.config/agent-brain/config.yaml`
+1. `.agent-brain/config.yaml` (cwd, then walk upward)
+2. `~/.config/agent-brain/config.yaml` (XDG config)
+3. `~/.agent-brain/config.yaml` (legacy, deprecated)
 4. Environment variable: `AGENT_BRAIN_CONFIG`
 
 ### Example Workflow
@@ -628,6 +628,33 @@ agent-brain jobs JOB_ID --cancel  # Cancel job
 # Status
 agent-brain status
 agent-brain list
+
+# Folder management
+agent-brain folders list         # List indexed folders
+agent-brain folders add ./docs   # Index a folder
+agent-brain folders remove ./docs  # Remove folder chunks
+
+# Cache management
+agent-brain cache status         # Show embedding cache stats
+agent-brain cache clear          # Clear embedding cache
+
+# File type presets
+agent-brain types list           # Show available presets
+
+# Configuration
+agent-brain config show          # Display active config
+agent-brain config path          # Show config file location
+
+# Content injection
+agent-brain inject --script enrich.py ./docs  # Index with injection
+
+# Runtime installation
+agent-brain install-agent --agent claude      # Install for Claude Code
+agent-brain install-agent --agent codex       # Install for Codex
+agent-brain install-agent --agent skill-runtime --dir ./skills  # Skill-based runtime
+
+# Uninstall
+agent-brain uninstall            # Remove global Agent Brain data
 ```
 
 ### Query Options
@@ -699,7 +726,7 @@ Step 5: Waiting for health endpoint...
 If the check fails:
 
 1. **runtime.json not found**: Server failed to start - check for port conflicts
-2. **Job failed**: Check server logs in `.claude/agent-brain/logs/`
+2. **Job failed**: Check server logs in `.agent-brain/logs/`
 3. **Query failed**: Index may be empty - verify test data was created
 
 ---
