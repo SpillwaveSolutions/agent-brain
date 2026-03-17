@@ -3,13 +3,13 @@ name: agent-brain-init
 description: Initialize Agent Brain for the current project
 parameters:
   - name: path
-    description: Project path (default: auto-detect project root)
+    description: "Project path (default: auto-detect project root)"
     required: false
   - name: host
     description: "Server bind host (default: 127.0.0.1)"
     required: false
   - name: port
-    description: Preferred server port (default: auto-select from range)
+    description: "Preferred server port (default: auto-select from range)"
     required: false
   - name: force
     description: Overwrite existing configuration

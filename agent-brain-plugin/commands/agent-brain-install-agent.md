@@ -22,7 +22,7 @@ parameters:
     description: Output as JSON
     required: false
   - name: path
-    description: Project path for --project scope (default: cwd)
+    description: "Project path for --project scope (default: cwd)"
     required: false
 skills:
   - configuring-agent-brain
