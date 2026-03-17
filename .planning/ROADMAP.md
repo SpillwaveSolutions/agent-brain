@@ -148,7 +148,11 @@ Plans:
   2. All 5 runtime installation commands (install-agent) are documented with correct syntax and options
   3. Every API endpoint documented in API reference matches the OpenAPI spec produced by the running server
   4. Job queue commands (`jobs`, `jobs --watch`, `jobs JOB_ID`, `jobs JOB_ID --cancel`) are documented accurately
-**Plans:** TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 29-01-PLAN.md — CLI command documentation audit (--help vs docs)
+- [ ] 29-02-PLAN.md — API endpoint documentation audit (source code vs API_REFERENCE.md)
 
 ---
 
@@ -219,7 +223,7 @@ Plans:
 | 26 | v9.1.0 | 2/2 | Complete | 2026-03-16 |
 | 27 | v9.1.0 | 1/1 | Complete | 2026-03-16 |
 | 28 | v9.1.0 | 1/1 | Complete | 2026-03-16 |
-| 29 | v9.2.0 | 0/1 | Not started | - |
+| 29 | v9.2.0 | 0/2 | Not started | - |
 | 30 | v9.2.0 | 0/1 | Not started | - |
 | 31 | v9.2.0 | 0/1 | Not started | - |
 | 32 | v9.2.0 | 0/1 | Not started | - |
@@ -227,4 +231,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-16 — v9.2.0 milestone phases 29-33 added*
+*Last updated: 2026-03-16 — v9.2.0 Phase 29 planned (2 plans)*
