@@ -10,7 +10,7 @@ Install the Agent Brain plugin in Claude Code:
 claude plugins install github:SpillwaveSolutions/agent-brain
 ```
 
-This gives you access to 24 commands, 3 intelligent agents, and 2 skills for working with Agent Brain.
+This gives you access to 30 commands, 3 intelligent agents, and 2 skills for working with Agent Brain.
 
 ## Step 2: Install the Server and CLI
 
@@ -76,6 +76,21 @@ For code + documentation:
 /agent-brain-index . --include-code
 ```
 
+Use file type presets to index specific file categories:
+
+```
+/agent-brain-index ./src --include-type python
+/agent-brain-index ./project --include-type python,docs
+```
+
+Manage indexed folders explicitly:
+
+```
+/agent-brain-folders add ./src --include-code
+/agent-brain-folders add ./docs
+/agent-brain-folders list
+```
+
 Check indexing status:
 
 ```
@@ -97,6 +112,27 @@ Or use specific search modes:
 /agent-brain-keyword "getUserById"
 /agent-brain-graph "what calls AuthService"
 ```
+
+---
+
+## Install for Other AI Runtimes
+
+Agent Brain works with multiple AI coding assistants. Use `install-agent` to set up for your runtime:
+
+```bash
+agent-brain install-agent --agent codex
+agent-brain install-agent --agent opencode
+agent-brain install-agent --agent gemini
+agent-brain install-agent --agent skill-runtime --dir ./my-skills
+```
+
+Preview what would be installed with `--dry-run`:
+
+```bash
+agent-brain install-agent --agent codex --dry-run
+```
+
+See the [User Guide](USER_GUIDE.md#runtime-installation) for full runtime installation details.
 
 ---
 
@@ -163,5 +199,5 @@ This validates:
 ## Next Steps
 
 - [User Guide](USER_GUIDE.md) - Detailed usage patterns
-- [Plugin Guide](PLUGIN_GUIDE.md) - All 24 commands documented
+- [Plugin Guide](PLUGIN_GUIDE.md) - All 30 commands documented
 - [Provider Configuration](../agent-brain-plugin/skills/using-agent-brain/references/provider-configuration.md) - Configure embedding and summarization providers
