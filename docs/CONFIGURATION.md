@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Configuration Reference
 
 This document provides a comprehensive reference for all Agent Brain configuration options, including environment variables, server settings, and per-project configuration.

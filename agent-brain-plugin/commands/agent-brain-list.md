@@ -12,6 +12,7 @@ parameters:
     default: false
 skills:
   - using-agent-brain
+last_validated: 2026-03-16
 ---
 
 # List Agent Brain Instances

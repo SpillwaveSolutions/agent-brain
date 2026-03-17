@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Graph Search Guide
 
 ## Overview

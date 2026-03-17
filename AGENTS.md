@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Agent Brain Agent Guidelines
 
 Instructions for AI agents (Cursor, Windsurf, OpenCode, etc.) when working on this repository.

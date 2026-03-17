@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Agent Brain User Guide
 
 This guide covers how to use Agent Brain for document indexing and semantic search using the Claude Code plugin.

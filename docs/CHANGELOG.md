@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Changelog
 
 All notable changes to Agent Brain will be documented in this file.

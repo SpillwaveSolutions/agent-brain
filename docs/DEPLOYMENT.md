@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Deployment Guide
 
 This guide covers deploying Agent Brain in various environments, from local development to production deployments.

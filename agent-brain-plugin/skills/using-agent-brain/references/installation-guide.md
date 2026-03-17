@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Agent Brain Installation Guide
 
 Complete installation options for Agent Brain with pluggable providers and GraphRAG support.

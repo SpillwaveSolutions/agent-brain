@@ -4,6 +4,7 @@ description: Complete guided setup for Agent Brain (install, config, init, verif
 parameters: []
 skills:
   - configuring-agent-brain
+last_validated: 2026-03-16
 ---
 
 # Complete Agent Brain Setup

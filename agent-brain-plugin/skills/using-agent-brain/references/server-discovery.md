@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Server Discovery Guide
 
 Automatic discovery and management of Agent Brain instances.

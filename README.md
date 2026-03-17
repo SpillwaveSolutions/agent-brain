@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Agent Brain
 
 A RAG-based (Retrieval-Augmented Generation) document indexing and semantic search system for AI agents and applications. Agent Brain enables intelligent querying of documentation and source code using natural language.

@@ -4,6 +4,7 @@ description: Verify Agent Brain installation and configuration
 parameters: []
 skills:
   - configuring-agent-brain
+last_validated: 2026-03-16
 ---
 
 # Verify Agent Brain Setup

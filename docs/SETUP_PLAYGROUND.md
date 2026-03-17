@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Agent Brain Setup Playground
 
 Complete walkthrough of every setup path. Use this to understand the decision tree from install to first query.

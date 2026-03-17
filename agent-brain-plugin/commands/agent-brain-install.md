@@ -4,6 +4,7 @@ description: Install Agent Brain packages using pipx, uv, pip, or conda
 parameters: []
 skills:
   - configuring-agent-brain
+last_validated: 2026-03-16
 ---
 
 # Install Agent Brain Packages

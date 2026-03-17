@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Agent Brain Version Management
 
 Guide for installing, upgrading, and managing Agent Brain versions.

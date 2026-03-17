@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Agent Brain Plugin Guide
 
 Complete reference for the Agent Brain Claude Code plugin - 30 commands, 3 agents, and 2 skills for intelligent document and code search.

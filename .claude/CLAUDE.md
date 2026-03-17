@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with the Agent Brain repository.

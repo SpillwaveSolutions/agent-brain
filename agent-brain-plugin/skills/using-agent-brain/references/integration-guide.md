@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Integration Guide
 
 Patterns for integrating Agent Brain into scripts, applications, and CI/CD pipelines.

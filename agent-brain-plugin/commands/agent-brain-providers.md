@@ -8,6 +8,7 @@ parameters:
     default: list
 skills:
   - using-agent-brain
+last_validated: 2026-03-16
 ---
 
 # Agent Brain Providers

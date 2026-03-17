@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 Phase 1
 
 1. Build System: Use Poetry for dependency and environment management.

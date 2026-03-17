@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # API Reference
 
 This document provides complete REST API documentation for the Agent Brain server.

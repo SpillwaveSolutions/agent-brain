@@ -14,6 +14,7 @@ triggers:
     type: keyword
 skills:
   - using-agent-brain
+last_validated: 2026-03-16
 ---
 
 # Search Assistant Agent

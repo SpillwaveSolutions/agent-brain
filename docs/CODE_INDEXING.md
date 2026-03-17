@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Code Indexing Deep Dive
 
 Agent Brain's AST-aware code indexing is what sets it apart from generic RAG solutions. This guide explains how code is processed, what metadata is extracted, and how to get the best results from code-aware search.

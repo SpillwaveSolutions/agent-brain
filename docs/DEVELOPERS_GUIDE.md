@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Agent Brain Developer Guide
 
 This guide covers setting up a development environment, understanding the architecture, and contributing to Agent Brain.

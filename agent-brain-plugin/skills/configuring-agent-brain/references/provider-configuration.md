@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Provider Configuration Guide
 
 Agent Brain supports pluggable providers for embeddings and summarization. This guide covers all configuration options.

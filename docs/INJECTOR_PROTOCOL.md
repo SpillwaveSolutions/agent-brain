@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Injector Protocol
 
 Content injection enriches chunk metadata during indexing with custom data via Python

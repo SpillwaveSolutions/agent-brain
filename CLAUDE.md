@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Agent Brain Development Guidelines
 
 Instructions for Claude Code when working on this repository.

@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # ChromaDB vs PostgreSQL: Performance Tradeoffs
 
 This guide helps you choose the right storage backend for your Agent Brain deployment.

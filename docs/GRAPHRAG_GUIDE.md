@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # GraphRAG Integration Guide
 
 GraphRAG extends Agent Brain with knowledge graph capabilities, enabling relationship-aware retrieval that surfaces connections between entities, code dependencies, and conceptual relationships.

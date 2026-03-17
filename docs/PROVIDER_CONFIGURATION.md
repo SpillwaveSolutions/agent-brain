@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Provider Configuration Reference
 
 Complete reference for Agent Brain's pluggable provider system. This document covers all supported embedding, summarization, and reranking providers with configuration examples and troubleshooting guidance.

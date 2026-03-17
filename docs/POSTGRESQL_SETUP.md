@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # PostgreSQL + pgvector Setup (Docker Compose)
 
 This guide explains how to run a local PostgreSQL instance with pgvector for the Agent Brain PostgreSQL backend.

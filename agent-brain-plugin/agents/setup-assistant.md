@@ -20,6 +20,7 @@ triggers:
     type: error_pattern
 skills:
   - configuring-agent-brain
+last_validated: 2026-03-16
 ---
 
 # Setup Assistant Agent

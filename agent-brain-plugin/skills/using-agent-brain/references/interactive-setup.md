@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Interactive Setup Guide
 
 Guide for configuring Agent Brain through interactive prompts.

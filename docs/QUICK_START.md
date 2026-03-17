@@ -1,3 +1,7 @@
+---
+last_validated: 2026-03-16
+---
+
 # Agent Brain Quick Start
 
 Get up and running with Agent Brain in minutes. The Claude Code plugin is the primary interface - once installed, it handles everything else for you.

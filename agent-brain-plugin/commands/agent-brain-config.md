@@ -4,6 +4,7 @@ description: Configure providers, API keys, and indexing settings for Agent Brai
 parameters: []
 skills:
   - configuring-agent-brain
+last_validated: 2026-03-16
 ---
 
 # Configure Agent Brain

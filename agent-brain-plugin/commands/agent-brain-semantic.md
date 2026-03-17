@@ -15,6 +15,7 @@ parameters:
     default: 0.3
 skills:
   - using-agent-brain
+last_validated: 2026-03-16
 ---
 
 # Agent Brain Semantic Search
