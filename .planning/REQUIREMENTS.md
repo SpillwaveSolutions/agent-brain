@@ -38,7 +38,7 @@ Requirements for documentation accuracy audit. Each maps to roadmap phases.
 
 - [x] **XREF-01**: All internal doc links resolve correctly
 - [x] **XREF-02**: File paths referenced in docs exist
-- [ ] **XREF-03**: Audited docs have last_validated frontmatter
+- [x] **XREF-03**: Audited docs have last_validated frontmatter
 
 ## Future Requirements
 
@@ -79,7 +79,7 @@ Requirements for documentation accuracy audit. Each maps to roadmap phases.
 | PLUGDOC-03 | Phase 32 | Complete |
 | XREF-01 | Phase 33 | Complete |
 | XREF-02 | Phase 33 | Complete |
-| XREF-03 | Phase 33 | Pending |
+| XREF-03 | Phase 33 | Complete |
 
 **Coverage:**
 - v9.2.0 requirements: 18 total

@@ -12,7 +12,7 @@
 - ✅ **v8.0 Performance & Developer Experience** — Phases 15-25 (shipped 2026-03-15)
 - ✅ **v9.0 Multi-Runtime Support** — Multi-runtime converter system (shipped 2026-03-16)
 - ✅ **v9.1.0 Generic Skills-Based Runtime Portability** — Phases 26-28 (shipped 2026-03-16)
-- 🔄 **v9.2.0 Documentation Accuracy Audit** — Phases 29-33 (in progress)
+- ✅ **v9.2.0 Documentation Accuracy Audit** — Phases 29-33 (completed 2026-03-17)
 
 ## Phases
 
@@ -133,8 +133,8 @@ Plans:
 - [x] **Phase 29: CLI & API Documentation** — Audit and fix CLI command docs and API endpoint docs (completed 2026-03-17)
 - [x] **Phase 30: Configuration Documentation** — Audit and fix YAML config and environment variable docs
 - [x] **Phase 31: User Guides** — Audit and fix all user-facing guides for v7-v9 feature accuracy
-- [ ] **Phase 32: Plugin Documentation** — Audit and fix plugin commands, skills, and agent descriptions
-- [ ] **Phase 33: Cross-References & Metadata** — Verify all internal links, file paths, and add audit metadata
+- [x] **Phase 32: Plugin Documentation** — Audit and fix plugin commands, skills, and agent descriptions (completed 2026-03-17)
+- [x] **Phase 33: Cross-References & Metadata** — Verify all internal links, file paths, and add audit metadata (completed 2026-03-17)
 
 ## Phase Details
 
@@ -223,7 +223,7 @@ Plans:
 
 Plans:
 - [x] 33-01-PLAN.md — Scan and fix broken internal links and file path references
-- [ ] 33-02-PLAN.md — Add last_validated frontmatter metadata to all audited docs
+- [x] 33-02-PLAN.md — Add last_validated frontmatter metadata to all audited docs
 
 ---
 
@@ -244,8 +244,8 @@ Plans:
 | 30 | v9.2.0 | 2/2 | Complete | 2026-03-17 |
 | 31 | 2/2 | Complete   | 2026-03-17 | 2026-03-17 |
 | 32 | v9.2.0 | 3/3 | Complete | 2026-03-17 |
-| 33 | v9.2.0 | 1/2 | In progress | - |
+| 33 | v9.2.0 | 2/2 | Complete | 2026-03-17 |
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-17 — Phase 32 complete (3/3 plans), ready for Phase 33*
+*Last updated: 2026-03-17 — Phase 33 complete (2/2 plans), v9.2.0 milestone complete (11/11 plans)*
