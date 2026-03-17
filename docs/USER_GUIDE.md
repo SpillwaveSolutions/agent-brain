@@ -10,10 +10,17 @@ This guide covers how to use Agent Brain for document indexing and semantic sear
 - [Search Modes](#search-modes)
 - [Two-Stage Retrieval with Reranking](#two-stage-retrieval-with-reranking)
 - [Indexing](#indexing)
+- [Folder Management](#folder-management)
+- [File Type Presets](#file-type-presets)
+- [Content Injection](#content-injection)
+- [Chunk Eviction](#chunk-eviction)
+- [File Watcher](#file-watcher)
+- [Embedding Cache](#embedding-cache)
 - [Job Queue](#job-queue)
 - [Provider Configuration](#provider-configuration)
 - [Multi-Project Support](#multi-project-support)
 - [Runtime Autodiscovery](#runtime-autodiscovery)
+- [Runtime Installation](#runtime-installation)
 - [CLI Reference](#cli-reference)
 - [Local Integration Check](#local-integration-check)
 - [Troubleshooting](#troubleshooting)
@@ -26,7 +33,7 @@ Agent Brain is a RAG (Retrieval-Augmented Generation) system that indexes and se
 
 | Component | Count | Description |
 |-----------|-------|-------------|
-| **Commands** | 24 | Slash commands for all operations |
+| **Commands** | 30 | Slash commands for all operations |
 | **Agents** | 3 | Intelligent assistants for complex tasks |
 | **Skills** | 2 | Context for optimal search and configuration |
 
@@ -64,6 +71,16 @@ Agent Brain is a RAG (Retrieval-Augmented Generation) system that indexes and se
 | `/agent-brain-list` | List all running instances |
 | `/agent-brain-index` | Index documents or code |
 | `/agent-brain-reset` | Clear the index |
+| `/agent-brain-jobs` | Manage indexing job queue |
+
+### Index Management Commands
+
+| Command | Description |
+|---------|-------------|
+| `/agent-brain-folders` | Manage indexed folders (list, add, remove) |
+| `/agent-brain-inject` | Inject custom metadata into chunks during indexing |
+| `/agent-brain-types` | List available file type presets for indexing |
+| `/agent-brain-cache` | View embedding cache metrics or clear the cache |
 
 ### Setup Commands
 
@@ -71,6 +88,7 @@ Agent Brain is a RAG (Retrieval-Augmented Generation) system that indexes and se
 |---------|-------------|
 | `/agent-brain-setup` | Complete guided setup wizard |
 | `/agent-brain-install` | Install pip packages |
+| `/agent-brain-install-agent` | Install for different AI runtimes (Claude, OpenCode, Gemini, Codex) |
 | `/agent-brain-init` | Initialize project directory |
 | `/agent-brain-config` | View/edit configuration |
 | `/agent-brain-verify` | Verify configuration |
@@ -290,6 +308,13 @@ When reranking is enabled, results include additional metadata:
 /agent-brain-index ./src --include-code --languages python,typescript
 ```
 
+### Index with File Type Presets
+
+```
+/agent-brain-index ./src --include-type python
+/agent-brain-index ./project --include-type python,docs
+```
+
 ### Generate Code Summaries
 
 Improves semantic search for code by generating LLM descriptions:
@@ -326,6 +351,317 @@ Other languages use intelligent text-based chunking.
 /agent-brain-reset
 /agent-brain-index . --include-code
 ```
+
+---
+
+## Folder Management
+
+Agent Brain tracks indexed folders and provides commands to list, add, and remove them. Folders are persisted in a JSONL manifest that enables incremental re-indexing -- only changed files are processed on subsequent runs.
+
+### List Indexed Folders
+
+Show all indexed folders with chunk counts and last-indexed timestamps:
+
+```
+agent-brain folders list
+```
+
+Example output:
+```
+Folder Path              Chunks  Last Indexed
+/home/user/docs          312     2026-02-24T12:00:00
+/home/user/src           1024    2026-02-24T13:30:00
+```
+
+### Add a Folder
+
+Queue an indexing job for a folder. Supports all indexing options:
+
+```
+agent-brain folders add ./docs
+agent-brain folders add ./src --include-code
+agent-brain folders add ./src --include-type python,docs
+agent-brain folders add ./docs --force
+```
+
+Adding an already-indexed folder triggers incremental re-indexing (only changed files are processed). Use `--force` to bypass the manifest and re-index everything.
+
+### Remove a Folder
+
+Remove all indexed chunks associated with a folder:
+
+```
+agent-brain folders remove ./old-docs
+agent-brain folders remove ./old-docs --yes   # skip confirmation
+```
+
+The folder does not need to exist on disk to be removed from the index.
+
+### File Watcher Integration
+
+When adding a folder, you can enable automatic re-indexing via the file watcher (see [File Watcher](#file-watcher) section). Folders with `watch_mode=auto` are monitored for changes and re-indexed automatically.
+
+### Plugin Command
+
+Use the plugin command for the same operations:
+
+```
+/agent-brain-folders list
+/agent-brain-folders add ./src --include-code
+/agent-brain-folders remove ./old-docs --yes
+```
+
+---
+
+## File Type Presets
+
+File type presets are named groups of glob patterns that simplify indexing. Instead of specifying individual file extensions, use a preset name with the `--include-type` flag.
+
+### Available Presets
+
+| Preset | Extensions |
+|--------|------------|
+| `python` | `*.py`, `*.pyi`, `*.pyw` |
+| `javascript` | `*.js`, `*.jsx`, `*.mjs`, `*.cjs` |
+| `typescript` | `*.ts`, `*.tsx` |
+| `go` | `*.go` |
+| `rust` | `*.rs` |
+| `java` | `*.java` |
+| `csharp` | `*.cs` |
+| `c` | `*.c`, `*.h` |
+| `cpp` | `*.cpp`, `*.hpp`, `*.cc`, `*.hh` |
+| `web` | `*.html`, `*.css`, `*.scss`, `*.jsx`, `*.tsx` |
+| `docs` | `*.md`, `*.txt`, `*.rst`, `*.pdf` |
+| `text` | `*.md`, `*.txt`, `*.rst` |
+| `pdf` | `*.pdf` |
+| `code` | All programming language extensions combined |
+
+### Usage Examples
+
+```bash
+# Index only Python files
+agent-brain index ./src --include-type python
+
+# Index Python and documentation files
+agent-brain index ./project --include-type python,docs
+
+# Index all code files
+agent-brain index ./repo --include-type code
+
+# Combine presets with custom patterns
+agent-brain index ./project --include-type typescript --include-patterns "*.json"
+```
+
+### Viewing Available Presets
+
+Use the types command to see all presets:
+
+```
+/agent-brain-types
+```
+
+Presets can be combined with commas: `--include-type python,docs`. The `code` preset is a union of all individual language presets.
+
+---
+
+## Content Injection
+
+Content injection enriches chunk metadata during indexing using custom Python scripts or static JSON metadata files. Injectors run after chunking but before embedding generation (step 2.5 in the pipeline), so enriched metadata is stored alongside vectors in the index.
+
+### Script Injection
+
+Provide a Python script that exports a `process_chunk` function:
+
+```bash
+agent-brain inject ./docs --script enrich.py
+```
+
+The script must define:
+
+```python
+def process_chunk(chunk: dict) -> dict:
+    """Enrich a single chunk with custom metadata."""
+    chunk["project"] = "my-project"
+    chunk["team"] = "backend"
+    return chunk
+```
+
+**Input keys available:** `chunk_id`, `content`, `source`, `language`, `start_line`, `end_line`, `summary`
+
+**Constraints:**
+- Values must be scalars (str, int, float, bool) -- lists and dicts are stripped for ChromaDB compatibility
+- Core schema keys (`chunk_id`, `source`, etc.) cannot be overwritten
+- Exceptions are caught per-chunk and logged as warnings (the pipeline continues)
+
+### Folder Metadata Injection
+
+Merge a static JSON file into every chunk from a folder:
+
+```bash
+agent-brain inject ./src --folder-metadata project-meta.json --include-code
+```
+
+JSON format:
+```json
+{
+  "project": "my-project",
+  "team": "backend",
+  "version": "2.0"
+}
+```
+
+### Dry-Run Validation
+
+Validate an injector against sample chunks without actually indexing:
+
+```bash
+agent-brain inject ./docs --script enrich.py --dry-run
+```
+
+### Plugin Command
+
+```
+/agent-brain-inject ./docs --script enrich.py
+/agent-brain-inject ./src --folder-metadata project-meta.json --include-code
+/agent-brain-inject ./docs --script enrich.py --dry-run
+```
+
+At least one of `--script` or `--folder-metadata` must be provided.
+
+---
+
+## Chunk Eviction
+
+When files change or are removed, Agent Brain automatically evicts stale chunks from the index during the next indexing run. This is powered by the manifest tracker, which records per-file checksums, modification times, and chunk IDs.
+
+### How It Works
+
+1. **Manifest comparison**: On each indexing run, the current filesystem state is compared against the prior folder manifest.
+2. **Diff computation**: Files are categorized as added, changed, deleted, or unchanged.
+   - **mtime check first**: If the file modification time is unchanged, the file is skipped (fast path).
+   - **Checksum verification**: If mtime changed, a SHA-256 content checksum confirms whether the content actually changed (handles `touch`, `git checkout`, etc.).
+3. **Bulk eviction**: Chunk IDs for deleted and changed files are removed from the storage backend in bulk.
+4. **Re-indexing**: Only added and changed files are processed, saving time on large codebases.
+
+### Force Mode
+
+Use `--force` to bypass the manifest and re-index all files:
+
+```bash
+agent-brain index ./src --force
+```
+
+Force mode evicts all prior chunks for the folder and processes every file fresh.
+
+### Manifest Storage
+
+Manifests are stored as JSON files in the state directory:
+```
+.agent-brain/manifests/<sha256(folder_path)>.json
+```
+
+Each manifest records per-file checksums, mtimes, and chunk IDs for targeted deletion.
+
+---
+
+## File Watcher
+
+The file watcher service monitors indexed folders for changes and triggers automatic incremental re-indexing. It uses `watchfiles` (based on the Rust `notify` crate) for efficient filesystem event detection.
+
+### How It Works
+
+- One asyncio task is created per watched folder
+- When file changes are detected, an incremental indexing job is enqueued
+- Jobs are deduplicated -- if a job for the same folder is already pending, no duplicate is created
+- Changes are debounced to avoid rapid re-indexing (default: 30 seconds)
+
+### Watch Modes
+
+| Mode | Behavior |
+|------|----------|
+| `off` | No automatic re-indexing (default) |
+| `auto` | Watch for changes and re-index automatically |
+
+### Configuration
+
+Configure the file watcher via `config.yaml`:
+
+```yaml
+file_watcher:
+  default_debounce_seconds: 30  # Global debounce interval
+```
+
+Per-folder debounce can be set when adding a folder with watch mode enabled.
+
+### Ignored Directories
+
+The watcher automatically ignores common non-source directories: `.git/`, `__pycache__/`, `node_modules/`, `.venv/`, `dist/`, `build/`, `.next/`, `.nuxt/`, `coverage/`, `htmlcov/`.
+
+### Jobs Triggered by Watcher
+
+Watcher-triggered jobs are tagged with `source="auto"` to distinguish them from manual indexing jobs. They always use `force=False` (incremental mode via the manifest tracker).
+
+---
+
+## Embedding Cache
+
+Agent Brain automatically caches embeddings in a two-layer architecture to avoid redundant API calls. The cache is transparent -- it requires no setup and works with any embedding provider.
+
+### Architecture
+
+- **Layer 1 (Memory)**: In-memory LRU cache with fixed capacity (default: 1,000 entries). Sub-millisecond lookups with zero I/O.
+- **Layer 2 (Disk)**: aiosqlite SQLite database in WAL mode. Single-digit millisecond lookups. Persists across server restarts. Default limit: 500 MB (~42,000 entries at 3,072 dimensions).
+
+### Cache Key Format
+
+Keys are computed as `SHA-256(content_text):provider:model:dimensions`. This ensures cached embeddings are invalidated when the embedding provider or model changes.
+
+### Provider Change Detection
+
+On startup, the cache compares the current provider fingerprint against the stored fingerprint. If they differ, all cached embeddings are automatically cleared to prevent dimension mismatches.
+
+### Cache Management Commands
+
+Use the CLI or plugin command to view cache status and clear the cache:
+
+```bash
+# View cache metrics
+agent-brain cache status
+
+# View metrics as JSON
+agent-brain cache status --json
+
+# Clear the cache (prompts for confirmation)
+agent-brain cache clear
+
+# Clear without confirmation
+agent-brain cache clear --yes
+```
+
+Plugin commands:
+```
+/agent-brain-cache status
+/agent-brain-cache clear --yes
+```
+
+### Interpreting Cache Metrics
+
+| Metric | Description |
+|--------|-------------|
+| Entries (disk) | Total embeddings persisted in the SQLite database |
+| Entries (memory) | Embeddings in the in-memory LRU (fastest tier) |
+| Hit Rate | Percentage of lookups served from cache (higher is better) |
+| Hits | Total successful cache lookups this session |
+| Misses | Cache misses (embedding computed via API) |
+| Size | Disk space used by the cache database |
+
+A healthy cache has a hit rate above 80% after the first full indexing cycle.
+
+### When to Clear the Cache
+
+- After changing embedding provider or model (prevents dimension mismatches)
+- If embeddings seem incorrect or queries return poor results
+- To force fresh embeddings after significant content changes
 
 ---
 
@@ -616,6 +952,18 @@ agent-brain stop
 # Index documents
 agent-brain index ./docs --include-code
 
+# Index with file type presets
+agent-brain index ./src --include-type python
+
+# Folder management
+agent-brain folders list
+agent-brain folders add ./src --include-code
+agent-brain folders remove ./old-docs --yes
+
+# Content injection
+agent-brain inject ./docs --script enrich.py
+agent-brain inject ./src --folder-metadata project-meta.json
+
 # Query
 agent-brain query "your question" --mode hybrid
 
@@ -625,36 +973,21 @@ agent-brain jobs --watch   # Watch with live updates
 agent-brain jobs JOB_ID    # Job details
 agent-brain jobs JOB_ID --cancel  # Cancel job
 
+# Cache management
+agent-brain cache status
+agent-brain cache clear --yes
+
+# File type presets
+agent-brain types list
+
+# Runtime installation
+agent-brain install-agent --agent claude
+agent-brain install-agent --agent codex
+agent-brain install-agent --agent skill-runtime --dir ./skills
+
 # Status
 agent-brain status
 agent-brain list
-
-# Folder management
-agent-brain folders list         # List indexed folders
-agent-brain folders add ./docs   # Index a folder
-agent-brain folders remove ./docs  # Remove folder chunks
-
-# Cache management
-agent-brain cache status         # Show embedding cache stats
-agent-brain cache clear          # Clear embedding cache
-
-# File type presets
-agent-brain types list           # Show available presets
-
-# Configuration
-agent-brain config show          # Display active config
-agent-brain config path          # Show config file location
-
-# Content injection
-agent-brain inject --script enrich.py ./docs  # Index with injection
-
-# Runtime installation
-agent-brain install-agent --agent claude      # Install for Claude Code
-agent-brain install-agent --agent codex       # Install for Codex
-agent-brain install-agent --agent skill-runtime --dir ./skills  # Skill-based runtime
-
-# Uninstall
-agent-brain uninstall            # Remove global Agent Brain data
 ```
 
 ### Query Options
@@ -785,7 +1118,7 @@ Verify your API keys are set correctly for the selected provider.
 ## Next Steps
 
 - [Quick Start](QUICK_START.md) - Get running in minutes
-- [Plugin Guide](PLUGIN_GUIDE.md) - All 24 commands in detail
+- [Plugin Guide](PLUGIN_GUIDE.md) - All 30 commands in detail
 - [API Reference](API_REFERENCE.md) - REST API documentation
 - [GraphRAG Guide](GRAPHRAG_GUIDE.md) - Knowledge graph features
 - [Provider Configuration](../agent-brain-plugin/skills/using-agent-brain/references/provider-configuration.md) - Provider setup
