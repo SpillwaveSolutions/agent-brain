@@ -9,10 +9,10 @@ Requirements for documentation accuracy audit. Each maps to roadmap phases.
 
 ### CLI & API Documentation
 
-- [ ] **CLIDOC-01**: CLI root and all subcommand docs match `agent-brain --help` output
-- [ ] **CLIDOC-02**: Runtime installation commands (install-agent) documented for all 5 runtimes
+- [x] **CLIDOC-01**: CLI root and all subcommand docs match `agent-brain --help` output
+- [x] **CLIDOC-02**: Runtime installation commands (install-agent) documented for all 5 runtimes
 - [ ] **CLIDOC-03**: API endpoint docs match OpenAPI spec and source code
-- [ ] **CLIDOC-04**: Job queue commands documented accurately
+- [x] **CLIDOC-04**: Job queue commands documented accurately
 
 ### Configuration Documentation
 
@@ -62,10 +62,10 @@ Requirements for documentation accuracy audit. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CLIDOC-01 | Phase 29 | Pending |
-| CLIDOC-02 | Phase 29 | Pending |
+| CLIDOC-01 | Phase 29 | Complete |
+| CLIDOC-02 | Phase 29 | Complete |
 | CLIDOC-03 | Phase 29 | Pending |
-| CLIDOC-04 | Phase 29 | Pending |
+| CLIDOC-04 | Phase 29 | Complete |
 | CFGDOC-01 | Phase 30 | Complete |
 | CFGDOC-02 | Phase 30 | Complete |
 | CFGDOC-03 | Phase 30 | Complete |
