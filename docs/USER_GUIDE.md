@@ -517,6 +517,81 @@ agent-brain query "search term"
 
 ---
 
+## Runtime Installation
+
+Agent Brain can be installed for multiple AI runtimes. The `install-agent` command converts the canonical Claude plugin format into the target runtime's native format.
+
+### Supported Runtimes
+
+| Runtime | Command | Default Directory |
+|---------|---------|-------------------|
+| Claude Code | `--agent claude` | `.claude/plugins/agent-brain/` |
+| OpenCode | `--agent opencode` | `.opencode/plugins/agent-brain/` |
+| Gemini CLI | `--agent gemini` | `.gemini/plugins/agent-brain/` |
+| Codex | `--agent codex` | `.codex/skills/agent-brain/` |
+| Any skill-based | `--agent skill-runtime --dir <path>` | (required) |
+
+### Installation Examples
+
+```bash
+# Install for Claude Code (default)
+agent-brain install-agent --agent claude
+
+# Install for Codex (generates AGENTS.md at project root)
+agent-brain install-agent --agent codex
+
+# Install for any skill-based runtime (e.g., Qwen, Cursor)
+agent-brain install-agent --agent skill-runtime --dir ./my-skills
+
+# Preview what would be installed
+agent-brain install-agent --agent codex --dry-run
+
+# Install globally (user-level)
+agent-brain install-agent --agent claude --global
+
+# JSON output for automation
+agent-brain install-agent --agent codex --json
+```
+
+### Skill-Runtime Converter
+
+The `skill-runtime` converter flattens all plugin artifacts into skill directories:
+
+- **Commands** become individual skill directories with `SKILL.md`
+- **Agents** become orchestration skill directories referencing dependent skills
+- **Skills** are copied with references intact
+- **Templates** are placed in `agent-brain-setup/assets/`
+- **Scripts** are placed in `agent-brain-verify/scripts/`
+
+### Codex Adapter
+
+The `codex` adapter is a preset built on `skill-runtime` that also:
+
+- Installs to `.codex/skills/agent-brain/` by default
+- Generates/updates `AGENTS.md` at the project root
+- Adds invocation guidance headers to each skill
+- Uses HTML comment markers for idempotent AGENTS.md updates
+
+### Adding New Runtime Support
+
+To add support for a new runtime, implement the `RuntimeConverter` protocol:
+
+```python
+from agent_brain_cli.runtime.converter_base import RuntimeConverter
+
+class MyConverter:
+    @property
+    def runtime_type(self) -> RuntimeType: ...
+    def convert_command(self, command: PluginCommand) -> str: ...
+    def convert_agent(self, agent: PluginAgent) -> str: ...
+    def convert_skill(self, skill: PluginSkill) -> str: ...
+    def install(self, bundle: PluginBundle, target: Path, scope: Scope) -> list[Path]: ...
+```
+
+Then register it in `install_agent.py`'s `CONVERTERS` dict.
+
+---
+
 ## CLI Reference
 
 For advanced users or automation, the CLI provides direct access:

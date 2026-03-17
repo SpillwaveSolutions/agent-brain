@@ -6,7 +6,9 @@ from agent_brain_cli.runtime.parser import (
     parse_command,
     parse_frontmatter,
     parse_plugin_dir,
+    parse_scripts,
     parse_skill,
+    parse_templates,
 )
 from agent_brain_cli.runtime.tool_maps import (
     CLAUDE_TOOLS,
@@ -21,7 +23,9 @@ from agent_brain_cli.runtime.types import (
     PluginCommand,
     PluginManifest,
     PluginParameter,
+    PluginScript,
     PluginSkill,
+    PluginTemplate,
     RuntimeType,
     Scope,
     TriggerPattern,
@@ -36,7 +40,9 @@ __all__ = [
     "PluginCommand",
     "PluginManifest",
     "PluginParameter",
+    "PluginScript",
     "PluginSkill",
+    "PluginTemplate",
     "RuntimeConverter",
     "RuntimeType",
     "Scope",
@@ -47,5 +53,7 @@ __all__ = [
     "parse_command",
     "parse_frontmatter",
     "parse_plugin_dir",
+    "parse_scripts",
     "parse_skill",
+    "parse_templates",
 ]

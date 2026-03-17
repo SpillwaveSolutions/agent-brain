@@ -70,3 +70,37 @@
 
 ---
 
+## v8.0 Performance & Developer Experience (Shipped: 2026-03-15)
+
+**Phases completed:** 5 phases (15-16, 19, 24-25), 9 plans
+**Tests:** 1100+ passing (77% server coverage)
+
+**Key accomplishments:**
+1. File watcher with per-folder `watch_mode` (auto/off) and configurable debounce — automatic reindexing on file changes
+2. Background incremental updates via job queue with duplicate prevention and source indicator (manual vs auto)
+3. Embedding cache with aiosqlite two-layer storage (memory LRU + disk) — zero API cost for unchanged content on reindex
+4. Provider fingerprint auto-wipe on embedding model change — prevents dimension mismatches
+5. Setup wizard with full config prompts, permissions bootstrap, and helper script (`ab-setup-check.sh`)
+6. GraphRAG gate for PostgreSQL backend, BM25/tsvector awareness, cache awareness in wizard
+7. Plugin and skill updates for embedding cache management
+
+**Archive:** [v8.0-ROADMAP.md](milestones/v8.0-ROADMAP.md) | [v8.0-REQUIREMENTS.md](milestones/v8.0-REQUIREMENTS.md)
+
+---
+
+## v9.0 Multi-Runtime Support (Shipped: 2026-03-16)
+
+**Phases completed:** 1 phase (multi-runtime converter system)
+**Tests:** 1180+ passing
+
+**Key accomplishments:**
+1. `RuntimeConverter` protocol with canonical format + multi-runtime translation
+2. Plugin parser infrastructure — YAML frontmatter extraction, command/agent/skill/manifest parsing
+3. Claude converter (near-identity with path replacement)
+4. OpenCode converter (lowercase tool names, boolean tools object, color-to-hex)
+5. Gemini converter (semantic tool names, metadata filtering)
+6. `install-agent` CLI command with `--agent`, `--project/--global`, `--dry-run`, `--json` options
+7. Tool mapping system with per-runtime dictionaries
+
+---
+

@@ -9,17 +9,14 @@
 - ✅ **v6.0 PostgreSQL Backend** — Phases 5-10 (shipped 2026-02-13)
 - ✅ **v6.0.4 Plugin & Install Fixes** — Phase 11 (shipped 2026-02-22)
 - ✅ **v7.0 Index Management & Content Pipeline** — Phases 12-14 (shipped 2026-03-05)
-- 🚧 **v8.0 Performance & Developer Experience** — Phases 15-18 (in progress)
+- ✅ **v8.0 Performance & Developer Experience** — Phases 15-25 (shipped 2026-03-15)
+- ✅ **v9.0 Multi-Runtime Support** — Multi-runtime converter system (shipped 2026-03-16)
+- ✅ **v9.1.0 Generic Skills-Based Runtime Portability** — Phases 26-28 (shipped 2026-03-16)
 
 ## Phases
 
 <details>
 <summary>✅ v3.0 Advanced RAG (Phases 1-4) — SHIPPED 2026-02-10</summary>
-
-- [x] Phase 1: Two-Stage Reranking (7/7 plans) — Feature 123
-- [x] Phase 2: Pluggable Providers (4/4 plans) — Feature 103
-- [x] Phase 3: Schema-Based GraphRAG (2/2 plans) — Feature 122
-- [x] Phase 4: Provider Integration Testing (2/2 plans) — Feature 124
 
 **Full details:** [v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
 
@@ -28,21 +25,12 @@
 <details>
 <summary>✅ v6.0 PostgreSQL Backend (Phases 5-10) — SHIPPED 2026-02-13</summary>
 
-- [x] Phase 5: Storage Backend Abstraction Layer (2/2 plans) — 2026-02-10
-- [x] Phase 6: PostgreSQL Backend Implementation (3/3 plans) — 2026-02-11
-- [x] Phase 7: Testing & CI Integration (2/2 plans) — 2026-02-12
-- [x] Phase 8: Plugin & Documentation (2/2 plans) — 2026-02-12
-- [x] Phase 9: Runtime Backend Wiring (2/2 plans) — 2026-02-12
-- [x] Phase 10: Live PostgreSQL E2E Validation (1/1 plans) — 2026-02-12
-
 **Full details:** [v6.0.4-ROADMAP.md](milestones/v6.0.4-ROADMAP.md)
 
 </details>
 
 <details>
 <summary>✅ v6.0.4 Plugin & Install Fixes (Phase 11) — SHIPPED 2026-02-22</summary>
-
-- [x] Phase 11: Plugin Port Discovery & Install Fix (1/1 plans) — 2026-02-22
 
 **Full details:** [v6.0.4-ROADMAP.md](milestones/v6.0.4-ROADMAP.md)
 
@@ -51,222 +39,106 @@
 <details>
 <summary>✅ v7.0 Index Management & Content Pipeline (Phases 12-14) — SHIPPED 2026-03-05</summary>
 
-- [x] Phase 12: Folder Management & File Type Presets (3/3 plans) — 2026-02-25
-- [x] Phase 13: Content Injection Pipeline (2/2 plans) — 2026-03-05
-- [x] Phase 14: Manifest Tracking & Chunk Eviction (2/2 plans) — 2026-03-05
+**Full details:** [v7.0-ROADMAP.md](milestones/v7.0-ROADMAP.md)
+
+</details>
+
+<details>
+<summary>✅ v8.0 Performance & Developer Experience (Phases 15-25) — SHIPPED 2026-03-15</summary>
+
+**Full details:** [v8.0-ROADMAP.md](milestones/v8.0-ROADMAP.md)
+
+</details>
+
+<details>
+<summary>✅ v9.0 Multi-Runtime Support — SHIPPED 2026-03-16</summary>
+
+Multi-runtime converter system with Claude, OpenCode, and Gemini support.
 
 </details>
 
 ---
 
-## 🚧 v8.0 Performance & Developer Experience (In Progress)
+<details>
+<summary>✅ v9.1.0 Generic Skills-Based Runtime Portability (Phases 26-28) — SHIPPED 2026-03-16</summary>
 
-**Milestone Goal:** Improve developer workflow with automatic index maintenance and faster query/indexing through caching and optimized transport.
+**Milestone Goal:** Add installer-based runtime transformation that converts Claude plugin format into skill-directory installations for Codex and any skill-based runtime.
 
-### Phase 15: File Watcher and Background Incremental Updates
+### Phase 26: Generic Skill-Runtime Converter + Parser Extensions
 
-**Goal:** Folders configured with `watch_mode: auto` automatically stay indexed after every file change, without any manual reindex command.
+**Goal:** Add `SkillRuntimeConverter` and extend parser/types to handle templates and scripts.
 
-**Depends on:** Phase 14 (ManifestTracker and IndexingService must exist; watcher-triggered jobs leverage incremental diff via force=False)
+**Requirements:** SKILL-01 through SKILL-07, COMPAT-01, COMPAT-02, COMPAT-03
 
-**Requirements:** WATCH-01, WATCH-02, WATCH-03, WATCH-04, WATCH-05, WATCH-06, WATCH-07, BGINC-01, BGINC-02, BGINC-03, BGINC-04, XCUT-03
-
-**Success Criteria** (what must be TRUE):
-1. Running `agent-brain folders add ./src --watch auto` causes the folder to be re-indexed automatically within 30 seconds of any file change
-2. A `git checkout` that touches 150 files triggers exactly one reindex job — not 150 separate jobs
-3. `agent-brain folders list` shows `watch_mode` (off/auto) and watcher status (watching/idle) per folder
-4. `agent-brain jobs` shows watcher-triggered jobs with a `source: auto` indicator distinguishing them from manually triggered jobs
-5. Folders marked `watch_mode: off` are never auto-reindexed regardless of file activity
-6. Plugin slash commands are updated for `--watch` flag and `watch_mode` display
+**Success Criteria:**
+1. `agent-brain install-agent --agent skill-runtime --dir /tmp/test` produces skill dirs for all commands/agents/skills
+2. Each SKILL.md has valid YAML frontmatter
+3. Templates in assets/, scripts in scripts/
+4. `--dry-run` lists planned files without writing
+5. Existing converters unaffected (all existing tests pass)
 
 **Plans:** 2 plans
 
 Plans:
-- [x] 15-01-PLAN.md — FileWatcherService + data model extensions (FolderRecord, JobRecord, Settings, lifespan wiring, health endpoint)
-- [x] 15-02-PLAN.md — CLI --watch/--debounce flags, folders list watch columns, jobs source column, job worker watcher notification, plugin docs
+- [x] 26-01-PLAN.md — Types, parser extensions, SkillRuntimeConverter core
+- [x] 26-02-PLAN.md — CLI integration, tests, dry-run support
 
 ---
 
-### Phase 16: Embedding Cache
+### Phase 27: Codex Named Adapter + AGENTS.md Generation
 
-**Goal:** Users pay zero OpenAI API cost for unchanged content on any reindex run triggered by the watcher or manually.
+**Goal:** Add `codex` as a named runtime preset built on the skill-runtime converter.
 
-**Depends on:** Phase 15 (File Watcher must be in place — embedding cache provides the cost control that makes automatic watcher-driven reindexing economically viable)
+**Requirements:** CODEX-01 through CODEX-04
 
-**Requirements:** ECACHE-01, ECACHE-02, ECACHE-03, ECACHE-04, ECACHE-05, ECACHE-06
+**Success Criteria:**
+1. `agent-brain install-agent --agent codex` creates `.codex/skills/agent-brain/`
+2. `AGENTS.md` generated at project root with Agent Brain section
+3. Running twice doesn't duplicate the section
+4. `--dry-run` shows both skill files and AGENTS.md
 
-**Success Criteria** (what must be TRUE):
-1. Reindexing a folder for the second time with no file changes makes zero embedding API calls
-2. `agent-brain status` shows embedding cache hit rate, total hits, and total misses
-3. `agent-brain cache clear` flushes the cache and subsequent reindex incurs full API cost again
-4. Switching embedding provider or model (via YAML/env) automatically invalidates all cached embeddings — no dimension mismatch errors
-5. Cache survives server restart — a reindex after restart still shows nonzero hit rate for unchanged files
-
-**Plans:** 2/2 plans complete
+**Plans:** 1 plan
 
 Plans:
-- [x] 16-01-PLAN.md — EmbeddingCacheService (aiosqlite two-layer cache, SHA-256+provider:model:dims key, LRU eviction, provider auto-wipe) + EmbeddingGenerator integration + API endpoints + settings
-- [x] 16-02-PLAN.md — CLI `cache` command group (status, clear --yes) + status command cache display + health endpoint embedding_cache section
+- [x] 27-01-PLAN.md — CodexConverter, AGENTS.md generation, CLI integration, tests
 
 ---
 
-### Phase 17: Query Cache
+### Phase 28: Documentation, Testing & Plan Archival
 
-**Goal:** Repeat queries return results in sub-millisecond with guaranteed freshness after any reindex — including watcher-triggered auto-reindex jobs.
+**Goal:** Comprehensive tests, docs, plan archival, version bump.
 
-**Depends on:** Phase 15 (watcher generates automatic reindex events that must invalidate cache), Phase 16 (index_generation counter must be established before query cache relies on it for freshness guarantees)
+**Requirements:** DOC-01 through DOC-03, COMPAT-01, COMPAT-02
 
-**Requirements:** QCACHE-01, QCACHE-02, QCACHE-03, QCACHE-04, QCACHE-05, QCACHE-06, XCUT-04
+**Success Criteria:**
+1. `task before-push` passes
+2. `task pr-qa-gate` passes
+3. All 5 converters tested against real plugin directory
+4. Plan archived in docs/plans/
 
-**Success Criteria** (what must be TRUE):
-1. Running the same query twice in succession (no reindex between) returns the second result from cache with no storage backend call
-2. Running a reindex job causes the very next identical query to hit storage (cache is cleared on job completion)
-3. `agent-brain status` shows query cache hit rate, total hits, and total misses
-4. `graph` and `multi` query modes are never served from cache — each call reaches storage
-5. `QUERY_CACHE_TTL` and `QUERY_CACHE_MAX_SIZE` are documented in env vars reference and YAML config reference
-
-**Plans:** TBD
+**Plans:** 1 plan
 
 Plans:
-- [x] 17-01: QueryCache service (cachetools TTLCache + asyncio.Lock, index_generation counter, graph/multi exclusion, invalidate_all on job DONE)
-- [x] 17-02: Integration into QueryService + JobWorker; cache hit/miss metrics in /health/status; env var config; config documentation
+- [x] 28-01-PLAN.md — Integration tests, user guide, CLAUDE.md updates
 
----
-
-### Phase 18: UDS Transport and Quality Gate
-
-**Goal:** CLI-to-server communication on the same host uses Unix domain sockets for lower latency, and the full v8.0 feature set passes all quality checks.
-
-**Depends on:** Phases 15-17 (all service-layer changes must be complete before touching server startup — widest blast radius)
-
-**Requirements:** UDS-01, UDS-02, UDS-03, UDS-04, UDS-05, UDS-06, XCUT-01, XCUT-02
-
-**Success Criteria** (what must be TRUE):
-1. `agent-brain status` shows both TCP endpoint and UDS socket path; CLI connects via UDS automatically when on the same host
-2. Killing the server with `kill -9` and restarting it succeeds without manual socket file cleanup
-3. Setting `transport.uds_enabled: false` in YAML config causes server to listen on TCP only and CLI falls back to TCP without error
-4. All new v8.0 code (file watcher, embedding cache, query cache, UDS transport) has >70% test coverage
-5. `task before-push` exits with code 0 with all v8.0 features in place
-
-**Plans:** TBD
-
-Plans:
-- [ ] 18-01: Dual Uvicorn server (asyncio.gather TCP+UDS, _NoSignalServer subclass, lifespan="off" on UDS, stale socket cleanup, runtime.json uds_path)
-- [ ] 18-02: CLI UDS auto-detection (httpx AsyncHTTPTransport(uds=), runtime.json discovery, TCP fallback); UDS endpoint in status output; quality gate validation
-
----
-
-### Phase 19: Plugin and skill updates for embedding cache management
-
-**Goal:** Users can manage the embedding cache entirely through the Claude Code plugin without dropping to the terminal -- slash commands, skill guidance, agent awareness, and configuration docs all surface the cache feature.
-
-**Requirements:** XCUT-03
-
-**Depends on:** Phase 16 (embedding cache backend must be complete)
-
-**Plans:** 1/1 plans complete
-
-Plans:
-- [ ] 19-01-PLAN.md — Create agent-brain-cache slash command + update help, API reference, skills, agent, and config docs for cache awareness
-
----
-
-### Phase 24: Setup Agent Permissions and Helper Script
-
-**Goal:** Eliminate Claude Code permission prompts during Agent Brain setup by pre-writing `.claude/settings.json` and consolidating environment detection into a single JSON-outputting helper script.
-
-**Depends on:** Phase 23 (XDG migration complete — new config paths must be accounted for in detection)
-
-**Requirements:** PERM-01, PERM-02, PERM-03, PERM-04
-
-**Success Criteria** (what must be TRUE):
-1. Running `/agent-brain-setup` on a fresh project with no existing `.claude/settings.json` completes without any permission prompts
-2. `agent-brain-plugin/templates/settings.json` documents the full wizard allowlist and is auditable
-3. `ab-setup-check.sh` outputs valid JSON with Ollama status, Docker availability, config path, available PostgreSQL port, and large directories in a single invocation
-4. `agent-brain-config.md` and `agent-brain-setup.md` use `ab-setup-check.sh` for detection instead of 15+ individual Bash commands
-
-**Plans:** 2 plans
-
-Plans:
-- [x] 24-01-PLAN.md — settings.json template + Step 0 bootstrap in agent-brain-setup.md (Write-tool-first permission injection)
-- [x] 24-02-PLAN.md — ab-setup-check.sh detection script + update agent-brain-config.md and agent-brain-setup.md to use it
-
----
-
-### Phase 25: Setup Wizard Coverage Gaps
-
-**Goal:** Close setup wizard coverage gaps so users are guided through ALL configuration dimensions during setup — GraphRAG opt-in with PostgreSQL incompatibility gate, BM25/PostgreSQL awareness, search mode education with cache mention.
-
-**Depends on:** Phase 22 (Setup wizard must be complete and tested)
-
-**Requirements:** WIZARD-GAP-01, WIZARD-GAP-02, WIZARD-GAP-03, WIZARD-GAP-04, WIZARD-GAP-05
-
-**Success Criteria** (what must be TRUE):
-1. When PostgreSQL backend is selected in Step 4, wizard informs user that BM25 is replaced by tsvector full-text search
-2. When PostgreSQL backend is selected, Step 5 blocks GraphRAG options and sets graphrag.enabled: false automatically (GraphRAG requires ChromaDB — hard error in query_service.py)
-3. Step 6 mentions that both embedding and query caches are auto-enabled with no configuration needed
-4. SKILL.md and configuration-guide.md document query cache (QUERY_CACHE_TTL, QUERY_CACHE_MAX_SIZE) and PostgreSQL BM25 replacement
-5. Regression tests verify all three new wizard behaviors
-
-**Plans:** 2 plans
-
-Plans:
-- [x] 25-01-PLAN.md — Update agent-brain-setup.md wizard (Steps 4/5/6 coverage gaps) + regression tests
-- [x] 25-02-PLAN.md — Update SKILL.md and configuration-guide.md (query cache docs + PostgreSQL BM25 note)
+</details>
 
 ---
 
 ## Progress
 
-**Execution Order:**
-Phases execute in numeric order: 15 → 16 → 17 → 18
-
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 1. Two-Stage Reranking | v3.0 | 7/7 | Complete | 2026-02-08 |
-| 2. Pluggable Providers | v3.0 | 4/4 | Complete | 2026-02-09 |
-| 3. Schema-Based GraphRAG | v3.0 | 2/2 | Complete | 2026-02-10 |
-| 4. Provider Integration Testing | v3.0 | 2/2 | Complete | 2026-02-10 |
-| 5. Storage Abstraction | v6.0 | 2/2 | Complete | 2026-02-10 |
-| 6. PostgreSQL Backend | v6.0 | 3/3 | Complete | 2026-02-11 |
-| 7. Testing & CI | v6.0 | 2/2 | Complete | 2026-02-12 |
-| 8. Plugin & Documentation | v6.0 | 2/2 | Complete | 2026-02-12 |
-| 9. Runtime Backend Wiring | v6.0 | 2/2 | Complete | 2026-02-12 |
-| 10. Live PostgreSQL E2E Validation | v6.0 | 1/1 | Complete | 2026-02-12 |
-| 11. Plugin Port Discovery & Install Fix | v6.0.4 | 1/1 | Complete | 2026-02-22 |
-| 12. Folder Management & File Type Presets | v7.0 | 3/3 | Complete | 2026-02-25 |
-| 13. Content Injection Pipeline | v7.0 | 2/2 | Complete | 2026-03-05 |
-| 14. Manifest Tracking & Chunk Eviction | v7.0 | 2/2 | Complete | 2026-03-05 |
-| 15. File Watcher & Background Incremental | v8.0 | 2/2 | Complete | 2026-03-07 |
-| 16. Embedding Cache | v8.0 | Complete    | 2026-03-10 | 2026-03-10 |
-| 17. Query Cache | v8.0 | 0/2 | Not started | - |
-| 18. UDS Transport & Quality Gate | v8.0 | 0/2 | Not started | - |
-| 19. Plugin Cache Docs | 1/1 | Complete    | 2026-03-12 | - |
-| 24. Setup Permissions & Helper Script | plugin | 2/2 | Complete | 2026-03-15 |
-| 25. Setup Wizard Coverage Gaps | plugin | 2/2 | Complete | 2026-03-15 |
-
----
-
-## Completed Phases (Legacy Archive)
-
-### Phase 1 (Legacy): Core Document RAG — COMPLETED
-Features 001-005: Document ingestion, vector search, REST API, CLI
-
-### Phase 2 (Legacy): BM25 & Hybrid Retrieval — COMPLETED
-Feature 100: BM25 keyword search, hybrid retrieval with RRF
-
-### Phase 3 (Legacy): Source Code Ingestion — COMPLETED
-Feature 101: AST-aware code ingestion, code summaries
-
-### Phase 3.1-3.6 (Legacy): Extensions — COMPLETED
-- 109: Multi-instance architecture
-- 110: C# code indexing
-- 111: Skill instance discovery
-- 112: Agent Brain naming
-- 113: GraphRAG integration
-- 114: Agent Brain plugin
-- 115: Server-side job queue
+| 1-4 | v3.0 | 15/15 | Complete | 2026-02-10 |
+| 5-10 | v6.0 | 12/12 | Complete | 2026-02-13 |
+| 11 | v6.0.4 | 1/1 | Complete | 2026-02-22 |
+| 12-14 | v7.0 | 7/7 | Complete | 2026-03-05 |
+| 15-25 | v8.0 | 9/9 | Complete | 2026-03-15 |
+| - | v9.0 | - | Complete | 2026-03-16 |
+| 26 | v9.1.0 | 2/2 | Complete | 2026-03-16 |
+| 27 | v9.1.0 | 1/1 | Complete | 2026-03-16 |
+| 28 | v9.1.0 | 1/1 | Complete | 2026-03-16 |
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-15 — Phase 25 planned: 2 plans in 1 wave (parallel)*
+*Last updated: 2026-03-16 — v9.1.0 milestone complete*
