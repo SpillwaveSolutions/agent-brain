@@ -66,9 +66,16 @@ class Settings(BaseSettings):
     GRAPH_EXTRACTION_MODEL: str = "claude-haiku-4-5"  # Model for entity extraction
     GRAPH_MAX_TRIPLETS_PER_CHUNK: int = 10  # Max triplets per document chunk
     GRAPH_USE_CODE_METADATA: bool = True  # Use AST metadata for code entities
-    GRAPH_USE_LLM_EXTRACTION: bool = True  # Use LLM for additional extraction
+    # Legacy: Anthropic LLM for doc extraction (superseded by GRAPH_DOC_EXTRACTOR)
+    GRAPH_USE_LLM_EXTRACTION: bool = False
     GRAPH_TRAVERSAL_DEPTH: int = 2  # Depth for graph traversal in queries
     GRAPH_RRF_K: int = 60  # Reciprocal Rank Fusion constant for multi-retrieval
+    # "langextract" (multi-provider) or "none"; overrides GRAPH_USE_LLM_EXTRACTION
+    GRAPH_DOC_EXTRACTOR: str = "langextract"
+    # Override provider for LangExtract (default: from summarization config)
+    GRAPH_LANGEXTRACT_PROVIDER: str = ""
+    # Override model for LangExtract (default: from summarization config)
+    GRAPH_LANGEXTRACT_MODEL: str = ""
 
     # Job Queue Configuration (Feature 115)
     AGENT_BRAIN_MAX_QUEUE: int = 100  # Max pending jobs in queue
