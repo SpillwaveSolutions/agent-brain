@@ -13,6 +13,9 @@
 - ✅ **v9.0 Multi-Runtime Support** — Multi-runtime converter system (shipped 2026-03-16)
 - ✅ **v9.1.0 Generic Skills-Based Runtime Portability** — Phases 26-28 (shipped 2026-03-16)
 - ✅ **v9.2.0 Documentation Accuracy Audit** — Phases 29-33 (completed 2026-03-17)
+- ⬜ **v9.3.0 LangExtract + Config Spec** — Phases 34-35
+  - Phase 34: Config command spec + file watcher step (9-step wizard formalized)
+  - Phase 35: LangExtract document graph extractor (multi-provider, retire LLMEntityExtractor as default)
 
 ## Phases
 
@@ -245,7 +248,9 @@ Plans:
 | 31 | 2/2 | Complete    | 2026-03-17 | 2026-03-17 |
 | 32 | v9.2.0 | Complete    | 2026-03-17 | 2026-03-17 |
 | 33 | v9.2.0 | Complete    | 2026-03-17 | 2026-03-17 |
+| 34 | v9.3.0 | 0 plans     | Complete   | 2026-03-17 |
+| 35 | v9.3.0 | 0 plans     | Complete   | 2026-03-17 |
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-17 — Phase 33 complete (2/2 plans), v9.2.0 milestone complete (11/11 plans)*
+*Last updated: 2026-03-17 — Phases 34-35 complete, v9.3.0 milestone (LangExtract + Config Spec)*

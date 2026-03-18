@@ -1,8 +1,14 @@
 """Entity extraction for GraphRAG (Feature 113).
 
 Provides extractors for building the knowledge graph:
-- LLMEntityExtractor: Uses LLM to extract entity-relationship triplets
-- CodeMetadataExtractor: Extracts relationships from code AST metadata
+- LLMEntityExtractor: Legacy Anthropic-only LLM extraction (doc chunks)
+- CodeMetadataExtractor: Extracts relationships from code AST metadata (code chunks)
+- LangExtractExtractor: Multi-provider extraction via langextract (doc chunks, default)
+
+Routing in GraphIndexManager._extract_from_document:
+  source_type == "code"     → CodeMetadataExtractor (AST, no API key)
+  source_type == "document" → LangExtractExtractor  (GRAPH_DOC_EXTRACTOR=langextract)
+  legacy fallback           → LLMEntityExtractor    (GRAPH_USE_LLM_EXTRACTION=true)
 
 All extractors return GraphTriple objects for graph construction.
 """
@@ -620,9 +626,221 @@ class CodeMetadataExtractor:
         return triplets
 
 
+class LangExtractExtractor:
+    """Multi-provider document graph extraction via LangExtract library.
+
+    Supports Gemini, OpenAI, Claude, and Ollama for document-chunk entity
+    extraction. Falls back to returning [] when langextract is not installed.
+
+    Provider resolution order:
+    1. GRAPH_LANGEXTRACT_PROVIDER (explicit override)
+    2. SUMMARIZATION_PROVIDER (reuse configured summarization provider)
+    3. "ollama" (safe default if nothing else configured)
+
+    Attributes:
+        provider: The provider to use for extraction.
+        model: The model to use for extraction.
+        max_triplets: Maximum triplets to extract per chunk.
+    """
+
+    def __init__(
+        self,
+        provider: str | None = None,
+        model: str | None = None,
+        max_triplets: int | None = None,
+    ) -> None:
+        """Initialize LangExtract extractor.
+
+        Args:
+            provider: LangExtract provider (defaults to settings resolution chain).
+            model: Model to use (defaults to settings resolution chain).
+            max_triplets: Max triplets per chunk (defaults to settings value).
+        """
+        # Priority: explicit > GRAPH_LANGEXTRACT_PROVIDER > summarization > ollama
+        _summarization_provider = ""
+        _summarization_model = ""
+        try:
+            from agent_brain_server.config.provider_config import (
+                load_provider_settings,
+            )
+
+            _prov = load_provider_settings()
+            _summarization_provider = str(_prov.summarization.provider or "")
+            _summarization_model = str(_prov.summarization.model or "")
+        except Exception:
+            pass  # Config not loaded yet (e.g. during testing) — use fallback
+
+        self.provider = (
+            provider
+            or settings.GRAPH_LANGEXTRACT_PROVIDER
+            or _summarization_provider
+            or "ollama"
+        )
+        # Resolve model: explicit > GRAPH_LANGEXTRACT_MODEL > summarization model > ""
+        self.model = (
+            model or settings.GRAPH_LANGEXTRACT_MODEL or _summarization_model or ""
+        )
+        self.max_triplets = max_triplets or settings.GRAPH_MAX_TRIPLETS_PER_CHUNK
+
+    def extract_triplets(
+        self,
+        text: str,
+        max_triplets: int | None = None,
+        source_chunk_id: str | None = None,
+    ) -> list[GraphTriple]:
+        """Extract entity-relationship triplets from document text.
+
+        Uses langextract library for multi-provider extraction. Returns []
+        gracefully when langextract is not installed or extraction fails.
+
+        Args:
+            text: Document text content to extract entities from.
+            max_triplets: Override for max triplets (uses instance default).
+            source_chunk_id: Optional source chunk ID for provenance.
+
+        Returns:
+            List of GraphTriple objects extracted from text.
+            Returns empty list on failure (graceful degradation).
+        """
+        if not settings.ENABLE_GRAPH_INDEX:
+            return []
+
+        if settings.GRAPH_DOC_EXTRACTOR == "none":
+            return []
+
+        if not text:
+            return []
+
+        try:
+            import langextract  # noqa: F401 (check availability)
+            from langextract import extract_relations
+        except ImportError:
+            logger.warning(
+                "langextract not installed; document graph extraction disabled. "
+                "Install: cd agent-brain-server && poetry install --extras graphrag"
+            )
+            return []
+
+        max_count = max_triplets or self.max_triplets
+
+        # Truncate very long text to avoid token limits
+        max_chars = 4000
+        if len(text) > max_chars:
+            text = text[:max_chars] + "..."
+
+        try:
+            relations = extract_relations(
+                text,
+                provider=self.provider,
+                model=self.model or None,
+                max_relations=max_count,
+            )
+
+            triplets = self._convert_relations(relations, source_chunk_id)
+
+            logger.debug(
+                "langextract_extractor.extract_triplets: completed",
+                extra={
+                    "triplet_count": len(triplets),
+                    "provider": self.provider,
+                    "model": self.model,
+                    "text_length": len(text),
+                    "source_chunk_id": source_chunk_id,
+                },
+            )
+            return triplets
+
+        except Exception as e:
+            logger.warning(
+                "langextract_extractor.extract_triplets: failed",
+                extra={
+                    "error": str(e),
+                    "provider": self.provider,
+                    "model": self.model,
+                    "text_length": len(text),
+                    "source_chunk_id": source_chunk_id,
+                },
+            )
+            return []
+
+    def _convert_relations(
+        self,
+        relations: Any,
+        source_chunk_id: str | None,
+    ) -> list[GraphTriple]:
+        """Convert langextract relations to GraphTriple list.
+
+        Args:
+            relations: Relations returned by langextract.extract_relations().
+            source_chunk_id: Optional source chunk ID for provenance.
+
+        Returns:
+            List of GraphTriple objects.
+        """
+        triplets: list[GraphTriple] = []
+
+        if not relations:
+            return triplets
+
+        # langextract returns a list of relation dicts or objects
+        for rel in relations:
+            try:
+                # Handle both dict and object-style returns
+                if isinstance(rel, dict):
+                    subject = str(rel.get("subject") or rel.get("head") or "")
+                    predicate = str(rel.get("relation") or rel.get("predicate") or "")
+                    obj = str(rel.get("object") or rel.get("tail") or "")
+                    subject_type = rel.get("subject_type") or rel.get("head_type")
+                    object_type = rel.get("object_type") or rel.get("tail_type")
+                else:
+                    subject = str(
+                        getattr(rel, "subject", None) or getattr(rel, "head", "") or ""
+                    )
+                    predicate = str(
+                        getattr(rel, "relation", None)
+                        or getattr(rel, "predicate", "")
+                        or ""
+                    )
+                    obj = str(
+                        getattr(rel, "object", None) or getattr(rel, "tail", "") or ""
+                    )
+                    subject_type = getattr(rel, "subject_type", None) or getattr(
+                        rel, "head_type", None
+                    )
+                    object_type = getattr(rel, "object_type", None) or getattr(
+                        rel, "tail_type", None
+                    )
+
+                if not subject or not predicate or not obj:
+                    continue
+
+                predicate = predicate.lower().strip()
+                if subject_type:
+                    subject_type = normalize_entity_type(str(subject_type))
+                if object_type:
+                    object_type = normalize_entity_type(str(object_type))
+
+                triplets.append(
+                    GraphTriple(
+                        subject=subject,
+                        subject_type=subject_type,
+                        predicate=predicate,
+                        object=obj,
+                        object_type=object_type,
+                        source_chunk_id=source_chunk_id,
+                    )
+                )
+            except Exception as e:
+                logger.debug(f"Failed to convert langextract relation: {e}")
+                continue
+
+        return triplets
+
+
 # Module-level singleton instances
 _llm_extractor: LLMEntityExtractor | None = None
 _code_extractor: CodeMetadataExtractor | None = None
+_langextract_extractor: LangExtractExtractor | None = None
 
 
 def get_llm_extractor() -> LLMEntityExtractor:
@@ -641,8 +859,17 @@ def get_code_extractor() -> CodeMetadataExtractor:
     return _code_extractor
 
 
+def get_langextract_extractor() -> LangExtractExtractor:
+    """Get the global LangExtract extractor instance."""
+    global _langextract_extractor
+    if _langextract_extractor is None:
+        _langextract_extractor = LangExtractExtractor()
+    return _langextract_extractor
+
+
 def reset_extractors() -> None:
     """Reset extractor singletons. Used for testing."""
-    global _llm_extractor, _code_extractor
+    global _llm_extractor, _code_extractor, _langextract_extractor
     _llm_extractor = None
     _code_extractor = None
+    _langextract_extractor = None

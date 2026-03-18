@@ -2,13 +2,13 @@
 
 [[package]]
 name = "agent-brain-rag"
-version = "9.0.0"
+version = "9.2.0"
 description = "Agent Brain RAG - Intelligent document indexing and semantic search server that gives AI agents long-term memory"
 optional = false
 python-versions = "^3.10"
 groups = ["main"]
 files = []
-develop = false
+develop = true
 
 [package.dependencies]
 anthropic = "^0.40.0"
@@ -7518,4 +7518,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "718d2a43103b26eeed80547e84b4bf795c1edfacb2c09258386d4cfd0c76eed1"
+content-hash = "261b698cd2ff05722bd30021d0cf4b0fa48b5b5f4ae515d68ab4e87835c8bbe8"

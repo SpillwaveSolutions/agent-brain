@@ -1,6 +1,6 @@
 ---
 name: agent-brain-config
-description: Configure providers, API keys, and indexing settings for Agent Brain (providers, exclude patterns)
+description: 12-step wizard to configure all Agent Brain settings — providers, storage, GraphRAG, reranking, caching, file watcher, chunking, and server deployment
 parameters: []
 skills:
   - configuring-agent-brain
@@ -538,6 +538,541 @@ These are excluded by default (no config needed):
 | `**/.next/**` | Next.js build cache |
 | `**/.nuxt/**` | Nuxt.js build cache |
 | `**/coverage/**` | Test coverage reports |
+
+## Step 7: Configure GraphRAG (Knowledge Graph)
+
+After storage backend selection, ask whether to enable graph indexing.
+
+### AskUserQuestion: GraphRAG Selection
+
+```
+Would you like to enable GraphRAG (knowledge graph indexing)?
+
+GraphRAG extracts entity relationships from your documents and code, enabling
+graph-based queries like "what classes depend on X?" alongside standard search.
+
+Options:
+1. Disabled (Default) - Standard vector + BM25 hybrid search only
+2. Enabled - GraphRAG with JSON persistence (no extra dependencies)
+3. Enabled + Kuzu - GraphRAG with Kuzu persistent graph store (requires kuzu install)
+```
+
+### If Option 2 or 3: AskUserQuestion: Extraction Mode
+
+**IMPORTANT:** Check which provider is configured first:
+
+```bash
+# Check if ANTHROPIC_API_KEY is available
+echo ${ANTHROPIC_API_KEY:+set} || echo "not set"
+```
+
+Then ask:
+
+```
+Which graph extractor would you like to use?
+
+Agent Brain has three extractors:
+
+1. AST / Code Metadata (Recommended) - Extracts function calls, imports, class
+   hierarchies directly from code. Works with ANY provider, no API key needed.
+   Best for code repositories.
+
+2. LLM Entity Extractor (Legacy) - Uses Anthropic API to extract semantic triplets
+   from text. Requires ANTHROPIC_API_KEY (does NOT use Ollama even if Ollama is
+   your embedding/summarization provider). Best for prose/documentation.
+
+3. LangExtract (Multi-Provider) - Uses your configured summarization provider
+   (Gemini, OpenAI, Claude, Ollama) for document semantic extraction. Zero new
+   config needed if summarization is already set up.
+   Set GRAPH_DOC_EXTRACTOR=langextract (default when langextract installed).
+```
+
+**Auto-default:** If the user is using Ollama OR no `ANTHROPIC_API_KEY` is set,
+default to Option 1 (AST) for code repos. If the user has documents/prose and
+`SUMMARIZATION_PROVIDER` is configured, suggest Option 3 (LangExtract) as well:
+```
+Defaulting to AST/Code Metadata extractor — LLM extraction requires
+ANTHROPIC_API_KEY which is not set in this environment.
+
+Tip: For prose/documentation, enable LangExtract (Option 3) to use your
+configured summarization provider for semantic entity extraction.
+```
+
+### If Option 2 (Simple / JSON persistence) + AST extractor:
+
+Add to config.yaml:
+
+```yaml
+graphrag:
+  enabled: true
+  store_type: "simple"
+  index_path: ".agent-brain/graph_index"
+  traversal_depth: 2
+  use_llm_extraction: false
+  use_code_metadata: true
+```
+
+Or via environment variables:
+```bash
+export ENABLE_GRAPH_INDEX=true
+export GRAPH_STORE_TYPE=simple          # JSON persistence, no kuzu needed
+export GRAPH_INDEX_PATH=.agent-brain/graph_index
+export GRAPH_USE_LLM_EXTRACTION=false   # No ANTHROPIC_API_KEY required
+export GRAPH_USE_CODE_METADATA=true     # AST-based relationship extraction
+export GRAPH_TRAVERSAL_DEPTH=2
+```
+
+### If Option 2 + LLM extractor (Anthropic key confirmed present):
+
+```bash
+export ENABLE_GRAPH_INDEX=true
+export GRAPH_STORE_TYPE=simple
+export GRAPH_INDEX_PATH=.agent-brain/graph_index
+export GRAPH_USE_LLM_EXTRACTION=true
+export GRAPH_USE_CODE_METADATA=false
+export GRAPH_TRAVERSAL_DEPTH=2
+```
+
+### If Option 2 + LangExtract (multi-provider, uses SUMMARIZATION_PROVIDER):
+
+```bash
+export ENABLE_GRAPH_INDEX=true
+export GRAPH_STORE_TYPE=simple
+export GRAPH_INDEX_PATH=.agent-brain/graph_index
+export GRAPH_USE_LLM_EXTRACTION=false
+export GRAPH_USE_CODE_METADATA=true    # keep AST for code chunks
+export GRAPH_DOC_EXTRACTOR=langextract # LangExtract for document chunks
+export GRAPH_TRAVERSAL_DEPTH=2
+# Optional: override the provider/model used for LangExtract extraction
+# (defaults to SUMMARIZATION_PROVIDER/SUMMARIZATION_MODEL)
+# export GRAPH_LANGEXTRACT_PROVIDER=ollama
+# export GRAPH_LANGEXTRACT_MODEL=mistral-small3.2:latest
+```
+
+Requires langextract to be installed (included in graphrag extras):
+```bash
+cd agent-brain-server && poetry install --extras graphrag
+```
+
+### If Option 3 (Kuzu / Persistent):
+
+First check if kuzu is installed:
+
+```bash
+python3 -c "import kuzu" 2>/dev/null && echo "kuzu available" || echo "kuzu NOT installed"
+```
+
+If not installed:
+```
+Kuzu requires the optional graphrag-kuzu dependency:
+  cd agent-brain-server && poetry install --extras graphrag-kuzu
+
+Or install directly:
+  uv pip install kuzu
+```
+
+Add to config.yaml (with preferred extractor from above):
+
+```yaml
+graphrag:
+  enabled: true
+  store_type: "kuzu"
+  index_path: ".agent-brain/graph_index"
+  traversal_depth: 2
+  use_llm_extraction: false   # or true if ANTHROPIC_API_KEY is available
+  use_code_metadata: true
+```
+
+**Note:** Enabling GraphRAG increases indexing time. Re-index after enabling:
+```bash
+agent-brain reset --yes && agent-brain index ./your-docs
+```
+
+### If Option 2 or 3: AskUserQuestion: GraphRAG Tuning (Optional)
+
+After extraction mode selection, offer tuning:
+
+```
+Would you like to tune GraphRAG extraction settings?
+(Default values work well for most projects)
+
+Options:
+1. Use defaults — traversal_depth=2, max_triplets=10 per chunk
+2. Customize — adjust depth and triplet density
+```
+
+**If Option 2 (Customize):**
+
+```bash
+# Traversal depth: how many hops to follow from a matched entity (default: 2)
+# Higher = richer context, slower queries (range: 1-5)
+export GRAPH_TRAVERSAL_DEPTH=2
+
+# Max triplets per chunk (default: 10)
+# Higher = more relationships extracted, slower indexing
+export GRAPH_MAX_TRIPLETS_PER_CHUNK=10
+```
+
+Config YAML equivalent:
+```yaml
+graphrag:
+  traversal_depth: 2
+  max_triplets_per_chunk: 10
+```
+
+## Step 8: Configure Caching
+
+### Embedding Cache
+
+The embedding cache reduces API costs by storing computed embeddings locally (two-tier: in-memory LRU + SQLite disk). Always beneficial for cloud providers; less relevant for Ollama.
+
+### AskUserQuestion: Embedding Cache
+
+```
+Configure embedding cache settings?
+
+The embedding cache avoids recomputing embeddings for unchanged content.
+Healthy cache shows >80% hit rate after first full index.
+
+Options:
+1. Use defaults - 500 MB disk cache, 1000 in-memory entries
+2. Customize - Set disk size and memory entries manually
+3. Disable - No caching (not recommended for cloud providers)
+```
+
+**If Option 2 (Customize):** Ask for disk limit (MB) and memory entries, then add to config.yaml:
+
+```yaml
+cache:
+  embedding_max_disk_mb: <user_value>     # e.g. 1000
+  embedding_max_mem_entries: <user_value> # e.g. 2000
+```
+
+Or via environment variables:
+```bash
+export EMBEDDING_CACHE_MAX_DISK_MB=1000
+export EMBEDDING_CACHE_MAX_MEM_ENTRIES=2000
+```
+
+**If Option 3 (Disable):**
+```bash
+export EMBEDDING_CACHE_MAX_DISK_MB=0
+```
+
+### Query Cache
+
+The query cache stores identical query results for a TTL window. Graph and multi-mode queries are never cached.
+
+### AskUserQuestion: Query Cache
+
+```
+Configure query result cache?
+
+Caches repeated identical queries to reduce latency.
+Note: graph and multi-mode queries are never cached.
+
+Options:
+1. Use defaults - 300s TTL, 256 max results
+2. Customize - Set TTL and max size
+3. Disable - TTL=0 (no caching)
+```
+
+**If Option 2 (Customize):** Add to config.yaml:
+
+```yaml
+cache:
+  query_cache_ttl: <seconds>    # e.g. 600 for stable codebases
+  query_cache_max_size: <count> # e.g. 512 for large query workloads
+```
+
+Or via environment variables:
+```bash
+export QUERY_CACHE_TTL=600
+export QUERY_CACHE_MAX_SIZE=512
+```
+
+**If Option 3 (Disable):**
+```bash
+export QUERY_CACHE_TTL=0
+```
+
+## Step 9: Configure File Watcher (Auto-Reindex on Change)
+
+### AskUserQuestion: File Watcher
+
+```
+Would you like to enable automatic re-indexing when files change?
+
+Options:
+1. Disabled (Default) — Index manually with `agent-brain index`
+2. Enabled — Server watches indexed folders and re-indexes changed files
+             Debounce: 30s by default (prevents re-index thrashing on rapid saves)
+```
+
+### If Option 2 (Enabled):
+
+Ask for global debounce (default 30s, valid range 5–300s):
+
+```
+How many seconds should the watcher wait after a file change before re-indexing?
+(Default: 30s — prevents re-indexing on every keystroke during active editing)
+```
+
+Set the global debounce via environment variable:
+
+```bash
+export AGENT_BRAIN_WATCH_DEBOUNCE_SECONDS=30
+```
+
+**Key facts about the file watcher:**
+
+| Item | Detail |
+|------|--------|
+| Global debounce | `AGENT_BRAIN_WATCH_DEBOUNCE_SECONDS` (default 30s) |
+| Per-folder watch | Set at index time, not in config.yaml |
+| Enable per folder | `agent-brain folders add ./src --watch auto --debounce 10` |
+| Disable per folder | `agent-brain folders add ./src --watch off` |
+| View watch status | `agent-brain folders list` shows watch_mode per folder |
+| Job source | Watcher-triggered jobs appear with `source="auto"` in queue |
+| Deduplication | Same path is never double-indexed (dedupe_key prevents this) |
+
+**Note:** `watch_mode` is a per-folder setting configured at index time. The
+`AGENT_BRAIN_WATCH_DEBOUNCE_SECONDS` env var sets the global default debounce that
+applies when no per-folder override is set.
+
+```
+Step 9 Complete: File Watcher
+==============================
+
+Global debounce: 30s
+  AGENT_BRAIN_WATCH_DEBOUNCE_SECONDS=30
+
+Per-folder watcher is configured at index time:
+  agent-brain folders add ./src --watch auto              # use global debounce
+  agent-brain folders add ./docs --watch auto --debounce 10  # 10s override
+
+View current watch settings:
+  agent-brain folders list
+
+Restart server to apply:
+  agent-brain stop && agent-brain start
+```
+
+---
+
+## Step 10: Configure Reranking (Two-Stage Search Quality)
+
+Reranking adds a second-pass scoring pass after the initial hybrid search, re-ranking
+candidates with a cross-encoder model for higher precision results. It's off by default
+because it requires additional model downloads.
+
+### AskUserQuestion: Reranking
+
+```
+Would you like to enable two-stage reranking for higher search precision?
+
+Reranking re-scores the top candidates with a cross-encoder model, improving
+result quality at the cost of slightly higher query latency.
+
+Options:
+1. Disabled (Default) — single-stage hybrid BM25 + vector search
+2. Enabled (sentence-transformers) — local cross-encoder, no API key needed
+   Requires: pip install sentence-transformers (first run auto-downloads ~90 MB)
+3. Enabled (Ollama) — uses Ollama for reranking, requires Ollama running
+```
+
+**If Option 2 (sentence-transformers):**
+
+```bash
+export ENABLE_RERANKING=true
+export RERANKER_PROVIDER=sentence-transformers
+export RERANKER_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2  # default
+```
+
+Config YAML (`reranker` block):
+```yaml
+reranker:
+  provider: "sentence-transformers"
+  model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+```
+
+**If Option 3 (Ollama):**
+
+```bash
+export ENABLE_RERANKING=true
+export RERANKER_PROVIDER=ollama
+```
+
+Config YAML:
+```yaml
+reranker:
+  provider: "ollama"
+  base_url: "http://localhost:11434"
+```
+
+**Advanced tuning** (rarely needed):
+```bash
+# How many candidates Stage 1 retrieves for Stage 2 to rerank (default: top_k × 10)
+export RERANKER_TOP_K_MULTIPLIER=10
+# Hard cap on Stage 1 candidates (default: 100)
+export RERANKER_MAX_CANDIDATES=100
+```
+
+---
+
+## Step 11: Chunking & Search Tuning
+
+Default values work well for most projects. Ask only if the user wants to tune
+indexing quality or search behavior.
+
+### AskUserQuestion: Tuning
+
+```
+Would you like to adjust chunking and search defaults?
+(These affect indexing quality and search result count)
+
+Options:
+1. Use defaults — chunk_size=512, overlap=50, top_k=5, threshold=0.7
+2. Customize — adjust for your content type
+3. Skip
+```
+
+**If Option 2 (Customize):**
+
+#### Chunk Size
+
+```
+What chunk size would you like?
+
+Larger chunks = more context per result but less precise retrieval.
+Smaller chunks = more precise but may cut mid-thought.
+
+Recommended by content type:
+- Source code:      256–512  (default: 512)
+- Prose/docs:       512–1024
+- Long-form books:  1024–2048
+
+Enter chunk size (128–2048, default: 512):
+```
+
+```bash
+export DEFAULT_CHUNK_SIZE=512
+export DEFAULT_CHUNK_OVERLAP=50   # tokens of overlap between adjacent chunks
+```
+
+#### Search Top-K
+
+```
+How many results should queries return by default? (default: 5, max: 50)
+```
+
+```bash
+export DEFAULT_TOP_K=5
+```
+
+#### Similarity Threshold
+
+```
+Minimum similarity score to include a result (0.0–1.0, default: 0.7)
+
+Lower = more results but potentially less relevant.
+Higher = fewer but more precise results.
+```
+
+```bash
+export DEFAULT_SIMILARITY_THRESHOLD=0.7
+```
+
+Config YAML (no `chunking` block — these are env-var only settings):
+```bash
+# All chunking/query settings are env-var only (not in config.yaml)
+export DEFAULT_CHUNK_SIZE=512
+export DEFAULT_CHUNK_OVERLAP=50
+export DEFAULT_TOP_K=5
+export DEFAULT_SIMILARITY_THRESHOLD=0.7
+```
+
+---
+
+## Step 12: Server & Deployment Configuration
+
+### AskUserQuestion: Deployment Mode
+
+```
+How will Agent Brain be deployed?
+
+Options:
+1. Local (Default) — binds to 127.0.0.1:8000, accessible only from this machine
+2. Network — binds to 0.0.0.0 or specific IP, accessible from other machines
+3. Custom port — same as option 1 but on a different port
+```
+
+**If Option 2 or 3:**
+
+```bash
+# Bind address (default: 127.0.0.1 — localhost only)
+# Use 0.0.0.0 to accept connections from any interface
+export API_HOST=0.0.0.0
+
+# Port (default: 8000)
+export API_PORT=8000
+```
+
+**Security note for network deployment:**
+```
+WARNING: Binding to 0.0.0.0 exposes Agent Brain to your local network.
+Agent Brain has no built-in authentication. Use a reverse proxy (nginx, Caddy)
+with authentication in front of it for network deployments.
+```
+
+### Multi-Instance Mode (Advanced)
+
+If running multiple Agent Brain instances (one per project):
+
+```bash
+# "project" (default) — state stored in .agent-brain/ in current directory
+# "shared" — state stored in AGENT_BRAIN_STATE_DIR (one shared index)
+export AGENT_BRAIN_MODE=project
+
+# Override state directory (overrides project-level .agent-brain/)
+# export AGENT_BRAIN_STATE_DIR=/custom/path/to/state
+```
+
+### Debug Mode
+
+```bash
+# Enable verbose logging (default: false)
+# export DEBUG=true
+```
+
+---
+
+## Advanced Configuration Reference
+
+Settings not covered by the wizard (rarely need changing):
+
+| Environment Variable | Default | Description |
+|---------------------|---------|-------------|
+| `CHROMA_PERSIST_DIR` | `./chroma_db` | ChromaDB storage directory |
+| `BM25_INDEX_PATH` | `./bm25_index` | BM25 keyword index directory |
+| `COLLECTION_NAME` | `agent_brain_collection` | ChromaDB collection name |
+| `EMBEDDING_DIMENSIONS` | `3072` | Vector dimensions (must match model) |
+| `EMBEDDING_BATCH_SIZE` | `100` | API batch size for embedding calls |
+| `MAX_CHUNK_SIZE` | `2048` | Hard cap on chunk size |
+| `MIN_CHUNK_SIZE` | `128` | Minimum chunk size |
+| `MAX_TOP_K` | `50` | Maximum results per query |
+| `AGENT_BRAIN_MAX_QUEUE` | `100` | Max pending jobs in queue |
+| `AGENT_BRAIN_JOB_TIMEOUT` | `7200` | Job timeout in seconds (2 hours) |
+| `AGENT_BRAIN_MAX_RETRIES` | `3` | Job retry attempts on failure |
+| `AGENT_BRAIN_CHECKPOINT_INTERVAL` | `50` | Progress save interval (files) |
+| `EMBEDDING_CACHE_PERSIST_STATS` | `false` | Persist cache hit/miss stats across restarts |
+| `AGENT_BRAIN_STRICT_MODE` | `false` | Fail on critical validation errors |
+| `GRAPH_EXTRACTION_MODEL` | `claude-haiku-4-5` | LLM model for legacy LLM entity extraction |
+| `GRAPH_RRF_K` | `60` | Reciprocal Rank Fusion constant for graph queries |
+
+All settings can be placed in a `.env` file in the server directory or set as environment variables.
+
+---
 
 ## CLI Subcommands Reference
 
