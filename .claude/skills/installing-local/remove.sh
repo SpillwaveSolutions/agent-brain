@@ -19,7 +19,7 @@ while [[ $# -gt 0 ]]; do
     -h|--help)
       echo "Usage: ./remove.sh [--restore-pypi] [--zero-state]"
       echo "  --restore-pypi   Restore CLI dependency to PyPI (^<server_version>)"
-      echo "  --zero-state     Also remove ~/.claude/agent-brain and ./.claude/agent-brain (BACK UP FIRST)"
+      echo "  --zero-state     Also remove ~/.config/agent-brain and ./.claude/agent-brain (BACK UP FIRST)"
       exit 0
       ;;
     *)
@@ -68,6 +68,15 @@ rm -rf "$HOME/.local/share/uv/tools/agent-brain-server" 2>/dev/null && echo "  R
 # pipx
 pipx uninstall agent-brain-cli 2>/dev/null && echo "  Uninstalled agent-brain-cli (pipx)" || echo "  agent-brain-cli not installed via pipx"
 pipx uninstall agent-brain-server 2>/dev/null && echo "  Uninstalled agent-brain-server (pipx)" || echo "  agent-brain-server not installed via pipx"
+
+# Remove binary symlinks (uv sometimes leaves these behind)
+for bin in agent-brain agent-brain-serve; do
+  for bindir in "$HOME/.local/bin" "/usr/local/bin"; do
+    if [ -f "$bindir/$bin" ] || [ -L "$bindir/$bin" ]; then
+      rm -f "$bindir/$bin" 2>/dev/null && echo "  Removed binary: $bindir/$bin" || true
+    fi
+  done
+done
 echo ""
 
 # --- Step 3: Clear caches ---
@@ -84,8 +93,25 @@ pip cache remove agent-brain-cli 2>/dev/null || true
 echo "  pip cache cleanup attempted"
 echo ""
 
-# --- Step 4: Remove plugin artifacts ---
-echo "=== Step 4: Remove Plugin Artifacts ==="
+# --- Step 4: Remove config and plugin artifacts ---
+echo "=== Step 4: Remove Config and Plugin Artifacts ==="
+
+# XDG config dir (~/.config/agent-brain) — always remove for clean slate
+if [ -d "$HOME/.config/agent-brain" ]; then
+  rm -rf "$HOME/.config/agent-brain"
+  echo "  Removed ~/.config/agent-brain"
+else
+  echo "  No ~/.config/agent-brain found"
+fi
+
+# Legacy home config (~/.agent-brain)
+if [ -d "$HOME/.agent-brain" ]; then
+  rm -rf "$HOME/.agent-brain"
+  echo "  Removed ~/.agent-brain"
+fi
+echo ""
+
+echo "=== Step 4b: Remove Plugin Artifacts ==="
 if [ -d "$HOME/.claude/plugins/cache/agent-brain-marketplace" ]; then
   rm -rf "$HOME/.claude/plugins/cache/agent-brain-marketplace"
   echo "  Removed marketplace cache"
@@ -126,9 +152,16 @@ if [[ $ZERO_STATE -eq 1 ]]; then
   echo "=== Step 6: Zero-State Cleanup ==="
   echo "  WARNING: Removing all Agent Brain state directories!"
 
+  # Primary state dir (current)
+  if [ -d "$HOME/.config/agent-brain" ]; then
+    rm -rf "$HOME/.config/agent-brain"
+    echo "  Removed ~/.config/agent-brain"
+  fi
+
+  # Legacy state dir (superseded, clean up if still present)
   if [ -d "$HOME/.claude/agent-brain" ]; then
     rm -rf "$HOME/.claude/agent-brain"
-    echo "  Removed ~/.claude/agent-brain"
+    echo "  Removed ~/.claude/agent-brain (legacy)"
   fi
 
   if [ -d "$REPO_ROOT/.claude/agent-brain" ]; then
@@ -138,12 +171,70 @@ if [[ $ZERO_STATE -eq 1 ]]; then
   echo ""
 fi
 
-# --- Verification ---
+# --- Guaranteed clean: detect and remove any surviving binaries ---
+_try_remove_binary() {
+  local bin="$1"
+  local found
+  found=$(which "$bin" 2>/dev/null) || return 0  # already gone, nothing to do
+
+  echo "  Still found: $found — detecting source..."
+
+  case "$found" in
+    "$HOME/.local/share/uv/"*|"$HOME/.local/bin/"*)
+      echo "  Source: uv — running uv tool uninstall agent-brain-cli"
+      uv tool uninstall agent-brain-cli 2>/dev/null || true
+      rm -f "$found" 2>/dev/null || true
+      ;;
+    "$HOME/.local/share/pipx/"*|"$HOME/.local/pipx/"*)
+      echo "  Source: pipx — running pipx uninstall agent-brain-cli"
+      pipx uninstall agent-brain-cli 2>/dev/null || true
+      ;;
+    "/opt/homebrew/"*|"/usr/local/Cellar/"*|"/usr/local/bin/agent-brain"*)
+      echo "  Source: homebrew — running brew uninstall agent-brain"
+      brew uninstall agent-brain 2>/dev/null || brew uninstall agent-brain-cli 2>/dev/null || true
+      rm -f "$found" 2>/dev/null || true
+      ;;
+    "$HOME/.pyenv/shims/"*)
+      echo "  Source: pyenv shim — removing shim and rehashing"
+      rm -f "$found" 2>/dev/null || true
+      pyenv rehash 2>/dev/null || true
+      ;;
+    */site-packages/*|*/dist-packages/*)
+      echo "  Source: pip install — running pip uninstall"
+      pip uninstall -y agent-brain-cli agent-brain-rag 2>/dev/null || true
+      pip3 uninstall -y agent-brain-cli agent-brain-rag 2>/dev/null || true
+      ;;
+    *)
+      echo "  Source: unknown ($found) — attempting direct removal"
+      rm -f "$found" 2>/dev/null || true
+      ;;
+  esac
+}
+
+echo "=== Guaranteed Clean: Binary Check ==="
+for bin in agent-brain agent-brain-serve; do
+  max_attempts=5
+  attempt=0
+  while which "$bin" >/dev/null 2>&1; do
+    attempt=$((attempt + 1))
+    if [ $attempt -gt $max_attempts ]; then
+      echo "  ERROR: $bin still at $(which $bin) after $max_attempts attempts — manual removal required"
+      break
+    fi
+    _try_remove_binary "$bin"
+  done
+  if ! which "$bin" >/dev/null 2>&1; then
+    echo "  $bin: clean"
+  fi
+done
+echo ""
+
+# --- Final verification ---
 echo "=== Verification ==="
-if which agent-brain >/dev/null 2>&1; then
-  echo "  WARNING: agent-brain still found in PATH: $(which agent-brain)"
+if [ -d "$HOME/.config/agent-brain" ]; then
+  echo "  WARNING: ~/.config/agent-brain still exists"
 else
-  echo "  agent-brain removed from PATH"
+  echo "  ~/.config/agent-brain removed"
 fi
 
 if pgrep -f "agent_brain_server" >/dev/null 2>&1; then

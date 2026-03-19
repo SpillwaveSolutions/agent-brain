@@ -73,9 +73,8 @@ v9.2.0 Doc Accuracy Audit:  [██████████] 100% (11/11 plans c
 None.
 
 ### Pending Todos
-2 pending todos.
+1 pending todo.
 - Review and merge Object Pascal support PR #115 (general)
-- Guarantee clean removal in remove.sh across all package managers (tooling)
 
 ## Session Continuity
 
