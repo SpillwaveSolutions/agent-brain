@@ -285,12 +285,13 @@ Plans:
   4. Server starts without ChromaDB PostHog telemetry errors in logs
   5. Gemini summarization provider uses `google-genai` package (no deprecation warnings)
   6. Object Pascal files are indexed correctly (PR #115 merged or equivalent changes applied)
-**Plans:** 3 plans
+**Plans:** 4 plans
 
 Plans:
 - [ ] 38-01-PLAN.md — Fix chroma_db/cache dirs (CWD → AGENT_BRAIN_STATE_DIR) + suppress ChromaDB telemetry error
 - [ ] 38-02-PLAN.md — Fix Broken pipe Ollama indexing + Fix start timeout for sentence-transformers reranker
 - [ ] 38-03-PLAN.md — Migrate Gemini provider to google-genai + merge/apply Object Pascal PR #115
+- [ ] 38-04-PLAN.md — Add config wizard sub-command for Ollama batch_size and request_delay_ms
 
 ---
 
@@ -335,7 +336,7 @@ Plans:
 | 35 | v9.3.0 | 0 plans     | Complete   | 2026-03-17 |
 | 36 | v9.2.0 gap closure | 2/2 plans | Pending | - |
 | 37 | 2/2 | Complete    | 2026-03-19 | - |
-| 38 | todo backlog | 0/3 plans | Planning | - |
+| 38 | todo backlog | 0/4 plans | Planning| Planning | - |
 | 39 | todo backlog | 0/2 plans | Pending | - |
 
 ---
