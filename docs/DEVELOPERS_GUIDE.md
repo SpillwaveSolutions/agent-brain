@@ -10,14 +10,12 @@ This guide covers setting up a development environment, understanding the archit
 
 - [Architecture Overview](#architecture-overview)
 - [Monorepo Structure](#monorepo-structure)
-- [Quick Start](#quick-start)
+- [Quick Start for Developers](#quick-start-for-developers)
 - [Task Commands](#task-commands)
-- [Development Workflow](#development-workflow)
 - [Testing](#testing)
-- [Code Style](#code-style)
-- [Contributing](#contributing)
 - [Troubleshooting](#troubleshooting)
-- [Adding Support for New Languages](#adding-support-for-new-languages)
+- [Multi-Instance Architecture](#multi-instance-architecture)
+- [Code Ingestion & Language Support](#code-ingestion-language-support)
 
 ---
 

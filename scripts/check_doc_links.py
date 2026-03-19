@@ -96,7 +96,7 @@ def resolve_file_globs(globs: list, root: str) -> list:
 
 def is_url(target: str) -> bool:
     """Check if a link target is an external URL or special link."""
-    return target.startswith(("http://", "https://", "mailto:", "#", "ftp://"))
+    return target.startswith(("http://", "https://", "mailto:", "ftp://"))
 
 
 def check_file(filepath: str, root: str) -> tuple:
