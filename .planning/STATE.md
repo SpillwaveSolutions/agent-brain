@@ -4,14 +4,14 @@ milestone: v3.0
 milestone_name: milestone
 current_phase: 33
 status: completed
-stopped_at: Completed 33-02-PLAN.md (Add last_validated frontmatter metadata)
-last_updated: "2026-03-17T02:27:56.282Z"
+stopped_at: Completed 37-01-PLAN.md (Fix link checker bug and add audit metadata)
+last_updated: "2026-03-19T20:42:29.908Z"
 last_activity: 2026-03-17 — Completed 33-02 (Add last_validated frontmatter metadata)
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 5
-  total_plans: 11
-  completed_plans: 11
+  total_plans: 15
+  completed_plans: 12
 ---
 
 # Agent Brain — Project State
@@ -68,6 +68,8 @@ v9.2.0 Doc Accuracy Audit:  [██████████] 100% (11/11 plans c
 - [Phase 32]: 32-03: SentenceTransformers documented as reranker (not embedding) per source code; fixed stale .claude/doc-serve paths to .agent-brain; v7-v9 version history added
 - [Phase 33]: 33-01: Excluded code block paths from verification (illustrative examples); fixed stale agent-brain-skill/doc-serve/ link to docs/API_REFERENCE.md
 - [Phase 33]: 33-02: Added last_validated: 2026-03-16 frontmatter to all 71 audited docs; created reusable scripts/add_audit_metadata.py
+- [Phase 37-01]: Removed '#' from is_url() tuple so same-file anchor links reach existing verification code path
+- [Phase 37-01]: DEVELOPERS_GUIDE.md ToC: ToC anchor for 'Code Ingestion & Language Support' uses single hyphen (#code-ingestion-language-support) because slug_heading() collapses double hyphens
 
 ### Blockers/Concerns
 None.
@@ -86,8 +88,8 @@ None.
 
 ## Session Continuity
 
-**Last Session:** 2026-03-17T02:25:42Z
-**Stopped At:** Completed 33-02-PLAN.md (Add last_validated frontmatter metadata)
+**Last Session:** 2026-03-19T20:42:29.905Z
+**Stopped At:** Completed 37-01-PLAN.md (Fix link checker bug and add audit metadata)
 **Resume File:** None
 **Next Action:** v9.2.0 milestone complete — all 11 plans across phases 29-33 done
 
