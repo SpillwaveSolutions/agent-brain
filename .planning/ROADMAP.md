@@ -140,6 +140,8 @@ Plans:
 - [x] **Phase 33: Cross-References & Metadata** — Verify all internal links, file paths, and add audit metadata (completed 2026-03-17)
 - [ ] **Phase 36: Fix Documentation Accuracy** — Close audit gaps: stale .agent-brain/ paths, config.json example, GRAPHRAG multi-mode claim
 - [ ] **Phase 37: Complete Link Verification & Audit Metadata** — Fix anchor link bug, broken ToC links, stamp SKILL.md files, write VERIFICATION.md for phases 29-33
+- [ ] **Phase 38: Server Reliability & Provider Fixes** — Fix CWD-relative chroma_db/cache dirs, Broken pipe Ollama indexing, reranker start timeout, ChromaDB telemetry noise, Gemini provider migration, merge Object Pascal PR #115
+- [ ] **Phase 39: Plugin & Setup Wizard UX** — Fix setup-assistant permission gaps, eliminate approval fatigue, add AST+LangExtract GraphRAG option to wizard Step 7, auto-discover port in wizard Step 12
 
 ## Phase Details
 
@@ -270,6 +272,47 @@ Plans:
 
 ---
 
+### Phase 38: Server Reliability & Provider Fixes
+
+**Goal:** All known server-side bugs and provider deprecation issues are resolved so that Agent Brain runs stably under concurrent indexing load, resolves state directories correctly, starts without noise, and supports current provider APIs.
+**Depends on:** Phase 37
+**Requirements:** None (todo-driven bug fixes)
+**Todos closed:** Fix chroma_db/cache CWD bug, Fix Broken pipe Ollama indexing, Fix start timeout for sentence-transformers reranker, Suppress ChromaDB telemetry PostHog error, Migrate Gemini provider to google-genai, Review and merge Object Pascal PR #115
+**Success Criteria** (what must be TRUE):
+  1. `chroma_db/` and `cache/` directories are created inside `AGENT_BRAIN_STATE_DIR`, not relative to CWD
+  2. Indexing jobs with Ollama as embedding provider complete without Broken pipe errors under sequential load
+  3. `agent-brain start` succeeds with sentence-transformers reranker without timeout errors on first init
+  4. Server starts without ChromaDB PostHog telemetry errors in logs
+  5. Gemini summarization provider uses `google-genai` package (no deprecation warnings)
+  6. Object Pascal files are indexed correctly (PR #115 merged or equivalent changes applied)
+**Plans:** 0 plans
+
+Plans:
+- [ ] 38-01-PLAN.md — Fix chroma_db/cache dirs (CWD → AGENT_BRAIN_STATE_DIR) + suppress ChromaDB telemetry error
+- [ ] 38-02-PLAN.md — Fix Broken pipe Ollama indexing + Fix start timeout for sentence-transformers reranker
+- [ ] 38-03-PLAN.md — Migrate Gemini provider to google-genai + merge/apply Object Pascal PR #115
+
+---
+
+### Phase 39: Plugin & Setup Wizard UX
+
+**Goal:** The setup wizard and plugin commands work without approval fatigue, have correct permission configurations, and offer AST+LangExtract as a first-class GraphRAG extraction option with automatic port discovery.
+**Depends on:** Phase 38
+**Requirements:** None (todo-driven UX improvements)
+**Todos closed:** Fix setup-assistant permission gaps, Eliminate approval fatigue in setup commands, Add AST+LangExtract GraphRAG option to wizard Step 7, Auto-discover port in wizard Step 12
+**Success Criteria** (what must be TRUE):
+  1. setup-assistant agent has scoped Bash permission for scripts and Write/Edit permission for `~/.agent-brain/**` config paths
+  2. `agent-brain-config` and `agent-brain-install` commands complete without triggering manual approval prompts for expected operations
+  3. Wizard Step 7 offers "AST for code + LangExtract for docs" as an explicit, selectable GraphRAG extraction mode
+  4. Wizard Step 12 auto-discovers an available port from the configured range instead of requiring manual input
+**Plans:** 0 plans
+
+Plans:
+- [ ] 39-01-PLAN.md — Fix setup-assistant permission gaps + eliminate approval fatigue in setup commands
+- [ ] 39-02-PLAN.md — Add AST+LangExtract wizard option (Step 7) + auto-discover port (Step 12)
+
+---
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -290,9 +333,11 @@ Plans:
 | 33 | v9.2.0 | Complete    | 2026-03-17 | 2026-03-17 |
 | 34 | v9.3.0 | 0 plans     | Complete   | 2026-03-17 |
 | 35 | v9.3.0 | 0 plans     | Complete   | 2026-03-17 |
-| 36 | v9.2.0 gap closure | 0/2 plans | Pending | - |
+| 36 | v9.2.0 gap closure | 2/2 plans | Pending | - |
 | 37 | v9.2.0 gap closure | 0/2 plans | Pending | - |
+| 38 | todo backlog | 0/3 plans | Pending | - |
+| 39 | todo backlog | 0/2 plans | Pending | - |
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-19 — Gap closure phases 36-37 added for v10.0 audit gaps (6 requirements reset to Pending)*
+*Last updated: 2026-03-19 — Added phases 38-39 from todo backlog (10 todos captured into 2 phases)*
