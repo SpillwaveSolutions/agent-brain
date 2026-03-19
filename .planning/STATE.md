@@ -73,8 +73,9 @@ v9.2.0 Doc Accuracy Audit:  [██████████] 100% (11/11 plans c
 None.
 
 ### Pending Todos
-1 pending todo.
+2 pending todos.
 - Review and merge Object Pascal support PR #115 (general)
+- Eliminate approval fatigue in agent-brain-plugin setup commands via pre-authorized agent and scripts (tooling)
 
 ## Session Continuity
 
