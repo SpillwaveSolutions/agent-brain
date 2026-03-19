@@ -243,7 +243,7 @@ Plans:
   2. All stale `.claude/agent-brain/` path references replaced with `.agent-brain/` in CONFIGURATION.md, QUICK_START.md, and PLUGIN_GUIDE.md
   3. `docs/GRAPHRAG_GUIDE.md` corrected to state that `multi` mode gracefully adapts to non-ChromaDB backends (does not require ChromaDB)
   4. QUICK_START.md init flow and GRAPHRAG multi+PostgreSQL flow can be followed without inaccurate instructions
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
 - [ ] 36-01-PLAN.md — Fix stale .agent-brain/ paths in CONFIGURATION.md, QUICK_START.md, PLUGIN_GUIDE.md
