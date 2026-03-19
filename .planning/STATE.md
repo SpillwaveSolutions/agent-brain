@@ -73,12 +73,15 @@ v9.2.0 Doc Accuracy Audit:  [██████████] 100% (11/11 plans c
 None.
 
 ### Pending Todos
-5 pending todos.
+8 pending todos.
 - Review and merge Object Pascal support PR #115 (general)
 - Eliminate approval fatigue in agent-brain-plugin setup commands via pre-authorized agent and scripts (tooling)
 - Add "AST for code + LangExtract for docs" as a first-class GraphRAG option in agent-brain-config wizard Step 7 (tooling)
 - Auto-discover available port in agent-brain-config Step 12 deployment wizard to prevent multi-project port conflicts (tooling)
 - Fix two permission gaps in setup-assistant agent — scoped Bash for scripts and Write/Edit for ~/.agent-brain/** config paths (tooling)
+- Fix agent-brain start timeout too short for sentence-transformers reranker first init (tooling)
+- Suppress or fix ChromaDB telemetry PostHog capture() argument error on startup (tooling)
+- Migrate gemini provider from deprecated google-generativeai to google-genai package (tooling)
 
 ## Session Continuity
 
