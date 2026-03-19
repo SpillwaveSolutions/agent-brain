@@ -21,6 +21,7 @@ metadata:
   version: 7.0.0
   category: ai-tools
   author: Spillwave
+  last_validated: 2026-03-19
 ---
 
 # Agent Brain Expert Skill
