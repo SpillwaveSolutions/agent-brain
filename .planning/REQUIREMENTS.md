@@ -16,17 +16,17 @@ Requirements for documentation accuracy audit. Each maps to roadmap phases.
 
 ### Configuration Documentation
 
-- [x] **CFGDOC-01**: YAML configuration fields match source schema definitions
+- [ ] **CFGDOC-01**: YAML configuration fields match source schema definitions
 - [x] **CFGDOC-02**: Environment variable docs match actual env var usage in code
 - [x] **CFGDOC-03**: Provider configuration docs match pluggable provider implementations
 
 ### User Guides
 
 - [x] **GUIDE-01**: USER_GUIDE.md reflects current CLI and features (v7-v9)
-- [x] **GUIDE-02**: QUICK_START.md installation steps verified working
-- [x] **GUIDE-03**: PLUGIN_GUIDE.md matches current plugin commands/agents/skills
+- [ ] **GUIDE-02**: QUICK_START.md installation steps verified working
+- [ ] **GUIDE-03**: PLUGIN_GUIDE.md matches current plugin commands/agents/skills
 - [x] **GUIDE-04**: POSTGRESQL_SETUP.md verified against Docker Compose setup
-- [x] **GUIDE-05**: GRAPHRAG_GUIDE.md matches current graph query behavior
+- [ ] **GUIDE-05**: GRAPHRAG_GUIDE.md matches current graph query behavior
 
 ### Plugin Documentation
 
@@ -36,9 +36,9 @@ Requirements for documentation accuracy audit. Each maps to roadmap phases.
 
 ### Cross-References & Metadata
 
-- [x] **XREF-01**: All internal doc links resolve correctly
+- [ ] **XREF-01**: All internal doc links resolve correctly
 - [x] **XREF-02**: File paths referenced in docs exist
-- [x] **XREF-03**: Audited docs have last_validated frontmatter
+- [ ] **XREF-03**: Audited docs have last_validated frontmatter
 
 ## Future Requirements
 
@@ -66,26 +66,28 @@ Requirements for documentation accuracy audit. Each maps to roadmap phases.
 | CLIDOC-02 | Phase 29 | Complete |
 | CLIDOC-03 | Phase 29 | Complete |
 | CLIDOC-04 | Phase 29 | Complete |
-| CFGDOC-01 | Phase 30 | Complete |
+| CFGDOC-01 | Phase 36 | Pending |
 | CFGDOC-02 | Phase 30 | Complete |
 | CFGDOC-03 | Phase 30 | Complete |
 | GUIDE-01 | Phase 31 | Complete |
-| GUIDE-02 | Phase 31 | Complete |
-| GUIDE-03 | Phase 31 | Complete |
+| GUIDE-02 | Phase 36 | Pending |
+| GUIDE-03 | Phase 36 | Pending |
 | GUIDE-04 | Phase 31 | Complete |
-| GUIDE-05 | Phase 31 | Complete |
+| GUIDE-05 | Phase 36 | Pending |
 | PLUGDOC-01 | Phase 32 | Complete |
 | PLUGDOC-02 | Phase 32 | Complete |
 | PLUGDOC-03 | Phase 32 | Complete |
-| XREF-01 | Phase 33 | Complete |
+| XREF-01 | Phase 37 | Pending |
 | XREF-02 | Phase 33 | Complete |
-| XREF-03 | Phase 33 | Complete |
+| XREF-03 | Phase 37 | Pending |
 
 **Coverage:**
 - v9.2.0 requirements: 18 total
 - Mapped to phases: 18
+- Pending (gap closure): 6 (CFGDOC-01, GUIDE-02, GUIDE-03, GUIDE-05, XREF-01, XREF-03)
+- Complete: 12
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-16*
-*Last updated: 2026-03-16 — Traceability confirmed, roadmap phases 29-33 created*
+*Last updated: 2026-03-18 — Gap closure phases 36-37 added; 6 requirements reset to Pending*

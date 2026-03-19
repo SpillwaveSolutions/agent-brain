@@ -12,7 +12,7 @@
 - ✅ **v8.0 Performance & Developer Experience** — Phases 15-25 (shipped 2026-03-15)
 - ✅ **v9.0 Multi-Runtime Support** — Multi-runtime converter system (shipped 2026-03-16)
 - ✅ **v9.1.0 Generic Skills-Based Runtime Portability** — Phases 26-28 (shipped 2026-03-16)
-- ✅ **v9.2.0 Documentation Accuracy Audit** — Phases 29-33 (completed 2026-03-17)
+- 🔧 **v9.2.0 Documentation Accuracy Audit** — Phases 29-33 (gap closure: phases 36-37 in progress)
 - ⬜ **v9.3.0 LangExtract + Config Spec** — Phases 34-35
   - Phase 34: Config command spec + file watcher step (9-step wizard formalized)
   - Phase 35: LangExtract document graph extractor (multi-provider, retire LLMEntityExtractor as default)
@@ -138,6 +138,8 @@ Plans:
 - [x] **Phase 31: User Guides** — Audit and fix all user-facing guides for v7-v9 feature accuracy
 - [x] **Phase 32: Plugin Documentation** — Audit and fix plugin commands, skills, and agent descriptions (completed 2026-03-17)
 - [x] **Phase 33: Cross-References & Metadata** — Verify all internal links, file paths, and add audit metadata (completed 2026-03-17)
+- [ ] **Phase 36: Fix Documentation Accuracy** — Close audit gaps: stale .agent-brain/ paths, config.json example, GRAPHRAG multi-mode claim
+- [ ] **Phase 37: Complete Link Verification & Audit Metadata** — Fix anchor link bug, broken ToC links, stamp SKILL.md files, write VERIFICATION.md for phases 29-33
 
 ## Phase Details
 
@@ -230,6 +232,44 @@ Plans:
 
 ---
 
+### Phase 36: Fix Documentation Accuracy
+
+**Goal:** All stale directory path references and inaccurate behavioral claims in documentation are corrected so users following any doc from start to finish will not encounter wrong paths or misleading instructions.
+**Depends on:** Phase 33 (audit identified the gaps)
+**Requirements:** CFGDOC-01, GUIDE-02, GUIDE-03, GUIDE-05
+**Gap Closure:** Closes gaps from v10.0 audit
+**Success Criteria** (what must be TRUE):
+  1. `docs/CONFIGURATION.md` config.json example documents actual fields written by `agent-brain init` (bind_host, port_range_start, port_range_end, auto_port, chunk_size, chunk_overlap, exclude_patterns)
+  2. All stale `.claude/agent-brain/` path references replaced with `.agent-brain/` in CONFIGURATION.md, QUICK_START.md, and PLUGIN_GUIDE.md
+  3. `docs/GRAPHRAG_GUIDE.md` corrected to state that `multi` mode gracefully adapts to non-ChromaDB backends (does not require ChromaDB)
+  4. QUICK_START.md init flow and GRAPHRAG multi+PostgreSQL flow can be followed without inaccurate instructions
+**Plans:** 0 plans
+
+Plans:
+- [ ] 36-01-PLAN.md — Fix stale .agent-brain/ paths in CONFIGURATION.md, QUICK_START.md, PLUGIN_GUIDE.md
+- [ ] 36-02-PLAN.md — Fix config.json example fields in CONFIGURATION.md and correct GRAPHRAG_GUIDE.md multi-mode claim
+
+---
+
+### Phase 37: Complete Link Verification & Audit Metadata
+
+**Goal:** The Phase 33 link verification script correctly checks all link types (including same-file anchors), broken ToC links in DEVELOPERS_GUIDE.md are fixed, SKILL.md root files receive audit metadata, and all milestone phases (29–33) have VERIFICATION.md files.
+**Depends on:** Phase 36
+**Requirements:** XREF-01, XREF-03
+**Gap Closure:** Closes gaps from v10.0 audit
+**Success Criteria** (what must be TRUE):
+  1. `scripts/check_doc_links.py` correctly verifies same-file anchor links (the `is_url('#')` bug is fixed)
+  2. All ToC anchors in `docs/DEVELOPERS_GUIDE.md` resolve to existing headings
+  3. `agent-brain-plugin/skills/using-agent-brain/SKILL.md` and `agent-brain-plugin/skills/configuring-agent-brain/SKILL.md` have `last_validated` frontmatter
+  4. VERIFICATION.md files exist for all 5 milestone phases (29, 30, 31, 32, 33)
+**Plans:** 0 plans
+
+Plans:
+- [ ] 37-01-PLAN.md — Fix check_doc_links.py anchor bug, fix DEVELOPERS_GUIDE.md ToC anchors, stamp SKILL.md files
+- [ ] 37-02-PLAN.md — Write VERIFICATION.md for phases 29–33
+
+---
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -250,7 +290,9 @@ Plans:
 | 33 | v9.2.0 | Complete    | 2026-03-17 | 2026-03-17 |
 | 34 | v9.3.0 | 0 plans     | Complete   | 2026-03-17 |
 | 35 | v9.3.0 | 0 plans     | Complete   | 2026-03-17 |
+| 36 | v9.2.0 gap closure | 0/2 plans | Pending | - |
+| 37 | v9.2.0 gap closure | 0/2 plans | Pending | - |
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-17 — Phases 34-35 complete, v9.3.0 milestone (LangExtract + Config Spec)*
+*Last updated: 2026-03-19 — Gap closure phases 36-37 added for v10.0 audit gaps (6 requirements reset to Pending)*
