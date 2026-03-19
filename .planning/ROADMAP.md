@@ -264,7 +264,7 @@ Plans:
   2. All ToC anchors in `docs/DEVELOPERS_GUIDE.md` resolve to existing headings
   3. `agent-brain-plugin/skills/using-agent-brain/SKILL.md` and `agent-brain-plugin/skills/configuring-agent-brain/SKILL.md` have `last_validated` frontmatter
   4. VERIFICATION.md files exist for all 5 milestone phases (29, 30, 31, 32, 33)
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
 - [ ] 37-01-PLAN.md — Fix check_doc_links.py anchor bug, fix DEVELOPERS_GUIDE.md ToC anchors, stamp SKILL.md files
