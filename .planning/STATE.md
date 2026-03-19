@@ -73,10 +73,11 @@ v9.2.0 Doc Accuracy Audit:  [██████████] 100% (11/11 plans c
 None.
 
 ### Pending Todos
-3 pending todos.
+4 pending todos.
 - Review and merge Object Pascal support PR #115 (general)
 - Eliminate approval fatigue in agent-brain-plugin setup commands via pre-authorized agent and scripts (tooling)
 - Add "AST for code + LangExtract for docs" as a first-class GraphRAG option in agent-brain-config wizard Step 7 (tooling)
+- Auto-discover available port in agent-brain-config Step 12 deployment wizard to prevent multi-project port conflicts (tooling)
 
 ## Session Continuity
 
