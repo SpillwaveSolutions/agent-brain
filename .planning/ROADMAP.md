@@ -139,7 +139,7 @@ Plans:
 - [x] **Phase 32: Plugin Documentation** — Audit and fix plugin commands, skills, and agent descriptions (completed 2026-03-17)
 - [x] **Phase 33: Cross-References & Metadata** — Verify all internal links, file paths, and add audit metadata (completed 2026-03-17)
 - [ ] **Phase 36: Fix Documentation Accuracy** — Close audit gaps: stale .agent-brain/ paths, config.json example, GRAPHRAG multi-mode claim
-- [ ] **Phase 37: Complete Link Verification & Audit Metadata** — Fix anchor link bug, broken ToC links, stamp SKILL.md files, write VERIFICATION.md for phases 29-33
+- [x] **Phase 37: Complete Link Verification & Audit Metadata** — Fix anchor link bug, broken ToC links, stamp SKILL.md files, write VERIFICATION.md for phases 29-33 (completed 2026-03-19)
 - [ ] **Phase 38: Server Reliability & Provider Fixes** — Fix CWD-relative chroma_db/cache dirs, Broken pipe Ollama indexing, reranker start timeout, ChromaDB telemetry noise, Gemini provider migration, merge Object Pascal PR #115
 - [ ] **Phase 39: Plugin & Setup Wizard UX** — Fix setup-assistant permission gaps, eliminate approval fatigue, add AST+LangExtract GraphRAG option to wizard Step 7, auto-discover port in wizard Step 12
 
@@ -264,7 +264,7 @@ Plans:
   2. All ToC anchors in `docs/DEVELOPERS_GUIDE.md` resolve to existing headings
   3. `agent-brain-plugin/skills/using-agent-brain/SKILL.md` and `agent-brain-plugin/skills/configuring-agent-brain/SKILL.md` have `last_validated` frontmatter
   4. VERIFICATION.md files exist for all 5 milestone phases (29, 30, 31, 32, 33)
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 37-01-PLAN.md — Fix check_doc_links.py anchor bug, fix DEVELOPERS_GUIDE.md ToC anchors, stamp SKILL.md files
@@ -334,7 +334,7 @@ Plans:
 | 34 | v9.3.0 | 0 plans     | Complete   | 2026-03-17 |
 | 35 | v9.3.0 | 0 plans     | Complete   | 2026-03-17 |
 | 36 | v9.2.0 gap closure | 2/2 plans | Pending | - |
-| 37 | 1/2 | In Progress|  | - |
+| 37 | 2/2 | Complete   | 2026-03-19 | - |
 | 38 | todo backlog | 0/3 plans | Pending | - |
 | 39 | todo backlog | 0/2 plans | Pending | - |
 
