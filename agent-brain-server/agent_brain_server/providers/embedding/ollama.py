@@ -1,8 +1,10 @@
 """Ollama embedding provider implementation."""
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING
 
+import httpx
 from openai import AsyncOpenAI
 
 from agent_brain_server.providers.base import BaseEmbeddingProvider
@@ -51,7 +53,7 @@ class OllamaEmbeddingProvider(BaseEmbeddingProvider):
         Note:
             Ollama does not require an API key as it runs locally.
         """
-        batch_size = config.params.get("batch_size", 100)
+        batch_size = config.params.get("batch_size", 10)
         super().__init__(model=config.model, batch_size=batch_size)
 
         # Ollama uses OpenAI-compatible API
@@ -65,6 +67,8 @@ class OllamaEmbeddingProvider(BaseEmbeddingProvider):
         # Optional parameters
         self._num_ctx = config.params.get("num_ctx", 2048)
         self._num_threads = config.params.get("num_threads")
+        self._request_delay_ms: int = int(config.params.get("request_delay_ms", 0))
+        self._max_retries: int = int(config.params.get("max_retries", 3))
 
     @property
     def provider_name(self) -> str:
@@ -79,6 +83,18 @@ class OllamaEmbeddingProvider(BaseEmbeddingProvider):
         """
         return OLLAMA_MODEL_DIMENSIONS.get(self._model, DEFAULT_OLLAMA_DIMENSIONS)
 
+    def _is_retryable_error(self, exc: Exception) -> bool:
+        """Return True when the exception should be retried."""
+        if isinstance(exc, (BrokenPipeError, ConnectionResetError)):
+            return True
+        if isinstance(exc, httpx.ReadTimeout):
+            return True
+        if isinstance(exc, httpx.RemoteProtocolError):
+            return True
+        if isinstance(exc, httpx.ConnectError):
+            return "refused" not in str(exc).lower()
+        return False
+
     async def embed_text(self, text: str) -> list[float]:
         """Generate embedding for single text.
 
@@ -92,20 +108,53 @@ class OllamaEmbeddingProvider(BaseEmbeddingProvider):
             OllamaConnectionError: If Ollama is not running
             ProviderError: If embedding generation fails
         """
-        try:
-            response = await self._client.embeddings.create(
-                model=self._model,
-                input=text,
-            )
-            return response.data[0].embedding
-        except Exception as e:
-            if "connection" in str(e).lower() or "refused" in str(e).lower():
-                raise OllamaConnectionError(self._base_url, cause=e) from e
-            raise ProviderError(
-                f"Failed to generate embedding: {e}",
-                self.provider_name,
-                cause=e,
-            ) from e
+        last_exc: Exception | None = None
+        for attempt in range(self._max_retries + 1):
+            try:
+                response = await self._client.embeddings.create(
+                    model=self._model,
+                    input=text,
+                )
+                result = response.data[0].embedding
+                if self._request_delay_ms > 0:
+                    await asyncio.sleep(self._request_delay_ms / 1000)
+                return result
+            except Exception as e:
+                if isinstance(e, ConnectionRefusedError):
+                    raise OllamaConnectionError(self._base_url, cause=e) from e
+                if isinstance(e, httpx.ConnectError) and "refused" in str(e).lower():
+                    raise OllamaConnectionError(self._base_url, cause=e) from e
+                if "connection" in str(e).lower() or "refused" in str(e).lower():
+                    raise OllamaConnectionError(self._base_url, cause=e) from e
+                if "model not found" in str(e).lower():
+                    raise ProviderError(
+                        f"Failed to generate embedding: {e}",
+                        self.provider_name,
+                        cause=e,
+                    ) from e
+                if not self._is_retryable_error(e):
+                    raise ProviderError(
+                        f"Failed to generate embedding: {e}",
+                        self.provider_name,
+                        cause=e,
+                    ) from e
+
+                last_exc = e
+                if attempt < self._max_retries:
+                    delay = min(2**attempt, 30)
+                    logger.warning(
+                        "Retryable error in embed_text "
+                        f"(attempt {attempt + 1}/{self._max_retries}): {e}. "
+                        f"Retrying in {delay}s..."
+                    )
+                    await asyncio.sleep(delay)
+
+        raise ProviderError(
+            "Failed to generate embedding after "
+            f"{self._max_retries} retries: {last_exc}",
+            self.provider_name,
+            cause=last_exc,
+        ) from last_exc
 
     async def _embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for a batch of texts.
@@ -120,20 +169,53 @@ class OllamaEmbeddingProvider(BaseEmbeddingProvider):
             OllamaConnectionError: If Ollama is not running
             ProviderError: If embedding generation fails
         """
-        try:
-            response = await self._client.embeddings.create(
-                model=self._model,
-                input=texts,
-            )
-            return [item.embedding for item in response.data]
-        except Exception as e:
-            if "connection" in str(e).lower() or "refused" in str(e).lower():
-                raise OllamaConnectionError(self._base_url, cause=e) from e
-            raise ProviderError(
-                f"Failed to generate batch embeddings: {e}",
-                self.provider_name,
-                cause=e,
-            ) from e
+        last_exc: Exception | None = None
+        for attempt in range(self._max_retries + 1):
+            try:
+                response = await self._client.embeddings.create(
+                    model=self._model,
+                    input=texts,
+                )
+                result = [item.embedding for item in response.data]
+                if self._request_delay_ms > 0:
+                    await asyncio.sleep(self._request_delay_ms / 1000)
+                return result
+            except Exception as e:
+                if isinstance(e, ConnectionRefusedError):
+                    raise OllamaConnectionError(self._base_url, cause=e) from e
+                if isinstance(e, httpx.ConnectError) and "refused" in str(e).lower():
+                    raise OllamaConnectionError(self._base_url, cause=e) from e
+                if "connection" in str(e).lower() or "refused" in str(e).lower():
+                    raise OllamaConnectionError(self._base_url, cause=e) from e
+                if "model not found" in str(e).lower():
+                    raise ProviderError(
+                        f"Failed to generate batch embeddings: {e}",
+                        self.provider_name,
+                        cause=e,
+                    ) from e
+                if not self._is_retryable_error(e):
+                    raise ProviderError(
+                        f"Failed to generate batch embeddings: {e}",
+                        self.provider_name,
+                        cause=e,
+                    ) from e
+
+                last_exc = e
+                if attempt < self._max_retries:
+                    delay = min(2**attempt, 30)
+                    logger.warning(
+                        "Retryable error in _embed_batch "
+                        f"(attempt {attempt + 1}/{self._max_retries}): {e}. "
+                        f"Retrying in {delay}s..."
+                    )
+                    await asyncio.sleep(delay)
+
+        raise ProviderError(
+            "Failed to generate batch embeddings after "
+            f"{self._max_retries} retries: {last_exc}",
+            self.provider_name,
+            cause=last_exc,
+        ) from last_exc
 
     async def health_check(self) -> bool:
         """Check if Ollama is running and accessible.
