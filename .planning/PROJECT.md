@@ -124,7 +124,9 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ## Context
 
-**Current State (v7.0 shipped 2026-03-05):**
+**Current State (Phase 38 complete 2026-03-20):**
+- Phase 38 complete: state-dir storage fallback fixes, Ollama retry resilience, Gemini `google-genai` migration, and Object Pascal indexing support are now in place
+- Human runtime verification approved for Ollama sequential load behavior, first-run reranker startup timing, and telemetry log-noise suppression
 - 829 tests passing (77% server coverage)
 - Dual-backend architecture: ChromaDB (default) + PostgreSQL (optional)
 - Folder management: list, add, remove indexed folders via CLI/API
@@ -189,4 +191,4 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 | eviction_summary as dict[str, Any] on JobRecord | Pydantic-friendly serialization, no server import in CLI | ✓ Good |
 
 ---
-*Last updated: 2026-03-16 after v9.2.0 milestone started*
+*Last updated: 2026-03-20 after Phase 38 completion*
