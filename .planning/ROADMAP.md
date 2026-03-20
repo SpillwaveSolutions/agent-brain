@@ -336,7 +336,7 @@ Plans:
 | 35 | v9.3.0 | 0 plans     | Complete   | 2026-03-17 |
 | 36 | 2/2 | Complete   | 2026-03-20 | - |
 | 37 | 2/2 | Complete    | 2026-03-19 | - |
-| 38 | 4/4 | Complete   | 2026-03-20 | - |
+| 38 | 4/4 | Complete    | 2026-03-20 | - |
 | 39 | todo backlog | 0/2 plans | Pending | - |
 
 ---
