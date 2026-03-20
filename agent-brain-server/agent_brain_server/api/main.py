@@ -239,6 +239,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # Resolve storage paths (creates directories)
         storage_paths = resolve_storage_paths(state_dir)
         logger.info(f"State directory: {state_dir}")
+    elif state_dir is None:
+        # Fallback for direct server runs with no explicit state directory.
+        # Resolve relative to project root to avoid CWD-relative storage paths.
+        try:
+            state_dir = resolve_state_dir(Path.cwd())
+            storage_paths = resolve_storage_paths(state_dir)
+            logger.info(f"Resolved fallback state directory: {state_dir}")
+        except Exception as e:
+            logger.warning(f"Failed to resolve fallback storage paths: {e}")
 
     # Determine project root for path validation
     project_root: Path | None = None
@@ -274,16 +283,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # Conditional ChromaDB initialization (only when backend is chroma)
         if backend_type == "chroma":
             # Determine persistence directories
-            chroma_dir = (
-                str(storage_paths["chroma_db"])
-                if storage_paths
-                else settings.CHROMA_PERSIST_DIR
-            )
-            bm25_dir = (
-                str(storage_paths["bm25_index"])
-                if storage_paths
-                else settings.BM25_INDEX_PATH
-            )
+            if storage_paths:
+                chroma_dir = str(storage_paths["chroma_db"])
+                bm25_dir = str(storage_paths["bm25_index"])
+            elif state_dir is not None:
+                chroma_dir = str(state_dir / "data" / "chroma_db")
+                bm25_dir = str(state_dir / "data" / "bm25_index")
+            else:
+                chroma_dir = str(Path(settings.CHROMA_PERSIST_DIR).resolve())
+                bm25_dir = str(Path(settings.BM25_INDEX_PATH).resolve())
 
             # Initialize ChromaDB components
             vector_store = VectorStoreManager(
@@ -325,6 +333,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         if storage_paths:
             cache_db_path = storage_paths["embedding_cache"] / "embeddings.db"
+        elif state_dir is not None:
+            cache_db_path = state_dir / "embedding_cache" / "embeddings.db"
+            cache_db_path.parent.mkdir(parents=True, exist_ok=True)
         else:
             import tempfile
 
