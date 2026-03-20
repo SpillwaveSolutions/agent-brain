@@ -285,7 +285,7 @@ Plans:
   4. Server starts without ChromaDB PostHog telemetry errors in logs
   5. Gemini summarization provider uses `google-genai` package (no deprecation warnings)
   6. Object Pascal files are indexed correctly (PR #115 merged or equivalent changes applied)
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 - [ ] 38-01-PLAN.md — Fix chroma_db/cache dirs (CWD → AGENT_BRAIN_STATE_DIR) + suppress ChromaDB telemetry error
@@ -336,7 +336,7 @@ Plans:
 | 35 | v9.3.0 | 0 plans     | Complete   | 2026-03-17 |
 | 36 | 2/2 | Complete   | 2026-03-20 | - |
 | 37 | 2/2 | Complete    | 2026-03-19 | - |
-| 38 | 2/4 | In Progress|  | - |
+| 38 | 3/4 | In Progress|  | - |
 | 39 | todo backlog | 0/2 plans | Pending | - |
 
 ---

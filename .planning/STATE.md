@@ -4,13 +4,13 @@ milestone: v3.0
 milestone_name: milestone
 current_phase: 38
 status: executing
-stopped_at: Completed 38-04-PLAN.md
-last_updated: "2026-03-20T01:03:21.902Z"
+stopped_at: Completed 38-02-PLAN.md
+last_updated: "2026-03-20T01:04:30.070Z"
 progress:
   total_phases: 9
   completed_phases: 7
   total_plans: 19
-  completed_plans: 17
+  completed_plans: 18
 ---
 
 # Agent Brain — Project State
@@ -23,7 +23,7 @@ progress:
 ## Current Position
 
 Phase: 38 (server-reliability-and-provider-fixes) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 
 ## Project Reference
 
@@ -76,6 +76,9 @@ v9.2.0 Doc Accuracy Audit:  [██████████] 100% (11/11 plans c
 - [Phase 38]: Suppress ChromaDB telemetry noise via ANONYMIZED_TELEMETRY setdefault and logger level tuning.
 - [Phase 38]: Expose batch_size and request_delay_ms prompts only when embedding provider is ollama.
 - [Phase 38]: Do not expose max_retries in wizard; keep retry tuning as manual YAML configuration.
+- [Phase 38]: Use immediate OllamaConnectionError handling for refused connections while retrying only transient transport errors.
+- [Phase 38]: Set Ollama embedding defaults to batch_size=10 and max_retries=3 with optional request_delay_ms pacing.
+- [Phase 38]: Increase agent-brain start timeout default to 120 seconds to support first-run sentence-transformers initialization.
 
 ### Blockers/Concerns
 
@@ -97,10 +100,10 @@ None.
 
 ## Session Continuity
 
-**Last Session:** 2026-03-20T01:03:21.899Z
-**Stopped At:** Completed 38-04-PLAN.md
+**Last Session:** 2026-03-20T01:04:30.067Z
+**Stopped At:** Completed 38-02-PLAN.md
 **Resume File:** None
-**Next Action:** Execute 38-02-PLAN.md
+**Next Action:** Execute 38-03-PLAN.md
 
 ---
 *State updated: 2026-03-17*
