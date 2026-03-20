@@ -361,7 +361,7 @@ Initialize project directory.
 /agent-brain-init
 ```
 
-Creates `.claude/agent-brain/` with project configuration.
+Creates `.agent-brain/` with project configuration.
 
 ### `/agent-brain-config`
 
@@ -636,7 +636,7 @@ import json
 from pathlib import Path
 
 # Discover server
-runtime = json.loads(Path(".claude/agent-brain/runtime.json").read_text())
+runtime = json.loads(Path(".agent-brain/runtime.json").read_text())
 base_url = runtime["base_url"]
 
 # Query
