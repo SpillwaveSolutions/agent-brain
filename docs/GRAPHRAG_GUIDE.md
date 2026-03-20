@@ -140,7 +140,7 @@ The corresponding environment variable mapping is:
 
 Environment variables override config.yaml values.
 
-**Note:** `graph` and `multi` query modes require GraphRAG enabled with the ChromaDB backend. These modes are not available with the PostgreSQL storage backend.
+**Note:** The `graph` query mode requires GraphRAG enabled with the ChromaDB backend and is not available with the PostgreSQL storage backend. The `multi` query mode gracefully adapts when GraphRAG or ChromaDB is unavailable -- it automatically uses BM25 + vector search only, skipping the graph component without error.
 
 ---
 
