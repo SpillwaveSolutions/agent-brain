@@ -2,6 +2,7 @@
 
 import json
 import os
+import socket
 import sys
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,19 @@ SUMMARIZATION_DEFAULT_MODELS = {
     "ollama": "llama3.2:latest",
     "gemini": "gemini-3-flash",
 }
+
+
+def _find_available_api_port(start: int = 8000, end: int = 8300) -> int:
+    """Find an available TCP port in an inclusive range."""
+    for port in range(start, end + 1):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                sock.bind(("127.0.0.1", port))
+            except OSError:
+                continue
+            return port
+    raise click.ClickException(f"No available ports found in range {start}-{end}")
 
 
 def _find_config_file() -> Path | None:
@@ -182,6 +196,50 @@ def wizard() -> None:
         default=SUMMARIZATION_DEFAULT_MODELS[summ_provider],
     )
 
+    graphrag_mode: str = click.prompt(
+        "GraphRAG mode\n"
+        "1) Disabled\n"
+        "2) AST for code + LangExtract for docs (recommended for mixed repos)\n"
+        "3) Kuzu + AST for code + LangExtract for docs\n"
+        "4) AST for code only",
+        type=click.Choice(["1", "2", "3", "4"]),
+        default="1",
+    )
+
+    suggested_port = _find_available_api_port(8000, 8300)
+    click.echo(
+        f"Discovered available API port in 8000-8300 range: {suggested_port}"
+    )
+
+    deployment_mode: str = click.prompt(
+        "Deployment mode\n"
+        "1) Localhost only (127.0.0.1)\n"
+        "2) Network accessible (0.0.0.0 or custom host)\n"
+        "3) Custom port on localhost",
+        type=click.Choice(["1", "2", "3"]),
+        default="1",
+    )
+
+    api_host = "127.0.0.1"
+    if deployment_mode == "2":
+        host_mode: str = click.prompt(
+            "Host selection\n"
+            "1) 0.0.0.0\n"
+            "2) Custom host/IP",
+            type=click.Choice(["1", "2"]),
+            default="1",
+        )
+        if host_mode == "1":
+            api_host = "0.0.0.0"
+        else:
+            api_host = click.prompt("Custom host", default="0.0.0.0")
+
+    api_port: int = click.prompt(
+        "API port",
+        type=click.IntRange(min=1, max=65535),
+        default=suggested_port,
+    )
+
     config: dict[str, Any] = {
         "embedding": {
             "provider": embed_provider,
@@ -191,12 +249,40 @@ def wizard() -> None:
             "provider": summ_provider,
             "model": summ_model,
         },
+        "graphrag": {
+            "enabled": False,
+        },
+        "api": {
+            "host": api_host,
+            "port": api_port,
+        },
     }
 
     if embed_provider == "ollama":
         config["embedding"]["params"] = {
             "batch_size": int(batch_size or "10"),
             "request_delay_ms": int(request_delay_ms or 0),
+        }
+
+    if graphrag_mode == "2":
+        config["graphrag"] = {
+            "enabled": True,
+            "store_type": "simple",
+            "use_code_metadata": True,
+            "doc_extractor": "langextract",
+        }
+    elif graphrag_mode == "3":
+        config["graphrag"] = {
+            "enabled": True,
+            "store_type": "kuzu",
+            "use_code_metadata": True,
+            "doc_extractor": "langextract",
+        }
+    elif graphrag_mode == "4":
+        config["graphrag"] = {
+            "enabled": True,
+            "store_type": "simple",
+            "use_code_metadata": True,
         }
 
     config_path = _resolve_wizard_config_path()

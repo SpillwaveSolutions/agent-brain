@@ -26,6 +26,9 @@ class TestConfigWizard:
                     "100\n"
                     "anthropic\n"
                     "claude-haiku-4-5-20251001\n"
+                    "1\n"
+                    "1\n"
+                    "\n"
                 ),
             )
             assert result.exit_code == 0, result.output
@@ -51,6 +54,9 @@ class TestConfigWizard:
                         "some-model\n"
                         "anthropic\n"
                         "claude-haiku-4-5-20251001\n"
+                        "1\n"
+                        "1\n"
+                        "\n"
                     ),
                 )
                 assert result.exit_code == 0, f"{provider}: {result.output}"
@@ -72,6 +78,9 @@ class TestConfigWizard:
                     "0\n"
                     "anthropic\n"
                     "claude-haiku-4-5-20251001\n"
+                    "1\n"
+                    "1\n"
+                    "\n"
                 ),
             )
             assert result.exit_code == 0, result.output
@@ -92,6 +101,9 @@ class TestConfigWizard:
                     "0\n"
                     "anthropic\n"
                     "claude-haiku-4-5-20251001\n"
+                    "1\n"
+                    "1\n"
+                    "\n"
                 ),
             )
             assert result.exit_code == 0, result.output
@@ -110,7 +122,7 @@ class TestConfigWizard:
         monkeypatch.setattr(
             config_command_module,
             "_find_available_api_port",
-            lambda: 8123,
+            lambda *args, **kwargs: 8123,
             raising=False,
         )
 
@@ -148,7 +160,7 @@ class TestConfigWizard:
         monkeypatch.setattr(
             config_command_module,
             "_find_available_api_port",
-            lambda: 8123,
+            lambda *args, **kwargs: 8123,
             raising=False,
         )
 
