@@ -140,7 +140,7 @@ Plans:
 - [x] **Phase 33: Cross-References & Metadata** — Verify all internal links, file paths, and add audit metadata (completed 2026-03-17)
 - [x] **Phase 36: Fix Documentation Accuracy** — Close audit gaps: stale .agent-brain/ paths, config.json example, GRAPHRAG multi-mode claim (completed 2026-03-20)
 - [x] **Phase 37: Complete Link Verification & Audit Metadata** — Fix anchor link bug, broken ToC links, stamp SKILL.md files, write VERIFICATION.md for phases 29-33 (completed 2026-03-19)
-- [ ] **Phase 38: Server Reliability & Provider Fixes** — Fix CWD-relative chroma_db/cache dirs, Broken pipe Ollama indexing, reranker start timeout, ChromaDB telemetry noise, Gemini provider migration, merge Object Pascal PR #115
+- [x] **Phase 38: Server Reliability & Provider Fixes** — Fix CWD-relative chroma_db/cache dirs, Broken pipe Ollama indexing, reranker start timeout, ChromaDB telemetry noise, Gemini provider migration, merge Object Pascal PR #115 (completed 2026-03-20)
 - [ ] **Phase 39: Plugin & Setup Wizard UX** — Fix setup-assistant permission gaps, eliminate approval fatigue, add AST+LangExtract GraphRAG option to wizard Step 7, auto-discover port in wizard Step 12
 
 ## Phase Details
@@ -285,7 +285,7 @@ Plans:
   4. Server starts without ChromaDB PostHog telemetry errors in logs
   5. Gemini summarization provider uses `google-genai` package (no deprecation warnings)
   6. Object Pascal files are indexed correctly (PR #115 merged or equivalent changes applied)
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 - [ ] 38-01-PLAN.md — Fix chroma_db/cache dirs (CWD → AGENT_BRAIN_STATE_DIR) + suppress ChromaDB telemetry error
@@ -336,7 +336,7 @@ Plans:
 | 35 | v9.3.0 | 0 plans     | Complete   | 2026-03-17 |
 | 36 | 2/2 | Complete   | 2026-03-20 | - |
 | 37 | 2/2 | Complete    | 2026-03-19 | - |
-| 38 | 3/4 | In Progress|  | - |
+| 38 | 4/4 | Complete   | 2026-03-20 | - |
 | 39 | todo backlog | 0/2 plans | Pending | - |
 
 ---
