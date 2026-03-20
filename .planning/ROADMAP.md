@@ -138,7 +138,7 @@ Plans:
 - [x] **Phase 31: User Guides** — Audit and fix all user-facing guides for v7-v9 feature accuracy
 - [x] **Phase 32: Plugin Documentation** — Audit and fix plugin commands, skills, and agent descriptions (completed 2026-03-17)
 - [x] **Phase 33: Cross-References & Metadata** — Verify all internal links, file paths, and add audit metadata (completed 2026-03-17)
-- [ ] **Phase 36: Fix Documentation Accuracy** — Close audit gaps: stale .agent-brain/ paths, config.json example, GRAPHRAG multi-mode claim
+- [x] **Phase 36: Fix Documentation Accuracy** — Close audit gaps: stale .agent-brain/ paths, config.json example, GRAPHRAG multi-mode claim (completed 2026-03-20)
 - [x] **Phase 37: Complete Link Verification & Audit Metadata** — Fix anchor link bug, broken ToC links, stamp SKILL.md files, write VERIFICATION.md for phases 29-33 (completed 2026-03-19)
 - [ ] **Phase 38: Server Reliability & Provider Fixes** — Fix CWD-relative chroma_db/cache dirs, Broken pipe Ollama indexing, reranker start timeout, ChromaDB telemetry noise, Gemini provider migration, merge Object Pascal PR #115
 - [ ] **Phase 39: Plugin & Setup Wizard UX** — Fix setup-assistant permission gaps, eliminate approval fatigue, add AST+LangExtract GraphRAG option to wizard Step 7, auto-discover port in wizard Step 12
@@ -245,7 +245,7 @@ Plans:
   2. All stale `.claude/agent-brain/` path references replaced with `.agent-brain/` in CONFIGURATION.md, QUICK_START.md, and PLUGIN_GUIDE.md
   3. `docs/GRAPHRAG_GUIDE.md` corrected to state that `multi` mode gracefully adapts to non-ChromaDB backends (does not require ChromaDB)
   4. QUICK_START.md init flow and GRAPHRAG multi+PostgreSQL flow can be followed without inaccurate instructions
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 36-01-PLAN.md — Fix stale .agent-brain/ paths in CONFIGURATION.md, QUICK_START.md, PLUGIN_GUIDE.md
@@ -334,7 +334,7 @@ Plans:
 | 33 | v9.2.0 | Complete    | 2026-03-17 | 2026-03-17 |
 | 34 | v9.3.0 | 0 plans     | Complete   | 2026-03-17 |
 | 35 | v9.3.0 | 0 plans     | Complete   | 2026-03-17 |
-| 36 | 1/2 | In Progress|  | - |
+| 36 | 2/2 | Complete   | 2026-03-20 | - |
 | 37 | 2/2 | Complete    | 2026-03-19 | - |
 | 38 | todo backlog | 0/4 plans | Planning| Planning | - |
 | 39 | todo backlog | 0/2 plans | Pending | - |

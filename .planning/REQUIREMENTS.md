@@ -26,7 +26,7 @@ Requirements for documentation accuracy audit. Each maps to roadmap phases.
 - [x] **GUIDE-02**: QUICK_START.md installation steps verified working
 - [x] **GUIDE-03**: PLUGIN_GUIDE.md matches current plugin commands/agents/skills
 - [x] **GUIDE-04**: POSTGRESQL_SETUP.md verified against Docker Compose setup
-- [ ] **GUIDE-05**: GRAPHRAG_GUIDE.md matches current graph query behavior
+- [x] **GUIDE-05**: GRAPHRAG_GUIDE.md matches current graph query behavior
 
 ### Plugin Documentation
 
@@ -73,7 +73,7 @@ Requirements for documentation accuracy audit. Each maps to roadmap phases.
 | GUIDE-02 | Phase 36 | Complete |
 | GUIDE-03 | Phase 36 | Complete |
 | GUIDE-04 | Phase 31 | Complete |
-| GUIDE-05 | Phase 36 | Pending |
+| GUIDE-05 | Phase 36 | Complete |
 | PLUGDOC-01 | Phase 32 | Complete |
 | PLUGDOC-02 | Phase 32 | Complete |
 | PLUGDOC-03 | Phase 32 | Complete |
