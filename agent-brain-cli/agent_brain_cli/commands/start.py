@@ -196,8 +196,8 @@ def update_registry(project_root: Path, state_dir: Path) -> None:
 @click.option(
     "--timeout",
     type=int,
-    default=30,
-    help="Startup timeout in seconds (default: 30)",
+    default=120,
+    help="Startup timeout in seconds (default: 120)",
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
 @click.option(
