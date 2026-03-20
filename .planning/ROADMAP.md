@@ -306,7 +306,7 @@ Plans:
   2. `agent-brain-config` and `agent-brain-install` commands complete without triggering manual approval prompts for expected operations
   3. Wizard Step 7 offers "AST for code + LangExtract for docs" as an explicit, selectable GraphRAG extraction mode
   4. Wizard Step 12 auto-discovers an available port from the configured range instead of requiring manual input
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
 - [ ] 39-01-PLAN.md — Fix setup-assistant permission gaps + eliminate approval fatigue in setup commands
