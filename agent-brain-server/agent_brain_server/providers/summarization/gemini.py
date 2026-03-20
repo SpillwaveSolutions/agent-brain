@@ -3,7 +3,8 @@
 import logging
 from typing import TYPE_CHECKING
 
-import google.generativeai as genai
+import google.genai as genai
+from google.genai.types import GenerateContentConfig
 
 from agent_brain_server.providers.base import BaseSummarizationProvider
 from agent_brain_server.providers.exceptions import AuthenticationError, ProviderError
@@ -18,20 +19,12 @@ class GeminiSummarizationProvider(BaseSummarizationProvider):
     """Google Gemini summarization provider.
 
     Supports:
-    - gemini-3-flash (fast, cost-effective)
-    - gemini-3-pro (highest quality)
+    - gemini-2.0-flash (fast, cost-effective)
+    - gemini-2.0-pro (highest quality)
     - And other Gemini models
     """
 
     def __init__(self, config: "SummarizationConfig") -> None:
-        """Initialize Gemini summarization provider.
-
-        Args:
-            config: Summarization configuration
-
-        Raises:
-            AuthenticationError: If API key is not available
-        """
         api_key = config.get_api_key()
         if not api_key:
             raise AuthenticationError(
@@ -44,7 +37,7 @@ class GeminiSummarizationProvider(BaseSummarizationProvider):
         )
         temperature = config.params.get("temperature", 0.1)
         prompt_template = config.params.get("prompt_template")
-        top_p = config.params.get("top_p", 0.95)
+        self._top_p = config.params.get("top_p", 0.95)
 
         super().__init__(
             model=config.model,
@@ -53,18 +46,11 @@ class GeminiSummarizationProvider(BaseSummarizationProvider):
             prompt_template=prompt_template,
         )
 
-        # Configure Gemini with API key
-        genai.configure(api_key=api_key)  # type: ignore[attr-defined]
-
-        # Create model with generation config
-        generation_config = genai.types.GenerationConfig(
+        self._client = genai.Client(api_key=api_key)
+        self._generation_config = GenerateContentConfig(
             max_output_tokens=max_tokens,
             temperature=temperature,
-            top_p=top_p,
-        )
-        self._model_instance = genai.GenerativeModel(  # type: ignore[attr-defined]
-            model_name=config.model,
-            generation_config=generation_config,
+            top_p=self._top_p,
         )
 
     @property
@@ -73,20 +59,12 @@ class GeminiSummarizationProvider(BaseSummarizationProvider):
         return "Gemini"
 
     async def generate(self, prompt: str) -> str:
-        """Generate text based on prompt using Gemini.
-
-        Args:
-            prompt: The prompt to send to Gemini
-
-        Returns:
-            Generated text response
-
-        Raises:
-            ProviderError: If generation fails
-        """
         try:
-            # Use async generation
-            response = await self._model_instance.generate_content_async(prompt)
+            response = await self._client.aio.models.generate_content(
+                model=self._model,
+                contents=prompt,
+                config=self._generation_config,
+            )
             return str(response.text)
         except Exception as e:
             raise ProviderError(
