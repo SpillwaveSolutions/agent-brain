@@ -57,7 +57,7 @@ Run the environment detection script once. It consolidates Ollama check, Docker 
 # Find the script — adjust path if plugin is installed to ~/.claude/plugins/
 SCRIPT=$(find ~/.claude/plugins/agent-brain/scripts ~/.claude/skills/agent-brain/scripts agent-brain-plugin/scripts -name "ab-setup-check.sh" 2>/dev/null | head -1)
 if [ -n "$SCRIPT" ]; then
-  SETUP_STATE=$(bash "$SCRIPT")
+  SETUP_STATE=$("$SCRIPT")
   echo "$SETUP_STATE"
 else
   echo "ab-setup-check.sh not found — run detection manually (see fallback below)"

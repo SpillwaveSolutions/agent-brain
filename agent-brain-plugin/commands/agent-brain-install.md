@@ -62,9 +62,17 @@ Do not proceed until you have called AskUserQuestion and received the user's sel
 After receiving the user's installation method choice, resolve the latest version from PyPI:
 
 ```bash
-# Get latest version from PyPI
-VERSION=$(curl -sf https://pypi.org/pypi/agent-brain-rag/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])")
-echo "Latest available: $VERSION"
+# Resolve helper script path (installed plugin or local repo)
+PYPI_VERSION_SCRIPT=$(find ~/.claude/plugins/agent-brain/scripts ~/.claude/skills/agent-brain/scripts agent-brain-plugin/scripts -name "ab-pypi-version.sh" 2>/dev/null | head -1)
+
+if [ -n "$PYPI_VERSION_SCRIPT" ]; then
+  VERSION=$("$PYPI_VERSION_SCRIPT")
+  echo "Latest available: $VERSION"
+else
+  echo "ab-pypi-version.sh not found — falling back to inline version lookup"
+  VERSION=$(curl -sf https://pypi.org/pypi/agent-brain-rag/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])")
+  echo "Latest available: $VERSION"
+fi
 ```
 
 Then ask user for version preference using AskUserQuestion:
@@ -139,7 +147,17 @@ Requires Python 3.10+. If lower, tell user to upgrade first.
 
 1. Check/install uv:
    ```bash
-   uv --version 2>/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
+   UV_CHECK_SCRIPT=$(find ~/.claude/plugins/agent-brain/scripts ~/.claude/skills/agent-brain/scripts agent-brain-plugin/scripts -name "ab-uv-check.sh" 2>/dev/null | head -1)
+
+   if [ -n "$UV_CHECK_SCRIPT" ]; then
+     UV_CHECK_OUTPUT=$("$UV_CHECK_SCRIPT")
+     echo "$UV_CHECK_OUTPUT"
+     if ! echo "$UV_CHECK_OUTPUT" | grep -q "available"; then
+       curl -LsSf https://astral.sh/uv/install.sh | sh
+     fi
+   else
+     uv --version 2>/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
+   fi
    ```
 
 2. Install Agent Brain with pinned version:
