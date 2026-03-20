@@ -526,20 +526,22 @@ Create `.agent-brain/config.json` for project-specific settings:
 
 ```json
 {
-  "default_mode": "hybrid",
-  "default_top_k": 10,
-  "default_threshold": 0.5,
-  "include_code": true,
-  "languages": ["python", "typescript", "javascript"],
-  "exclude_patterns": [
-    "node_modules/**",
-    "__pycache__/**",
-    "*.log",
-    ".git/**"
-  ],
+  "bind_host": "127.0.0.1",
+  "port_range_start": 8000,
+  "port_range_end": 8100,
+  "auto_port": true,
   "chunk_size": 512,
   "chunk_overlap": 50,
-  "graph_enabled": false
+  "exclude_patterns": [
+    "**/node_modules/**",
+    "**/__pycache__/**",
+    "**/.venv/**",
+    "**/venv/**",
+    "**/.git/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/target/**"
+  ]
 }
 ```
 
@@ -547,15 +549,13 @@ Create `.agent-brain/config.json` for project-specific settings:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `default_mode` | string | `"hybrid"` | Default search mode |
-| `default_top_k` | integer | `5` | Default result count |
-| `default_threshold` | float | `0.7` | Default similarity threshold |
-| `include_code` | boolean | `false` | Include code in indexing |
-| `languages` | array | `[]` | Languages to index (empty = all) |
-| `exclude_patterns` | array | `[]` | Glob patterns to exclude |
+| `bind_host` | string | `"127.0.0.1"` | Server bind address |
+| `port_range_start` | integer | `8000` | Start of port range for auto-port |
+| `port_range_end` | integer | `8100` | End of port range for auto-port |
+| `auto_port` | boolean | `true` | Automatically find available port |
 | `chunk_size` | integer | `512` | Chunk size in tokens |
 | `chunk_overlap` | integer | `50` | Chunk overlap in tokens |
-| `graph_enabled` | boolean | `false` | Enable GraphRAG |
+| `exclude_patterns` | array | (see example) | Glob patterns to exclude from indexing |
 
 ---
 
@@ -645,16 +645,18 @@ Project config (`.agent-brain/config.json`):
 
 ```json
 {
-  "include_code": true,
-  "languages": ["python", "typescript", "javascript", "java"],
+  "bind_host": "127.0.0.1",
+  "port_range_start": 8000,
+  "port_range_end": 8100,
+  "auto_port": true,
+  "chunk_size": 800,
+  "chunk_overlap": 100,
   "exclude_patterns": [
-    "node_modules/**",
-    "__pycache__/**",
-    "dist/**",
-    "build/**",
-    "*.min.js"
-  ],
-  "graph_enabled": true
+    "**/node_modules/**",
+    "**/__pycache__/**",
+    "**/dist/**",
+    "**/build/**"
+  ]
 }
 ```
 
@@ -678,9 +680,17 @@ Project config:
 
 ```json
 {
-  "include_code": false,
-  "default_mode": "hybrid",
-  "default_threshold": 0.6
+  "bind_host": "127.0.0.1",
+  "port_range_start": 8000,
+  "port_range_end": 8100,
+  "auto_port": true,
+  "chunk_size": 400,
+  "chunk_overlap": 50,
+  "exclude_patterns": [
+    "**/node_modules/**",
+    "**/__pycache__/**",
+    "**/.git/**"
+  ]
 }
 ```
 
