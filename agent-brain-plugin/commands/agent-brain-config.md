@@ -555,52 +555,21 @@ graph-based queries like "what classes depend on X?" alongside standard search.
 
 Options:
 1. Disabled (Default) - Standard vector + BM25 hybrid search only
-2. Enabled - GraphRAG with JSON persistence (no extra dependencies)
-3. Enabled + Kuzu - GraphRAG with Kuzu persistent graph store (requires kuzu install)
+2. AST + LangExtract (Recommended for mixed repos) - GraphRAG with JSON persistence,
+   AST/code metadata for code chunks, and LangExtract for docs/prose chunks
+3. Kuzu + AST + LangExtract - Same extractor behavior with Kuzu persistent graph store
+4. AST only - GraphRAG with JSON persistence and AST/code metadata only
 ```
 
-### If Option 2 or 3: AskUserQuestion: Extraction Mode
+### Option mapping to config.yaml
 
-**IMPORTANT:** Check which provider is configured first:
+The CLI wizard prompt text mirrors the current command implementation:
 
-```bash
-# Check if ANTHROPIC_API_KEY is available
-echo ${ANTHROPIC_API_KEY:+set} || echo "not set"
-```
+- `2) AST for code + LangExtract for docs (recommended for mixed repos)`
+- `3) Kuzu + AST for code + LangExtract for docs`
+- `4) AST for code only`
 
-Then ask:
-
-```
-Which graph extractor would you like to use?
-
-Agent Brain has three extractors:
-
-1. AST / Code Metadata (Recommended) - Extracts function calls, imports, class
-   hierarchies directly from code. Works with ANY provider, no API key needed.
-   Best for code repositories.
-
-2. LLM Entity Extractor (Legacy) - Uses Anthropic API to extract semantic triplets
-   from text. Requires ANTHROPIC_API_KEY (does NOT use Ollama even if Ollama is
-   your embedding/summarization provider). Best for prose/documentation.
-
-3. LangExtract (Multi-Provider) - Uses your configured summarization provider
-   (Gemini, OpenAI, Claude, Ollama) for document semantic extraction. Zero new
-   config needed if summarization is already set up.
-   Set GRAPH_DOC_EXTRACTOR=langextract (default when langextract installed).
-```
-
-**Auto-default:** If the user is using Ollama OR no `ANTHROPIC_API_KEY` is set,
-default to Option 1 (AST) for code repos. If the user has documents/prose and
-`SUMMARIZATION_PROVIDER` is configured, suggest Option 3 (LangExtract) as well:
-```
-Defaulting to AST/Code Metadata extractor — LLM extraction requires
-ANTHROPIC_API_KEY which is not set in this environment.
-
-Tip: For prose/documentation, enable LangExtract (Option 3) to use your
-configured summarization provider for semantic entity extraction.
-```
-
-### If Option 2 (Simple / JSON persistence) + AST extractor:
+### If Option 2 (AST + LangExtract, simple JSON persistence):
 
 Add to config.yaml:
 
@@ -608,55 +577,19 @@ Add to config.yaml:
 graphrag:
   enabled: true
   store_type: "simple"
-  index_path: ".agent-brain/graph_index"
-  traversal_depth: 2
-  use_llm_extraction: false
   use_code_metadata: true
+  doc_extractor: "langextract"
 ```
 
 Or via environment variables:
 ```bash
 export ENABLE_GRAPH_INDEX=true
 export GRAPH_STORE_TYPE=simple          # JSON persistence, no kuzu needed
-export GRAPH_INDEX_PATH=.agent-brain/graph_index
-export GRAPH_USE_LLM_EXTRACTION=false   # No ANTHROPIC_API_KEY required
 export GRAPH_USE_CODE_METADATA=true     # AST-based relationship extraction
-export GRAPH_TRAVERSAL_DEPTH=2
+export GRAPH_DOC_EXTRACTOR=langextract  # LangExtract for document chunks
 ```
 
-### If Option 2 + LLM extractor (Anthropic key confirmed present):
-
-```bash
-export ENABLE_GRAPH_INDEX=true
-export GRAPH_STORE_TYPE=simple
-export GRAPH_INDEX_PATH=.agent-brain/graph_index
-export GRAPH_USE_LLM_EXTRACTION=true
-export GRAPH_USE_CODE_METADATA=false
-export GRAPH_TRAVERSAL_DEPTH=2
-```
-
-### If Option 2 + LangExtract (multi-provider, uses SUMMARIZATION_PROVIDER):
-
-```bash
-export ENABLE_GRAPH_INDEX=true
-export GRAPH_STORE_TYPE=simple
-export GRAPH_INDEX_PATH=.agent-brain/graph_index
-export GRAPH_USE_LLM_EXTRACTION=false
-export GRAPH_USE_CODE_METADATA=true    # keep AST for code chunks
-export GRAPH_DOC_EXTRACTOR=langextract # LangExtract for document chunks
-export GRAPH_TRAVERSAL_DEPTH=2
-# Optional: override the provider/model used for LangExtract extraction
-# (defaults to SUMMARIZATION_PROVIDER/SUMMARIZATION_MODEL)
-# export GRAPH_LANGEXTRACT_PROVIDER=ollama
-# export GRAPH_LANGEXTRACT_MODEL=mistral-small3.2:latest
-```
-
-Requires langextract to be installed (included in graphrag extras):
-```bash
-cd agent-brain-server && poetry install --extras graphrag
-```
-
-### If Option 3 (Kuzu / Persistent):
+### If Option 3 (Kuzu + AST + LangExtract):
 
 First check if kuzu is installed:
 
@@ -673,15 +606,22 @@ Or install directly:
   uv pip install kuzu
 ```
 
-Add to config.yaml (with preferred extractor from above):
+Add to config.yaml:
 
 ```yaml
 graphrag:
   enabled: true
   store_type: "kuzu"
-  index_path: ".agent-brain/graph_index"
-  traversal_depth: 2
-  use_llm_extraction: false   # or true if ANTHROPIC_API_KEY is available
+  use_code_metadata: true
+  doc_extractor: "langextract"
+```
+
+### If Option 4 (AST only):
+
+```yaml
+graphrag:
+  enabled: true
+  store_type: "simple"
   use_code_metadata: true
 ```
 
@@ -1004,20 +944,64 @@ export DEFAULT_SIMILARITY_THRESHOLD=0.7
 How will Agent Brain be deployed?
 
 Options:
-1. Local (Default) — binds to 127.0.0.1:8000, accessible only from this machine
+1. Local (Default) — binds to 127.0.0.1 using an auto-discovered available port
+   from 8000-8300
 2. Network — binds to 0.0.0.0 or specific IP, accessible from other machines
-3. Custom port — same as option 1 but on a different port
+3. Custom port — same as option 1 but allows overriding the suggested port
 ```
 
-**If Option 2 or 3:**
+### Auto-discover available API port before prompting
+
+Before asking for the final API port value, scan 8000-8300 and suggest the first
+available port:
+
+```bash
+API_PORT=""
+for port in $(seq 8000 8300); do
+  if ! lsof -i :$port -sTCP:LISTEN >/dev/null 2>&1; then
+    API_PORT=$port
+    echo "Discovered available API port in 8000-8300 range: $port"
+    break
+  fi
+done
+
+if [ -z "$API_PORT" ]; then
+  echo "ERROR: No available API ports in 8000-8300"
+  exit 1
+fi
+```
+
+Prompt with the discovered value as default/suggestion:
+
+```text
+API port [<discovered-port>]:
+```
+
+### Host and port mapping
+
+**If Option 1 (Local):**
+
+```bash
+export API_HOST=127.0.0.1
+export API_PORT=<DISCOVERED_PORT>
+```
+
+**If Option 2 (Network):**
 
 ```bash
 # Bind address (default: 127.0.0.1 — localhost only)
 # Use 0.0.0.0 to accept connections from any interface
 export API_HOST=0.0.0.0
 
-# Port (default: 8000)
-export API_PORT=8000
+# Port uses discovered default from 8000-8300 unless user overrides
+export API_PORT=<DISCOVERED_PORT_OR_OVERRIDE>
+```
+
+**If Option 3 (Custom port):**
+
+```bash
+export API_HOST=127.0.0.1
+export API_PORT=<USER_SELECTED_PORT>
 ```
 
 **Security note for network deployment:**
