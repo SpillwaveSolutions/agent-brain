@@ -101,16 +101,20 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ### Active
 
-## Current Milestone: v9.2.0 Documentation Accuracy Audit
+## Current Milestone: v9.3.0 LangExtract + Config Spec
 
-**Goal:** Ensure all documentation accurately reflects the current behavior of the software — CLI commands, configuration schemas, APIs, examples, file paths, and installation instructions — serving as the quality gate before release.
+**Goal:** Formalize config command wizard behavior and deliver LangExtract as the default document graph extractor across supported providers.
 
 **Target features:**
-- Cross-check all docs against CLI `--help` output and source code definitions
-- Fix stale command names, flags, paths, links, and examples
-- Validate configuration schemas match source definitions
-- Verify API endpoint documentation matches OpenAPI spec
-- Add `last_validated` frontmatter metadata to audited files
+- Phase 34: Config command spec + file watcher wizard step formalization
+- Phase 35: LangExtract document graph extractor and default extractor transition from `LLMEntityExtractor`
+- Verification and release hardening for the new config and extraction behavior
+
+## Next Milestone Goals
+
+- Ship v9.3.0 capabilities and close remaining config-spec and extractor rollout work
+- Maintain consistency between CLI wizard behavior, plugin command specs, and docs
+- Keep release workflow stable for future version cadence (v9.5.0+)
 
 ### Out of Scope
 
@@ -192,4 +196,4 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 | eviction_summary as dict[str, Any] on JobRecord | Pydantic-friendly serialization, no server import in CLI | ✓ Good |
 
 ---
-*Last updated: 2026-03-20 after Phase 39 completion*
+*Last updated: 2026-03-20 after v9.4.0 milestone completion*
