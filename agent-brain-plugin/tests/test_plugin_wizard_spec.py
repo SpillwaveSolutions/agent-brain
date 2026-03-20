@@ -16,6 +16,7 @@ import pytest
 
 PLUGIN_DIR = pathlib.Path(__file__).parent.parent
 WIZARD_PATH = PLUGIN_DIR / "commands" / "agent-brain-setup.md"
+CONFIG_WIZARD_PATH = PLUGIN_DIR / "commands" / "agent-brain-config.md"
 
 
 @pytest.fixture(autouse=True)
@@ -33,6 +34,14 @@ def require_plugin_dir() -> None:
 def setup_wizard_content() -> str:
     """Return the full text of the agent-brain-setup.md wizard file."""
     return WIZARD_PATH.read_text(encoding="utf-8")
+
+
+@pytest.fixture()
+def config_wizard_content() -> str:
+    """Return the full text of the agent-brain-config.md wizard file."""
+    if not CONFIG_WIZARD_PATH.exists():
+        pytest.skip(f"Config wizard not found at {CONFIG_WIZARD_PATH}")
+    return CONFIG_WIZARD_PATH.read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -174,4 +183,29 @@ def test_setup_wizard_step6_cache_awareness(setup_wizard_content: str) -> None:
     ), (
         "Step 6 (Query Mode) must mention that embedding and query caches are "
         "automatically active. Users finishing setup should know caches exist."
+    )
+
+
+def test_config_wizard_step7_includes_ast_plus_langextract_option(
+    config_wizard_content: str,
+) -> None:
+    """Step 7 must expose AST+LangExtract as a first-class GraphRAG option."""
+    assert "AST + LangExtract" in config_wizard_content, (
+        "Step 7 in agent-brain-config.md must explicitly include an "
+        "AST + LangExtract top-level option for mixed repositories."
+    )
+
+
+def test_config_wizard_step12_includes_auto_port_discovery_text(
+    config_wizard_content: str,
+) -> None:
+    """Step 12 must document automatic API port discovery from 8000-8300."""
+    lowered = config_wizard_content.lower()
+    assert "step 12" in lowered
+    assert "8000-8300" in config_wizard_content, (
+        "Step 12 must specify API port scan range 8000-8300."
+    )
+    assert "available" in lowered and "port" in lowered and "api" in lowered, (
+        "Step 12 must state that wizard discovers an available API port "
+        "instead of assuming 8000."
     )

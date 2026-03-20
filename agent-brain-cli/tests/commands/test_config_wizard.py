@@ -5,6 +5,7 @@ from pathlib import Path
 import yaml
 from click.testing import CliRunner
 
+from agent_brain_cli.commands import config as config_command_module
 from agent_brain_cli.commands.config import config_group
 
 
@@ -100,3 +101,77 @@ class TestConfigWizard:
             assert config_file.exists()
             config = yaml.safe_load(config_file.read_text(encoding="utf-8"))
             assert config["embedding"]["params"]["request_delay_ms"] >= 0
+
+    def test_wizard_persists_graphrag_mixed_extraction_mode(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """Wizard persists AST+LangExtract mode for mixed repositories."""
+        runner = CliRunner()
+        monkeypatch.setattr(
+            config_command_module,
+            "_find_available_api_port",
+            lambda: 8123,
+            raising=False,
+        )
+
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            result = runner.invoke(
+                config_group,
+                ["wizard"],
+                input=(
+                    "openai\n"
+                    "text-embedding-3-large\n"
+                    "anthropic\n"
+                    "claude-haiku-4-5-20251001\n"
+                    "2\n"
+                    "2\n"
+                    "1\n"
+                    "\n"
+                ),
+            )
+
+            assert result.exit_code == 0, result.output
+            assert "AST for code + LangExtract for docs" in result.output
+
+            config_file = Path(".agent-brain") / "config.yaml"
+            config = yaml.safe_load(config_file.read_text(encoding="utf-8"))
+            assert config["graphrag"]["enabled"] is True
+            assert config["graphrag"]["store_type"] == "simple"
+            assert config["graphrag"]["use_code_metadata"] is True
+            assert config["graphrag"]["doc_extractor"] == "langextract"
+
+    def test_wizard_suggests_and_persists_available_api_port(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """Wizard discovers an available API port and writes it to config."""
+        runner = CliRunner()
+        monkeypatch.setattr(
+            config_command_module,
+            "_find_available_api_port",
+            lambda: 8123,
+            raising=False,
+        )
+
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            result = runner.invoke(
+                config_group,
+                ["wizard"],
+                input=(
+                    "openai\n"
+                    "text-embedding-3-large\n"
+                    "anthropic\n"
+                    "claude-haiku-4-5-20251001\n"
+                    "1\n"
+                    "1\n"
+                    "\n"
+                ),
+            )
+
+            assert result.exit_code == 0, result.output
+            assert "available API port" in result.output
+            assert "8000-8300" in result.output
+
+            config_file = Path(".agent-brain") / "config.yaml"
+            config = yaml.safe_load(config_file.read_text(encoding="utf-8"))
+            assert config["api"]["host"] == "127.0.0.1"
+            assert config["api"]["port"] == 8123
