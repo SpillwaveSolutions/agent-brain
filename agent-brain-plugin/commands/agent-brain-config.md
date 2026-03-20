@@ -2,6 +2,8 @@
 name: agent-brain-config
 description: 12-step wizard to configure all Agent Brain settings — providers, storage, GraphRAG, reranking, caching, file watcher, chunking, and server deployment
 parameters: []
+context: fork
+agent: setup-assistant
 skills:
   - configuring-agent-brain
 last_validated: 2026-03-16

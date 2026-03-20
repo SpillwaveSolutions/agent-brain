@@ -2,6 +2,8 @@
 name: agent-brain-setup
 description: Complete guided setup for Agent Brain (install, config, init, verify)
 parameters: []
+context: fork
+agent: setup-assistant
 skills:
   - configuring-agent-brain
 last_validated: 2026-03-16

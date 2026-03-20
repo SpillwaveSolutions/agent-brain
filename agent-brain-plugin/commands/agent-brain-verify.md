@@ -2,6 +2,8 @@
 name: agent-brain-verify
 description: Verify Agent Brain installation and configuration
 parameters: []
+context: fork
+agent: setup-assistant
 skills:
   - configuring-agent-brain
 last_validated: 2026-03-16

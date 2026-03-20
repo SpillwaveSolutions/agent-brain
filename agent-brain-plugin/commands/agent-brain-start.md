@@ -27,6 +27,8 @@ parameters:
     description: Output as JSON
     required: false
     default: false
+context: fork
+agent: setup-assistant
 skills:
   - using-agent-brain
 last_validated: 2026-03-16

@@ -20,6 +20,17 @@ triggers:
     type: error_pattern
 skills:
   - configuring-agent-brain
+allowed_tools:
+  - Read
+  - Glob
+  - "Bash(~/.claude/plugins/agent-brain/scripts/*)"
+  - "Bash(.claude/plugins/agent-brain/scripts/*)"
+  - "Write(~/.agent-brain/**)"
+  - "Edit(~/.agent-brain/**)"
+  - "Write(~/.config/agent-brain/**)"
+  - "Edit(~/.config/agent-brain/**)"
+  - "Write(.claude/agent-brain/**)"
+  - "Edit(.claude/agent-brain/**)"
 last_validated: 2026-03-16
 ---
 

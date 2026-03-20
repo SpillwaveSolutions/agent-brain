@@ -2,6 +2,8 @@
 name: agent-brain-install
 description: Install Agent Brain packages using pipx, uv, pip, or conda
 parameters: []
+context: fork
+agent: setup-assistant
 skills:
   - configuring-agent-brain
 last_validated: 2026-03-16
