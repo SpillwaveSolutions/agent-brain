@@ -162,6 +162,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     logger.info("Starting Agent Brain RAG server...")
 
+    # Suppress ChromaDB telemetry noise (PostHog) during startup.
+    os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
+    logging.getLogger("chromadb.telemetry").setLevel(logging.WARNING)
+    logging.getLogger("posthog").setLevel(logging.WARNING)
+
     # Load and validate provider configuration
     # Clear cache first to ensure we pick up env vars set by CLI
     clear_settings_cache()

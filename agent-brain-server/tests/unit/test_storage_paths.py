@@ -96,6 +96,29 @@ class TestResolveStoragePaths:
         for name, path in paths.items():
             assert str(path).startswith(str(state_dir)), f"{name} not under state_dir"
 
+    def test_resolve_storage_paths_returns_absolute_paths(self, tmp_path: Path) -> None:
+        """Verify all storage paths are absolute and under state_dir."""
+        state_dir = (tmp_path / ".agent-brain").resolve()
+        state_dir.mkdir()
+
+        paths = resolve_storage_paths(state_dir)
+
+        for name, path in paths.items():
+            assert path.is_absolute(), f"{name} path is not absolute: {path}"
+            assert str(path).startswith(str(state_dir)), (
+                f"{name} path {path} is not under state_dir {state_dir}"
+            )
+
+    def test_chroma_and_cache_paths_under_state_dir(self, tmp_path: Path) -> None:
+        """Verify chroma_db and embedding_cache are under state_dir, not CWD."""
+        state_dir = (tmp_path / ".agent-brain").resolve()
+        state_dir.mkdir()
+
+        paths = resolve_storage_paths(state_dir)
+
+        assert paths["chroma_db"] == state_dir / "data" / "chroma_db"
+        assert paths["embedding_cache"] == state_dir / "embedding_cache"
+
     def test_idempotent(self, tmp_path):
         """Test calling twice returns same paths."""
         state_dir = tmp_path / ".agent-brain"
