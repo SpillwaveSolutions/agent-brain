@@ -7,12 +7,27 @@ from pathlib import Path
 from typing import Any
 
 import click
+import yaml
 from rich.console import Console
 from rich.table import Table
 
 from agent_brain_cli.xdg_paths import get_xdg_config_dir
 
 console = Console()
+
+
+EMBEDDING_DEFAULT_MODELS = {
+    "openai": "text-embedding-3-large",
+    "ollama": "nomic-embed-text",
+    "cohere": "embed-english-v3.0",
+}
+
+SUMMARIZATION_DEFAULT_MODELS = {
+    "anthropic": "claude-haiku-4-5-20251001",
+    "openai": "gpt-5-mini",
+    "ollama": "llama3.2:latest",
+    "gemini": "gemini-3-flash",
+}
 
 
 def _find_config_file() -> Path | None:
@@ -91,10 +106,30 @@ def _find_config_file() -> Path | None:
 
 def _load_yaml(path: Path) -> dict[str, Any]:
     """Load YAML configuration file."""
-    import yaml
-
     with open(path) as f:
         return yaml.safe_load(f) or {}
+
+
+def _resolve_wizard_config_path() -> Path:
+    """Resolve output path for config wizard.
+
+    Returns:
+        Path to .agent-brain/config.yaml in nearest existing state dir,
+        or creates .agent-brain/config.yaml in current working directory.
+    """
+    current = Path.cwd()
+    root = Path(current.anchor)
+
+    while True:
+        state_dir = current / ".agent-brain"
+        if state_dir.is_dir():
+            return state_dir / "config.yaml"
+
+        if current == root:
+            break
+        current = current.parent
+
+    return Path.cwd() / ".agent-brain" / "config.yaml"
 
 
 @click.group("config")
@@ -105,8 +140,71 @@ def config_group() -> None:
     Commands:
       show   - Display active configuration
       path   - Show config file location
+      wizard - Create/update config interactively
     """
     pass
+
+
+@config_group.command("wizard")
+def wizard() -> None:
+    """Interactive configuration wizard for Agent Brain providers."""
+    embed_provider: str = click.prompt(
+        "Embedding provider",
+        type=click.Choice(["openai", "ollama", "cohere"]),
+        default="openai",
+    )
+    embed_model: str = click.prompt(
+        "Embedding model",
+        default=EMBEDDING_DEFAULT_MODELS[embed_provider],
+    )
+
+    batch_size: str | None = None
+    request_delay_ms: int | None = None
+    if embed_provider == "ollama":
+        batch_size = click.prompt(
+            "Batch size",
+            type=click.Choice(["1", "5", "10", "20", "50", "100"]),
+            default="10",
+        )
+        request_delay_ms = click.prompt(
+            "Request delay between batches (ms, 0=none)",
+            type=click.IntRange(min=0),
+            default=0,
+        )
+
+    summ_provider: str = click.prompt(
+        "Summarization provider",
+        type=click.Choice(["anthropic", "openai", "ollama", "gemini"]),
+        default="anthropic",
+    )
+    summ_model: str = click.prompt(
+        "Summarization model",
+        default=SUMMARIZATION_DEFAULT_MODELS[summ_provider],
+    )
+
+    config: dict[str, Any] = {
+        "embedding": {
+            "provider": embed_provider,
+            "model": embed_model,
+        },
+        "summarization": {
+            "provider": summ_provider,
+            "model": summ_model,
+        },
+    }
+
+    if embed_provider == "ollama":
+        config["embedding"]["params"] = {
+            "batch_size": int(batch_size or "10"),
+            "request_delay_ms": int(request_delay_ms or 0),
+        }
+
+    config_path = _resolve_wizard_config_path()
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(config_path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(config, f, default_flow_style=False, sort_keys=False)
+
+    console.print(f"[green]Config written to {config_path}[/]")
 
 
 @config_group.command("show")
