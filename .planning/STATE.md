@@ -3,33 +3,33 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
 current_phase: 39
-status: planning
-stopped_at: Completed 38-03-PLAN.md
-last_updated: "2026-03-20T01:29:12.725Z"
+status: executing
+stopped_at: Completed 39-01-PLAN.md
+last_updated: "2026-03-20T01:46:13.178Z"
 progress:
   total_phases: 9
   completed_phases: 8
-  total_plans: 19
-  completed_plans: 19
+  total_plans: 21
+  completed_plans: 20
 ---
 
 # Agent Brain — Project State
 
-**Last Updated:** 2026-03-17
+**Last Updated:** 2026-03-20
 **Current Milestone:** v9.2.0 Documentation Accuracy Audit
-**Status:** Ready to plan
+**Status:** Executing Phase 39
 **Current Phase:** 39
 
 ## Current Position
 
-Phase: 38 (server-reliability-and-provider-fixes) — EXECUTING
-Plan: 3 of 4
+Phase: 39 (plugin-and-setup-wizard-ux) — EXECUTING
+Plan: 2 of 2
 
 ## Project Reference
 
 See: .planning/PROJECT.md
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Phase 38 — server-reliability-and-provider-fixes
+**Current focus:** Phase 39 — plugin-and-setup-wizard-ux
 
 ## Milestone Summary
 
@@ -81,6 +81,8 @@ v9.2.0 Doc Accuracy Audit:  [██████████] 100% (11/11 plans c
 - [Phase 38]: Increase agent-brain start timeout default to 120 seconds to support first-run sentence-transformers initialization.
 - [Phase 38]: Use google-genai Client + aio.models.generate_content for Gemini provider migration.
 - [Phase 38]: When PR merge is unauthorized, apply Pascal support manually using equivalent code/test changes.
+- [Phase 39]: Use context: fork + agent: setup-assistant on setup-flow commands to centralize permissions in a policy island.
+- [Phase 39]: Replace inline install checks with script helpers (ab-pypi-version.sh, ab-uv-check.sh) and direct setup-check execution.
 
 ### Blockers/Concerns
 
@@ -88,13 +90,11 @@ None.
 
 ### Pending Todos
 
-9 pending todos.
+7 pending todos.
 
 - Review and merge Object Pascal support PR #115 (general)
-- Eliminate approval fatigue in agent-brain-plugin setup commands via pre-authorized agent and scripts (tooling)
 - Add "AST for code + LangExtract for docs" as a first-class GraphRAG option in agent-brain-config wizard Step 7 (tooling)
 - Auto-discover available port in agent-brain-config Step 12 deployment wizard to prevent multi-project port conflicts (tooling)
-- Fix two permission gaps in setup-assistant agent — scoped Bash for scripts and Write/Edit for ~/.agent-brain/** config paths (tooling)
 - Fix agent-brain start timeout too short for sentence-transformers reranker first init (tooling)
 - Suppress or fix ChromaDB telemetry PostHog capture() argument error on startup (tooling)
 - Migrate gemini provider from deprecated google-generativeai to google-genai package (tooling)
@@ -102,10 +102,10 @@ None.
 
 ## Session Continuity
 
-**Last Session:** 2026-03-20T01:07:48.197Z
-**Stopped At:** Completed 38-03-PLAN.md
+**Last Session:** 2026-03-20T01:46:13.176Z
+**Stopped At:** Completed 39-01-PLAN.md
 **Resume File:** None
-**Next Action:** Execute 38-03-PLAN.md
+**Next Action:** Execute 39-02-PLAN.md
 
 ---
-*State updated: 2026-03-17*
+*State updated: 2026-03-20*
