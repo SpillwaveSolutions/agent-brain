@@ -472,6 +472,7 @@ class CodeChunker:
                 "cpp": "cpp",
                 "c": "c",
                 "csharp": "csharp",
+                "pascal": "pascal",
             }
 
             lang_id = lang_map.get(self.language)
@@ -500,6 +501,9 @@ class CodeChunker:
         except Exception as e:
             logger.error(f"Failed to parse AST: {e}")
             return []
+
+        if self.language == "pascal":
+            return self._collect_pascal_symbols(root, text.encode("utf-8"))
 
         symbols = []
 
@@ -611,6 +615,83 @@ class CodeChunker:
                     symbols.append(symbol_info)
         except Exception as e:
             logger.error(f"Error querying AST for {self.language}: {e}")
+
+        return symbols
+
+    def _pascal_proc_name(
+        self, node: tree_sitter.Node, source_bytes: bytes
+    ) -> str | None:
+        """Extract procedure/function names from Pascal AST nodes."""
+        node_text = source_bytes[node.start_byte : node.end_byte].decode("utf-8")
+        match = re.search(
+            r"\b(?:procedure|function|constructor|destructor)\s+"
+            r"([A-Za-z_][A-Za-z0-9_\.]*)",
+            node_text,
+            re.IGNORECASE,
+        )
+        if match:
+            return match.group(1)
+
+        stack: list[tree_sitter.Node] = [node]
+        identifiers: list[str] = []
+
+        while stack:
+            current = stack.pop()
+            text = source_bytes[current.start_byte : current.end_byte].decode("utf-8")
+
+            if current.type in {"genericDot", "qualified_identifier"} and "." in text:
+                return text.strip()
+
+            if current.type in {"identifier", "name"}:
+                identifiers.append(text.strip())
+
+            stack.extend(reversed(list(current.children)))
+
+        if identifiers:
+            return identifiers[0]
+
+        return None
+
+    def _collect_pascal_symbols(
+        self, root_node: tree_sitter.Node, source_bytes: bytes
+    ) -> list[dict[str, Any]]:
+        """Collect Pascal symbols by walking the tree-sitter AST."""
+        symbols: list[dict[str, Any]] = []
+        stack: list[tree_sitter.Node] = [root_node]
+
+        proc_node_types = {"declProc", "defProc"}
+
+        while stack:
+            node = stack.pop()
+            node_text = source_bytes[node.start_byte : node.end_byte].decode("utf-8")
+
+            symbol_name: str | None = None
+            symbol_kind: str | None = None
+
+            if node.type in proc_node_types:
+                symbol_name = self._pascal_proc_name(node, source_bytes)
+                symbol_kind = node.type
+            elif node.type == "declType":
+                match = re.search(
+                    r"\b([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:class|record|object)\b",
+                    node_text,
+                    re.IGNORECASE,
+                )
+                if match:
+                    symbol_name = match.group(1)
+                    symbol_kind = node.type
+
+            if symbol_name and symbol_kind:
+                symbols.append(
+                    {
+                        "name": symbol_name,
+                        "kind": symbol_kind,
+                        "start_line": node.start_point[0] + 1,
+                        "end_line": node.end_point[0] + 1,
+                    }
+                )
+
+            stack.extend(reversed(list(node.children)))
 
         return symbols
 

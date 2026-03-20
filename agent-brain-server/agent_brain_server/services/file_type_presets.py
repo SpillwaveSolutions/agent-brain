@@ -17,6 +17,7 @@ FILE_TYPE_PRESETS: dict[str, list[str]] = {
     "rust": ["*.rs"],
     "java": ["*.java"],
     "csharp": ["*.cs"],
+    "pascal": ["*.pas", "*.pp", "*.lpr", "*.dpr"],
     "c": ["*.c", "*.h"],
     "cpp": ["*.cpp", "*.hpp", "*.cc", "*.hh"],
     "web": ["*.html", "*.css", "*.scss", "*.jsx", "*.tsx"],
@@ -45,6 +46,11 @@ FILE_TYPE_PRESETS: dict[str, list[str]] = {
         "*.java",
         # csharp
         "*.cs",
+        # pascal
+        "*.pas",
+        "*.pp",
+        "*.lpr",
+        "*.dpr",
         # c
         "*.c",
         "*.h",

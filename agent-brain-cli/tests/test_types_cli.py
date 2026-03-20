@@ -116,6 +116,7 @@ class TestFileTypePresets:
             "rust",
             "java",
             "csharp",
+            "pascal",
             "c",
             "cpp",
             "web",

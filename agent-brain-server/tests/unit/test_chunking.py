@@ -300,3 +300,117 @@ namespace MyApp {
     # Check that symbols are found across chunks
     symbol_names = [c.metadata.symbol_name for c in chunks if c.metadata.symbol_name]
     assert "Calculator" in symbol_names or "Add" in symbol_names
+
+
+def test_pascal_code_chunker_initialization() -> None:
+    """Test CodeChunker can be initialized for pascal."""
+    chunker = CodeChunker(language="pascal")
+    assert chunker.language == "pascal"
+    assert chunker.ts_language is not None
+
+
+def test_pascal_symbol_extraction_basic() -> None:
+    """Test standalone Pascal procedure/function extraction."""
+    chunker = CodeChunker(language="pascal")
+    code = """unit Demo;
+
+interface
+
+procedure PrintValue;
+function Area: Double;
+
+implementation
+
+procedure PrintValue;
+begin
+end;
+
+function Area: Double;
+begin
+  Result := 42.0;
+end;
+
+end.
+"""
+    symbols = chunker._get_symbols(code)
+    names = [s["name"] for s in symbols]
+
+    assert "PrintValue" in names
+    assert "Area" in names
+
+
+def test_pascal_symbol_extraction_class() -> None:
+    """Test Pascal class and qualified method extraction."""
+    chunker = CodeChunker(language="pascal")
+    code = """unit Shapes;
+
+interface
+
+type
+  TShape = class
+  public
+    procedure Draw; virtual;
+  end;
+
+  TCircle = class(TShape)
+  public
+    procedure TCircle.SetRadius(const Value: Double);
+    function TCircle.GetDiameter: Double;
+  end;
+
+implementation
+end.
+"""
+    symbols = chunker._get_symbols(code)
+    names = [s["name"] for s in symbols]
+
+    assert "TShape" in names
+    assert "TCircle" in names
+    assert "TCircle.SetRadius" in names
+    assert "TCircle.GetDiameter" in names
+
+
+def test_pascal_fixture_file_symbols() -> None:
+    """Test symbol extraction from the sample.pas fixture file."""
+    fixture_path = FIXTURES_DIR / "sample.pas"
+    if not fixture_path.exists():
+        pytest.skip("sample.pas fixture not found")
+
+    code = fixture_path.read_text()
+    chunker = CodeChunker(language="pascal")
+    symbols = chunker._get_symbols(code)
+    names = [s["name"] for s in symbols]
+
+    assert "TPoint" in names
+    assert "TShape" in names
+    assert "TCircle" in names
+    assert "TRectangle" in names
+    assert "TCircle.SetRadius" in names
+    assert "TCircle.GetDiameter" in names
+    assert "ClampValue" in names
+    assert "PrintShapeInfo" in names
+
+
+@pytest.mark.asyncio
+async def test_pascal_code_chunker_chunking() -> None:
+    """Test full chunking pipeline for Pascal code."""
+    fixture_path = FIXTURES_DIR / "sample.pas"
+    if not fixture_path.exists():
+        pytest.skip("sample.pas fixture not found")
+
+    code = fixture_path.read_text()
+    doc = LoadedDocument(
+        text=code,
+        source="sample.pas",
+        file_name="sample.pas",
+        file_path="sample.pas",
+        file_size=len(code),
+        metadata={"source_type": "code", "language": "pascal"},
+    )
+
+    chunker = CodeChunker(language="pascal", chunk_lines=8, max_chars=220)
+    chunks = await chunker.chunk_code_document(doc)
+
+    assert len(chunks) > 0
+    names = [c.metadata.symbol_name for c in chunks if c.metadata.symbol_name]
+    assert any(name in names for name in ["TCircle", "TCircle.SetRadius", "ClampValue"])

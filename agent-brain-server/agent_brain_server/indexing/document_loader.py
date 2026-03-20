@@ -76,6 +76,11 @@ class LanguageDetector:
         # C#
         ".cs": "csharp",
         ".csx": "csharp",
+        # Object Pascal
+        ".pas": "pascal",
+        ".pp": "pascal",
+        ".lpr": "pascal",
+        ".dpr": "pascal",
     }
 
     # Language detection by content patterns (fallback)
@@ -140,6 +145,11 @@ class LanguageDetector:
                 r"^\s*public\s+(class|interface|struct|record|enum)\s+\w+",
                 re.MULTILINE,
             ),
+        ],
+        "pascal": [
+            re.compile(r"^\s*(unit|program|library)\s+\w+\s*;", re.MULTILINE),
+            re.compile(r"^\s*(procedure|function)\s+\w+", re.MULTILINE),
+            re.compile(r"^\s*begin\b", re.MULTILINE),
         ],
     }
 
@@ -280,6 +290,10 @@ class DocumentLoader:
         ".swift",  # Swift
         ".cs",
         ".csx",  # C#
+        ".pas",
+        ".pp",
+        ".lpr",
+        ".dpr",  # Object Pascal
     }
 
     SUPPORTED_EXTENSIONS: set[str] = DOCUMENT_EXTENSIONS | CODE_EXTENSIONS

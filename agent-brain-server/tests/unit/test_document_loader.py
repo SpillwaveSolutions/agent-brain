@@ -41,6 +41,54 @@ class TestCSharpIsSupported:
         assert "csharp" in LanguageDetector.get_supported_languages()
 
 
+class TestPascalExtensionDetection:
+    """Tests for Object Pascal file extension detection."""
+
+    def test_pascal_pas_extension(self) -> None:
+        assert LanguageDetector.detect_from_path("main.pas") == "pascal"
+
+    def test_pascal_pp_extension(self) -> None:
+        assert LanguageDetector.detect_from_path("module.pp") == "pascal"
+
+    def test_pascal_lpr_extension(self) -> None:
+        assert LanguageDetector.detect_from_path("app.lpr") == "pascal"
+
+    def test_pascal_dpr_extension(self) -> None:
+        assert LanguageDetector.detect_from_path("app.dpr") == "pascal"
+
+
+class TestPascalIsSupported:
+    """Tests for Pascal language support check."""
+
+    def test_pascal_is_supported(self) -> None:
+        assert LanguageDetector.is_supported_language("pascal") is True
+
+    def test_pascal_in_supported_languages(self) -> None:
+        assert "pascal" in LanguageDetector.get_supported_languages()
+
+
+class TestPascalContentDetection:
+    """Tests for Pascal content-based language detection."""
+
+    def test_pascal_header_pattern(self) -> None:
+        content = "unit Geometry;\ninterface\n"
+        matches = LanguageDetector.detect_from_content(content)
+        assert len(matches) > 0
+        assert matches[0][0] == "pascal"
+
+    def test_pascal_function_procedure_pattern(self) -> None:
+        content = "procedure PrintValue;\nfunction Area: Double;\n"
+        matches = LanguageDetector.detect_from_content(content)
+        languages = [name for name, _ in matches]
+        assert "pascal" in languages
+
+    def test_pascal_begin_pattern(self) -> None:
+        content = "program Demo;\nbegin\n  Writeln('Hello');\nend.\n"
+        matches = LanguageDetector.detect_from_content(content)
+        assert len(matches) > 0
+        assert matches[0][0] == "pascal"
+
+
 class TestCSharpContentDetection:
     """Tests for C# content-based language detection."""
 
