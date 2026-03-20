@@ -2,38 +2,37 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
-current_phase: 38
-status: planning
+current_phase: 36
+status: executing
 stopped_at: Completed 37-02-PLAN.md (Write VERIFICATION.md for phases 29-33)
-last_updated: "2026-03-19T20:46:55.760Z"
-last_activity: 2026-03-17 — Completed 33-02 (Add last_validated frontmatter metadata)
+last_updated: "2026-03-20T00:00:18.677Z"
 progress:
   total_phases: 9
   completed_phases: 6
-  total_plans: 15
+  total_plans: 19
   completed_plans: 13
 ---
 
 # Agent Brain — Project State
+
 **Last Updated:** 2026-03-17
 **Current Milestone:** v9.2.0 Documentation Accuracy Audit
-**Status:** Ready to plan
-**Current Phase:** 38
+**Status:** Executing Phase 36
+**Current Phase:** 36
 
 ## Current Position
-Phase: 33 of 33 (Cross-References & Metadata)
-Plan: 2 of 2 in current phase
-Status: Complete
-Last activity: 2026-03-17 — Completed 33-02 (Add last_validated frontmatter metadata)
 
-**Progress (v9.2.0):** [██████████] 100%
+Phase: 36 (fix-documentation-accuracy) — EXECUTING
+Plan: 1 of 2
 
 ## Project Reference
+
 See: .planning/PROJECT.md
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** v9.2.0 — Documentation accuracy audit across all project docs
+**Current focus:** Phase 36 — fix-documentation-accuracy
 
 ## Milestone Summary
+
 ```
 v3.0 Advanced RAG:          [██████████] 100% (shipped 2026-02-10)
 v6.0 PostgreSQL Backend:    [██████████] 100% (shipped 2026-02-13)
@@ -48,6 +47,7 @@ v9.2.0 Doc Accuracy Audit:  [██████████] 100% (11/11 plans c
 ## Accumulated Context
 
 ### Key Context for v9.2.0
+
 - Documentation audit template: docs/plans/documentation-accuracy-audit-template.md
 - Validation chain: source code → CLI/help/schema output → documentation
 - Sources of truth: CLI --help, source code, config schemas, OpenAPI spec
@@ -57,6 +57,7 @@ v9.2.0 Doc Accuracy Audit:  [██████████] 100% (11/11 plans c
 - Phase 29 starts with CLI/API docs — feeds accuracy into subsequent guide phases
 
 ### Decisions
+
 - 31-02: Added Index Management Commands section to PLUGIN_GUIDE.md; added config.yaml examples to PostgreSQL and GraphRAG guides; noted graph/multi modes require ChromaDB backend
 - 30-02: Used .agent-brain/ as canonical project config path, .claude/agent-brain/ as legacy fallback in docs
 - 30-01: Kept DOC_SERVE_STATE_DIR as legacy alias note in CONFIGURATION.md since provider_config.py still reads it
@@ -73,10 +74,13 @@ v9.2.0 Doc Accuracy Audit:  [██████████] 100% (11/11 plans c
 - [Phase 37-complete-link-verification-audit-metadata]: 37-02: Phase 33 XREF-01 documented as PASSED with caveat -- same-file anchor links were silently skipped due to is_url bug; fixed in Phase 37-01
 
 ### Blockers/Concerns
+
 None.
 
 ### Pending Todos
+
 9 pending todos.
+
 - Review and merge Object Pascal support PR #115 (general)
 - Eliminate approval fatigue in agent-brain-plugin setup commands via pre-authorized agent and scripts (tooling)
 - Add "AST for code + LangExtract for docs" as a first-class GraphRAG option in agent-brain-config wizard Step 7 (tooling)

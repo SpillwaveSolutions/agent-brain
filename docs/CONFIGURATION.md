@@ -31,7 +31,7 @@ Settings are resolved in this order (first match wins):
 
 1. **Command-line flags**: `agent-brain start --port 8080`
 2. **Environment variables**: `export API_PORT=8080`
-3. **Project config**: `.claude/agent-brain/config.json`
+3. **Project config**: `.agent-brain/config.json`
 4. **Global config**: `~/.agent-brain/config.json` (future)
 5. **Built-in defaults**: Defined in `settings.py`
 
@@ -287,7 +287,7 @@ export GRAPH_RRF_K="40"
 
 ```bash
 # Explicit state directory
-export AGENT_BRAIN_STATE_DIR="/path/to/.claude/agent-brain"
+export AGENT_BRAIN_STATE_DIR="/path/to/.agent-brain"
 
 # Project mode (default)
 export AGENT_BRAIN_MODE="project"
@@ -297,7 +297,7 @@ export AGENT_BRAIN_MODE="project"
 
 ```bash
 # Start with explicit state directory
-agent-brain start --state-dir /path/to/.claude/agent-brain
+agent-brain start --state-dir /path/to/.agent-brain
 
 # Start with project directory (auto-resolves state)
 agent-brain start --project-dir /path/to/project
@@ -522,7 +522,7 @@ export BM25_INDEX_PATH="/data/agent-brain/bm25"
 
 ### config.json
 
-Create `.claude/agent-brain/config.json` for project-specific settings:
+Create `.agent-brain/config.json` for project-specific settings:
 
 ```json
 {
@@ -641,7 +641,7 @@ GRAPH_USE_CODE_METADATA=true
 GRAPH_USE_LLM_EXTRACTION=false  # Code metadata is sufficient
 ```
 
-Project config (`.claude/agent-brain/config.json`):
+Project config (`.agent-brain/config.json`):
 
 ```json
 {
