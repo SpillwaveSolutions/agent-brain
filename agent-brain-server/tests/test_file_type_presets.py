@@ -104,6 +104,7 @@ class TestResolveFileTypes:
             "csharp",
             "c",
             "cpp",
+            "pascal",
         ]
         for lang in language_presets:
             lang_patterns = resolve_file_types([lang])
@@ -175,8 +176,8 @@ class TestResolveFileTypes:
         result = resolve_file_types(["c"])
         assert result == ["*.c", "*.h"]
 
-    def test_all_14_presets_exist(self) -> None:
-        """Test that all 14 expected presets are defined."""
+    def test_all_15_presets_exist(self) -> None:
+        """Test that all 15 expected presets are defined."""
         expected_presets = {
             "python",
             "javascript",
@@ -187,6 +188,7 @@ class TestResolveFileTypes:
             "csharp",
             "c",
             "cpp",
+            "pascal",
             "web",
             "docs",
             "code",

@@ -472,6 +472,7 @@ class CodeChunker:
                 "cpp": "cpp",
                 "c": "c",
                 "csharp": "csharp",
+                "pascal": "pascal",
             }
 
             lang_id = lang_map.get(self.language)
@@ -501,7 +502,7 @@ class CodeChunker:
             logger.error(f"Failed to parse AST: {e}")
             return []
 
-        symbols = []
+        symbols: list[dict[str, Any]] = []
 
         # Define queries for common languages
         query_str = ""
@@ -572,6 +573,15 @@ class CodeChunker:
                 (namespace_declaration
                   name: (identifier) @name) @symbol
             """
+        elif self.language == "pascal":
+            # Pascal: use manual AST walking because qualified method names
+            # (TClass.Method via genericDot) can't be unambiguously captured
+            # with a single tree-sitter query capture.
+            try:
+                self._collect_pascal_symbols(root, symbols)
+            except Exception as e:
+                logger.error(f"Error querying AST for {self.language}: {e}")
+            return symbols
 
         if not query_str:
             return []
@@ -654,6 +664,79 @@ class CodeChunker:
         plain_text = re.sub(r"\s+", " ", plain_text).strip()
 
         return plain_text if plain_text else None
+
+    def _collect_pascal_symbols(
+        self,
+        node: tree_sitter.Node,
+        symbols: list[dict[str, Any]],
+    ) -> None:
+        """Recursively walk a Pascal AST and collect procedure/function/type symbols.
+
+        Args:
+            node: Current tree-sitter AST node.
+            symbols: Accumulator list to append symbol dicts into.
+        """
+        if node.type == "defProc":
+            # Procedure or function implementation body.
+            for child in node.children:
+                if child.type == "declProc":
+                    name = self._pascal_proc_name(child)
+                    if name:
+                        symbols.append(
+                            {
+                                "name": name,
+                                "kind": "defProc",
+                                "start_line": node.start_point[0] + 1,
+                                "end_line": node.end_point[0] + 1,
+                            }
+                        )
+                    break
+        elif node.type == "declType":
+            # Type declaration (class, record, enum, etc.).
+            for child in node.children:
+                if child.type == "identifier":
+                    raw = child.text
+                    if raw:
+                        symbols.append(
+                            {
+                                "name": raw.decode("utf-8"),
+                                "kind": "declType",
+                                "start_line": node.start_point[0] + 1,
+                                "end_line": node.end_point[0] + 1,
+                            }
+                        )
+                    break
+
+        for child in node.children:
+            self._collect_pascal_symbols(child, symbols)
+
+    def _pascal_proc_name(self, decl_proc: tree_sitter.Node) -> str | None:
+        """Extract the bare name from a Pascal ``declProc`` AST node.
+
+        Handles two forms:
+        - Simple: ``procedure Foo;``  → ``identifier`` is a direct child.
+        - Qualified: ``procedure TClass.Method;`` → name lives inside
+          ``genericDot``; the last ``identifier`` child is the method name.
+
+        Args:
+            decl_proc: The ``declProc`` node to inspect.
+
+        Returns:
+            The extracted name string, or ``None`` if no identifier was found.
+        """
+        for child in decl_proc.children:
+            if child.type == "identifier":
+                raw = child.text
+                return raw.decode("utf-8") if raw else None
+            if child.type == "genericDot":
+                # Walk children of genericDot and keep the last identifier.
+                last_ident: tree_sitter.Node | None = None
+                for sub in child.children:
+                    if sub.type == "identifier":
+                        last_ident = sub
+                if last_ident is not None and last_ident.text:
+                    return last_ident.text.decode("utf-8")
+        return None
 
     def count_tokens(self, text: str) -> int:
         """Count the number of tokens in a text string."""

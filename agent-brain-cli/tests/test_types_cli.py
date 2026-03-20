@@ -118,6 +118,7 @@ class TestFileTypePresets:
             "csharp",
             "c",
             "cpp",
+            "pascal",
             "web",
             "docs",
             "text",
@@ -135,6 +136,13 @@ class TestFileTypePresets:
         """Test docs preset includes expected patterns."""
         assert "*.md" in FILE_TYPE_PRESETS["docs"]
         assert "*.pdf" in FILE_TYPE_PRESETS["docs"]
+
+    def test_pascal_preset_patterns(self) -> None:
+        """Test Pascal preset includes all four extensions."""
+        assert "*.pas" in FILE_TYPE_PRESETS["pascal"]
+        assert "*.pp" in FILE_TYPE_PRESETS["pascal"]
+        assert "*.lpr" in FILE_TYPE_PRESETS["pascal"]
+        assert "*.dpr" in FILE_TYPE_PRESETS["pascal"]
 
     def test_code_preset_is_superset(self) -> None:
         """Test that 'code' preset contains all language patterns."""

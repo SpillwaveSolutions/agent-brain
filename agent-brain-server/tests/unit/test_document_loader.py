@@ -129,6 +129,100 @@ class TestDocxGracefulSkip:
             assert ".docx" not in loader.DOCUMENT_EXTENSIONS
 
 
+class TestPascalExtensionDetection:
+    """Tests for Object Pascal file extension detection."""
+
+    def test_pascal_pas_extension(self) -> None:
+        """Test .pas extension is detected as pascal."""
+        assert LanguageDetector.detect_from_path("Unit1.pas") == "pascal"
+
+    def test_pascal_pp_extension(self) -> None:
+        """Test .pp extension is detected as pascal."""
+        assert LanguageDetector.detect_from_path("module.pp") == "pascal"
+
+    def test_pascal_lpr_extension(self) -> None:
+        """Test .lpr (Lazarus project) extension is detected as pascal."""
+        assert LanguageDetector.detect_from_path("project.lpr") == "pascal"
+
+    def test_pascal_dpr_extension(self) -> None:
+        """Test .dpr (Delphi project) extension is detected as pascal."""
+        assert LanguageDetector.detect_from_path("project.dpr") == "pascal"
+
+    def test_pascal_case_insensitive(self) -> None:
+        """Test extension detection is case-insensitive."""
+        assert LanguageDetector.detect_from_path("Unit1.PAS") == "pascal"
+
+    def test_pascal_nested_path(self) -> None:
+        """Test detection works with nested file paths."""
+        assert LanguageDetector.detect_from_path("src/units/Calculator.pas") == "pascal"
+
+
+class TestPascalIsSupported:
+    """Tests for Pascal language support check."""
+
+    def test_pascal_is_supported(self) -> None:
+        """Test pascal is listed as a supported language."""
+        assert LanguageDetector.is_supported_language("pascal") is True
+
+    def test_pascal_in_supported_languages(self) -> None:
+        """Test pascal appears in get_supported_languages()."""
+        assert "pascal" in LanguageDetector.get_supported_languages()
+
+
+class TestPascalContentDetection:
+    """Tests for Pascal content-based language detection."""
+
+    def test_pascal_unit_pattern(self) -> None:
+        """Test detection of 'unit' header pattern."""
+        content = "unit MyUnit;\ninterface\n"
+        matches = LanguageDetector.detect_from_content(content)
+        assert len(matches) > 0
+        assert matches[0][0] == "pascal"
+
+    def test_pascal_program_pattern(self) -> None:
+        """Test detection of 'program' header pattern."""
+        content = "program HelloWorld;\nbegin\n  WriteLn('Hello');\nend.\n"
+        matches = LanguageDetector.detect_from_content(content)
+        lang_names = [m[0] for m in matches]
+        assert "pascal" in lang_names
+
+    def test_pascal_procedure_function_pattern(self) -> None:
+        """Test detection of procedure/function keywords."""
+        content = (
+            "procedure Greet;\nbegin\nend;\n"
+            "function Add(A, B: Integer): Integer;\nbegin\nend;\n"
+        )
+        matches = LanguageDetector.detect_from_content(content)
+        lang_names = [m[0] for m in matches]
+        assert "pascal" in lang_names
+
+    def test_pascal_full_content_detection(self) -> None:
+        """Test comprehensive Pascal content returns pascal as top match."""
+        content = """unit MyUnit;
+interface
+procedure Hello;
+function Add(A, B: Integer): Integer;
+implementation
+procedure Hello;
+begin
+  WriteLn('Hello');
+end;
+function Add(A, B: Integer): Integer;
+begin
+  Result := A + B;
+end;
+end.
+"""
+        matches = LanguageDetector.detect_from_content(content)
+        assert len(matches) > 0
+        assert matches[0][0] == "pascal"
+
+    def test_pascal_detect_language_with_path(self) -> None:
+        """Test detect_language prefers path-based detection for .pas files."""
+        result = LanguageDetector.detect_language("Module.pas", "some content")
+        assert result == "pascal"
+
+
 class TestDefaultExcludePatterns:
     """Tests for default exclude patterns."""
 
