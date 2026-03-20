@@ -71,7 +71,7 @@ class TestIndexEndpoints:
             return_value="job_test123",
         ):
             response = client.post(
-                "/index/",
+                "/index/?allow_external=true",
                 json={
                     "folder_path": str(temp_docs_dir),
                     "chunk_size": 512,
@@ -103,7 +103,7 @@ class TestIndexEndpoints:
         """
         # First request - creates new job
         response1 = client.post(
-            "/index/",
+            "/index/?allow_external=true",
             json={"folder_path": str(temp_docs_dir)},
         )
         assert response1.status_code == 202
@@ -111,7 +111,7 @@ class TestIndexEndpoints:
 
         # Second request - should return same job via deduplication
         response2 = client.post(
-            "/index/",
+            "/index/?allow_external=true",
             json={"folder_path": str(temp_docs_dir)},
         )
         assert response2.status_code == 202
@@ -138,7 +138,7 @@ class TestIndexEndpoints:
                 mock_get_service.return_value = mock_service
 
                 response = client.post(
-                    "/index/add",
+                    "/index/add?allow_external=true",
                     json={"folder_path": str(temp_docs_dir)},
                 )
 

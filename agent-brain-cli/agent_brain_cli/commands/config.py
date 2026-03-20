@@ -207,9 +207,7 @@ def wizard() -> None:
     )
 
     suggested_port = _find_available_api_port(8000, 8300)
-    click.echo(
-        f"Discovered available API port in 8000-8300 range: {suggested_port}"
-    )
+    click.echo(f"Discovered available API port in 8000-8300 range: {suggested_port}")
 
     deployment_mode: str = click.prompt(
         "Deployment mode\n"
@@ -223,9 +221,7 @@ def wizard() -> None:
     api_host = "127.0.0.1"
     if deployment_mode == "2":
         host_mode: str = click.prompt(
-            "Host selection\n"
-            "1) 0.0.0.0\n"
-            "2) Custom host/IP",
+            "Host selection\n" "1) 0.0.0.0\n" "2) Custom host/IP",
             type=click.Choice(["1", "2"]),
             default="1",
         )
