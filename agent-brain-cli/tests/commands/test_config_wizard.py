@@ -74,7 +74,7 @@ class TestConfigWizard:
                 ),
             )
             assert result.exit_code == 0, result.output
-            assert "invalid choice" in result.output.lower()
+            assert "is not one of" in result.output.lower()
 
     def test_wizard_rejects_negative_request_delay(self, tmp_path: Path) -> None:
         """Wizard rejects negative request_delay_ms values."""
@@ -94,7 +94,7 @@ class TestConfigWizard:
                 ),
             )
             assert result.exit_code == 0, result.output
-            assert "0<=x" in result.output or "0<=x<=None" in result.output
+            assert "x>=0" in result.output
 
             config_file = Path(".agent-brain") / "config.yaml"
             assert config_file.exists()
