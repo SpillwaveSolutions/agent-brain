@@ -3,27 +3,27 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
 current_phase: 39
-status: executing
-stopped_at: Completed 39-01-PLAN.md
-last_updated: "2026-03-20T01:46:13.178Z"
+status: complete
+stopped_at: Completed 39-02-PLAN.md
+last_updated: "2026-03-20T01:54:52.674Z"
 progress:
   total_phases: 9
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 21
-  completed_plans: 20
+  completed_plans: 21
 ---
 
 # Agent Brain — Project State
 
 **Last Updated:** 2026-03-20
 **Current Milestone:** v9.2.0 Documentation Accuracy Audit
-**Status:** Executing Phase 39
+**Status:** Phase 39 Complete
 **Current Phase:** 39
 
 ## Current Position
 
-Phase: 39 (plugin-and-setup-wizard-ux) — EXECUTING
-Plan: 2 of 2
+Phase: 39 (plugin-and-setup-wizard-ux) — COMPLETE
+Plan: 2 of 2 (complete)
 
 ## Project Reference
 
@@ -83,6 +83,8 @@ v9.2.0 Doc Accuracy Audit:  [██████████] 100% (11/11 plans c
 - [Phase 38]: When PR merge is unauthorized, apply Pascal support manually using equivalent code/test changes.
 - [Phase 39]: Use context: fork + agent: setup-assistant on setup-flow commands to centralize permissions in a policy island.
 - [Phase 39]: Replace inline install checks with script helpers (ab-pypi-version.sh, ab-uv-check.sh) and direct setup-check execution.
+- [Phase 39]: Expose AST for code + LangExtract for docs as a top-level GraphRAG wizard option for mixed repositories.
+- [Phase 39]: Scan 8000-8300 and suggest the first free API port in wizard defaults to avoid multi-project collisions.
 
 ### Blockers/Concerns
 
@@ -102,10 +104,10 @@ None.
 
 ## Session Continuity
 
-**Last Session:** 2026-03-20T01:46:13.176Z
-**Stopped At:** Completed 39-01-PLAN.md
+**Last Session:** 2026-03-20T01:54:52.670Z
+**Stopped At:** Completed 39-02-PLAN.md
 **Resume File:** None
-**Next Action:** Execute 39-02-PLAN.md
+**Next Action:** Run milestone wrap-up or plan next phase
 
 ---
 *State updated: 2026-03-20*

@@ -141,7 +141,7 @@ Plans:
 - [x] **Phase 36: Fix Documentation Accuracy** — Close audit gaps: stale .agent-brain/ paths, config.json example, GRAPHRAG multi-mode claim (completed 2026-03-20)
 - [x] **Phase 37: Complete Link Verification & Audit Metadata** — Fix anchor link bug, broken ToC links, stamp SKILL.md files, write VERIFICATION.md for phases 29-33 (completed 2026-03-19)
 - [x] **Phase 38: Server Reliability & Provider Fixes** — Fix CWD-relative chroma_db/cache dirs, Broken pipe Ollama indexing, reranker start timeout, ChromaDB telemetry noise, Gemini provider migration, merge Object Pascal PR #115 (completed 2026-03-20)
-- [ ] **Phase 39: Plugin & Setup Wizard UX** — Fix setup-assistant permission gaps, eliminate approval fatigue, add AST+LangExtract GraphRAG option to wizard Step 7, auto-discover port in wizard Step 12
+- [x] **Phase 39: Plugin & Setup Wizard UX** — Fix setup-assistant permission gaps, eliminate approval fatigue, add AST+LangExtract GraphRAG option to wizard Step 7, auto-discover port in wizard Step 12 (completed 2026-03-20)
 
 ## Phase Details
 
@@ -306,7 +306,7 @@ Plans:
   2. `agent-brain-config` and `agent-brain-install` commands complete without triggering manual approval prompts for expected operations
   3. Wizard Step 7 offers "AST for code + LangExtract for docs" as an explicit, selectable GraphRAG extraction mode
   4. Wizard Step 12 auto-discovers an available port from the configured range instead of requiring manual input
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 39-01-PLAN.md — Fix setup-assistant permission gaps + eliminate approval fatigue in setup commands
@@ -337,7 +337,7 @@ Plans:
 | 36 | 2/2 | Complete   | 2026-03-20 | - |
 | 37 | 2/2 | Complete    | 2026-03-19 | - |
 | 38 | 4/4 | Complete    | 2026-03-20 | - |
-| 39 | 1/2 | In Progress|  | - |
+| 39 | 2/2 | Complete   | 2026-03-20 | - |
 
 ---
 *Roadmap created: 2026-02-07*
