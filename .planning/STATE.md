@@ -2,34 +2,34 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
-current_phase: 36
+current_phase: 38
 status: executing
-stopped_at: Completed 36-02-PLAN.md
-last_updated: "2026-03-20T00:02:25.082Z"
+stopped_at: Completed 38-01-PLAN.md
+last_updated: "2026-03-20T01:02:24.671Z"
 progress:
   total_phases: 9
   completed_phases: 7
   total_plans: 19
-  completed_plans: 15
+  completed_plans: 17
 ---
 
 # Agent Brain — Project State
 
 **Last Updated:** 2026-03-17
 **Current Milestone:** v9.2.0 Documentation Accuracy Audit
-**Status:** Executing Phase 36
-**Current Phase:** 36
+**Status:** Executing Phase 38
+**Current Phase:** 38
 
 ## Current Position
 
-Phase: 36 (fix-documentation-accuracy) — EXECUTING
-Plan: 1 of 2
+Phase: 38 (server-reliability-and-provider-fixes) — EXECUTING
+Plan: 2 of 4
 
 ## Project Reference
 
 See: .planning/PROJECT.md
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Phase 36 — fix-documentation-accuracy
+**Current focus:** Phase 38 — server-reliability-and-provider-fixes
 
 ## Milestone Summary
 
@@ -72,6 +72,8 @@ v9.2.0 Doc Accuracy Audit:  [██████████] 100% (11/11 plans c
 - [Phase 37-01]: Removed '#' from is_url() tuple so same-file anchor links reach existing verification code path
 - [Phase 37-01]: DEVELOPERS_GUIDE.md ToC: ToC anchor for 'Code Ingestion & Language Support' uses single hyphen (#code-ingestion-language-support) because slug_heading() collapses double hyphens
 - [Phase 37-complete-link-verification-audit-metadata]: 37-02: Phase 33 XREF-01 documented as PASSED with caveat -- same-file anchor links were silently skipped due to is_url bug; fixed in Phase 37-01
+- [Phase 38]: Keep settings defaults unchanged and enforce state-dir-aware fallback resolution in lifespan.
+- [Phase 38]: Suppress ChromaDB telemetry noise via ANONYMIZED_TELEMETRY setdefault and logger level tuning.
 
 ### Blockers/Concerns
 
@@ -93,10 +95,10 @@ None.
 
 ## Session Continuity
 
-**Last Session:** 2026-03-20T00:02:25.079Z
-**Stopped At:** Completed 36-02-PLAN.md
+**Last Session:** 2026-03-20T01:01:40.793Z
+**Stopped At:** Completed 38-01-PLAN.md
 **Resume File:** None
-**Next Action:** v9.2.0 milestone complete — all 11 plans across phases 29-33 done
+**Next Action:** Execute 38-02-PLAN.md
 
 ---
 *State updated: 2026-03-17*
