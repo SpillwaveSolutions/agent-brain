@@ -14,7 +14,7 @@
 - ✅ **v9.1.0 Generic Skills-Based Runtime Portability** — Phases 26-28 (shipped 2026-03-16)
 - ✅ **v9.4.0 Documentation Accuracy Audit & Reliability Closure** — Phases 29-33 + gap closure phases 36-40 (shipped 2026-03-20)
 - ⬜ **v9.3.0 LangExtract + Config Spec** — Phases 34-35
-  - Phase 34: Config command spec + file watcher step (9-step wizard formalized)
+  - Phase 34: Config command spec reconciliation (12-step wizard formalized)
   - Phase 35: LangExtract document graph extractor (multi-provider, retire LLMEntityExtractor as default)
 
 ## Phases
@@ -136,6 +136,34 @@ Plans:
 
 </details>
 
+---
+
+### Phase 34: Config Command Spec Reconciliation
+
+**Goal:** Reconcile the 12-step config wizard SPEC with the command implementation, fix drift, and verify alignment.
+
+**Requirements:** SPEC-AUDIT-01, SPEC-FIX-01, SPEC-FIX-02, SPEC-VERIFY-01, SPEC-DOC-01
+
+**Success Criteria:**
+1. SPEC.md title says "12-step wizard" (not "9-step")
+2. All 12 steps aligned between spec and command
+3. Drift checklist proves zero remaining drift
+4. Downstream docs updated
+
+**Plans:** 2 plans
+
+Plans:
+- [ ] 34-01-PLAN.md — Audit spec vs command, fix SPEC.md title, reconcile drift
+- [ ] 34-02-PLAN.md — Create drift verification checklist, update SETUP_PLAYGROUND.md
+
+---
+
+### Phase 35: LangExtract Document Graph Extractor
+
+**Goal:** LangExtract document graph extractor (multi-provider, retire LLMEntityExtractor as default)
+
+**Plans:** 0 plans
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -154,7 +182,7 @@ Plans:
 | 31 | 2/2 | Complete    | 2026-03-17 | 2026-03-17 |
 | 32 | v9.2.0 | Complete    | 2026-03-17 | 2026-03-17 |
 | 33 | v9.2.0 | Complete    | 2026-03-17 | 2026-03-17 |
-| 34 | v9.3.0 | 0 plans     | Complete   | 2026-03-17 |
+| 34 | v9.3.0 | 0/2        | Planned    | - |
 | 35 | v9.3.0 | 0 plans     | Complete   | 2026-03-17 |
 | 36 | 2/2 | Complete   | 2026-03-20 | - |
 | 37 | 2/2 | Complete    | 2026-03-19 | - |
@@ -164,4 +192,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-20 — Completed phase 40 and closed remaining v9.2.0 audit gaps*
+*Last updated: 2026-03-20 — Phase 34 planned with 2 plans*
