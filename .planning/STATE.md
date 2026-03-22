@@ -2,34 +2,34 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
-current_phase: 40
-status: completed
-stopped_at: Completed 39-02-PLAN.md
-last_updated: "2026-03-20T05:56:52.900Z"
+current_phase: 34
+status: executing
+stopped_at: Completed 34-01-PLAN.md
+last_updated: "2026-03-22T02:34:21.476Z"
 progress:
-  total_phases: 10
-  completed_phases: 10
-  total_plans: 23
-  completed_plans: 23
+  total_phases: 2
+  completed_phases: 0
+  total_plans: 2
+  completed_plans: 1
 ---
 
 # Agent Brain — Project State
 
 **Last Updated:** 2026-03-20
 **Current Milestone:** v9.3.0 LangExtract + Config Spec
-**Status:** Ready to plan next milestone phase work
-**Current Phase:** 40
+**Status:** Executing Phase 34
+**Current Phase:** 34
 
 ## Current Position
 
-Phase: 39 (plugin-and-setup-wizard-ux) — COMPLETE
-Plan: 2 of 2 (complete)
+Phase: 34 (config-command-spec) — EXECUTING
+Plan: 1 of 2
 
 ## Project Reference
 
 See: .planning/PROJECT.md
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Phase 34-35 planning for v9.3.0 delivery
+**Current focus:** Phase 34 — config-command-spec
 
 ## Milestone Summary
 
@@ -85,6 +85,8 @@ v9.2.0 Doc Accuracy Audit:  [██████████] 100% (11/11 plans c
 - [Phase 39]: Replace inline install checks with script helpers (ab-pypi-version.sh, ab-uv-check.sh) and direct setup-check execution.
 - [Phase 39]: Expose AST for code + LangExtract for docs as a top-level GraphRAG wizard option for mixed repositories.
 - [Phase 39]: Scan 8000-8300 and suggest the first free API port in wizard defaults to avoid multi-project collisions.
+- [Phase 34-config-command-spec]: 12-step wizard is the correct count (SPEC title had stale 9-step reference)
+- [Phase 34-config-command-spec]: GraphRAG extraction mode integrated into 4-option main question; doc_extractor key replaces use_llm_extraction in config YAML
 
 ### Blockers/Concerns
 
@@ -104,8 +106,8 @@ None.
 
 ## Session Continuity
 
-**Last Session:** 2026-03-20T01:54:52.670Z
-**Stopped At:** Completed 39-02-PLAN.md
+**Last Session:** 2026-03-22T02:34:21.473Z
+**Stopped At:** Completed 34-01-PLAN.md
 **Resume File:** None
 **Next Action:** Run milestone wrap-up or plan next phase
 

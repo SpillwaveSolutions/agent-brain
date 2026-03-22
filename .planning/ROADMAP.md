@@ -150,7 +150,7 @@ Plans:
 3. Drift checklist proves zero remaining drift
 4. Downstream docs updated
 
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 34-01-PLAN.md — Audit spec vs command, fix SPEC.md title, reconcile drift
@@ -182,7 +182,7 @@ Plans:
 | 31 | 2/2 | Complete    | 2026-03-17 | 2026-03-17 |
 | 32 | v9.2.0 | Complete    | 2026-03-17 | 2026-03-17 |
 | 33 | v9.2.0 | Complete    | 2026-03-17 | 2026-03-17 |
-| 34 | v9.3.0 | 0/2        | Planned    | - |
+| 34 | 1/2 | In Progress|  | - |
 | 35 | v9.3.0 | 0 plans     | Complete   | 2026-03-17 |
 | 36 | 2/2 | Complete   | 2026-03-20 | - |
 | 37 | 2/2 | Complete    | 2026-03-19 | - |
