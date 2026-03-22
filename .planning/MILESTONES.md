@@ -1,5 +1,15 @@
 # Milestones
 
+## v9.3.0 LangExtract + Config Spec (Shipped: 2026-03-22)
+
+**Phases completed:** 2 phases, 2 plans, 0 tasks
+
+**Key accomplishments:**
+
+- (none recorded)
+
+---
+
 ## v9.4.0 Documentation Accuracy Audit and Reliability Closure (Shipped: 2026-03-20)
 
 **Phases completed:** 10 phases, 23 plans, 0 tasks

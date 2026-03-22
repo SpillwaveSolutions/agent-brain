@@ -101,20 +101,10 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ### Active
 
-## Current Milestone: v9.3.0 LangExtract + Config Spec
-
-**Goal:** Formalize config command wizard behavior and deliver LangExtract as the default document graph extractor across supported providers.
-
-**Target features:**
-- Phase 34: Config command spec + file watcher wizard step formalization
-- Phase 35: LangExtract document graph extractor and default extractor transition from `LLMEntityExtractor`
-- Verification and release hardening for the new config and extraction behavior
-
 ## Next Milestone Goals
 
-- Ship v9.3.0 capabilities and close remaining config-spec and extractor rollout work
-- Maintain consistency between CLI wizard behavior, plugin command specs, and docs
-- Keep release workflow stable for future version cadence (v9.5.0+)
+- Plan next milestone via `/gsd:new-milestone`
+- Potential areas: config validation command, config migration tooling, additional language support, performance optimization
 
 ### Out of Scope
 
@@ -128,7 +118,7 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ## Context
 
-**Current State (Phase 35 complete 2026-03-22):**
+**Current State (v9.3.0 shipped 2026-03-22):**
 - Phase 39 complete: setup commands now run through a setup-assistant policy island with scoped permissions and script-first helper checks
 - Config wizard now includes first-class GraphRAG mixed mode (AST for code + LangExtract for docs) and auto-port discovery in the 8000-8300 range
 - Human runtime verification approved for plugin approval-fatigue behavior and interactive wizard UX flow
@@ -196,4 +186,4 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 | eviction_summary as dict[str, Any] on JobRecord | Pydantic-friendly serialization, no server import in CLI | ✓ Good |
 
 ---
-*Last updated: 2026-03-22 after Phase 35 (langextract-document-extractor) retroactive closure*
+*Last updated: 2026-03-22 after v9.3.0 milestone completion*
