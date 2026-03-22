@@ -128,7 +128,7 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ## Context
 
-**Current State (Phase 39 complete 2026-03-20):**
+**Current State (Phase 34 complete 2026-03-22):**
 - Phase 39 complete: setup commands now run through a setup-assistant policy island with scoped permissions and script-first helper checks
 - Config wizard now includes first-class GraphRAG mixed mode (AST for code + LangExtract for docs) and auto-port discovery in the 8000-8300 range
 - Human runtime verification approved for plugin approval-fatigue behavior and interactive wizard UX flow
@@ -196,4 +196,4 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 | eviction_summary as dict[str, Any] on JobRecord | Pydantic-friendly serialization, no server import in CLI | ✓ Good |
 
 ---
-*Last updated: 2026-03-20 after v9.4.0 milestone completion*
+*Last updated: 2026-03-22 after Phase 34 (config-command-spec) completion*
