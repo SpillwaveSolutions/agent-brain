@@ -162,7 +162,7 @@ Plans:
 
 **Goal:** LangExtract document graph extractor (multi-provider, retire LLMEntityExtractor as default)
 
-**Plans:** 0 plans
+**Plans:** 1/0 plans complete
 
 ## Progress
 
@@ -183,7 +183,7 @@ Plans:
 | 32 | v9.2.0 | Complete    | 2026-03-17 | 2026-03-17 |
 | 33 | v9.2.0 | Complete    | 2026-03-17 | 2026-03-17 |
 | 34 | 2/2 | Complete    | 2026-03-22 | - |
-| 35 | v9.3.0 | 0 plans     | Complete   | 2026-03-17 |
+| 35 | v9.3.0 | Complete    | 2026-03-22 | 2026-03-17 |
 | 36 | 2/2 | Complete   | 2026-03-20 | - |
 | 37 | 2/2 | Complete    | 2026-03-19 | - |
 | 38 | 4/4 | Complete    | 2026-03-20 | - |
