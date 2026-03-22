@@ -13,9 +13,16 @@ last_validated: 2026-03-16
 
 ## Purpose
 
-Guides users through configuring Agent Brain:
+Guides users through configuring all aspects of Agent Brain across 12 wizard steps:
 1. **Providers** - Ollama (local/free) or cloud providers (OpenAI, Anthropic, Gemini)
-2. **Indexing** - Detect and exclude large directories (node_modules, .venv, etc.)
+2. **Storage backend** - ChromaDB (local-first) or PostgreSQL + pgvector
+3. **Indexing excludes** - Detect and exclude large directories (node_modules, .venv, etc.)
+4. **GraphRAG** - Knowledge graph extraction and indexing (AST, LangExtract, or Kuzu)
+5. **Caching** - Embedding cache and query result cache configuration
+6. **File watcher** - Automatic re-indexing when files change
+7. **Reranking** - Two-stage search quality with cross-encoder reranking
+8. **Chunking and search tuning** - Chunk size, overlap, top-k, and similarity threshold
+9. **Server and deployment** - Host, port, instance mode, and multi-project setup
 
 ## Usage
 
@@ -154,7 +161,14 @@ Ollama runs locally - no API keys or cloud costs!
    export SUMMARIZATION_PROVIDER=ollama
    export SUMMARIZATION_MODEL=llama3.2
 
-5. Start Agent Brain:
+5. Ollama performance tuning (optional — only relevant when embedding provider is Ollama):
+
+   EMBEDDING_BATCH_SIZE=10       # default batch size; reduce if Ollama runs out of memory
+   OLLAMA_REQUEST_DELAY_MS=0     # add delay (ms) between batches if Ollama is overwhelmed
+
+   These can be added to .env in the agent-brain-server directory or set as env vars.
+
+6. Start Agent Brain:
    /agent-brain:agent-brain-start
 
 No API keys needed!
@@ -202,11 +216,29 @@ No API keys needed!
 1. Get key: https://aistudio.google.com/apikey
 2. Set: export GOOGLE_API_KEY="AIza..."
 
-Configuration (Gemini for both):
+Create config file (~/.agent-brain/config.yaml):
+
+  mkdir -p ~/.agent-brain
+  cat > ~/.agent-brain/config.yaml << 'EOF'
+  embedding:
+    provider: "gemini"
+    model: "text-embedding-004"
+    api_key: "AIza..."
+
+  summarization:
+    provider: "gemini"
+    model: "gemini-2.0-flash"
+    api_key: "AIza..."
+  EOF
+
+  chmod 600 ~/.agent-brain/config.yaml  # Secure the file
+
+OR use environment variables:
 export EMBEDDING_PROVIDER=gemini
 export EMBEDDING_MODEL=text-embedding-004
 export SUMMARIZATION_PROVIDER=gemini
 export SUMMARIZATION_MODEL=gemini-2.0-flash
+export GOOGLE_API_KEY="AIza..."
 ```
 
 **For Custom Mix (Option 4):**
