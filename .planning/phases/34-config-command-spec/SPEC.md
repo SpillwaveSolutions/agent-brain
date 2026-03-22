@@ -4,7 +4,7 @@
 
 Formal specification for the `/agent-brain:agent-brain-config` command.
 
-This document is the **source of truth** for the 9-step wizard behavior. The command file
+This document is the **source of truth** for the 12-step wizard behavior. The command file
 (`agent-brain-plugin/commands/agent-brain-config.md`) is the implementation; this spec is the
 contract. Any drift between the two is a bug.
 
@@ -56,11 +56,18 @@ agent-brain config show
 **Output keys:**
 | Key | Type | Description |
 |-----|------|-------------|
+| `agent_brain_installed` | bool | Whether `agent-brain` CLI is installed and on PATH |
+| `agent_brain_version` | str | Installed CLI version (empty string if not installed) |
+| `config_file_found` | bool | Whether an existing config.yaml was found |
+| `config_file_path` | str | Active config file path (empty string if not found) |
 | `ollama_running` | bool | Whether Ollama is reachable on localhost:11434 |
-| `docker_available` | bool | Whether Docker is installed |
-| `config_file_path` | str | Active config file path |
+| `ollama_models` | list | Array of installed Ollama model names (empty array if none) |
+| `docker_available` | bool | Whether Docker CLI is installed |
+| `docker_compose_available` | bool | Whether `docker compose` plugin is available |
+| `python_version` | str | Python3 version string (e.g. "3.10.14") |
+| `api_keys` | obj | Booleans for each key presence: `{"openai": bool, "anthropic": bool, "google": bool}` |
 | `available_postgres_port` | int | First free port in 5432-5442 range |
-| `large_dirs` | list | Dirs with >1000 files or >100MB (for exclude suggestions) |
+| `large_dirs` | list | Common cache/dependency dirs found in CWD with size and file count |
 
 ---
 
@@ -177,40 +184,47 @@ Written to `.agent-brain/config.json`.
 
 **Goal:** Enable/configure the knowledge graph index.
 
-**AskUserQuestion (GraphRAG enable):**
-| # | Option |
-|---|--------|
-| 1 | Disabled (Default) |
-| 2 | Enabled — JSON persistence |
-| 3 | Enabled + Kuzu — persistent graph store |
+**AskUserQuestion (GraphRAG enable + extraction mode — combined):**
+| # | Option | Description |
+|---|--------|-------------|
+| 1 | Disabled (Default) | Standard vector + BM25 hybrid search only |
+| 2 | AST + LangExtract (Recommended for mixed repos) | GraphRAG with JSON persistence, AST/code metadata for code chunks, LangExtract for docs/prose chunks |
+| 3 | Kuzu + AST + LangExtract | Same extractor behavior as option 2 with Kuzu persistent graph store |
+| 4 | AST only | GraphRAG with JSON persistence and AST/code metadata only |
 
-**If option 2 or 3: AskUserQuestion (extraction mode):**
-| # | Extractor | Requirements |
-|---|-----------|--------------|
-| 1 | AST / Code Metadata | Any provider, no API key |
-| 2 | LLM Entity Extractor (Anthropic) | ANTHROPIC_API_KEY (legacy, Anthropic-only) |
-| 3 | LangExtract (Multi-Provider) | Configured summarization provider (Gemini, OpenAI, Claude, Ollama) |
+**Note:** Extraction mode is integrated into the main question (options 2-4 encode the extractor choice). There is no separate extraction mode sub-question.
 
-**Auto-default:** If no `ANTHROPIC_API_KEY`, default to option 1 (AST) or option 3 if
-summarization provider is configured.
-
-**Config keys written:**
+**Config keys written (Option 2 — AST + LangExtract, simple JSON):**
 ```yaml
 graphrag:
   enabled: true
-  store_type: "simple"        # or "kuzu"
-  index_path: ".agent-brain/graph_index"
-  traversal_depth: 2
-  use_llm_extraction: false   # true only for option 2
-  use_code_metadata: true     # true for options 1 and 3
+  store_type: "simple"
+  use_code_metadata: true
+  doc_extractor: "langextract"
+```
+
+**Config keys written (Option 3 — Kuzu + AST + LangExtract):**
+```yaml
+graphrag:
+  enabled: true
+  store_type: "kuzu"
+  use_code_metadata: true
+  doc_extractor: "langextract"
+```
+
+**Config keys written (Option 4 — AST only):**
+```yaml
+graphrag:
+  enabled: true
+  store_type: "simple"
+  use_code_metadata: true
 ```
 
 **Env var equivalents:**
 - `ENABLE_GRAPH_INDEX=true`
 - `GRAPH_STORE_TYPE=simple` or `kuzu`
-- `GRAPH_USE_LLM_EXTRACTION=true/false`
 - `GRAPH_USE_CODE_METADATA=true/false`
-- `GRAPH_DOC_EXTRACTOR=langextract` or `none` (for option 3)
+- `GRAPH_DOC_EXTRACTOR=langextract` or `none`
 
 ---
 
@@ -340,9 +354,9 @@ reranker:
 **AskUserQuestion:**
 | # | Option |
 |---|--------|
-| 1 | Local (Default) — 127.0.0.1:8000 |
-| 2 | Network — 0.0.0.0:8000 |
-| 3 | Custom port |
+| 1 | Local (Default) — 127.0.0.1 using auto-discovered port from 8000-8300 |
+| 2 | Network — 0.0.0.0 accessible from other machines |
+| 3 | Custom port — same as option 1 but allows overriding the suggested port |
 
 **Security warning:** Binding to `0.0.0.0` requires a reverse proxy with auth.
 
@@ -406,4 +420,5 @@ This spec was introduced in v9.3.0 (Phase 34). It must be updated whenever the
 `agent-brain-config.md` command file changes. The version field in the command frontmatter
 must match the CLI version at release time.
 
+Current spec version: v9.3.0 (Phase 34)
 Current command version: matches CLI `agent-brain-cli` version.
