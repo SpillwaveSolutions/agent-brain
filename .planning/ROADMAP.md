@@ -1,7 +1,7 @@
 # Agent Brain Roadmap
 
 **Created:** 2026-02-07
-**Core Value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API
+**Core Value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
 
 ## Milestones
 
@@ -14,6 +14,7 @@
 - ✅ **v9.1.0 Generic Skills-Based Runtime Portability** — Phases 26-28 (shipped 2026-03-16)
 - ✅ **v9.4.0 Documentation Accuracy Audit & Reliability Closure** — Phases 29-33 + gap closure phases 36-40 (shipped 2026-03-20)
 - ✅ **v9.3.0 LangExtract + Config Spec** — Phases 34-35 (shipped 2026-03-22)
+- 🚧 **v9.5.0 Config Validation & Language Support** — Phases 41-45 (in progress)
 
 ## Phases
 
@@ -144,5 +145,94 @@ Plans:
 </details>
 
 ---
+
+## v9.5.0 Config Validation & Language Support (Phases 41-45)
+
+**Milestone Goal:** Add config validation tooling, expand AST-aware language support to Object Pascal, improve the OpenCode installer to match reference quality, and establish performance benchmarks.
+
+### Phases
+
+- [ ] **Phase 41: Bug Fixes & Reliability** — Close known defects blocking daily use
+- [ ] **Phase 42: Object Pascal Language Support** — AST-aware ingestion for .pas/.pp/.dpr/.dpk files
+- [ ] **Phase 43: OpenCode Installer Improvements** — Bring opencode_converter up to reference quality
+- [ ] **Phase 44: Config Validation Tooling** — `agent-brain config validate` and migration diff commands
+- [ ] **Phase 45: Performance Benchmarking** — Query latency benchmarks and connection pool tuning
+
+### Progress
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 41. Bug Fixes & Reliability | 0/1 | Not started | - |
+| 42. Object Pascal Language Support | 0/1 | Not started | - |
+| 43. OpenCode Installer Improvements | 0/1 | Not started | - |
+| 44. Config Validation Tooling | 0/1 | Not started | - |
+| 45. Performance Benchmarking | 0/1 | Not started | - |
+
+## Phase Details
+
+### Phase 41: Bug Fixes & Reliability
+**Goal**: Known defects are resolved so daily use is unimpeded
+**Depends on**: Nothing (first phase of milestone)
+**Requirements**: BUGFIX-01, BUGFIX-02, BUGFIX-03, BUGFIX-04
+**Success Criteria** (what must be TRUE):
+  1. `agent-brain start` waits up to 120 seconds, allowing sentence-transformers to complete its first-run model download without timing out
+  2. The `chroma_db` and `cache` directories resolve relative to `AGENT_BRAIN_STATE_DIR`, not the current working directory, so path-based bugs no longer occur when running from a different directory
+  3. Server startup no longer emits ChromaDB PostHog telemetry errors in the console
+  4. The Gemini provider works correctly using the `google-genai` package (migrated away from deprecated `google-generativeai`)
+**Plans**: TBD
+
+---
+
+### Phase 42: Object Pascal Language Support
+**Goal**: Object Pascal source files are ingested with AST-aware chunking and are accessible via the `object-pascal` file type preset
+**Depends on**: Phase 41
+**Requirements**: LANG-01, LANG-02, LANG-03
+**Success Criteria** (what must be TRUE):
+  1. Running `agent-brain index /path/to/pascal-project` indexes `.pas`, `.pp`, `.dpr`, and `.dpk` files without errors
+  2. Querying against indexed Pascal code returns results scoped to functions, procedures, and classes (not arbitrary byte ranges)
+  3. `agent-brain index /path --include-type object-pascal` correctly filters to Pascal file extensions using the built-in preset
+**Plans**: TBD
+
+---
+
+### Phase 43: OpenCode Installer Improvements
+**Goal**: `agent-brain install-agent --agent opencode` produces a fully correct OpenCode installation that matches reference converter quality
+**Depends on**: Phase 41
+**Requirements**: OCDI-01, OCDI-02, OCDI-03, OCDI-04, OCDI-05, OCDI-06
+**Success Criteria** (what must be TRUE):
+  1. The generated `opencode.json` includes a `permissions` block that pre-authorizes the plugin directory so OpenCode does not prompt for permission on first use
+  2. Installed files land in singular directory names (`agent/`, `command/`, `skill/`) not plural forms
+  3. Agent frontmatter is fully converted: `name` field removed, color value is a hex string, `subagent_type` is mapped, and `tools` is a boolean object; `AskUserQuestion` maps to the `question` field
+  4. All path references in installed files point to `~/.config/opencode` instead of `~/.claude`
+  5. Running `install-agent --agent opencode` twice produces the same result as running it once (idempotent)
+**Plans**: TBD
+
+---
+
+### Phase 44: Config Validation Tooling
+**Goal**: Users can validate, migrate, and diff their `config.yaml` from the CLI without manually reading schema documentation
+**Depends on**: Phase 41
+**Requirements**: CFGVAL-01, CFGVAL-02, CFGVAL-03, CFGVAL-04, CFGVAL-05
+**Success Criteria** (what must be TRUE):
+  1. `agent-brain config validate` exits non-zero and prints a human-readable error listing the specific field, line number, and a fix suggestion when `config.yaml` contains a schema violation
+  2. `agent-brain config validate` exits 0 and prints "Config is valid" when `config.yaml` is correct
+  3. `agent-brain config migrate` upgrades a config file from an older schema version to the current schema without requiring manual edits
+  4. `agent-brain config diff` shows a colored diff of what the migration would change before applying it
+  5. The setup wizard warns the user and pauses when it detects an invalid config, preventing a broken server start
+**Plans**: TBD
+
+---
+
+### Phase 45: Performance Benchmarking
+**Goal**: Query performance is measured and documented, and PostgreSQL connection pool settings are tunable
+**Depends on**: Phase 42, Phase 43, Phase 44
+**Requirements**: PERF-01, PERF-02, PERF-03
+**Success Criteria** (what must be TRUE):
+  1. A benchmark script exists that measures query latency across all retrieval modes (vector, bm25, hybrid, graph, multi) against a reference dataset
+  2. `config.yaml` accepts a `storage.postgres.pool` section with documented keys (pool_size, max_overflow, pool_timeout) that are applied to the async SQLAlchemy engine
+  3. A `docs/BENCHMARKS.md` file records baseline latency numbers for the reference dataset so regressions can be detected
+**Plans**: TBD
+
+---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-22 — v9.3.0 milestone complete*
+*Last updated: 2026-03-23 — v9.5.0 milestone roadmap created*

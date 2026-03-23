@@ -71,33 +71,33 @@ Deferred to future release.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CFGVAL-01 | TBD | Pending |
-| CFGVAL-02 | TBD | Pending |
-| CFGVAL-03 | TBD | Pending |
-| CFGVAL-04 | TBD | Pending |
-| CFGVAL-05 | TBD | Pending |
-| LANG-01 | TBD | Pending |
-| LANG-02 | TBD | Pending |
-| LANG-03 | TBD | Pending |
-| OCDI-01 | TBD | Pending |
-| OCDI-02 | TBD | Pending |
-| OCDI-03 | TBD | Pending |
-| OCDI-04 | TBD | Pending |
-| OCDI-05 | TBD | Pending |
-| OCDI-06 | TBD | Pending |
-| PERF-01 | TBD | Pending |
-| PERF-02 | TBD | Pending |
-| PERF-03 | TBD | Pending |
-| BUGFIX-01 | TBD | Pending |
-| BUGFIX-02 | TBD | Pending |
-| BUGFIX-03 | TBD | Pending |
-| BUGFIX-04 | TBD | Pending |
+| BUGFIX-01 | Phase 41 | Pending |
+| BUGFIX-02 | Phase 41 | Pending |
+| BUGFIX-03 | Phase 41 | Pending |
+| BUGFIX-04 | Phase 41 | Pending |
+| LANG-01 | Phase 42 | Pending |
+| LANG-02 | Phase 42 | Pending |
+| LANG-03 | Phase 42 | Pending |
+| OCDI-01 | Phase 43 | Pending |
+| OCDI-02 | Phase 43 | Pending |
+| OCDI-03 | Phase 43 | Pending |
+| OCDI-04 | Phase 43 | Pending |
+| OCDI-05 | Phase 43 | Pending |
+| OCDI-06 | Phase 43 | Pending |
+| CFGVAL-01 | Phase 44 | Pending |
+| CFGVAL-02 | Phase 44 | Pending |
+| CFGVAL-03 | Phase 44 | Pending |
+| CFGVAL-04 | Phase 44 | Pending |
+| CFGVAL-05 | Phase 44 | Pending |
+| PERF-01 | Phase 45 | Pending |
+| PERF-02 | Phase 45 | Pending |
+| PERF-03 | Phase 45 | Pending |
 
 **Coverage:**
 - v1 requirements: 21 total
-- Mapped to phases: 0
-- Unmapped: 21 ⚠️
+- Mapped to phases: 21
+- Unmapped: 0 (100% coverage)
 
 ---
 *Requirements defined: 2026-03-23*
-*Last updated: 2026-03-23 after initial definition*
+*Last updated: 2026-03-23 — traceability complete, all 21 requirements mapped to Phases 41-45*
