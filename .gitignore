@@ -135,3 +135,8 @@ tmp/
 .claude/agent-brain/
 .claude/doc-serve/
 .claude/settings.local.json
+
+# Local tool state
+.claude/projects/
+.claude/scheduled_tasks.lock
+agent-brain-server/.agent-brain/

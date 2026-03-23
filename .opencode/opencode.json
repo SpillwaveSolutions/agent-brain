@@ -1,0 +1,11 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "read": {
+      "/Users/richardhightower/clients/spillwave/src/agent-brain/.opencode/get-shit-done/*": "allow"
+    },
+    "external_directory": {
+      "/Users/richardhightower/clients/spillwave/src/agent-brain/.opencode/get-shit-done/*": "allow"
+    }
+  }
+}
