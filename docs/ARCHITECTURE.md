@@ -269,7 +269,9 @@ User Query: agent-brain query "how does authentication work" --mode hybrid
 - Server discovery via runtime.json enables multi-agent workflows
 - Clean shutdown releases all resources
 
-**Implementation**: `.claude/agent-brain/` directory per project stores state, indexes, and runtime info.
+**Implementation**: `.agent-brain/` directory per project stores state, indexes, and runtime info.
+
+`agent-brain init` writes CLI/runtime state such as `.agent-brain/config.json` and `runtime.json`, while provider/search configuration for setup flows is typically authored in `.agent-brain/config.yaml`; both files live under the same `.agent-brain/` root.
 
 ### 2. AST-Aware Chunking
 

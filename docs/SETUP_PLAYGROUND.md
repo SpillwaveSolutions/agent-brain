@@ -38,6 +38,8 @@ agent-brain index ./src
 agent-brain query "search term"
 ```
 
+All setup paths in this guide assume `.agent-brain/` is the canonical project-local state root. In this workflow, you usually edit provider/search settings in `.agent-brain/config.yaml`; CLI/runtime state such as `runtime.json` and `config.json` is also stored under the same `.agent-brain/` directory.
+
 ---
 
 ## Part 1: Installation Paths
@@ -136,7 +138,7 @@ ollama pull nomic-embed-text      # 274 MB - embeddings (8192 token context)
 ollama pull llama3.2              # 2 GB - summarization (basic)
 ```
 
-**Config file** (`.claude/agent-brain/config.yaml`):
+**Config file** (`.agent-brain/config.yaml`):
 ```yaml
 embedding:
   provider: ollama
@@ -181,7 +183,7 @@ export OPENAI_API_KEY="sk-proj-..."       # https://platform.openai.com/api-keys
 export ANTHROPIC_API_KEY="sk-ant-..."     # https://console.anthropic.com/
 ```
 
-**Config file** (`.claude/agent-brain/config.yaml`):
+**Config file** (`.agent-brain/config.yaml`):
 ```yaml
 embedding:
   provider: openai
@@ -280,7 +282,7 @@ summarization:
 
 ### Path 3A: ChromaDB (Default, Zero Setup)
 
-**Config file** (`.claude/agent-brain/config.yaml`):
+**Config file** (`.agent-brain/config.yaml`):
 ```yaml
 embedding:
   provider: ollama
@@ -305,7 +307,7 @@ cd ~/my-project
 agent-brain init
 
 # 2. Create config (providers only, no storage section needed)
-cat > .claude/agent-brain/config.yaml << 'EOF'
+cat > .agent-brain/config.yaml << 'EOF'
 embedding:
   provider: ollama
   model: nomic-embed-text
@@ -333,7 +335,7 @@ agent-brain query "database connection" --mode bm25
 agent-brain query "how does error handling work" --mode vector
 ```
 
-**Data location:** `.claude/agent-brain/chroma_db/` (auto-created)
+**Data location:** `.agent-brain/chroma_db/` (auto-created)
 
 ---
 
@@ -381,7 +383,7 @@ agent-brain init
 
 Create config with the discovered port:
 ```yaml
-# .claude/agent-brain/config.yaml
+# .agent-brain/config.yaml
 embedding:
   provider: ollama
   model: nomic-embed-text
@@ -458,7 +460,7 @@ cd ~/my-project
 agent-brain init
 
 # Configure
-cat > .claude/agent-brain/config.yaml << 'EOF'
+cat > .agent-brain/config.yaml << 'EOF'
 embedding:
   provider: ollama
   model: nomic-embed-text
@@ -510,7 +512,7 @@ cd ~/my-project
 agent-brain init
 
 # Configure (use the discovered port)
-cat > .claude/agent-brain/config.yaml << EOF
+cat > .agent-brain/config.yaml << EOF
 embedding:
   provider: openai
   model: text-embedding-3-large
@@ -561,7 +563,7 @@ cd ~/my-project
 agent-brain init
 
 # Configure
-cat > .claude/agent-brain/config.yaml << 'EOF'
+cat > .agent-brain/config.yaml << 'EOF'
 embedding:
   provider: openai
   model: text-embedding-3-large
@@ -604,7 +606,7 @@ cd ~/my-project
 agent-brain init
 
 # Configure
-cat > .claude/agent-brain/config.yaml << 'EOF'
+cat > .agent-brain/config.yaml << 'EOF'
 embedding:
   provider: ollama
   model: nomic-embed-text
@@ -669,7 +671,7 @@ POSTGRES_PORT=5433 docker compose \
   -f ~/.claude/plugins/agent-brain/templates/docker-compose.postgres.yml up -d
 
 # 3. Update config.yaml — add storage section
-# (edit .claude/agent-brain/config.yaml)
+# (edit .agent-brain/config.yaml)
 
 # 4. Install postgres extras if needed
 uv tool install agent-brain-cli --with asyncpg --with "sqlalchemy[asyncio]" --force
@@ -713,7 +715,7 @@ agent-brain start
 
 | Priority | Path | Scope |
 |----------|------|-------|
-| 1 (highest) | `.claude/agent-brain/config.yaml` | Per-project |
+| 1 (highest) | `.agent-brain/config.yaml` | Per-project |
 | 2 | `~/.agent-brain/config.yaml` | User-wide |
 | 3 | Environment variables | Session |
 | 4 | Built-in defaults | Fallback |

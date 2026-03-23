@@ -105,9 +105,9 @@ class TestResolveStoragePaths:
 
         for name, path in paths.items():
             assert path.is_absolute(), f"{name} path is not absolute: {path}"
-            assert str(path).startswith(str(state_dir)), (
-                f"{name} path {path} is not under state_dir {state_dir}"
-            )
+            assert str(path).startswith(
+                str(state_dir)
+            ), f"{name} path {path} is not under state_dir {state_dir}"
 
     def test_chroma_and_cache_paths_under_state_dir(self, tmp_path: Path) -> None:
         """Verify chroma_db and embedding_cache are under state_dir, not CWD."""

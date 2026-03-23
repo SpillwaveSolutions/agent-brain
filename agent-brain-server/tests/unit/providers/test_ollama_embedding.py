@@ -171,9 +171,7 @@ class TestOllamaRetryLogic:
     @pytest.mark.asyncio
     async def test_embed_batch_raises_after_retries_exhausted(self) -> None:
         """_embed_batch raises ProviderError when retries are exhausted."""
-        config = EmbeddingConfig(
-            provider="ollama", params={"max_retries": 3}
-        )
+        config = EmbeddingConfig(provider="ollama", params={"max_retries": 3})
         provider = OllamaEmbeddingProvider(config)
         provider._client.embeddings.create = AsyncMock(
             side_effect=BrokenPipeError("Broken pipe")
@@ -238,9 +236,7 @@ class TestOllamaRetryLogic:
     @pytest.mark.asyncio
     async def test_embed_batch_backoff_sequence(self) -> None:
         """Retries use exponential backoff sequence 1, 2, 4."""
-        config = EmbeddingConfig(
-            provider="ollama", params={"max_retries": 3}
-        )
+        config = EmbeddingConfig(provider="ollama", params={"max_retries": 3})
         provider = OllamaEmbeddingProvider(config)
         provider._client.embeddings.create = AsyncMock(
             side_effect=BrokenPipeError("Broken pipe")
@@ -255,9 +251,7 @@ class TestOllamaRetryLogic:
     @pytest.mark.asyncio
     async def test_request_delay_sleep_after_successful_batch(self) -> None:
         """request_delay_ms causes post-batch sleep after success."""
-        config = EmbeddingConfig(
-            provider="ollama", params={"request_delay_ms": 100}
-        )
+        config = EmbeddingConfig(provider="ollama", params={"request_delay_ms": 100})
         provider = OllamaEmbeddingProvider(config)
         provider._client.embeddings.create = AsyncMock(
             return_value=self._mock_batch_response()
@@ -286,9 +280,7 @@ class TestOllamaRetryLogic:
     @pytest.mark.asyncio
     async def test_max_retries_zero_fails_immediately(self) -> None:
         """max_retries=0 should fail on first retryable error with no sleep."""
-        config = EmbeddingConfig(
-            provider="ollama", params={"max_retries": 0}
-        )
+        config = EmbeddingConfig(provider="ollama", params={"max_retries": 0})
         provider = OllamaEmbeddingProvider(config)
         provider._client.embeddings.create = AsyncMock(
             side_effect=BrokenPipeError("Broken pipe")

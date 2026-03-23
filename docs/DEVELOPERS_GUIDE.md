@@ -199,18 +199,17 @@ Agent Brain supports running multiple concurrent instances with per-project isol
 
 ### State Directory Structure
 
-Each project stores its state in `.claude/agent-brain/`:
+Each project stores its state in `.agent-brain/`:
 
 ```
 <project-root>/
-└── .claude/
-    └── agent-brain/
-        ├── config.json      # Project configuration (optional, can be committed)
-        ├── runtime.json     # Runtime state (DO NOT commit - add to .gitignore)
-        ├── doc-serve.lock   # Lock file for preventing double-start
-        ├── doc-serve.pid    # Process ID file
-        ├── data/            # ChromaDB and index data
-        └── logs/            # Server logs
+└── .agent-brain/
+    ├── config.json      # Project configuration (optional, can be committed)
+    ├── runtime.json     # Runtime state (DO NOT commit - add to .gitignore)
+    ├── doc-serve.lock   # Lock file for preventing double-start
+    ├── doc-serve.pid    # Process ID file
+    ├── data/            # ChromaDB and index data
+    └── logs/            # Server logs
 ```
 
 ### Runtime State Format
@@ -243,7 +242,7 @@ The lock file prevents concurrent startup:
 Project root is determined in this order:
 
 1. **Git repository root**: `git rev-parse --show-toplevel`
-2. **Marker files**: Directory containing `.claude/`, `pyproject.toml`, `package.json`, `Cargo.toml`, etc.
+2. **Marker files**: Directory containing `.agent-brain/`, `pyproject.toml`, `package.json`, `Cargo.toml`, etc.
 3. **Current directory**: Fallback if no markers found
 
 Symlinks are resolved to canonical paths to ensure consistent state directories.
@@ -254,8 +253,8 @@ Settings are resolved in order (first wins):
 
 1. Command-line flags (`--port 8080`)
 2. Environment variables (`DOC_SERVE_STATE_DIR`, `DOC_SERVE_MODE`)
-3. Project config (`.claude/agent-brain/config.json`)
-4. Global config (`~/.doc-serve/config.json`)
+3. Project config (`.agent-brain/config.json`)
+4. Global config (`~/.agent-brain/config.json`, future)
 5. Built-in defaults
 
 ### Health Endpoint Enhancement
