@@ -15,21 +15,21 @@ progress:
 
 # Agent Brain — Project State
 
-**Last Updated:** 2026-03-20
-**Current Milestone:** v9.3.0 LangExtract + Config Spec
-**Status:** v9.3.0 milestone complete
-**Current Phase:** 35
+**Last Updated:** 2026-03-23
+**Current Milestone:** v9.5.0 Config Validation & Language Support
+**Status:** Defining requirements
+**Current Phase:** Not started
 
 ## Current Position
 
-Phase: 34 (config-command-spec) — EXECUTING
-Plan: 1 of 2
+Phase: Not started (defining requirements)
+Plan: —
 
 ## Project Reference
 
-See: .planning/PROJECT.md
+See: .planning/PROJECT.md (updated 2026-03-23)
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Phase 34 — config-command-spec
+**Current focus:** Defining v9.5.0 requirements
 
 ## Milestone Summary
 

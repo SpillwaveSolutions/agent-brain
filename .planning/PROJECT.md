@@ -101,10 +101,21 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ### Active
 
+## Current Milestone: v9.5.0 Config Validation & Language Support
+
+**Goal:** Add config validation tooling, expand AST-aware language support, and improve query performance for larger datasets.
+
+**Target features:**
+- Config validation command (`agent-brain config validate`) to check config correctness
+- Config migration tool for upgrading between schema versions
+- Interactive config diff showing what changed
+- Object Pascal AST-aware ingestion (PR #115)
+- Query performance benchmarking and optimization
+- PostgreSQL connection pooling tuning
+
 ## Next Milestone Goals
 
-- Plan next milestone via `/gsd:new-milestone`
-- Potential areas: config validation command, config migration tooling, additional language support, performance optimization
+- TBD after v9.5.0 ships
 
 ### Out of Scope
 
