@@ -1,0 +1,103 @@
+# Requirements: Agent Brain
+
+**Defined:** 2026-03-23
+**Core Value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
+
+## v1 Requirements
+
+Requirements for v9.5.0 milestone. Each maps to roadmap phases.
+
+### Config Validation
+
+- [ ] **CFGVAL-01**: User can run `agent-brain config validate` to check config.yaml correctness against schema
+- [ ] **CFGVAL-02**: Validation reports specific errors with line numbers and fix suggestions
+- [ ] **CFGVAL-03**: User can run config migration tool to upgrade between schema versions
+- [ ] **CFGVAL-04**: User can see interactive config diff showing what changed between versions
+- [ ] **CFGVAL-05**: Config validate integrates with setup wizard (warn on invalid config before proceeding)
+
+### Language Support
+
+- [ ] **LANG-01**: Object Pascal files (.pas, .pp, .dpr, .dpk) are ingested with AST-aware chunking
+- [ ] **LANG-02**: Object Pascal support includes function/procedure/class extraction via tree-sitter
+- [ ] **LANG-03**: File type presets include an `object-pascal` preset for --include-type shorthand
+
+### OpenCode Installer
+
+- [ ] **OCDI-01**: OpenCode converter writes `opencode.json` with permission pre-authorization for plugin directory
+- [ ] **OCDI-02**: OpenCode converter uses singular directory names (agent/, command/, skill/) not plural
+- [ ] **OCDI-03**: Agent frontmatter fully converted: name removal, color hex, subagent_type mapping, tools object
+- [ ] **OCDI-04**: Path references rewritten from ~/.claude to ~/.config/opencode
+- [ ] **OCDI-05**: AskUserQuestion tool mapped to question in agent frontmatter conversion
+- [ ] **OCDI-06**: OpenCode installer is idempotent (reinstall refreshes without duplication)
+
+### Performance
+
+- [ ] **PERF-01**: Query performance benchmark suite exists measuring latency across retrieval modes
+- [ ] **PERF-02**: PostgreSQL connection pool settings are tunable via config.yaml with documented defaults
+- [ ] **PERF-03**: Benchmark results documented with baseline numbers for reference datasets
+
+### Bug Fixes
+
+- [ ] **BUGFIX-01**: agent-brain start timeout defaults to 120s to support sentence-transformers first init
+- [ ] **BUGFIX-02**: chroma_db and cache dirs resolve relative to AGENT_BRAIN_STATE_DIR, not CWD
+- [ ] **BUGFIX-03**: ChromaDB telemetry PostHog capture() error suppressed on startup
+- [ ] **BUGFIX-04**: Gemini provider migrated from deprecated google-generativeai to google-genai package
+
+## v2 Requirements
+
+Deferred to future release.
+
+### Config Advanced
+
+- **CFGADV-01**: Config validation as pre-commit hook
+- **CFGADV-02**: Config schema auto-generation from Pydantic settings model
+
+### Language Expansion
+
+- **LANGX-01**: Kotlin AST-aware ingestion
+- **LANGX-02**: Swift AST-aware ingestion
+- **LANGX-03**: Scala AST-aware ingestion
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Full config GUI/TUI editor | CLI-first philosophy — wizard handles interactive config |
+| Automated config rollback | Config changes are manual; users can git-restore |
+| OpenCode plugin marketplace registration | OpenCode doesn't have a marketplace system yet |
+| GraphRAG on PostgreSQL | Deferred — stays ChromaDB-only per v6.0 decision |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| CFGVAL-01 | TBD | Pending |
+| CFGVAL-02 | TBD | Pending |
+| CFGVAL-03 | TBD | Pending |
+| CFGVAL-04 | TBD | Pending |
+| CFGVAL-05 | TBD | Pending |
+| LANG-01 | TBD | Pending |
+| LANG-02 | TBD | Pending |
+| LANG-03 | TBD | Pending |
+| OCDI-01 | TBD | Pending |
+| OCDI-02 | TBD | Pending |
+| OCDI-03 | TBD | Pending |
+| OCDI-04 | TBD | Pending |
+| OCDI-05 | TBD | Pending |
+| OCDI-06 | TBD | Pending |
+| PERF-01 | TBD | Pending |
+| PERF-02 | TBD | Pending |
+| PERF-03 | TBD | Pending |
+| BUGFIX-01 | TBD | Pending |
+| BUGFIX-02 | TBD | Pending |
+| BUGFIX-03 | TBD | Pending |
+| BUGFIX-04 | TBD | Pending |
+
+**Coverage:**
+- v1 requirements: 21 total
+- Mapped to phases: 0
+- Unmapped: 21 ⚠️
+
+---
+*Requirements defined: 2026-03-23*
+*Last updated: 2026-03-23 after initial definition*
