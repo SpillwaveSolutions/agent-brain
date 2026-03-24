@@ -152,7 +152,7 @@ Plans:
 
 ### Phases
 
-- [ ] **Phase 41: Bug Fixes & Reliability** — Close known defects blocking daily use
+- [x] **Phase 41: Bug Fixes & Reliability** — Close known defects blocking daily use (completed 2026-03-24)
 - [ ] **Phase 42: Object Pascal Language Support** — AST-aware ingestion for .pas/.pp/.dpr/.dpk files
 - [ ] **Phase 43: OpenCode Installer Improvements** — Bring opencode_converter up to reference quality
 - [ ] **Phase 44: Config Validation Tooling** — `agent-brain config validate` and migration diff commands
@@ -162,7 +162,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 41. Bug Fixes & Reliability | 0/1 | Planned | - |
+| 41. Bug Fixes & Reliability | 1/1 | Complete   | 2026-03-24 |
 | 42. Object Pascal Language Support | 0/1 | Not started | - |
 | 43. OpenCode Installer Improvements | 0/1 | Not started | - |
 | 44. Config Validation Tooling | 0/1 | Not started | - |

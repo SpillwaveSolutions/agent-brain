@@ -38,10 +38,10 @@ Requirements for v9.5.0 milestone. Each maps to roadmap phases.
 
 ### Bug Fixes
 
-- [ ] **BUGFIX-01**: agent-brain start timeout defaults to 120s to support sentence-transformers first init
-- [ ] **BUGFIX-02**: chroma_db and cache dirs resolve relative to AGENT_BRAIN_STATE_DIR, not CWD
-- [ ] **BUGFIX-03**: ChromaDB telemetry PostHog capture() error suppressed on startup
-- [ ] **BUGFIX-04**: Gemini provider migrated from deprecated google-generativeai to google-genai package
+- [x] **BUGFIX-01**: agent-brain start timeout defaults to 120s to support sentence-transformers first init
+- [x] **BUGFIX-02**: chroma_db and cache dirs resolve relative to AGENT_BRAIN_STATE_DIR, not CWD
+- [x] **BUGFIX-03**: ChromaDB telemetry PostHog capture() error suppressed on startup
+- [x] **BUGFIX-04**: Gemini provider migrated from deprecated google-generativeai to google-genai package
 
 ## v2 Requirements
 
@@ -71,10 +71,10 @@ Deferred to future release.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUGFIX-01 | Phase 41 | Pending |
-| BUGFIX-02 | Phase 41 | Pending |
-| BUGFIX-03 | Phase 41 | Pending |
-| BUGFIX-04 | Phase 41 | Pending |
+| BUGFIX-01 | Phase 41 | Complete |
+| BUGFIX-02 | Phase 41 | Complete |
+| BUGFIX-03 | Phase 41 | Complete |
+| BUGFIX-04 | Phase 41 | Complete |
 | LANG-01 | Phase 42 | Pending |
 | LANG-02 | Phase 42 | Pending |
 | LANG-03 | Phase 42 | Pending |

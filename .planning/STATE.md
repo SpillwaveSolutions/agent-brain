@@ -1,36 +1,35 @@
 ---
 gsd_state_version: 1.0
-milestone: v9.5.0
-milestone_name: Config Validation & Language Support
+milestone: v3.0
+milestone_name: milestone
 current_phase: 41
-status: not_started
-stopped_at: Roadmap created — no plans started
-last_updated: "2026-03-23T00:00:00.000Z"
+status: executing
+stopped_at: Completed 41-01-PLAN.md
+last_updated: "2026-03-24T17:13:25.081Z"
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
 ---
 
 # Agent Brain — Project State
 
-**Last Updated:** 2026-03-23
+**Last Updated:** 2026-03-24
 **Current Milestone:** v9.5.0 Config Validation & Language Support
-**Status:** Roadmap created — ready for Phase 41
-**Current Phase:** 41 (not started)
+**Status:** Phase 41 Complete
+**Current Phase:** 41
 
 ## Current Position
 
-Phase: 41 — Bug Fixes & Reliability
-Plan: —
-Progress: [          ] 0% (0/5 phases)
+Phase: 41 (bug-fixes-and-reliability) — COMPLETE
+Plan: 1 of 1 (done)
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-03-23)
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** v9.5.0 — Config validation tooling, Object Pascal language support, OpenCode installer improvements, performance benchmarks
+**Current focus:** Phase 41 — bug-fixes-and-reliability
 
 ## Milestone Summary
 
@@ -51,7 +50,7 @@ v9.5.0 Config Val & Lang:   [          ]   0% (0/5 phases)
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 41 | Bug Fixes & Reliability | BUGFIX-01..04 | Not started |
+| 41 | Bug Fixes & Reliability | BUGFIX-01..04 | Complete |
 | 42 | Object Pascal Language Support | LANG-01..03 | Not started |
 | 43 | OpenCode Installer Improvements | OCDI-01..06 | Not started |
 | 44 | Config Validation Tooling | CFGVAL-01..05 | Not started |
@@ -76,6 +75,8 @@ v9.5.0 Config Val & Lang:   [          ]   0% (0/5 phases)
 - [Phase 38]: Suppress ChromaDB telemetry noise via ANONYMIZED_TELEMETRY setdefault and logger level tuning. (-> BUGFIX-03)
 - [Phase 38]: When PR merge is unauthorized, apply Pascal support manually using equivalent code/test changes. (-> LANG-01..03)
 - [Phase 34-config-command-spec]: doc_extractor key replaces use_llm_extraction in config YAML — migration tool must handle this rename. (-> CFGVAL-03)
+- [Phase 41]: Place BUGFIX-01 regression test in agent-brain-cli/tests/ to avoid cross-venv import of agent_brain_cli in server tests.
+- [Phase 41]: Replace lifespan tier-3 CWD-relative fallback with RuntimeError; add guaranteed state_dir in except block (BUGFIX-02).
 
 ### Blockers/Concerns
 
@@ -83,7 +84,7 @@ None.
 
 ### Pending Todos
 
-- Phase 41: Fix BUGFIX-01 (start timeout 120s), BUGFIX-02 (state-dir path resolution), BUGFIX-03 (PostHog suppression), BUGFIX-04 (Gemini google-genai)
+- Phase 41: DONE — BUGFIX-01 locked, BUGFIX-02 fixed, BUGFIX-03 locked, BUGFIX-04 locked
 - Phase 42: Apply Object Pascal tree-sitter support (PR #115 or manual equivalent)
 - Phase 43: Read codebase-mentor opencode converter, then update agent-brain-cli/agent_brain_cli/runtime/opencode_converter.py
 - Phase 44: Design config validate/migrate/diff subcommands with schema introspection
@@ -91,10 +92,10 @@ None.
 
 ## Session Continuity
 
-**Last Session:** 2026-03-23
-**Stopped At:** Roadmap created for v9.5.0
+**Last Session:** 2026-03-24T17:13:25.079Z
+**Stopped At:** Completed 41-01-PLAN.md
 **Resume File:** None
-**Next Action:** Run `/gsd:plan-phase 41` to plan Phase 41
+**Next Action:** Run `/gsd:execute-phase 42` to begin Phase 42 (Object Pascal Language Support)
 
 ---
-*State updated: 2026-03-23*
+*State updated: 2026-03-24*
