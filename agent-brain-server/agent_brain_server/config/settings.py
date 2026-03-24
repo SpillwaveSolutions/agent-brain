@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     CLAUDE_MODEL: str = "claude-haiku-4-5-20251001"  # Claude 4.5 Haiku (latest)
 
     # Chroma Configuration
+    # Legacy CWD-relative defaults — only used when state_dir resolution
+    # fails completely. Normal operation resolves paths via storage_paths.py.
     CHROMA_PERSIST_DIR: str = "./chroma_db"
     BM25_INDEX_PATH: str = "./bm25_index"
     COLLECTION_NAME: str = "agent_brain_collection"
@@ -62,6 +64,7 @@ class Settings(BaseSettings):
     # GraphRAG Configuration (Feature 113)
     ENABLE_GRAPH_INDEX: bool = False  # Master switch for graph indexing
     GRAPH_STORE_TYPE: str = "simple"  # "simple" (in-memory) or "kuzu" (persistent)
+    # Legacy CWD-relative default — normal operation resolves via storage_paths.py.
     GRAPH_INDEX_PATH: str = "./graph_index"  # Path for graph persistence
     GRAPH_EXTRACTION_MODEL: str = "claude-haiku-4-5"  # Model for entity extraction
     GRAPH_MAX_TRIPLETS_PER_CHUNK: int = 10  # Max triplets per document chunk

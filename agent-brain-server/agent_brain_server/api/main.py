@@ -253,6 +253,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             logger.info(f"Resolved fallback state directory: {state_dir}")
         except Exception as e:
             logger.warning(f"Failed to resolve fallback storage paths: {e}")
+            # Guaranteed fallback: use .agent-brain in CWD so state_dir is never None
+            state_dir = Path.cwd() / ".agent-brain"
+            state_dir.mkdir(parents=True, exist_ok=True)
+            storage_paths = resolve_storage_paths(state_dir)
+            logger.info(f"Created fallback state directory: {state_dir}")
+
+    # At this point state_dir is guaranteed non-None
+    assert state_dir is not None, "state_dir must be resolved by lifespan"
+    logger.info(f"Resolved storage paths: state_dir={state_dir}")
 
     # Determine project root for path validation
     project_root: Path | None = None
@@ -295,8 +304,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 chroma_dir = str(state_dir / "data" / "chroma_db")
                 bm25_dir = str(state_dir / "data" / "bm25_index")
             else:
-                chroma_dir = str(Path(settings.CHROMA_PERSIST_DIR).resolve())
-                bm25_dir = str(Path(settings.BM25_INDEX_PATH).resolve())
+                # This branch should be unreachable since state_dir is always resolved above
+                raise RuntimeError(
+                    "Storage path resolution failed: state_dir is unexpectedly None"
+                )
 
             # Initialize ChromaDB components
             vector_store = VectorStoreManager(
