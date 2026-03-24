@@ -162,7 +162,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 41. Bug Fixes & Reliability | 0/1 | Not started | - |
+| 41. Bug Fixes & Reliability | 0/1 | Planned | - |
 | 42. Object Pascal Language Support | 0/1 | Not started | - |
 | 43. OpenCode Installer Improvements | 0/1 | Not started | - |
 | 44. Config Validation Tooling | 0/1 | Not started | - |
@@ -179,7 +179,10 @@ Plans:
   2. The `chroma_db` and `cache` directories resolve relative to `AGENT_BRAIN_STATE_DIR`, not the current working directory, so path-based bugs no longer occur when running from a different directory
   3. Server startup no longer emits ChromaDB PostHog telemetry errors in the console
   4. The Gemini provider works correctly using the `google-genai` package (migrated away from deprecated `google-generativeai`)
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 41-01-PLAN.md — Fix state_dir path resolution + regression tests for all 4 bugfixes
 
 ---
 
@@ -235,4 +238,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-23 — v9.5.0 milestone roadmap created*
+*Last updated: 2026-03-23 — Phase 41 planned (1 plan)*
