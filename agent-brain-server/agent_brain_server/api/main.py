@@ -304,7 +304,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 chroma_dir = str(state_dir / "data" / "chroma_db")
                 bm25_dir = str(state_dir / "data" / "bm25_index")
             else:
-                # This branch should be unreachable since state_dir is always resolved above
+                # This branch is unreachable: state_dir is always resolved above
                 raise RuntimeError(
                     "Storage path resolution failed: state_dir is unexpectedly None"
                 )

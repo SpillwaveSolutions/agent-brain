@@ -26,9 +26,9 @@ def test_start_command_timeout_param_exists() -> None:
     from agent_brain_cli.commands.start import start_command
 
     param_names = [p.name for p in start_command.params]
-    assert "timeout" in param_names, (
-        f"start_command must have a --timeout parameter, found: {param_names}"
-    )
+    assert (
+        "timeout" in param_names
+    ), f"start_command must have a --timeout parameter, found: {param_names}"
 
 
 def test_start_command_timeout_help_mentions_default() -> None:
@@ -39,8 +39,8 @@ def test_start_command_timeout_help_mentions_default() -> None:
         if param.name == "timeout":
             # Help text should mention the default
             assert param.help is not None, "--timeout must have a help string"
-            assert "120" in (param.help or ""), (
-                f"--timeout help should mention 120s default, got: {param.help}"
-            )
+            assert "120" in (
+                param.help or ""
+            ), f"--timeout help should mention 120s default, got: {param.help}"
             return
     pytest.fail("--timeout parameter not found on start_command")

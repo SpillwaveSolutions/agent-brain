@@ -6,15 +6,19 @@ relative to a state_dir, and never fall back to CWD-relative paths like
 """
 
 from pathlib import Path
-from unittest.mock import patch
 
 
 class TestLifespanFallbackGuaranteesStateDir:
     """BUGFIX-02: The lifespan fallback always produces a non-None state_dir."""
 
-    def test_fallback_sets_state_dir_when_resolve_succeeds(self, tmp_path: Path) -> None:
+    def test_fallback_sets_state_dir_when_resolve_succeeds(
+        self, tmp_path: Path
+    ) -> None:
         """When resolve_state_dir succeeds, state_dir is populated."""
-        from agent_brain_server.storage_paths import resolve_state_dir, resolve_storage_paths
+        from agent_brain_server.storage_paths import (
+            resolve_state_dir,
+            resolve_storage_paths,
+        )
 
         state_dir = resolve_state_dir(tmp_path)
         storage_paths = resolve_storage_paths(state_dir)
@@ -26,7 +30,7 @@ class TestLifespanFallbackGuaranteesStateDir:
         """When resolve_state_dir raises, a guaranteed fallback state_dir is used.
 
         This is the core of BUGFIX-02: even on failure, state_dir must not be None.
-        We simulate the corrected behavior: a fallback .agent-brain in the project root.
+        We simulate the corrected behavior: a fallback .agent-brain in CWD.
         """
         from agent_brain_server.storage_paths import resolve_storage_paths
 
@@ -38,15 +42,13 @@ class TestLifespanFallbackGuaranteesStateDir:
             # Corrected behavior: guaranteed fallback
             state_dir = tmp_path / ".agent-brain"
             state_dir.mkdir(parents=True, exist_ok=True)
-            storage_paths = resolve_storage_paths(state_dir)
+            resolve_storage_paths(state_dir)
 
         # state_dir MUST be non-None after the except block
         assert state_dir is not None, "state_dir must be set even when resolve fails"
 
     def test_main_py_has_guaranteed_fallback_assertion(self) -> None:
-        """BUGFIX-02: main.py source must assert state_dir is not None after fallback."""
-        from pathlib import Path
-
+        """BUGFIX-02: main.py must assert state_dir is not None after fallback."""
         main_path = (
             Path(__file__).parent.parent.parent
             / "agent_brain_server"
@@ -59,10 +61,7 @@ class TestLifespanFallbackGuaranteesStateDir:
         ), "main.py must assert state_dir is not None after path resolution block"
 
     def test_main_py_tier3_cwd_fallback_is_unreachable(self) -> None:
-        """BUGFIX-02: The tier-3 CWD fallback (settings.CHROMA_PERSIST_DIR) must be
-        replaced with a RuntimeError, making it unreachable dead code."""
-        from pathlib import Path
-
+        """BUGFIX-02: Tier-3 CWD fallback must be replaced with RuntimeError."""
         main_path = (
             Path(__file__).parent.parent.parent
             / "agent_brain_server"
@@ -73,11 +72,11 @@ class TestLifespanFallbackGuaranteesStateDir:
         # The fix: RuntimeError must replace the CWD-relative fallback
         assert (
             "state_dir is unexpectedly None" in source
-        ), "main.py must have a RuntimeError guard in place of the CWD-relative tier-3 fallback"
+        ), "main.py must have a RuntimeError guard replacing CWD-relative tier-3"
 
 
 class TestStoragePathsAreAbsoluteUnderStateDir:
-    """BUGFIX-02: All storage paths resolved via lifespan are absolute paths under state_dir."""
+    """BUGFIX-02: All storage paths are absolute paths under state_dir."""
 
     def test_chroma_dir_is_absolute_under_state_dir(self, tmp_path: Path) -> None:
         """chroma_db path must be absolute and under state_dir, not CWD-relative."""
@@ -88,7 +87,9 @@ class TestStoragePathsAreAbsoluteUnderStateDir:
         paths = resolve_storage_paths(state_dir)
 
         chroma_dir = paths["chroma_db"]
-        assert chroma_dir.is_absolute(), f"chroma_db path must be absolute, got: {chroma_dir}"
+        assert (
+            chroma_dir.is_absolute()
+        ), f"chroma_db path must be absolute, got: {chroma_dir}"
         assert str(chroma_dir).startswith(
             str(state_dir)
         ), f"chroma_db {chroma_dir} must be under state_dir {state_dir}"
@@ -105,7 +106,9 @@ class TestStoragePathsAreAbsoluteUnderStateDir:
         paths = resolve_storage_paths(state_dir)
 
         bm25_dir = paths["bm25_index"]
-        assert bm25_dir.is_absolute(), f"bm25_index path must be absolute, got: {bm25_dir}"
+        assert (
+            bm25_dir.is_absolute()
+        ), f"bm25_index path must be absolute, got: {bm25_dir}"
         assert str(bm25_dir).startswith(
             str(state_dir)
         ), f"bm25_index {bm25_dir} must be under state_dir {state_dir}"
@@ -120,14 +123,16 @@ class TestStoragePathsAreAbsoluteUnderStateDir:
         paths = resolve_storage_paths(state_dir)
 
         graph_dir = paths["graph_index"]
-        assert graph_dir.is_absolute(), f"graph_index path must be absolute, got: {graph_dir}"
+        assert (
+            graph_dir.is_absolute()
+        ), f"graph_index path must be absolute, got: {graph_dir}"
         assert str(graph_dir).startswith(
             str(state_dir)
         ), f"graph_index {graph_dir} must be under state_dir {state_dir}"
         assert str(graph_dir) != "./graph_index"
 
     def test_embedding_cache_is_absolute_under_state_dir(self, tmp_path: Path) -> None:
-        """embedding_cache path must be absolute and under state_dir, not a tempdir."""
+        """embedding_cache path must be absolute under state_dir, not a tempdir."""
         from agent_brain_server.storage_paths import resolve_storage_paths
 
         state_dir = (tmp_path / ".agent-brain").resolve()
@@ -135,7 +140,9 @@ class TestStoragePathsAreAbsoluteUnderStateDir:
         paths = resolve_storage_paths(state_dir)
 
         cache_dir = paths["embedding_cache"]
-        assert cache_dir.is_absolute(), f"embedding_cache path must be absolute, got: {cache_dir}"
+        assert (
+            cache_dir.is_absolute()
+        ), f"embedding_cache path must be absolute, got: {cache_dir}"
         assert str(cache_dir).startswith(
             str(state_dir)
         ), f"embedding_cache {cache_dir} must be under state_dir {state_dir}"
@@ -144,11 +151,10 @@ class TestStoragePathsAreAbsoluteUnderStateDir:
 
 
 class TestCWDRelativeTierIsUnreachable:
-    """BUGFIX-02: Verify the CWD-relative tier-3 fallback cannot be reached in normal operation."""
+    """BUGFIX-02: The CWD-relative tier-3 fallback cannot be reached normally."""
 
     def test_settings_chroma_persist_dir_is_cwd_relative_legacy(self) -> None:
-        """settings.CHROMA_PERSIST_DIR is CWD-relative (legacy) and should NOT be used
-        in normal operation where state_dir is always resolved."""
+        """settings.CHROMA_PERSIST_DIR is CWD-relative legacy — not used normally."""
         from agent_brain_server.config.settings import settings
 
         # The default is CWD-relative — this is a documented legacy default
@@ -156,8 +162,6 @@ class TestCWDRelativeTierIsUnreachable:
 
     def test_settings_has_legacy_comment(self) -> None:
         """settings.py must document that CWD-relative paths are legacy defaults."""
-        from pathlib import Path
-
         settings_path = (
             Path(__file__).parent.parent.parent
             / "agent_brain_server"

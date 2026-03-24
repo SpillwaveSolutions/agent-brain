@@ -28,7 +28,7 @@ class TestBugfix03TelemetrySuppression:
         del os.environ["ANONYMIZED_TELEMETRY"]
 
     def test_telemetry_suppression_in_main_source(self) -> None:
-        """BUGFIX-03: main.py must contain ANONYMIZED_TELEMETRY suppression code."""
+        """BUGFIX-03: main.py must contain ANONYMIZED_TELEMETRY suppression."""
         main_path = (
             Path(__file__).parent.parent.parent
             / "agent_brain_server"
@@ -36,12 +36,12 @@ class TestBugfix03TelemetrySuppression:
             / "main.py"
         )
         source = main_path.read_text()
-        assert "ANONYMIZED_TELEMETRY" in source, (
-            "main.py must set ANONYMIZED_TELEMETRY to suppress ChromaDB telemetry"
-        )
-        assert "posthog" in source.lower(), (
-            "main.py must suppress posthog logger (ChromaDB telemetry noise)"
-        )
+        assert (
+            "ANONYMIZED_TELEMETRY" in source
+        ), "main.py must set ANONYMIZED_TELEMETRY to suppress ChromaDB telemetry"
+        assert (
+            "posthog" in source.lower()
+        ), "main.py must suppress posthog logger (ChromaDB telemetry noise)"
 
     def test_posthog_logger_suppression_in_main_source(self) -> None:
         """BUGFIX-03: main.py must suppress posthog and chromadb.telemetry loggers."""
@@ -53,15 +53,15 @@ class TestBugfix03TelemetrySuppression:
         )
         source = main_path.read_text()
         # Both logger suppressions must be present
-        assert "chromadb.telemetry" in source, (
-            "main.py must set chromadb.telemetry logger to WARNING level"
-        )
-        assert "posthog" in source.lower(), (
-            "main.py must set posthog logger to WARNING level"
-        )
+        assert (
+            "chromadb.telemetry" in source
+        ), "main.py must set chromadb.telemetry logger to WARNING level"
+        assert (
+            "posthog" in source.lower()
+        ), "main.py must set posthog logger to WARNING level"
 
     def test_vector_store_disables_telemetry(self) -> None:
-        """BUGFIX-03: VectorStoreManager must pass anonymized_telemetry=False to ChromaDB."""
+        """BUGFIX-03: VectorStoreManager must pass anonymized_telemetry=False."""
         vector_store_path = (
             Path(__file__).parent.parent.parent
             / "agent_brain_server"
@@ -69,9 +69,9 @@ class TestBugfix03TelemetrySuppression:
             / "vector_store.py"
         )
         source = vector_store_path.read_text()
-        assert "anonymized_telemetry=False" in source, (
-            "VectorStoreManager must pass anonymized_telemetry=False to ChromaSettings"
-        )
+        assert (
+            "anonymized_telemetry=False" in source
+        ), "VectorStoreManager must pass anonymized_telemetry=False to ChromaSettings"
 
     def test_anonymized_telemetry_setdefault_pattern(self) -> None:
         """BUGFIX-03: main.py uses os.environ.setdefault for ANONYMIZED_TELEMETRY.
@@ -85,16 +85,16 @@ class TestBugfix03TelemetrySuppression:
             / "main.py"
         )
         source = main_path.read_text()
-        assert 'setdefault("ANONYMIZED_TELEMETRY", "False")' in source, (
-            "main.py must use os.environ.setdefault to set ANONYMIZED_TELEMETRY"
-        )
+        assert (
+            'setdefault("ANONYMIZED_TELEMETRY", "False")' in source
+        ), "main.py must use os.environ.setdefault to set ANONYMIZED_TELEMETRY"
 
 
 class TestBugfix04GeminiMigration:
-    """BUGFIX-04: Gemini provider uses google-genai, not deprecated google-generativeai."""
+    """BUGFIX-04: Gemini provider uses google-genai, not google-generativeai."""
 
     def test_gemini_uses_google_genai_import(self) -> None:
-        """BUGFIX-04: Gemini provider must import google.genai, not google.generativeai."""
+        """BUGFIX-04: gemini.py must import google.genai, not google.generativeai."""
         gemini_path = (
             Path(__file__).parent.parent.parent
             / "agent_brain_server"
@@ -104,39 +104,36 @@ class TestBugfix04GeminiMigration:
         )
         source = gemini_path.read_text()
         # Must use google.genai
-        assert "import google.genai" in source or "from google import genai" in source, (
-            "gemini.py must import google.genai (not google.generativeai)"
-        )
+        assert (
+            "import google.genai" in source or "from google import genai" in source
+        ), "gemini.py must import google.genai (not google.generativeai)"
         # Must NOT use the deprecated package
-        assert "google.generativeai" not in source, (
-            "gemini.py must not use google.generativeai (deprecated — use google-genai)"
-        )
+        assert (
+            "google.generativeai" not in source
+        ), "gemini.py must not use google.generativeai (deprecated: use google-genai)"
 
     def test_pyproject_uses_google_genai_not_generativeai(self) -> None:
-        """BUGFIX-04: pyproject.toml must depend on google-genai, not google-generativeai."""
-        pyproject_path = (
-            Path(__file__).parent.parent.parent / "pyproject.toml"
-        )
+        """BUGFIX-04: pyproject.toml must depend on google-genai."""
+        pyproject_path = Path(__file__).parent.parent.parent / "pyproject.toml"
         content = pyproject_path.read_text()
-        assert "google-genai" in content, (
-            "pyproject.toml must list google-genai as a dependency"
-        )
-        assert "google-generativeai" not in content, (
-            "pyproject.toml must not list google-generativeai (deprecated package)"
-        )
+        assert (
+            "google-genai" in content
+        ), "pyproject.toml must list google-genai as a dependency"
+        assert (
+            "google-generativeai" not in content
+        ), "pyproject.toml must not list google-generativeai (deprecated package)"
 
     def test_gemini_provider_module_importable(self) -> None:
-        """BUGFIX-04: Gemini provider module must be importable without error."""
+        """BUGFIX-04: Gemini provider module must not reference google.generativeai."""
         try:
             import importlib
 
-            importlib.import_module(
-                "agent_brain_server.providers.summarization.gemini"
-            )
+            importlib.import_module("agent_brain_server.providers.summarization.gemini")
         except ImportError as e:
             # Only fail if it's a google.generativeai import error
             if "google.generativeai" in str(e):
                 raise AssertionError(
-                    f"BUGFIX-04: Gemini provider still references google.generativeai: {e}"
+                    "BUGFIX-04: Gemini provider still references "
+                    f"google.generativeai: {e}"
                 ) from e
-            # Other import errors (e.g., google.genai not installed) are acceptable in CI
+            # Other import errors (google.genai not installed) are OK in CI
