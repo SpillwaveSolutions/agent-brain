@@ -57,6 +57,9 @@ def sample_agent() -> PluginAgent:
         ],
         skills=["using-agent-brain"],
         body="Agent uses .claude/agent-brain for data.",
+        allowed_tools=["Bash", "Read", "AskUserQuestion", "Write(.agent-brain/**)"],
+        color="cyan",
+        subagent_type="general-purpose",
     )
 
 
@@ -271,6 +274,139 @@ class TestOpenCodeConverter:
         read_keys = list(config["permission"]["read"].keys())
         plugin_keys = [k for k in read_keys if "plugins/agent-brain" in k]
         assert len(plugin_keys) == 1  # No duplication after two installs
+
+    # --- OCDI requirement tests ---
+
+    def test_install_creates_singular_dirs(
+        self, tmp_path: Path, sample_bundle: PluginBundle
+    ) -> None:
+        """OCDI-02: install() creates singular directory names (agent/, command/, skill/)."""
+        converter = OpenCodeConverter()
+        target = tmp_path / "output"
+        converter.install(sample_bundle, target, Scope.PROJECT)
+        assert (target / "command").is_dir()
+        assert (target / "agent").is_dir()
+        assert not (target / "commands").exists()
+        assert not (target / "agents").exists()
+
+    def test_convert_agent_removes_name(self, sample_agent: PluginAgent) -> None:
+        """OCDI-03: convert_agent() omits the name field (OpenCode derives it from filename)."""
+        converter = OpenCodeConverter()
+        result = converter.convert_agent(sample_agent)
+        _, fm_text = result.split("---\n", 1)
+        fm_text = fm_text.split("---\n", 1)[0]
+        parsed = yaml.safe_load(fm_text)
+        assert "name" not in parsed
+
+    def test_convert_agent_maps_subagent_type(self, sample_agent: PluginAgent) -> None:
+        """OCDI-03: general-purpose subagent_type is mapped to 'general'."""
+        converter = OpenCodeConverter()
+        result = converter.convert_agent(sample_agent)
+        _, fm_text = result.split("---\n", 1)
+        fm_text = fm_text.split("---\n", 1)[0]
+        parsed = yaml.safe_load(fm_text)
+        assert parsed["subagent_type"] == "general"
+
+    def test_convert_agent_color_to_hex(self, sample_agent: PluginAgent) -> None:
+        """OCDI-03: Named color 'cyan' is converted to hex '#00FFFF'."""
+        converter = OpenCodeConverter()
+        result = converter.convert_agent(sample_agent)
+        _, fm_text = result.split("---\n", 1)
+        fm_text = fm_text.split("---\n", 1)[0]
+        parsed = yaml.safe_load(fm_text)
+        assert parsed["color"] == "#00FFFF"
+
+    def test_convert_agent_tools_object(self, sample_agent: PluginAgent) -> None:
+        """OCDI-03 + OCDI-05: allowed_tools converted to boolean tools object with AskUserQuestion."""
+        converter = OpenCodeConverter()
+        result = converter.convert_agent(sample_agent)
+        _, fm_text = result.split("---\n", 1)
+        fm_text = fm_text.split("---\n", 1)[0]
+        parsed = yaml.safe_load(fm_text)
+        assert "tools" in parsed
+        assert parsed["tools"]["bash"] is True
+        assert parsed["tools"]["read"] is True
+        assert parsed["tools"]["question"] is True  # AskUserQuestion -> question
+        assert parsed["tools"]["write"] is True  # Write(.agent-brain/**) -> write
+
+    def test_convert_agent_rewrites_claude_paths(self) -> None:
+        """OCDI-04: ~/.claude paths are rewritten to ~/.config/opencode."""
+        agent = PluginAgent(
+            name="test",
+            description="Test",
+            body="Check ~/.claude/plugins/agent-brain and ~/.claude for config.",
+        )
+        converter = OpenCodeConverter()
+        result = converter.convert_agent(agent)
+        assert "~/.config/opencode" in result
+        assert "~/.claude" not in result
+
+    def test_install_writes_opencode_json(
+        self, tmp_path: Path, sample_bundle: PluginBundle
+    ) -> None:
+        """OCDI-01: install() writes opencode.json with permission entries.
+
+        The implementation places opencode.json at target_dir.parent.parent,
+        so with target = <root>/.opencode/plugins/agent-brain, the file is at
+        <root>/.opencode/opencode.json.
+        """
+        converter = OpenCodeConverter()
+        opencode_dir = tmp_path / ".opencode"
+        opencode_dir.mkdir()
+        target = opencode_dir / "plugins" / "agent-brain"
+        converter.install(sample_bundle, target, Scope.PROJECT)
+        json_path = opencode_dir / "opencode.json"
+        assert json_path.exists()
+        data = json.loads(json_path.read_text())
+        assert "permission" in data
+        assert "read" in data["permission"]
+        assert "external_directory" in data["permission"]
+
+    def test_install_merges_opencode_json(
+        self, tmp_path: Path, sample_bundle: PluginBundle
+    ) -> None:
+        """OCDI-01: install() merges into existing opencode.json without overwriting."""
+        converter = OpenCodeConverter()
+        opencode_dir = tmp_path / ".opencode"
+        opencode_dir.mkdir()
+        target = opencode_dir / "plugins" / "agent-brain"
+        # Pre-existing opencode.json with custom permission
+        existing: dict[str, object] = {
+            "permission": {"read": {"/custom/*": "allow"}},
+            "other_key": True,
+        }
+        (opencode_dir / "opencode.json").write_text(json.dumps(existing))
+        converter.install(sample_bundle, target, Scope.PROJECT)
+        data = json.loads((opencode_dir / "opencode.json").read_text())
+        # Original permission preserved
+        assert data["permission"]["read"]["/custom/*"] == "allow"  # type: ignore[index]
+        # New permission added
+        assert ".agent-brain/*" in data["permission"]["read"]  # type: ignore[operator]
+        # Other keys preserved
+        assert data["other_key"] is True
+
+    def test_install_idempotent(
+        self, tmp_path: Path, sample_bundle: PluginBundle
+    ) -> None:
+        """OCDI-06: Running install twice produces the same result (idempotent)."""
+        converter = OpenCodeConverter()
+        target = tmp_path / "output"
+        files1 = converter.install(sample_bundle, target, Scope.PROJECT)
+        files2 = converter.install(sample_bundle, target, Scope.PROJECT)
+        assert len(files1) == len(files2)
+        # Verify no extra .md files from first install
+        all_files = list(target.rglob("*"))
+        md_files = [f for f in all_files if f.suffix == ".md"]
+        assert len(md_files) == len([f for f in files2 if f.suffix == ".md"])
+
+    def test_tool_map_strips_path_scope(self) -> None:
+        """OCDI-05 support: map_tool_name strips path scope annotations."""
+        from agent_brain_cli.runtime.tool_maps import map_tool_name
+
+        assert map_tool_name("Write(.agent-brain/**)", "opencode") == "write"
+        assert map_tool_name("Read(docs/*)", "opencode") == "read"
+        assert map_tool_name("AskUserQuestion", "opencode") == "question"
+        assert map_tool_name("mcp__server__tool", "opencode") == "mcp__server__tool"
 
 
 class TestGeminiConverter:
