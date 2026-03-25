@@ -81,6 +81,7 @@ class LanguageDetector:
         ".pp": "pascal",
         ".lpr": "pascal",
         ".dpr": "pascal",
+        ".dpk": "pascal",
     }
 
     # Language detection by content patterns (fallback)
@@ -293,7 +294,8 @@ class DocumentLoader:
         ".pas",
         ".pp",
         ".lpr",
-        ".dpr",  # Object Pascal
+        ".dpr",
+        ".dpk",  # Object Pascal
     }
 
     SUPPORTED_EXTENSIONS: set[str] = DOCUMENT_EXTENSIONS | CODE_EXTENSIONS

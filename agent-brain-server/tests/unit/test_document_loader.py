@@ -56,6 +56,9 @@ class TestPascalExtensionDetection:
     def test_pascal_dpr_extension(self) -> None:
         assert LanguageDetector.detect_from_path("app.dpr") == "pascal"
 
+    def test_pascal_dpk_extension(self) -> None:
+        assert LanguageDetector.detect_from_path("package.dpk") == "pascal"
+
 
 class TestPascalIsSupported:
     """Tests for Pascal language support check."""
