@@ -4,9 +4,12 @@ OpenCode uses a different format:
 - Tool names are lowercase
 - `allowed-tools` list becomes a `tools` boolean object
 - Named colors are converted to hex
+- Plugins must be registered in opencode.json with read/external_directory permissions
 """
 
+import json
 import logging
+import shutil
 from pathlib import Path
 
 import yaml
@@ -39,12 +42,19 @@ COLOR_MAP: dict[str, str] = {
     "grey": "#808080",
 }
 
-LEGACY_PATH = ".claude/agent-brain"
-NEW_PATH = ".agent-brain"
+# Path rewrites applied in order (longer matches first to avoid partial replacement)
+PATH_REWRITES = [
+    (".claude/agent-brain", ".agent-brain"),
+    ("~/.claude/plugins/", "~/.config/opencode/"),
+    ("~/.claude", "~/.config/opencode"),
+]
 
 
 def _replace_paths(text: str) -> str:
-    return text.replace(LEGACY_PATH, NEW_PATH)
+    """Apply all path rewrites to replace Claude paths with OpenCode equivalents."""
+    for old, new in PATH_REWRITES:
+        text = text.replace(old, new)
+    return text
 
 
 def _tools_to_bool_object(tools: list[str]) -> dict[str, bool]:
@@ -91,13 +101,25 @@ class OpenCodeConverter:
 
     def convert_agent(self, agent: PluginAgent) -> str:
         fm: dict[str, object] = {
-            "name": agent.name,
             "description": agent.description,
-            "triggers": [
-                {"pattern": t.pattern, "type": t.type} for t in agent.triggers
-            ],
-            "skills": agent.skills,
         }
+        # Tools boolean object from allowed_tools
+        if agent.allowed_tools:
+            fm["tools"] = _tools_to_bool_object(agent.allowed_tools)
+        # Color as hex
+        if agent.color:
+            fm["color"] = _color_to_hex(agent.color)
+        # Subagent type mapping
+        if agent.subagent_type:
+            st = agent.subagent_type
+            if st == "general-purpose":
+                st = "general"
+            fm["subagent_type"] = st
+        # Triggers and skills
+        fm["triggers"] = [
+            {"pattern": t.pattern, "type": t.type} for t in agent.triggers
+        ]
+        fm["skills"] = agent.skills
         return _rebuild_file(fm, _replace_paths(agent.body))
 
     def convert_skill(self, skill: PluginSkill) -> str:
@@ -112,35 +134,105 @@ class OpenCodeConverter:
         }
         return _rebuild_file(fm, _replace_paths(skill.body))
 
+    def _register_in_opencode_json(
+        self,
+        target_dir: Path,
+        scope: Scope,
+    ) -> None:
+        """Register plugin permissions in opencode.json.
+
+        OpenCode requires plugins to have explicit read and external_directory
+        permissions in opencode.json. This merges agent-brain entries without
+        overwriting existing permissions.
+        """
+        # Derive the .opencode dir and opencode.json location
+        # target_dir is like: <project>/.opencode/plugins/agent-brain
+        opencode_dir = target_dir.parent.parent  # .opencode/
+        config_path = opencode_dir / "opencode.json"
+
+        # Build the permission path pattern
+        # Use relative path for project scope, absolute for global
+        if scope == Scope.PROJECT:
+            perm_key = "./.opencode/plugins/agent-brain/*"
+        else:
+            perm_key = f"{target_dir}/*"
+
+        # Load existing config or create minimal structure
+        config: dict[str, object] = {}
+        if config_path.exists():
+            try:
+                config = json.loads(config_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                logger.warning(
+                    "Could not parse %s, creating fresh config", config_path
+                )
+
+        # Ensure structure exists
+        if "permission" not in config:
+            config["permission"] = {}
+        permission = config["permission"]
+        if not isinstance(permission, dict):
+            permission = {}
+            config["permission"] = permission
+
+        # Additional permission for the project state directory
+        state_perm_key = ".agent-brain/*"
+
+        for section in ("read", "external_directory"):
+            if section not in permission:
+                permission[section] = {}
+            section_dict = permission[section]
+            if isinstance(section_dict, dict):
+                if perm_key not in section_dict:
+                    section_dict[perm_key] = "allow"
+                if state_perm_key not in section_dict:
+                    section_dict[state_perm_key] = "allow"
+
+        # Ensure schema is present
+        if "$schema" not in config:
+            config["$schema"] = "https://opencode.ai/config.json"
+
+        config_path.write_text(
+            json.dumps(config, indent=2) + "\n", encoding="utf-8"
+        )
+        logger.info("Registered agent-brain in %s", config_path)
+
     def install(
         self,
         bundle: PluginBundle,
         target_dir: Path,
         scope: Scope,
     ) -> list[Path]:
-        """Install OpenCode plugin files."""
+        """Install OpenCode plugin files and register in opencode.json."""
+        # Idempotent install: remove existing target before reinstalling
+        if target_dir.exists():
+            shutil.rmtree(target_dir)
+
         created: list[Path] = []
 
-        cmds_dir = target_dir / "commands"
+        cmds_dir = target_dir / "command"
         cmds_dir.mkdir(parents=True, exist_ok=True)
         for cmd in bundle.commands:
             out = cmds_dir / f"{cmd.name}.md"
             out.write_text(self.convert_command(cmd), encoding="utf-8")
             created.append(out)
 
-        agents_dir = target_dir / "agents"
+        agents_dir = target_dir / "agent"
         agents_dir.mkdir(parents=True, exist_ok=True)
         for agent in bundle.agents:
             out = agents_dir / f"{agent.name}.md"
             out.write_text(self.convert_agent(agent), encoding="utf-8")
             created.append(out)
 
-        skills_dir = target_dir / "skills"
+        skills_dir = target_dir / "skill"
         for skill in bundle.skills:
             skill_out = skills_dir / skill.name
             skill_out.mkdir(parents=True, exist_ok=True)
             skill_file = skill_out / "SKILL.md"
             skill_file.write_text(self.convert_skill(skill), encoding="utf-8")
             created.append(skill_file)
+
+        # Register plugin permissions in opencode.json
+        self._register_in_opencode_json(target_dir, scope)
 
         return created

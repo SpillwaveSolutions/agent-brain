@@ -195,8 +195,82 @@ class TestOpenCodeConverter:
         target = tmp_path / "output"
         files = converter.install(sample_bundle, target, Scope.PROJECT)
         assert len(files) > 0
-        assert (target / "commands" / "test-search.md").exists()
-        assert (target / "agents" / "search-helper.md").exists()
+        assert (target / "command" / "test-search.md").exists()
+        assert (target / "agent" / "search-helper.md").exists()
+
+    def test_install_registers_in_opencode_json(
+        self, tmp_path: Path, sample_bundle: PluginBundle
+    ) -> None:
+        """Install should register permissions in opencode.json."""
+        import json
+
+        # Simulate real directory structure: .opencode/plugins/agent-brain
+        opencode_dir = tmp_path / ".opencode"
+        opencode_dir.mkdir()
+        target = opencode_dir / "plugins" / "agent-brain"
+
+        converter = OpenCodeConverter()
+        converter.install(sample_bundle, target, Scope.PROJECT)
+
+        config_path = opencode_dir / "opencode.json"
+        assert config_path.exists()
+        config = json.loads(config_path.read_text())
+        perm = config["permission"]
+        key = "./.opencode/plugins/agent-brain/*"
+        assert perm["read"][key] == "allow"
+        assert perm["external_directory"][key] == "allow"
+
+    def test_install_merges_existing_opencode_json(
+        self, tmp_path: Path, sample_bundle: PluginBundle
+    ) -> None:
+        """Install should merge into existing opencode.json without overwriting."""
+        import json
+
+        opencode_dir = tmp_path / ".opencode"
+        opencode_dir.mkdir()
+        target = opencode_dir / "plugins" / "agent-brain"
+
+        # Pre-existing config with other plugin permissions
+        existing = {
+            "$schema": "https://opencode.ai/config.json",
+            "permission": {
+                "read": {"./.opencode/other-plugin/*": "allow"},
+                "external_directory": {"./.opencode/other-plugin/*": "allow"},
+            },
+        }
+        config_path = opencode_dir / "opencode.json"
+        config_path.write_text(json.dumps(existing, indent=2))
+
+        converter = OpenCodeConverter()
+        converter.install(sample_bundle, target, Scope.PROJECT)
+
+        config = json.loads(config_path.read_text())
+        perm = config["permission"]
+        # Existing entry preserved
+        assert perm["read"]["./.opencode/other-plugin/*"] == "allow"
+        # New entry added
+        assert perm["read"]["./.opencode/plugins/agent-brain/*"] == "allow"
+        assert perm["external_directory"]["./.opencode/plugins/agent-brain/*"] == "allow"
+
+    def test_install_idempotent_opencode_json(
+        self, tmp_path: Path, sample_bundle: PluginBundle
+    ) -> None:
+        """Running install twice should not duplicate entries."""
+        import json
+
+        opencode_dir = tmp_path / ".opencode"
+        opencode_dir.mkdir()
+        target = opencode_dir / "plugins" / "agent-brain"
+
+        converter = OpenCodeConverter()
+        converter.install(sample_bundle, target, Scope.PROJECT)
+        converter.install(sample_bundle, target, Scope.PROJECT)
+
+        config = json.loads((opencode_dir / "opencode.json").read_text())
+        # Count occurrences of the plugin key in read section (not the .agent-brain/* state dir key)
+        read_keys = list(config["permission"]["read"].keys())
+        plugin_keys = [k for k in read_keys if "plugins/agent-brain" in k]
+        assert len(plugin_keys) == 1  # No duplication after two installs
 
 
 class TestGeminiConverter:
