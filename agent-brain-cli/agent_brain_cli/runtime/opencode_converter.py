@@ -163,9 +163,7 @@ class OpenCodeConverter:
             try:
                 config = json.loads(config_path.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError):
-                logger.warning(
-                    "Could not parse %s, creating fresh config", config_path
-                )
+                logger.warning("Could not parse %s, creating fresh config", config_path)
 
         # Ensure structure exists
         if "permission" not in config:
@@ -192,9 +190,7 @@ class OpenCodeConverter:
         if "$schema" not in config:
             config["$schema"] = "https://opencode.ai/config.json"
 
-        config_path.write_text(
-            json.dumps(config, indent=2) + "\n", encoding="utf-8"
-        )
+        config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
         logger.info("Registered agent-brain in %s", config_path)
 
     def install(

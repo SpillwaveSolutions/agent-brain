@@ -253,7 +253,9 @@ class TestOpenCodeConverter:
         assert perm["read"]["./.opencode/other-plugin/*"] == "allow"
         # New entry added
         assert perm["read"]["./.opencode/plugins/agent-brain/*"] == "allow"
-        assert perm["external_directory"]["./.opencode/plugins/agent-brain/*"] == "allow"
+        assert (
+            perm["external_directory"]["./.opencode/plugins/agent-brain/*"] == "allow"
+        )
 
     def test_install_idempotent_opencode_json(
         self, tmp_path: Path, sample_bundle: PluginBundle
@@ -270,7 +272,8 @@ class TestOpenCodeConverter:
         converter.install(sample_bundle, target, Scope.PROJECT)
 
         config = json.loads((opencode_dir / "opencode.json").read_text())
-        # Count occurrences of the plugin key in read section (not the .agent-brain/* state dir key)
+        # Count occurrences of the plugin key in read section
+        # (not the .agent-brain/* state dir key)
         read_keys = list(config["permission"]["read"].keys())
         plugin_keys = [k for k in read_keys if "plugins/agent-brain" in k]
         assert len(plugin_keys) == 1  # No duplication after two installs
@@ -280,7 +283,7 @@ class TestOpenCodeConverter:
     def test_install_creates_singular_dirs(
         self, tmp_path: Path, sample_bundle: PluginBundle
     ) -> None:
-        """OCDI-02: install() creates singular directory names (agent/, command/, skill/)."""
+        """OCDI-02: install() creates singular dir names (agent/, command/, skill/)."""
         converter = OpenCodeConverter()
         target = tmp_path / "output"
         converter.install(sample_bundle, target, Scope.PROJECT)
@@ -290,7 +293,7 @@ class TestOpenCodeConverter:
         assert not (target / "agents").exists()
 
     def test_convert_agent_removes_name(self, sample_agent: PluginAgent) -> None:
-        """OCDI-03: convert_agent() omits the name field (OpenCode derives it from filename)."""
+        """OCDI-03: convert_agent() omits name (OpenCode derives from filename)."""
         converter = OpenCodeConverter()
         result = converter.convert_agent(sample_agent)
         _, fm_text = result.split("---\n", 1)
@@ -317,7 +320,7 @@ class TestOpenCodeConverter:
         assert parsed["color"] == "#00FFFF"
 
     def test_convert_agent_tools_object(self, sample_agent: PluginAgent) -> None:
-        """OCDI-03 + OCDI-05: allowed_tools converted to boolean tools object with AskUserQuestion."""
+        """OCDI-03+OCDI-05: allowed_tools -> boolean tools obj with AskUserQuestion."""
         converter = OpenCodeConverter()
         result = converter.convert_agent(sample_agent)
         _, fm_text = result.split("---\n", 1)

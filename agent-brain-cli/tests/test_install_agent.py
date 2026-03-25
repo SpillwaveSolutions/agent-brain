@@ -95,7 +95,8 @@ class TestInstallAgentCommand:
         )
         assert result.exit_code == 0
         target = tmp_path / ".opencode" / "plugins" / "agent-brain"
-        assert (target / "commands" / "agent-brain-search.md").exists()
+        # OpenCode uses singular 'command/' directory (not 'commands/')
+        assert (target / "command" / "agent-brain-search.md").exists()
 
     def test_gemini_project_install(
         self, runner: CliRunner, plugin_dir: Path, tmp_path: Path

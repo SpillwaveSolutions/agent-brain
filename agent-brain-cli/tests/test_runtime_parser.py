@@ -344,8 +344,11 @@ class TestToolMaps:
         assert map_tool_name("Edit", "gemini") == "replace"
 
     def test_unknown_tool_passthrough(self) -> None:
-        assert map_tool_name("CustomTool", "claude") == "CustomTool"
-        assert map_tool_name("CustomTool", "gemini") == "CustomTool"
+        # Unknown tools are lowercased (fallback behavior)
+        assert map_tool_name("CustomTool", "claude") == "customtool"
+        assert map_tool_name("CustomTool", "gemini") == "customtool"
+        # MCP tools pass through unchanged
+        assert map_tool_name("mcp__server__tool", "opencode") == "mcp__server__tool"
 
     def test_unknown_runtime_uses_claude(self) -> None:
         assert map_tool_name("Bash", "unknown") == "Bash"
@@ -355,7 +358,9 @@ class TestToolMaps:
         assert result == ["run_shell_command", "read_file"]
 
     def test_all_maps_have_same_keys(self) -> None:
-        assert set(CLAUDE_TOOLS.keys()) == set(OPENCODE_TOOLS.keys())
+        # OPENCODE_TOOLS has extra Claude-specific tools
+        # (AskUserQuestion, SkillTool, TodoWrite) not in other runtimes
+        assert set(CLAUDE_TOOLS.keys()).issubset(set(OPENCODE_TOOLS.keys()))
         assert set(CLAUDE_TOOLS.keys()) == set(GEMINI_TOOLS.keys())
 
 
