@@ -128,6 +128,9 @@ def parse_agent(path: Path) -> PluginAgent:
         skills=fm.get("skills", []) or [],
         body=body,
         source_path=str(path),
+        allowed_tools=fm.get("allowed_tools", fm.get("allowed-tools", [])) or [],
+        color=fm.get("color", ""),
+        subagent_type=fm.get("subagent_type", fm.get("subagent-type", "")),
     )
 
 

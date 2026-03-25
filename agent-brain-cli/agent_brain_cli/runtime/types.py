@@ -61,6 +61,9 @@ class PluginAgent:
     skills: list[str] = field(default_factory=list)
     body: str = ""
     source_path: str = ""
+    allowed_tools: list[str] = field(default_factory=list)
+    color: str = ""
+    subagent_type: str = ""
 
 
 @dataclass

@@ -31,6 +31,9 @@ OPENCODE_TOOLS: dict[str, str] = {
     "WebFetch": "web_fetch",
     "WebSearch": "web_search",
     "NotebookEdit": "notebook_edit",
+    "AskUserQuestion": "question",
+    "SkillTool": "skill",
+    "TodoWrite": "todowrite",
 }
 
 # Gemini CLI — different tool name convention
@@ -58,15 +61,28 @@ TOOL_MAPS: dict[str, dict[str, str]] = {
 def map_tool_name(tool: str, runtime: str) -> str:
     """Map a canonical (Claude) tool name to a runtime-specific name.
 
+    Strips path scope annotations before looking up (e.g., "Write(.agent-brain/**)"
+    becomes "Write"). Passes mcp__ prefixed tool names through unchanged.
+    Falls back to lowercased base name for unknown tools.
+
     Args:
-        tool: Canonical tool name (e.g., "Bash").
+        tool: Canonical tool name (e.g., "Bash", "Write(.agent-brain/**)").
         runtime: Target runtime ("claude", "opencode", "gemini").
 
     Returns:
-        Mapped tool name, or the original name if no mapping exists.
+        Mapped tool name, or the lowercased base name if no mapping exists.
     """
+    # Strip path scope annotation: "Write(.agent-brain/**)" -> "Write"
+    base = tool.split("(")[0]
     tool_map = TOOL_MAPS.get(runtime, CLAUDE_TOOLS)
-    return tool_map.get(tool, tool)
+    mapped = tool_map.get(base)
+    if mapped:
+        return mapped
+    # Pass MCP tools through unchanged
+    if base.startswith("mcp__"):
+        return base
+    # Default: lowercase the base name
+    return base.lower()
 
 
 def map_tools(tools: list[str], runtime: str) -> list[str]:
