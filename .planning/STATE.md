@@ -4,13 +4,13 @@ milestone: v3.0
 milestone_name: milestone
 current_phase: 43
 status: executing
-stopped_at: Completed 43-01-PLAN.md
-last_updated: "2026-03-25T22:18:44.017Z"
+stopped_at: Completed 43-02-PLAN.md
+last_updated: "2026-03-25T22:26:31.316Z"
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 3
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Agent Brain — Project State
@@ -22,8 +22,8 @@ progress:
 
 ## Current Position
 
-Phase: 43 (opencode-installer-improvements) — EXECUTING
-Plan: 2 of 2
+Phase: 43 (opencode-installer-improvements) — COMPLETE
+Plan: 2 of 2 (all plans complete)
 
 ## Project Reference
 
@@ -52,7 +52,7 @@ v9.5.0 Config Val & Lang:   [          ]   0% (0/5 phases)
 |-------|------|--------------|--------|
 | 41 | Bug Fixes & Reliability | BUGFIX-01..04 | Complete |
 | 42 | Object Pascal Language Support | LANG-01..03 | Not started |
-| 43 | OpenCode Installer Improvements | OCDI-01..06 | Not started |
+| 43 | OpenCode Installer Improvements | OCDI-01..06 | Complete |
 | 44 | Config Validation Tooling | CFGVAL-01..05 | Not started |
 | 45 | Performance Benchmarking | PERF-01..03 | Not started |
 
@@ -79,6 +79,8 @@ v9.5.0 Config Val & Lang:   [          ]   0% (0/5 phases)
 - [Phase 41]: Replace lifespan tier-3 CWD-relative fallback with RuntimeError; add guaranteed state_dir in except block (BUGFIX-02).
 - [Phase 43]: Keep dict-based frontmatter approach in OpenCode converter (not line-by-line regex) — cleaner and type-safe.
 - [Phase 43]: Add .agent-brain/* permission entries in opencode.json alongside plugin path for state dir access.
+- [Phase 43-02]: Use .opencode/plugins/agent-brain test structure (not simplified plugins/agent-brain) — matches target_dir.parent.parent opencode.json placement.
+- [Phase 43-02]: OPENCODE_TOOLS is a superset of CLAUDE_TOOLS (adds AskUserQuestion, SkillTool, TodoWrite); test_all_maps_have_same_keys updated to issubset check.
 
 ### Blockers/Concerns
 
@@ -94,8 +96,8 @@ None.
 
 ## Session Continuity
 
-**Last Session:** 2026-03-25T22:18:44.014Z
-**Stopped At:** Completed 43-01-PLAN.md
+**Last Session:** 2026-03-25T22:26:31.313Z
+**Stopped At:** Completed 43-02-PLAN.md
 **Resume File:** None
 **Next Action:** Run `/gsd:execute-phase 42` to begin Phase 42 (Object Pascal Language Support)
 
