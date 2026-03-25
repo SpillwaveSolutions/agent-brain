@@ -23,12 +23,12 @@ Requirements for v9.5.0 milestone. Each maps to roadmap phases.
 
 ### OpenCode Installer
 
-- [ ] **OCDI-01**: OpenCode converter writes `opencode.json` with permission pre-authorization for plugin directory
-- [ ] **OCDI-02**: OpenCode converter uses singular directory names (agent/, command/, skill/) not plural
-- [ ] **OCDI-03**: Agent frontmatter fully converted: name removal, color hex, subagent_type mapping, tools object
-- [ ] **OCDI-04**: Path references rewritten from ~/.claude to ~/.config/opencode
-- [ ] **OCDI-05**: AskUserQuestion tool mapped to question in agent frontmatter conversion
-- [ ] **OCDI-06**: OpenCode installer is idempotent (reinstall refreshes without duplication)
+- [x] **OCDI-01**: OpenCode converter writes `opencode.json` with permission pre-authorization for plugin directory
+- [x] **OCDI-02**: OpenCode converter uses singular directory names (agent/, command/, skill/) not plural
+- [x] **OCDI-03**: Agent frontmatter fully converted: name removal, color hex, subagent_type mapping, tools object
+- [x] **OCDI-04**: Path references rewritten from ~/.claude to ~/.config/opencode
+- [x] **OCDI-05**: AskUserQuestion tool mapped to question in agent frontmatter conversion
+- [x] **OCDI-06**: OpenCode installer is idempotent (reinstall refreshes without duplication)
 
 ### Performance
 
@@ -78,12 +78,12 @@ Deferred to future release.
 | LANG-01 | Phase 42 | Pending |
 | LANG-02 | Phase 42 | Pending |
 | LANG-03 | Phase 42 | Pending |
-| OCDI-01 | Phase 43 | Pending |
-| OCDI-02 | Phase 43 | Pending |
-| OCDI-03 | Phase 43 | Pending |
-| OCDI-04 | Phase 43 | Pending |
-| OCDI-05 | Phase 43 | Pending |
-| OCDI-06 | Phase 43 | Pending |
+| OCDI-01 | Phase 43 | Complete |
+| OCDI-02 | Phase 43 | Complete |
+| OCDI-03 | Phase 43 | Complete |
+| OCDI-04 | Phase 43 | Complete |
+| OCDI-05 | Phase 43 | Complete |
+| OCDI-06 | Phase 43 | Complete |
 | CFGVAL-01 | Phase 44 | Pending |
 | CFGVAL-02 | Phase 44 | Pending |
 | CFGVAL-03 | Phase 44 | Pending |

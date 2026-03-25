@@ -3,33 +3,33 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
 current_phase: 43
-status: planning
-stopped_at: Phase 43 context gathered
-last_updated: "2026-03-25T16:24:55.922Z"
+status: executing
+stopped_at: Completed 43-01-PLAN.md
+last_updated: "2026-03-25T22:18:44.017Z"
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 1
-  completed_plans: 2
+  total_plans: 3
+  completed_plans: 3
 ---
 
 # Agent Brain — Project State
 
 **Last Updated:** 2026-03-24
 **Current Milestone:** v9.5.0 Config Validation & Language Support
-**Status:** Ready to plan
+**Status:** Executing Phase 43
 **Current Phase:** 43
 
 ## Current Position
 
-Phase: 41 (bug-fixes-and-reliability) — COMPLETE
-Plan: 1 of 1 (done)
+Phase: 43 (opencode-installer-improvements) — EXECUTING
+Plan: 2 of 2
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-03-23)
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Phase 41 — bug-fixes-and-reliability
+**Current focus:** Phase 43 — opencode-installer-improvements
 
 ## Milestone Summary
 
@@ -77,6 +77,8 @@ v9.5.0 Config Val & Lang:   [          ]   0% (0/5 phases)
 - [Phase 34-config-command-spec]: doc_extractor key replaces use_llm_extraction in config YAML — migration tool must handle this rename. (-> CFGVAL-03)
 - [Phase 41]: Place BUGFIX-01 regression test in agent-brain-cli/tests/ to avoid cross-venv import of agent_brain_cli in server tests.
 - [Phase 41]: Replace lifespan tier-3 CWD-relative fallback with RuntimeError; add guaranteed state_dir in except block (BUGFIX-02).
+- [Phase 43]: Keep dict-based frontmatter approach in OpenCode converter (not line-by-line regex) — cleaner and type-safe.
+- [Phase 43]: Add .agent-brain/* permission entries in opencode.json alongside plugin path for state dir access.
 
 ### Blockers/Concerns
 
@@ -86,15 +88,15 @@ None.
 
 - Phase 41: DONE — BUGFIX-01 locked, BUGFIX-02 fixed, BUGFIX-03 locked, BUGFIX-04 locked
 - Phase 42: Apply Object Pascal tree-sitter support (PR #115 or manual equivalent)
-- Phase 43: Read codebase-mentor opencode converter, then update agent-brain-cli/agent_brain_cli/runtime/opencode_converter.py
+- Phase 43: DONE — all 8 gaps closed (OCDI-01..06 marked complete)
 - Phase 44: Design config validate/migrate/diff subcommands with schema introspection
 - Phase 45: Define benchmark dataset, create benchmark script, document results
 
 ## Session Continuity
 
-**Last Session:** 2026-03-25T16:24:55.918Z
-**Stopped At:** Phase 43 context gathered
-**Resume File:** .planning/phases/43-opencode-installer-improvements/43-CONTEXT.md
+**Last Session:** 2026-03-25T22:18:44.014Z
+**Stopped At:** Completed 43-01-PLAN.md
+**Resume File:** None
 **Next Action:** Run `/gsd:execute-phase 42` to begin Phase 42 (Object Pascal Language Support)
 
 ---
