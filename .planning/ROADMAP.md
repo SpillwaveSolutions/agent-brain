@@ -164,7 +164,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 41. Bug Fixes & Reliability | 1/1 | Complete    | 2026-03-24 |
 | 42. Object Pascal Language Support | 0/1 | Complete    | 2026-03-25 |
-| 43. OpenCode Installer Improvements | 0/1 | Not started | - |
+| 43. OpenCode Installer Improvements | 0/2 | Planning    | - |
 | 44. Config Validation Tooling | 0/1 | Not started | - |
 | 45. Performance Benchmarking | 0/1 | Not started | - |
 
@@ -208,7 +208,11 @@ Plans:
   3. Agent frontmatter is fully converted: `name` field removed, color value is a hex string, `subagent_type` is mapped, and `tools` is a boolean object; `AskUserQuestion` maps to the `question` field
   4. All path references in installed files point to `~/.config/opencode` instead of `~/.claude`
   5. Running `install-agent --agent opencode` twice produces the same result as running it once (idempotent)
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 43-01-PLAN.md — Types/parser extensions, tool maps, converter fixes (all 8 gaps)
+- [ ] 43-02-PLAN.md — Comprehensive tests for all OCDI requirements + quality gate
 
 ---
 
@@ -238,4 +242,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-23 — Phase 41 planned (1 plan)*
+*Last updated: 2026-03-25 — Phase 43 planned (2 plans)*
