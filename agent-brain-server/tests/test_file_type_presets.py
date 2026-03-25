@@ -169,7 +169,12 @@ class TestResolveFileTypes:
     def test_pascal_preset_patterns(self) -> None:
         """Test the 'pascal' preset patterns."""
         result = resolve_file_types(["pascal"])
-        assert result == ["*.pas", "*.pp", "*.lpr", "*.dpr"]
+        assert result == ["*.pas", "*.pp", "*.lpr", "*.dpr", "*.dpk"]
+
+    def test_object_pascal_preset_patterns(self) -> None:
+        """Test the 'object-pascal' alias preset patterns."""
+        result = resolve_file_types(["object-pascal"])
+        assert result == ["*.pas", "*.pp", "*.lpr", "*.dpr", "*.dpk"]
 
     def test_code_preset_includes_pascal(self) -> None:
         """Test that the 'code' preset includes Pascal patterns."""
@@ -186,8 +191,8 @@ class TestResolveFileTypes:
         result = resolve_file_types(["c"])
         assert result == ["*.c", "*.h"]
 
-    def test_all_15_presets_exist(self) -> None:
-        """Test that all 15 expected presets are defined."""
+    def test_all_16_presets_exist(self) -> None:
+        """Test that all 16 expected presets are defined."""
         expected_presets = {
             "python",
             "javascript",
@@ -197,6 +202,7 @@ class TestResolveFileTypes:
             "java",
             "csharp",
             "pascal",
+            "object-pascal",
             "c",
             "cpp",
             "web",
