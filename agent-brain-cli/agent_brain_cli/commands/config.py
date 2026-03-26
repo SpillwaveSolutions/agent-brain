@@ -12,6 +12,11 @@ import yaml
 from rich.console import Console
 from rich.table import Table
 
+from agent_brain_cli.config_migrate import (
+    MigrationResult,
+    diff_config_file,
+    migrate_config_file,
+)
 from agent_brain_cli.config_schema import (
     format_validation_errors,
     validate_config_file,
@@ -156,9 +161,12 @@ def config_group() -> None:
 
     \b
     Commands:
-      show   - Display active configuration
-      path   - Show config file location
-      wizard - Create/update config interactively
+      show     - Display active configuration
+      path     - Show config file location
+      wizard   - Create/update config interactively
+      validate - Validate config against schema
+      migrate  - Upgrade config to current schema
+      diff     - Preview what migrate would change
     """
     pass
 
@@ -166,6 +174,17 @@ def config_group() -> None:
 @config_group.command("wizard")
 def wizard() -> None:
     """Interactive configuration wizard for Agent Brain providers."""
+    # Check existing config for validation issues before prompting
+    existing_config = _find_config_file()
+    if existing_config:
+        existing_errors = validate_config_file(existing_config)
+        if existing_errors:
+            console.print(
+                "\n[bold yellow]Warning:[/] Existing config has validation issues:"
+            )
+            console.print(format_validation_errors(existing_errors))
+            console.print()
+
     embed_provider: str = click.prompt(
         "Embedding provider",
         type=click.Choice(["openai", "ollama", "cohere"]),
@@ -291,6 +310,20 @@ def wizard() -> None:
         yaml.safe_dump(config, f, default_flow_style=False, sort_keys=False)
 
     console.print(f"[green]Config written to {config_path}[/]")
+
+    # Validate the written config and warn if issues found
+    post_write_errors = validate_config_file(config_path)
+    if post_write_errors:
+        console.print(
+            "\n[bold yellow]Warning:[/] The generated config has validation issues:\n"
+        )
+        console.print(format_validation_errors(post_write_errors))
+        if not click.confirm("Continue with this config anyway?", default=False):
+            console.print(
+                "[red]Config wizard aborted."
+                " Please fix the issues and try again.[/]"
+            )
+            sys.exit(1)
 
 
 @config_group.command("show")
@@ -483,3 +516,98 @@ def validate_config(config_file: str | None, json_output: bool) -> None:
 
     console.print(format_validation_errors(errors))
     sys.exit(1)
+
+
+@config_group.command("migrate")
+@click.option(
+    "--file",
+    "config_file",
+    type=click.Path(exists=True),
+    default=None,
+    help="Path to config file (default: auto-detect)",
+)
+@click.option(
+    "--dry-run", is_flag=True, help="Show what would change without modifying"
+)
+def migrate_config_cmd(config_file: str | None, dry_run: bool) -> None:
+    """Migrate config.yaml to the current schema version.
+
+    Upgrades deprecated keys and restructures config sections.
+    Use --dry-run to preview changes without modifying the file.
+
+    \b
+    Examples:
+      agent-brain config migrate
+      agent-brain config migrate --dry-run
+      agent-brain config migrate --file ./old-config.yaml
+    """
+    if config_file is not None:
+        path: Path | None = Path(config_file)
+    else:
+        path = _find_config_file()
+
+    if path is None:
+        console.print("[yellow]No config file found.[/]")
+        sys.exit(0)
+
+    if dry_run:
+        diff = diff_config_file(path)
+        if diff:
+            console.print(diff)
+        else:
+            console.print("[green]Config is already up to date. No changes needed.[/]")
+        sys.exit(0)
+
+    result: MigrationResult = migrate_config_file(path)
+    if result.already_current:
+        console.print("[green]Config is already up to date[/]")
+        sys.exit(0)
+
+    for change in result.changes:
+        console.print(f"  [cyan]->[/] {change}")
+    console.print(f"\n[green]Config migrated successfully[/] ({path})")
+
+
+@config_group.command("diff")
+@click.option(
+    "--file",
+    "config_file",
+    type=click.Path(exists=True),
+    default=None,
+    help="Path to config file (default: auto-detect)",
+)
+def diff_config_cmd(config_file: str | None) -> None:
+    """Show what 'config migrate' would change.
+
+    Displays a unified diff of the current config vs the migrated version.
+
+    \b
+    Examples:
+      agent-brain config diff
+      agent-brain config diff --file ./config.yaml
+    """
+    if config_file is not None:
+        path: Path | None = Path(config_file)
+    else:
+        path = _find_config_file()
+
+    if path is None:
+        console.print("[yellow]No config file found.[/]")
+        sys.exit(0)
+
+    diff = diff_config_file(path)
+    if not diff:
+        console.print("[green]Config is already up to date. No changes needed.[/]")
+        sys.exit(0)
+
+    for line in diff.splitlines():
+        if line.startswith("---") or line.startswith("+++"):
+            console.print(f"[bold]{line}[/]")
+        elif line.startswith("-"):
+            console.print(f"[red]{line}[/]")
+        elif line.startswith("+"):
+            console.print(f"[green]{line}[/]")
+        elif line.startswith("@@"):
+            console.print(f"[cyan]{line}[/]")
+        else:
+            console.print(line)
