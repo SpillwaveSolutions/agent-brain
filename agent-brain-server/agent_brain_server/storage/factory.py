@@ -113,6 +113,8 @@ def get_storage_backend() -> StorageBackendProtocol:
                 config.pool_size = int(postgres_dict["pool_size"])
             if "pool_max_overflow" in postgres_dict:
                 config.pool_max_overflow = int(postgres_dict["pool_max_overflow"])
+            if "pool_timeout" in postgres_dict:
+                config.pool_timeout = int(postgres_dict["pool_timeout"])
             logger.info("Using DATABASE_URL for PostgreSQL connection")
         else:
             config = PostgresConfig(**postgres_dict)

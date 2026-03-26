@@ -41,6 +41,7 @@ class PostgresConfig(BaseModel):
         password: Database password (empty for local dev).
         pool_size: Connection pool size.
         pool_max_overflow: Max overflow connections beyond pool_size.
+        pool_timeout: Seconds to wait for a connection from the pool.
         language: PostgreSQL tsvector language for full-text search.
         hnsw_m: HNSW index m parameter (max connections per node).
         hnsw_ef_construction: HNSW ef_construction parameter (build quality).
@@ -54,6 +55,7 @@ class PostgresConfig(BaseModel):
     password: str = ""
     pool_size: int = 10
     pool_max_overflow: int = 10
+    pool_timeout: int = 30
     language: str = "english"
     hnsw_m: int = 16
     hnsw_ef_construction: int = 64

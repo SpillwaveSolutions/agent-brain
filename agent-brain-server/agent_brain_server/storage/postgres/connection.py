@@ -64,6 +64,7 @@ class PostgresConnectionManager:
                 echo=self.config.debug,
                 pool_size=self.config.pool_size,
                 max_overflow=self.config.pool_max_overflow,
+                pool_timeout=self.config.pool_timeout,
                 pool_pre_ping=True,
                 pool_recycle=3600,
             )
