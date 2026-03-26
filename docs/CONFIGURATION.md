@@ -474,11 +474,29 @@ storage:
     password: "agent_brain_dev"
     pool_size: 10
     pool_max_overflow: 10
+    pool_timeout: 30
     language: "english"
     hnsw_m: 16
     hnsw_ef_construction: 64
     debug: false
 ```
+
+**PostgreSQL connection and pool keys:**
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `host` | string | `"localhost"` | Database host |
+| `port` | int | `5432` | Database port |
+| `database` | string | `"agent_brain"` | Database name |
+| `user` | string | `"agent_brain"` | Database user |
+| `password` | string | `""` | Database password |
+| `pool_size` | int | `10` | Connections to keep in the pool |
+| `pool_max_overflow` | int | `10` | Extra connections above `pool_size` |
+| `pool_timeout` | int | `30` | Seconds to wait for a pool connection before timeout |
+| `language` | string | `"english"` | Full-text search language |
+| `hnsw_m` | int | `16` | HNSW index M parameter |
+| `hnsw_ef_construction` | int | `64` | HNSW construction parameter |
+| `debug` | bool | `false` | Enable SQLAlchemy debug logging |
 
 **Connection string override**:
 

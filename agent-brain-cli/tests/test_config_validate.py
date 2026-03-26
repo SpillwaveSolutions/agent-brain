@@ -10,6 +10,7 @@ from click.testing import CliRunner
 
 from agent_brain_cli.cli import cli
 from agent_brain_cli.config_schema import (
+    POSTGRES_KNOWN_FIELDS,
     ConfigValidationError,
     format_validation_errors,
     validate_config_dict,
@@ -318,3 +319,138 @@ class TestValidateCliCommand:
             result = runner.invoke(cli, ["config", "validate"])
         assert result.exit_code == 0, f"Exit code: {result.exit_code}, Output: {result.output}"
         assert "No config file found" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Tests for nested storage.postgres.* key validation
+# ---------------------------------------------------------------------------
+
+
+class TestNestedPostgresValidation:
+    """Tests for nested storage.postgres.* key validation."""
+
+    def test_valid_postgres_config_no_errors(self) -> None:
+        """All known postgres keys with backend=postgres produces no errors."""
+        config = {
+            "storage": {
+                "backend": "postgres",
+                "postgres": {
+                    "host": "localhost",
+                    "port": 5432,
+                    "database": "agent_brain",
+                    "user": "agent_brain",
+                    "password": "secret",
+                    "pool_size": 10,
+                    "pool_max_overflow": 10,
+                    "pool_timeout": 30,
+                    "language": "english",
+                    "hnsw_m": 16,
+                    "hnsw_ef_construction": 64,
+                    "debug": False,
+                },
+            }
+        }
+        errors = validate_config_dict(config)
+        assert errors == [], f"Unexpected errors for valid postgres config: {errors}"
+
+    def test_unknown_postgres_key_returns_error(self) -> None:
+        """Config with storage.postgres.bad_key returns error with field path."""
+        config = {
+            "storage": {
+                "backend": "postgres",
+                "postgres": {"bad_key": True},
+            }
+        }
+        errors = validate_config_dict(config)
+        assert len(errors) >= 1
+        pg_error = next(
+            (e for e in errors if e.field == "storage.postgres.bad_key"), None
+        )
+        assert pg_error is not None, (
+            f"Expected error for storage.postgres.bad_key, got: {errors}"
+        )
+        # Suggestion must mention known fields
+        assert "Known fields:" in pg_error.suggestion
+
+    def test_pool_timeout_accepted(self) -> None:
+        """Config with storage.postgres.pool_timeout: 45 produces no errors."""
+        config = {
+            "storage": {
+                "backend": "postgres",
+                "postgres": {"pool_timeout": 45},
+            }
+        }
+        errors = validate_config_dict(config)
+        pg_timeout_error = next(
+            (e for e in errors if "pool_timeout" in e.field), None
+        )
+        assert pg_timeout_error is None, (
+            f"Unexpected error for pool_timeout: {pg_timeout_error}"
+        )
+
+    def test_pool_timeout_wrong_type_returns_error(self) -> None:
+        """Config with storage.postgres.pool_timeout: 'thirty' returns type error."""
+        config = {
+            "storage": {
+                "backend": "postgres",
+                "postgres": {"pool_timeout": "thirty"},
+            }
+        }
+        errors = validate_config_dict(config)
+        assert len(errors) >= 1
+        type_error = next(
+            (e for e in errors if "pool_timeout" in e.field), None
+        )
+        assert type_error is not None, (
+            f"Expected type error for pool_timeout, got: {errors}"
+        )
+        assert "must be an integer" in type_error.message
+
+    def test_all_known_postgres_keys_accepted(self) -> None:
+        """All 12 known postgres keys set to valid values produce no postgres errors."""
+        all_known_keys = {
+            "host": "localhost",
+            "port": 5432,
+            "database": "agent_brain",
+            "user": "agent_brain",
+            "password": "secret",
+            "pool_size": 10,
+            "pool_max_overflow": 5,
+            "pool_timeout": 30,
+            "language": "english",
+            "hnsw_m": 16,
+            "hnsw_ef_construction": 64,
+            "debug": False,
+        }
+        assert set(all_known_keys.keys()) == POSTGRES_KNOWN_FIELDS, (
+            "Test must cover exactly the POSTGRES_KNOWN_FIELDS set"
+        )
+        config = {
+            "storage": {
+                "backend": "postgres",
+                "postgres": all_known_keys,
+            }
+        }
+        errors = validate_config_dict(config)
+        postgres_errors = [e for e in errors if "storage.postgres." in e.field]
+        assert postgres_errors == [], (
+            f"Unexpected errors for known postgres keys: {postgres_errors}"
+        )
+
+    def test_typo_in_postgres_key_is_caught(self) -> None:
+        """Config with storage.postgres.pool_timeot (typo) returns error."""
+        config = {
+            "storage": {
+                "backend": "postgres",
+                "postgres": {"pool_timeot": 99},
+            }
+        }
+        errors = validate_config_dict(config)
+        assert len(errors) >= 1
+        typo_error = next(
+            (e for e in errors if "pool_timeot" in e.field), None
+        )
+        assert typo_error is not None, (
+            f"Expected error for pool_timeot typo, got: {errors}"
+        )
+        assert typo_error.field == "storage.postgres.pool_timeot"

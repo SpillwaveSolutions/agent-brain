@@ -85,11 +85,20 @@ storage:
     password: "agent_brain_dev"
     pool_size: 10
     pool_max_overflow: 10
+    pool_timeout: 30
     language: "english"
     hnsw_m: 16
     hnsw_ef_construction: 64
     debug: false
 ```
+
+**Pool settings:**
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `pool_size` | int | `10` | Number of connections to keep in the pool |
+| `pool_max_overflow` | int | `10` | Extra connections allowed above `pool_size` |
+| `pool_timeout` | int | `30` | Seconds to wait for a connection from the pool before raising a timeout error |
 
 These field names correspond to the `storage.backend` and `storage.postgres.*`
 keys in the server's configuration schema. See `docs/CONFIGURATION.md` for the
