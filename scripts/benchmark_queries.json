@@ -1,0 +1,26 @@
+{
+  "description": "Fixed benchmark query set for Agent Brain docs/ corpus",
+  "version": 1,
+  "queries": [
+    "How do I install Agent Brain?",
+    "What embedding models are supported?",
+    "How does hybrid search work?",
+    "What is the PostgreSQL storage backend?",
+    "How do I configure the reranker?",
+    "What file types can be indexed?",
+    "How do I use GraphRAG?",
+    "What are the API endpoints?",
+    "How do I start the server?",
+    "What is BM25 retrieval?",
+    "How do I configure ChromaDB?",
+    "What CLI commands are available?",
+    "How do I index a folder?",
+    "What is AST-aware code ingestion?",
+    "How do connection pools work?",
+    "What providers are supported for summarization?",
+    "How do I reset the index?",
+    "What is the query endpoint?",
+    "How do I check server health?",
+    "What configuration options are available?"
+  ]
+}
