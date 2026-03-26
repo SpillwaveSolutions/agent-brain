@@ -20,27 +20,30 @@ Deliver a reproducible query benchmark workflow plus PostgreSQL pool timeout exp
 - Measure two timings per query: client-observed end-to-end latency for p50/p95/p99/mean/QPS, and server-reported `query_time_ms` as secondary signal
 - Use a fixed query set committed to the repo, sized to 20 measured iterations per mode
 - 3 warm-up queries per mode before measurement
-- Output Rich table to stdout + `--json` for CI
+- Output Rich table to stdout + `--json` for CI — must work headless (no interactive prompts) for GitHub Actions triggers
+- `scripts/benchmark_queries.json` is a named deliverable: a committed, version-controlled query set so p50/p95/p99 numbers are comparable across runs
 - Keep statistics and formatting logic in small testable helpers
 
 ### Reproducibility and preflight
 - Add benchmark preflight checks before first timed query: server reachable, index ready, chunk count > 0, backend type detected, GraphRAG enabled/disabled, indexed folders include repo `docs/` when running baseline
 - Do NOT reset user data by default
 - Add explicit `--prepare-docs-corpus` flag that: resets index, indexes repo `docs/` folder, waits for job completion, optionally rebuilds graph if needed for `graph` mode
+- Fresh preparation is REQUIRED for baseline runs — checkpoint must run `--prepare-docs-corpus` before generating BENCHMARKS.md
 - If setup mode is not used and active corpus doesn't match `docs/`, run with a clear warning in stdout/JSON rather than silently claiming a baseline
 
 ### Backend compatibility handling
-- Always attempt requested benchmark modes, but report unsupported modes explicitly instead of failing entire run
-- Expected behavior:
-  - Chroma + GraphRAG enabled: benchmark all 5 modes (vector, bm25, hybrid, graph, multi)
-  - Chroma + GraphRAG disabled: `graph` marked unsupported; `multi` still measured
-  - PostgreSQL: `graph` marked unsupported; `multi` measured with note that graph contribution is skipped
-- `docs/BENCHMARKS.md` baseline tables must state backend and graph-enabled status
+- Multi-backend baseline with explicit unsupported/skipped rows — run on whatever backend is active
+- Mode support matrix (must be implemented in benchmark script as a data structure):
+  - Chroma + GraphRAG enabled: all 5 modes valid (vector, bm25, hybrid, graph, multi)
+  - Chroma + GraphRAG disabled: `graph` → row shows "UNSUPPORTED: requires GraphRAG"; `multi` → measured, valid
+  - PostgreSQL: `graph` → row shows "UNSUPPORTED: Chroma-only"; `multi` → measured, annotated "graph contribution absent"
+- Unsupported modes produce a status row in output, NOT a failure or skip — the benchmark always produces exactly 5 rows
+- `docs/BENCHMARKS.md` baseline tables must state backend, graph-enabled status, and annotate unsupported modes
 
 ### Pool timeout exposure
 - Add `pool_timeout: int = 30` to `PostgresConfig`
 - Pass `pool_timeout` into `create_async_engine(...)`
-- Extend `storage.factory` so `DATABASE_URL` override preserves YAML-provided `pool_timeout` (same pattern as `pool_size` and `pool_max_overflow`)
+- Extend `storage.factory` so `DATABASE_URL` override preserves YAML-provided `pool_timeout` (same pattern as `pool_size` and `pool_max_overflow`) — explicitly test the DATABASE_URL override path
 - Update example config and docs that already mention PostgreSQL pool settings
 
 ### Config schema validation — nested storage.postgres keys
@@ -50,7 +53,8 @@ Deliver a reproducible query benchmark workflow plus PostgreSQL pool timeout exp
 - This is NOT just appending pool_timeout — it's introducing proper nested key validation
 
 ### Documentation scope
-- Write `docs/BENCHMARKS.md` with baseline numbers and run metadata (date, OS, Python version, backend, graph state, iterations, warmups, corpus identity, chunk count)
+- Write `docs/BENCHMARKS.md` with baseline numbers and run metadata — MUST include: date, OS, Python version, backend type, graph-enabled state, corpus identity, chunk count, warmups, iterations
+- 45-03 docs step gates on captured metadata from benchmark JSON output, not just "live server run"
 - Update `docs/POSTGRESQL_SETUP.md` and any other config docs that mention pool sizing to include `pool_timeout`
 
 ### Claude's Discretion
