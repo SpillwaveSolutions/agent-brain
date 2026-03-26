@@ -43,6 +43,11 @@ class TestPostgresConfigDefaults:
         config = PostgresConfig()
         assert config.pool_max_overflow == 10
 
+    def test_default_pool_timeout(self) -> None:
+        """Default pool_timeout is 30."""
+        config = PostgresConfig()
+        assert config.pool_timeout == 30
+
     def test_default_hnsw_m(self) -> None:
         """Default HNSW m is 16."""
         config = PostgresConfig()
@@ -92,6 +97,7 @@ class TestPostgresConfigConnectionUrl:
             password="secret",
             pool_size=20,
             pool_max_overflow=5,
+            pool_timeout=60,
             hnsw_m=32,
             hnsw_ef_construction=128,
         )
@@ -101,6 +107,7 @@ class TestPostgresConfigConnectionUrl:
         assert config.user == "test_user"
         assert config.pool_size == 20
         assert config.pool_max_overflow == 5
+        assert config.pool_timeout == 60
         assert config.hnsw_m == 32
         assert config.hnsw_ef_construction == 128
 

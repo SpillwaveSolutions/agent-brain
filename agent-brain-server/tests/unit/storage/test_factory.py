@@ -90,3 +90,47 @@ def test_get_effective_backend_type_is_deterministic() -> None:
 
     assert backend1 == backend2
     assert backend1 in {"chroma", "postgres"}
+
+
+def test_database_url_preserves_yaml_pool_timeout() -> None:
+    """DATABASE_URL override preserves pool_timeout from YAML config.
+
+    When DATABASE_URL is set, the factory should use the connection URL from
+    the env var but preserve pool tunables (pool_size, pool_max_overflow,
+    pool_timeout) from the YAML config -- same pattern as pool_size and
+    pool_max_overflow.
+    """
+    from unittest.mock import MagicMock, patch
+
+    from agent_brain_server.storage.postgres import PostgresBackend
+
+    mock_provider_settings = MagicMock()
+    mock_provider_settings.storage.backend = "postgres"
+    mock_provider_settings.storage.postgres = {
+        "host": "localhost",
+        "port": 5432,
+        "database": "agent_brain",
+        "user": "agent_brain",
+        "password": "",
+        "pool_size": 20,
+        "pool_max_overflow": 5,
+        "pool_timeout": 45,
+    }
+
+    reset_storage_backend_cache()
+
+    with (
+        patch(
+            "agent_brain_server.storage.factory.settings"
+        ) as mock_settings,
+        patch(
+            "agent_brain_server.storage.factory.load_provider_settings",
+            return_value=mock_provider_settings,
+        ),
+        patch.dict("os.environ", {"DATABASE_URL": "postgresql://user:pass@db:5432/mydb"}),
+    ):
+        mock_settings.AGENT_BRAIN_STORAGE_BACKEND = ""
+        backend = get_storage_backend()
+
+    assert isinstance(backend, PostgresBackend)
+    assert backend.config.pool_timeout == 45

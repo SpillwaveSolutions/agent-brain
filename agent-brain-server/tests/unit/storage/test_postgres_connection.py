@@ -50,6 +50,7 @@ class TestInitialize:
         call_kwargs = mock_create.call_args[1]
         assert call_kwargs["pool_size"] == 10
         assert call_kwargs["max_overflow"] == 10
+        assert call_kwargs["pool_timeout"] == 30
         assert call_kwargs["pool_pre_ping"] is True
         assert call_kwargs["pool_recycle"] == 3600
 
