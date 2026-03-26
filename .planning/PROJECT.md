@@ -129,11 +129,12 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ## Context
 
-**Current State (v9.5.0 in progress, 2026-03-25):**
-- Phase 43 complete: OpenCode installer now produces reference-quality output — singular dirs, agent frontmatter conversion (hex colors, tools boolean object, subagent_type mapping), path rewriting, opencode.json with permission pre-auth, idempotent install
+**Current State (v9.5.0 in progress, 2026-03-26):**
+- Phase 44 complete: Config validation tooling — `config validate` (schema check with line numbers + fix suggestions), `config migrate` (versioned upgrades), `config diff` (colored preview), wizard warns on invalid config
+- Phase 43 complete: OpenCode installer reference-quality output — singular dirs, agent frontmatter conversion, path rewriting, opencode.json with permission pre-auth
 - Phase 42 complete: Object Pascal AST-aware ingestion (.pas/.pp/.dpr/.dpk)
 - Phase 41 complete: Bug fixes — 120s start timeout, state_dir path resolution, ChromaDB telemetry suppression, Gemini google-genai migration
-- 1308 tests passing (1001 server + 307 CLI)
+- 1356 tests passing (1001 server + 355 CLI)
 - Dual-backend architecture: ChromaDB (default) + PostgreSQL (optional)
 - Folder management: list, add, remove indexed folders via CLI/API
 - File type presets: 11 built-in presets for `--include-type` shorthand
@@ -197,4 +198,4 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 | eviction_summary as dict[str, Any] on JobRecord | Pydantic-friendly serialization, no server import in CLI | ✓ Good |
 
 ---
-*Last updated: 2026-03-25 after Phase 43 completion*
+*Last updated: 2026-03-26 after Phase 44 completion*
