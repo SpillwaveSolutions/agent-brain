@@ -165,7 +165,7 @@ Plans:
 | 41. Bug Fixes & Reliability | 1/1 | Complete    | 2026-03-24 |
 | 42. Object Pascal Language Support | 0/1 | Complete    | 2026-03-25 |
 | 43. OpenCode Installer Improvements | 2/2 | Complete    | 2026-03-25 |
-| 44. Config Validation Tooling | 0/1 | Not started | - |
+| 44. Config Validation Tooling | 0/2 | Not started | - |
 | 45. Performance Benchmarking | 0/1 | Not started | - |
 
 ## Phase Details
@@ -194,7 +194,11 @@ Plans:
   1. Running `agent-brain index /path/to/pascal-project` indexes `.pas`, `.pp`, `.dpr`, and `.dpk` files without errors
   2. Querying against indexed Pascal code returns results scoped to functions, procedures, and classes (not arbitrary byte ranges)
   3. `agent-brain index /path --include-type object-pascal` correctly filters to Pascal file extensions using the built-in preset
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 44-01-PLAN.md — Config schema validation engine + validate CLI command
+- [ ] 44-02-PLAN.md — Migration engine + migrate/diff commands + wizard integration
 
 ---
 
@@ -226,7 +230,11 @@ Plans:
   3. `agent-brain config migrate` upgrades a config file from an older schema version to the current schema without requiring manual edits
   4. `agent-brain config diff` shows a colored diff of what the migration would change before applying it
   5. The setup wizard warns the user and pauses when it detects an invalid config, preventing a broken server start
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 44-01-PLAN.md — Config schema validation engine + validate CLI command
+- [ ] 44-02-PLAN.md — Migration engine + migrate/diff commands + wizard integration
 
 ---
 
@@ -238,8 +246,12 @@ Plans:
   1. A benchmark script exists that measures query latency across all retrieval modes (vector, bm25, hybrid, graph, multi) against a reference dataset
   2. `config.yaml` accepts a `storage.postgres.pool` section with documented keys (pool_size, max_overflow, pool_timeout) that are applied to the async SQLAlchemy engine
   3. A `docs/BENCHMARKS.md` file records baseline latency numbers for the reference dataset so regressions can be detected
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 44-01-PLAN.md — Config schema validation engine + validate CLI command
+- [ ] 44-02-PLAN.md — Migration engine + migrate/diff commands + wizard integration
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-25 — Phase 43 planned (2 plans)*
+*Last updated: 2026-03-25 — Phase 44 planned (2 plans)*
