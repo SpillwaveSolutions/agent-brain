@@ -11,9 +11,9 @@ Requirements for v9.5.0 milestone. Each maps to roadmap phases.
 
 - [x] **CFGVAL-01**: User can run `agent-brain config validate` to check config.yaml correctness against schema
 - [x] **CFGVAL-02**: Validation reports specific errors with line numbers and fix suggestions
-- [ ] **CFGVAL-03**: User can run config migration tool to upgrade between schema versions
-- [ ] **CFGVAL-04**: User can see interactive config diff showing what changed between versions
-- [ ] **CFGVAL-05**: Config validate integrates with setup wizard (warn on invalid config before proceeding)
+- [x] **CFGVAL-03**: User can run config migration tool to upgrade between schema versions
+- [x] **CFGVAL-04**: User can see interactive config diff showing what changed between versions
+- [x] **CFGVAL-05**: Config validate integrates with setup wizard (warn on invalid config before proceeding)
 
 ### Language Support
 
@@ -86,9 +86,9 @@ Deferred to future release.
 | OCDI-06 | Phase 43 | Complete |
 | CFGVAL-01 | Phase 44 | Complete |
 | CFGVAL-02 | Phase 44 | Complete |
-| CFGVAL-03 | Phase 44 | Pending |
-| CFGVAL-04 | Phase 44 | Pending |
-| CFGVAL-05 | Phase 44 | Pending |
+| CFGVAL-03 | Phase 44 | Complete |
+| CFGVAL-04 | Phase 44 | Complete |
+| CFGVAL-05 | Phase 44 | Complete |
 | PERF-01 | Phase 45 | Pending |
 | PERF-02 | Phase 45 | Pending |
 | PERF-03 | Phase 45 | Pending |

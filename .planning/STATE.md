@@ -4,13 +4,13 @@ milestone: v3.0
 milestone_name: milestone
 current_phase: 44
 status: executing
-stopped_at: Completed 44-01-PLAN.md
-last_updated: "2026-03-26T02:33:55.834Z"
+stopped_at: Completed 44-02-PLAN.md
+last_updated: "2026-03-26T02:38:56.798Z"
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 5
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Agent Brain — Project State
@@ -53,7 +53,7 @@ v9.5.0 Config Val & Lang:   [          ]   0% (0/5 phases)
 | 41 | Bug Fixes & Reliability | BUGFIX-01..04 | Complete |
 | 42 | Object Pascal Language Support | LANG-01..03 | Not started |
 | 43 | OpenCode Installer Improvements | OCDI-01..06 | Complete |
-| 44 | Config Validation Tooling | CFGVAL-01..05 | Not started |
+| 44 | Config Validation Tooling | CFGVAL-01..05 | Complete |
 | 45 | Performance Benchmarking | PERF-01..03 | Not started |
 
 ## Accumulated Context
@@ -84,6 +84,9 @@ v9.5.0 Config Val & Lang:   [          ]   0% (0/5 phases)
 - [Phase 44-01]: Used dataclass (not Pydantic) for ConfigValidationError to keep validation engine zero-dependency from server package.
 - [Phase 44-01]: validate_config_dict accepts dict (no line numbers); validate_config_file reads raw text, calls dict validator, enriches errors with line numbers via _find_line_number.
 - [Phase 44-01]: JSON mode for 'config validate' outputs valid=None when no config found, distinguishing 'file absent' from 'file invalid'.
+- [Phase 44-02]: Used MIGRATIONS list of callables for extensibility — adding new migrations is a single list append.
+- [Phase 44-02]: diff_config operates on dicts and calls migrate_config internally — single source of truth for migration logic.
+- [Phase 44-02]: Wizard validation added at START (existing config) and END (post-write) to cover upgrade and first-run scenarios.
 
 ### Blockers/Concerns
 
@@ -94,13 +97,13 @@ None.
 - Phase 41: DONE — BUGFIX-01 locked, BUGFIX-02 fixed, BUGFIX-03 locked, BUGFIX-04 locked
 - Phase 42: Apply Object Pascal tree-sitter support (PR #115 or manual equivalent)
 - Phase 43: DONE — all 8 gaps closed (OCDI-01..06 marked complete)
-- Phase 44: Plan 01 DONE — config validate command + schema engine. Plan 02 pending.
+- Phase 44: DONE — Plan 01 (validate command + schema engine) + Plan 02 (migrate/diff commands + wizard integration).
 - Phase 45: Define benchmark dataset, create benchmark script, document results
 
 ## Session Continuity
 
-**Last Session:** 2026-03-26T02:33:55.832Z
-**Stopped At:** Completed 44-01-PLAN.md
+**Last Session:** 2026-03-26T02:38:56Z
+**Stopped At:** Completed 44-02-PLAN.md
 **Resume File:** None
 **Next Action:** Run `/gsd:execute-phase 42` to begin Phase 42 (Object Pascal Language Support)
 
