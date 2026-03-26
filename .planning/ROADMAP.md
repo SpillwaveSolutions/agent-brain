@@ -166,7 +166,7 @@ Plans:
 | 42. Object Pascal Language Support | 0/1 | Complete    | 2026-03-25 |
 | 43. OpenCode Installer Improvements | 2/2 | Complete    | 2026-03-25 |
 | 44. Config Validation Tooling | 2/2 | Complete    | 2026-03-26 |
-| 45. Performance Benchmarking | 0/1 | Not started | - |
+| 45. Performance Benchmarking | 0/3 | Not started | - |
 
 ## Phase Details
 
@@ -239,19 +239,20 @@ Plans:
 ---
 
 ### Phase 45: Performance Benchmarking
-**Goal**: Query performance is measured and documented, and PostgreSQL connection pool settings are tunable
+**Goal**: Reproducible query benchmark workflow with per-mode latency metrics, PostgreSQL pool timeout exposure, and baseline documentation
 **Depends on**: Phase 42, Phase 43, Phase 44
 **Requirements**: PERF-01, PERF-02, PERF-03
 **Success Criteria** (what must be TRUE):
   1. A benchmark script exists that measures query latency across all retrieval modes (vector, bm25, hybrid, graph, multi) against a reference dataset
   2. `config.yaml` accepts a `storage.postgres.pool` section with documented keys (pool_size, max_overflow, pool_timeout) that are applied to the async SQLAlchemy engine
   3. A `docs/BENCHMARKS.md` file records baseline latency numbers for the reference dataset so regressions can be detected
-**Plans**: 2 plans
+**Plans**: 3 plans
 
 Plans:
-- [ ] 44-01-PLAN.md — Config schema validation engine + validate CLI command
-- [ ] 44-02-PLAN.md — Migration engine + migrate/diff commands + wizard integration
+- [ ] 45-01-PLAN.md — Pool timeout config + nested storage.postgres.* schema validation
+- [ ] 45-02-PLAN.md — Benchmark runner script with preflight, setup mode, and helpers
+- [ ] 45-03-PLAN.md — Baseline documentation (BENCHMARKS.md) + config docs updates
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-25 — Phase 44 planned (2 plans)*
+*Last updated: 2026-03-26 — Phase 45 planned (3 plans)*
