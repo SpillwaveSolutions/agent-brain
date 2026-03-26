@@ -3,33 +3,33 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
 current_phase: 44
-status: planning
-stopped_at: Completed 43-02-PLAN.md
-last_updated: "2026-03-25T22:29:25.521Z"
+status: executing
+stopped_at: Completed 44-01-PLAN.md
+last_updated: "2026-03-26T02:33:55.834Z"
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 3
-  completed_plans: 4
+  total_plans: 5
+  completed_plans: 5
 ---
 
 # Agent Brain — Project State
 
 **Last Updated:** 2026-03-24
 **Current Milestone:** v9.5.0 Config Validation & Language Support
-**Status:** Ready to plan
+**Status:** Executing Phase 44
 **Current Phase:** 44
 
 ## Current Position
 
-Phase: 43 (opencode-installer-improvements) — COMPLETE
-Plan: 2 of 2 (all plans complete)
+Phase: 44 (config-validation-tooling) — EXECUTING
+Plan: 2 of 2
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-03-23)
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Phase 43 — opencode-installer-improvements
+**Current focus:** Phase 44 — config-validation-tooling
 
 ## Milestone Summary
 
@@ -81,6 +81,9 @@ v9.5.0 Config Val & Lang:   [          ]   0% (0/5 phases)
 - [Phase 43]: Add .agent-brain/* permission entries in opencode.json alongside plugin path for state dir access.
 - [Phase 43-02]: Use .opencode/plugins/agent-brain test structure (not simplified plugins/agent-brain) — matches target_dir.parent.parent opencode.json placement.
 - [Phase 43-02]: OPENCODE_TOOLS is a superset of CLAUDE_TOOLS (adds AskUserQuestion, SkillTool, TodoWrite); test_all_maps_have_same_keys updated to issubset check.
+- [Phase 44-01]: Used dataclass (not Pydantic) for ConfigValidationError to keep validation engine zero-dependency from server package.
+- [Phase 44-01]: validate_config_dict accepts dict (no line numbers); validate_config_file reads raw text, calls dict validator, enriches errors with line numbers via _find_line_number.
+- [Phase 44-01]: JSON mode for 'config validate' outputs valid=None when no config found, distinguishing 'file absent' from 'file invalid'.
 
 ### Blockers/Concerns
 
@@ -91,13 +94,13 @@ None.
 - Phase 41: DONE — BUGFIX-01 locked, BUGFIX-02 fixed, BUGFIX-03 locked, BUGFIX-04 locked
 - Phase 42: Apply Object Pascal tree-sitter support (PR #115 or manual equivalent)
 - Phase 43: DONE — all 8 gaps closed (OCDI-01..06 marked complete)
-- Phase 44: Design config validate/migrate/diff subcommands with schema introspection
+- Phase 44: Plan 01 DONE — config validate command + schema engine. Plan 02 pending.
 - Phase 45: Define benchmark dataset, create benchmark script, document results
 
 ## Session Continuity
 
-**Last Session:** 2026-03-25T22:26:31.313Z
-**Stopped At:** Completed 43-02-PLAN.md
+**Last Session:** 2026-03-26T02:33:55.832Z
+**Stopped At:** Completed 44-01-PLAN.md
 **Resume File:** None
 **Next Action:** Run `/gsd:execute-phase 42` to begin Phase 42 (Object Pascal Language Support)
 
