@@ -249,10 +249,10 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 45-01-PLAN.md — Pool timeout config + nested storage.postgres.* schema validation
-- [ ] 45-02-PLAN.md — Benchmark runner script with preflight, setup mode, and helpers
-- [ ] 45-03-PLAN.md — Baseline documentation (BENCHMARKS.md) + config docs updates
+- [ ] 45-01-PLAN.md — Nested storage.postgres.* config schema validation + pool_timeout docs
+- [ ] 45-02-PLAN.md — Benchmark mode support matrix + helper unit tests
+- [ ] 45-03-PLAN.md — Baseline benchmark run + BENCHMARKS.md documentation
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-26 — Phase 45 planned (3 plans)*
+*Last updated: 2026-03-26 — Phase 45 replanned (3 plans)*
