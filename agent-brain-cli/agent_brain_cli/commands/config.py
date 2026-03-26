@@ -12,6 +12,10 @@ import yaml
 from rich.console import Console
 from rich.table import Table
 
+from agent_brain_cli.config_schema import (
+    format_validation_errors,
+    validate_config_file,
+)
 from agent_brain_cli.xdg_paths import get_xdg_config_dir
 
 console = Console()
@@ -408,3 +412,74 @@ def config_path(json_output: bool) -> None:
         console.print(f"[green]{config_path}[/]")
     else:
         console.print("[yellow]No config file found[/]")
+
+
+@config_group.command("validate")
+@click.option(
+    "--file",
+    "config_file",
+    type=click.Path(exists=True),
+    default=None,
+    help="Path to config file (default: auto-detect)",
+)
+@click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+def validate_config(config_file: str | None, json_output: bool) -> None:
+    """Validate config.yaml against the Agent Brain schema.
+
+    Checks for unknown keys, invalid provider values, deprecated fields,
+    and type errors. Reports line numbers and fix suggestions.
+
+    \b
+    Examples:
+      agent-brain config validate
+      agent-brain config validate --file ./my-config.yaml
+      agent-brain config validate --json
+    """
+    if config_file is not None:
+        path: Path | None = Path(config_file)
+    else:
+        path = _find_config_file()
+
+    if path is None:
+        if json_output:
+            click.echo(
+                json.dumps(
+                    {
+                        "valid": None,
+                        "config_file": None,
+                        "errors": [],
+                        "message": "No config file found",
+                    }
+                )
+            )
+        else:
+            console.print("[yellow]No config file found. Nothing to validate.[/]")
+        sys.exit(0)
+
+    errors = validate_config_file(path)
+
+    if json_output:
+        output: dict[str, Any] = {
+            "valid": len(errors) == 0,
+            "config_file": str(path),
+            "errors": [
+                {
+                    "field": e.field,
+                    "message": e.message,
+                    "line_number": e.line_number,
+                    "suggestion": e.suggestion,
+                }
+                for e in errors
+            ],
+        }
+        click.echo(json.dumps(output, indent=2))
+        if errors:
+            sys.exit(1)
+        return
+
+    if not errors:
+        console.print(f"[green]Config is valid[/] ({path})")
+        sys.exit(0)
+
+    console.print(format_validation_errors(errors))
+    sys.exit(1)
