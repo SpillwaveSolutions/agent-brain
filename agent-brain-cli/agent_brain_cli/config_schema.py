@@ -59,6 +59,32 @@ RERANKER_KNOWN_FIELDS = {
     "params",
 }
 STORAGE_KNOWN_FIELDS = {"backend", "postgres"}
+POSTGRES_KNOWN_FIELDS = {
+    "host",
+    "port",
+    "database",
+    "user",
+    "password",
+    "pool_size",
+    "pool_max_overflow",
+    "pool_timeout",
+    "language",
+    "hnsw_m",
+    "hnsw_ef_construction",
+    "debug",
+}
+POSTGRES_TYPE_FIELDS: dict[str, tuple[type, str]] = {
+    "port": (int, "storage.postgres.port must be an integer"),
+    "pool_size": (int, "storage.postgres.pool_size must be an integer"),
+    "pool_max_overflow": (int, "storage.postgres.pool_max_overflow must be an integer"),
+    "pool_timeout": (int, "storage.postgres.pool_timeout must be an integer"),
+    "hnsw_m": (int, "storage.postgres.hnsw_m must be an integer"),
+    "hnsw_ef_construction": (
+        int,
+        "storage.postgres.hnsw_ef_construction must be an integer",
+    ),
+    "debug": (bool, "storage.postgres.debug must be a boolean (true/false)"),
+}
 GRAPHRAG_KNOWN_FIELDS = {
     "enabled",
     "store_type",
@@ -343,6 +369,41 @@ def validate_config_dict(
                         ),
                     )
                 )
+
+    # 2d. Nested storage.postgres.* key validation
+    storage_section = config.get("storage")
+    if isinstance(storage_section, dict):
+        postgres_data = storage_section.get("postgres")
+        if isinstance(postgres_data, dict):
+            for pg_key in postgres_data:
+                if pg_key not in POSTGRES_KNOWN_FIELDS:
+                    errors.append(
+                        ConfigValidationError(
+                            field=f"storage.postgres.{pg_key}",
+                            message=f"Unknown key '{pg_key}' in storage.postgres",
+                            line_number=None,
+                            suggestion=(
+                                f"Remove '{pg_key}' or check for a typo. "
+                                "Known fields: "
+                                f"{', '.join(sorted(POSTGRES_KNOWN_FIELDS))}"
+                            ),
+                        )
+                    )
+            # Type validation for postgres sub-keys
+            for type_key, (expected_type, type_msg) in POSTGRES_TYPE_FIELDS.items():
+                value = postgres_data.get(type_key)
+                if value is not None and not isinstance(value, expected_type):
+                    errors.append(
+                        ConfigValidationError(
+                            field=f"storage.postgres.{type_key}",
+                            message=type_msg,
+                            line_number=None,
+                            suggestion=(
+                                f"Change '{type_key}' to a"
+                                f" {expected_type.__name__} value."
+                            ),
+                        )
+                    )
 
     # 3. Check deprecated keys
     for deprecated_path, migration_hint in DEPRECATED_KEYS.items():
