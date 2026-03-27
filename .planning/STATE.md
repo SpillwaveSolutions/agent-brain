@@ -4,13 +4,13 @@ milestone: v3.0
 milestone_name: milestone
 current_phase: 45
 status: executing
-stopped_at: Completed 45-01-PLAN.md
-last_updated: "2026-03-26T21:58:23.161Z"
+stopped_at: Completed 45-02-PLAN.md
+last_updated: "2026-03-27T18:48:07.153Z"
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Agent Brain — Project State
@@ -23,7 +23,7 @@ progress:
 ## Current Position
 
 Phase: 45 (performance-benchmarking) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 
 ## Project Reference
 
@@ -54,7 +54,7 @@ v9.5.0 Config Val & Lang:   [          ]   0% (0/5 phases)
 | 42 | Object Pascal Language Support | LANG-01..03 | Not started |
 | 43 | OpenCode Installer Improvements | OCDI-01..06 | Complete |
 | 44 | Config Validation Tooling | CFGVAL-01..05 | Complete |
-| 45 | Performance Benchmarking | PERF-01..03 | In Progress (1/3 plans done) |
+| 45 | Performance Benchmarking | PERF-01..03 | In Progress (2/3 plans done) |
 
 ## Accumulated Context
 
@@ -88,6 +88,8 @@ v9.5.0 Config Val & Lang:   [          ]   0% (0/5 phases)
 - [Phase 44-02]: diff_config operates on dicts and calls migrate_config internally — single source of truth for migration logic.
 - [Phase 44-02]: Wizard validation added at START (existing config) and END (post-write) to cover upgrade and first-run scenarios.
 - [Phase 45-01]: Added POSTGRES_KNOWN_FIELDS allowlist (12 keys) + step 2d nested validation in validate_config_dict; type-checked 7 postgres sub-keys; pool_timeout documented in POSTGRESQL_SETUP.md and CONFIGURATION.md.
+- [Phase 45-02]: MODE_SUPPORT_MATRIX is a named dict data structure (4 backend/graph configs x 5 modes) rather than implicit HTTP error detection for unsupported modes.
+- [Phase 45-02]: Benchmark loop always iterates DEFAULT_MODES to guarantee exactly 5 rows; user --modes flag produces "skipped" status for excluded modes (distinct from "unsupported").
 
 ### Blockers/Concerns
 
@@ -99,12 +101,12 @@ None.
 - Phase 42: Apply Object Pascal tree-sitter support (PR #115 or manual equivalent)
 - Phase 43: DONE — all 8 gaps closed (OCDI-01..06 marked complete)
 - Phase 44: DONE — Plan 01 (validate command + schema engine) + Plan 02 (migrate/diff commands + wizard integration).
-- Phase 45: Plan 01 DONE — nested postgres key validation + pool_timeout docs. Plans 02-03 pending (benchmark script + BENCHMARKS.md).
+- Phase 45: Plan 01 DONE — nested postgres key validation + pool_timeout docs. Plan 02 DONE — MODE_SUPPORT_MATRIX + 36 benchmark helper unit tests. Plan 03 pending (BENCHMARKS.md baseline documentation).
 
 ## Session Continuity
 
-**Last Session:** 2026-03-26T21:58:23.158Z
-**Stopped At:** Completed 45-01-PLAN.md
+**Last Session:** 2026-03-27T18:48:07.150Z
+**Stopped At:** Completed 45-02-PLAN.md
 **Resume File:** None
 **Next Action:** Run `/gsd:execute-phase 45` to continue Phase 45 Plan 02 (benchmark script)
 
