@@ -245,7 +245,7 @@ def run_preflight(server_url: str) -> dict[str, Any]:
 
     # 1. Server reachable
     try:
-        resp = httpx.get(f"{server_url}/health", timeout=10.0)
+        resp = httpx.get(f"{server_url}/health/", timeout=10.0)
         resp.raise_for_status()
         health_data = resp.json()
     except httpx.ConnectError:
@@ -302,7 +302,7 @@ def run_preflight(server_url: str) -> dict[str, Any]:
     # 4. Indexed folders
     folders: list[str] = []
     try:
-        folders_resp = httpx.get(f"{server_url}/folders", timeout=10.0)
+        folders_resp = httpx.get(f"{server_url}/index/folders/", timeout=10.0)
         if folders_resp.status_code == 200:
             folders_data = folders_resp.json()
             folders = [f.get("folder_path", "") for f in folders_data.get("folders", [])]
@@ -353,7 +353,7 @@ def prepare_docs_corpus(server_url: str, docs_path: str) -> None:
     # Reset index
     console.print("  Clearing index...")
     try:
-        del_resp = httpx.delete(f"{server_url}/index", timeout=30.0)
+        del_resp = httpx.delete(f"{server_url}/index/", timeout=30.0)
         del_resp.raise_for_status()
         console.print("  [green]Index cleared.[/]")
     except Exception as exc:
@@ -363,7 +363,8 @@ def prepare_docs_corpus(server_url: str, docs_path: str) -> None:
     console.print(f"  Starting indexing of {docs_path}...")
     try:
         idx_resp = httpx.post(
-            f"{server_url}/index",
+            f"{server_url}/index/",
+            params={"allow_external": "true"},
             json={"folder_path": docs_path},
             timeout=30.0,
         )
@@ -439,7 +440,7 @@ def benchmark_mode(
         payload = {"query": query, "mode": mode, "top_k": 5}
         start = time.perf_counter()
         resp = httpx.post(
-            f"{server_url}/query",
+            f"{server_url}/query/",
             json=payload,
             timeout=30.0,
         )
@@ -480,7 +481,7 @@ def benchmark_mode(
             # Unsupported mode — extract reason from response body if possible
             try:
                 err_data = httpx.post(
-                    f"{server_url}/query",
+                    f"{server_url}/query/",
                     json={"query": q, "mode": mode, "top_k": 5},
                     timeout=30.0,
                 ).json()
@@ -726,10 +727,15 @@ def main() -> None:
         for warn in preflight["warnings"]:
             console.print(f"[yellow]WARNING:[/] {warn}")
 
-    # Build metadata
+    # Build metadata — merge preflight-resolved backend/graph info into
+    # health_data so build_run_metadata can read them (the basic /health/
+    # endpoint does not expose storage_backend or graph_enabled directly).
+    merged_health = dict(preflight["health_data"])
+    merged_health["storage_backend"] = preflight["backend"]
+    merged_health["graph_enabled"] = preflight["graph_enabled"]
     metadata = build_run_metadata(
         server_url=args.server_url,
-        health_data=preflight["health_data"],
+        health_data=merged_health,
         chunk_count=preflight["chunk_count"],
         iterations=args.iterations,
         warmups=args.warmups,
