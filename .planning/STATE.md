@@ -4,13 +4,13 @@ milestone: v3.0
 milestone_name: milestone
 current_phase: 45
 status: executing
-stopped_at: Completed 45-02-PLAN.md
-last_updated: "2026-03-27T18:48:07.153Z"
+stopped_at: "Completed 45-03-PLAN.md (checkpoint:human-verify for BENCHMARKS.md review)"
+last_updated: "2026-03-29T01:40:42.101Z"
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 8
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Agent Brain — Project State
@@ -90,6 +90,7 @@ v9.5.0 Config Val & Lang:   [          ]   0% (0/5 phases)
 - [Phase 45-01]: Added POSTGRES_KNOWN_FIELDS allowlist (12 keys) + step 2d nested validation in validate_config_dict; type-checked 7 postgres sub-keys; pool_timeout documented in POSTGRESQL_SETUP.md and CONFIGURATION.md.
 - [Phase 45-02]: MODE_SUPPORT_MATRIX is a named dict data structure (4 backend/graph configs x 5 modes) rather than implicit HTTP error detection for unsupported modes.
 - [Phase 45-02]: Benchmark loop always iterates DEFAULT_MODES to guarantee exactly 5 rows; user --modes flag produces "skipped" status for excluded modes (distinct from "unsupported").
+- [Phase 45-03]: Benchmark script URL routing requires trailing slashes (/health/, /index/, /query/) to match FastAPI router prefixes; /index/folders/ is the correct folders endpoint (not /folders); --prepare-docs-corpus needs allow_external=true when server runs in a different project context; preflight backend/graph_enabled must be merged into health_data before build_run_metadata to avoid "unknown" defaults.
 
 ### Blockers/Concerns
 
@@ -101,12 +102,12 @@ None.
 - Phase 42: Apply Object Pascal tree-sitter support (PR #115 or manual equivalent)
 - Phase 43: DONE — all 8 gaps closed (OCDI-01..06 marked complete)
 - Phase 44: DONE — Plan 01 (validate command + schema engine) + Plan 02 (migrate/diff commands + wizard integration).
-- Phase 45: Plan 01 DONE — nested postgres key validation + pool_timeout docs. Plan 02 DONE — MODE_SUPPORT_MATRIX + 36 benchmark helper unit tests. Plan 03 pending (BENCHMARKS.md baseline documentation).
+- Phase 45: DONE — Plan 01 (nested postgres key validation + pool_timeout docs), Plan 02 (MODE_SUPPORT_MATRIX + 36 unit tests), Plan 03 (BENCHMARKS.md baseline — awaiting human verify checkpoint).
 
 ## Session Continuity
 
-**Last Session:** 2026-03-27T18:48:07.150Z
-**Stopped At:** Completed 45-02-PLAN.md
+**Last Session:** 2026-03-29T01:40:42.099Z
+**Stopped At:** Completed 45-03-PLAN.md (checkpoint:human-verify for BENCHMARKS.md review)
 **Resume File:** None
 **Next Action:** Run `/gsd:execute-phase 45` to continue Phase 45 Plan 02 (benchmark script)
 

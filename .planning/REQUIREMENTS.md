@@ -34,7 +34,7 @@ Requirements for v9.5.0 milestone. Each maps to roadmap phases.
 
 - [x] **PERF-01**: Query performance benchmark suite exists measuring latency across retrieval modes
 - [x] **PERF-02**: PostgreSQL connection pool settings are tunable via config.yaml with documented defaults
-- [ ] **PERF-03**: Benchmark results documented with baseline numbers for reference datasets
+- [x] **PERF-03**: Benchmark results documented with baseline numbers for reference datasets
 
 ### Bug Fixes
 
@@ -91,7 +91,7 @@ Deferred to future release.
 | CFGVAL-05 | Phase 44 | Complete |
 | PERF-01 | Phase 45 | Complete |
 | PERF-02 | Phase 45 | Complete |
-| PERF-03 | Phase 45 | Pending |
+| PERF-03 | Phase 45 | Complete |
 
 **Coverage:**
 - v1 requirements: 21 total
