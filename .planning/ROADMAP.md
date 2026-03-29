@@ -251,7 +251,7 @@ Plans:
 Plans:
 - [ ] 45-01-PLAN.md — Nested storage.postgres.* config schema validation + pool_timeout docs
 - [ ] 45-02-PLAN.md — Benchmark mode support matrix + helper unit tests
-- [ ] 45-03-PLAN.md — Baseline benchmark run + BENCHMARKS.md documentation
+- [x] 45-03-PLAN.md — Baseline benchmark run + BENCHMARKS.md documentation
 
 ---
 *Roadmap created: 2026-02-07*
