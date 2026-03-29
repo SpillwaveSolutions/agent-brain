@@ -129,12 +129,13 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ## Context
 
-**Current State (v9.5.0 in progress, 2026-03-26):**
-- Phase 44 complete: Config validation tooling — `config validate` (schema check with line numbers + fix suggestions), `config migrate` (versioned upgrades), `config diff` (colored preview), wizard warns on invalid config
-- Phase 43 complete: OpenCode installer reference-quality output — singular dirs, agent frontmatter conversion, path rewriting, opencode.json with permission pre-auth
-- Phase 42 complete: Object Pascal AST-aware ingestion (.pas/.pp/.dpr/.dpk)
-- Phase 41 complete: Bug fixes — 120s start timeout, state_dir path resolution, ChromaDB telemetry suppression, Gemini google-genai migration
-- 1356 tests passing (1001 server + 355 CLI)
+**Current State (v9.5.0 COMPLETE, 2026-03-29):**
+- Phase 45 complete: Performance benchmarking — reproducible query benchmark script with MODE_SUPPORT_MATRIX, fixed query set, --prepare-docs-corpus, dual timing (client + server), nested storage.postgres.* config validation, pool_timeout tunability, BENCHMARKS.md with real baseline (5-10ms p50 on Chroma, 95-188 QPS)
+- Phase 44 complete: Config validation tooling — config validate/migrate/diff commands, wizard warns on invalid config
+- Phase 43 complete: OpenCode installer reference-quality output
+- Phase 42 complete: Object Pascal AST-aware ingestion
+- Phase 41 complete: Bug fixes — 120s start timeout, state_dir resolution, ChromaDB telemetry, Gemini migration
+- 1392+ tests passing (1001 server + 391 CLI)
 - Dual-backend architecture: ChromaDB (default) + PostgreSQL (optional)
 - Folder management: list, add, remove indexed folders via CLI/API
 - File type presets: 11 built-in presets for `--include-type` shorthand
@@ -198,4 +199,4 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 | eviction_summary as dict[str, Any] on JobRecord | Pydantic-friendly serialization, no server import in CLI | ✓ Good |
 
 ---
-*Last updated: 2026-03-26 after Phase 44 completion*
+*Last updated: 2026-03-29 after v9.5.0 milestone completion*
