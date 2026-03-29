@@ -166,7 +166,7 @@ Plans:
 | 42. Object Pascal Language Support | 0/1 | Complete    | 2026-03-25 |
 | 43. OpenCode Installer Improvements | 2/2 | Complete    | 2026-03-25 |
 | 44. Config Validation Tooling | 2/2 | Complete    | 2026-03-26 |
-| 45. Performance Benchmarking | 3/3 | Complete   | 2026-03-29 |
+| 45. Performance Benchmarking | 3/3 | Complete    | 2026-03-29 |
 
 ## Phase Details
 
