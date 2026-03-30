@@ -17,9 +17,9 @@ Requirements for v9.5.0 milestone. Each maps to roadmap phases.
 
 ### Language Support
 
-- [ ] **LANG-01**: Object Pascal files (.pas, .pp, .dpr, .dpk) are ingested with AST-aware chunking
-- [ ] **LANG-02**: Object Pascal support includes function/procedure/class extraction via tree-sitter
-- [ ] **LANG-03**: File type presets include an `object-pascal` preset for --include-type shorthand
+- [x] **LANG-01**: Object Pascal files (.pas, .pp, .dpr, .dpk) are ingested with AST-aware chunking
+- [x] **LANG-02**: Object Pascal support includes function/procedure/class extraction via tree-sitter
+- [x] **LANG-03**: File type presets include an `object-pascal` preset for --include-type shorthand
 
 ### OpenCode Installer
 
@@ -75,9 +75,9 @@ Deferred to future release.
 | BUGFIX-02 | Phase 41 | Complete |
 | BUGFIX-03 | Phase 41 | Complete |
 | BUGFIX-04 | Phase 41 | Complete |
-| LANG-01 | Phase 42 | Pending |
-| LANG-02 | Phase 42 | Pending |
-| LANG-03 | Phase 42 | Pending |
+| LANG-01 | Phase 42 | Complete |
+| LANG-02 | Phase 42 | Complete |
+| LANG-03 | Phase 42 | Complete |
 | OCDI-01 | Phase 43 | Complete |
 | OCDI-02 | Phase 43 | Complete |
 | OCDI-03 | Phase 43 | Complete |
