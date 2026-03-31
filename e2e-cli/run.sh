@@ -64,6 +64,7 @@ export ADAPTER_NAME
 # ---------------------------------------------------------------------------
 source "$E2E_ROOT/lib/harness.sh"
 source "$E2E_ROOT/lib/report.sh"
+source "$E2E_ROOT/lib/runtime_parity.sh"
 
 # ---------------------------------------------------------------------------
 # Load adapter

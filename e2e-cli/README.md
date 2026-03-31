@@ -105,6 +105,23 @@ Use assertion helpers from `lib/harness.sh`:
 
 Each scenario runs in an isolated workspace under `.runs/<run-id>/<adapter>/<scenario>/`. On success, workspaces are cleaned up. On failure, they are preserved with full logs for debugging.
 
+## Runtime Parity Harness
+
+Runtime parity phases reuse the existing `e2e-cli/` harness instead of creating a
+second framework.
+
+- Checked-in fixture template: `e2e-cli/fixtures/runtime-project-template/`
+- Disposable project copy: `e2e-cli/.runs/<run-id>/<adapter>/<scenario>/project/`
+- Allowed install shape: `agent-brain install-agent --agent <runtime> --project --path <workspace> --json`
+- Success cleanup removes only the disposable `project/` copy and keeps scenario
+  logs plus future status artifacts in the scenario root
+- Failure cleanup preserves the repo-owned scenario root for debugging and must
+  never mutate checked-in fixture sources or user-global runtime directories
+
+## OpenCode Parity Guard
+
+OpenCode now defaults to the user's global runtime path, so the parity harness intentionally keeps every install scoped to a disposable `.opencode/` workspace. The helper in `e2e-cli/lib/runtime_parity.sh` ensures `--agent opencode --project --path <workspace>` is enforced, snapshots the real `~/.config/opencode` tree, and flags any mutation as `global_path_mutated`. The regression guard lives at `e2e-cli/tests/test_opencode_scope_guard.sh`.
+
 ## CI Integration
 
 The harness runs nightly via `.github/workflows/e2e-nightly.yml`:
