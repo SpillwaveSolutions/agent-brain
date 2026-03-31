@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 import yaml
 from click.testing import CliRunner
 
@@ -16,7 +15,6 @@ from agent_brain_cli.config_schema import (
     validate_config_dict,
     validate_config_file,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helper fixtures
@@ -66,7 +64,7 @@ class TestValidateConfigDict:
     """Unit tests for the dict-based validation engine."""
 
     def test_valid_minimal_config_returns_no_errors(self) -> None:
-        """Test 1: valid minimal config (embedding + summarization) returns empty list."""
+        """Valid minimal config returns empty error list."""
         config = yaml.safe_load(VALID_MINIMAL_YAML)
         errors = validate_config_dict(config)
         assert errors == []
@@ -78,7 +76,7 @@ class TestValidateConfigDict:
         assert errors == []
 
     def test_invalid_embedding_provider_returns_error(self) -> None:
-        """Test 3: invalid embedding.provider returns error with valid providers in suggestion."""
+        """Invalid embedding.provider returns fix suggestion."""
         config = {
             "embedding": {"provider": "badprovider", "model": "some-model"},
             "summarization": {"provider": "anthropic"},
@@ -155,9 +153,9 @@ class TestValidateConfigDict:
             ),
             None,
         )
-        assert deprecated_error is not None, (
-            f"No deprecation error for graphrag.use_llm_extraction in {errors}"
-        )
+        assert (
+            deprecated_error is not None
+        ), f"No deprecation error for graphrag.use_llm_extraction in {errors}"
         assert "doc_extractor" in deprecated_error.suggestion
 
     def test_valid_graphrag_doc_extractor_langextract(self) -> None:
@@ -267,19 +265,24 @@ class TestValidateCliCommand:
 
         runner = CliRunner()
         result = runner.invoke(cli, ["config", "validate", "--file", str(config_file)])
-        assert result.exit_code == 0, f"Expected exit 0, got {result.exit_code}. Output: {result.output}"
+        assert (
+            result.exit_code == 0
+        ), f"Expected exit 0, got {result.exit_code}. Output: {result.output}"
         assert "Config is valid" in result.output
 
     def test_validate_invalid_config_exits_1(self, tmp_path: Path) -> None:
         """Invalid config file: exit non-zero with error field name in output."""
         config_file = tmp_path / "config.yaml"
         config_file.write_text(
-            "embedding:\n  provider: badprovider\nsummarization:\n  provider: anthropic\n"
+            "embedding:\n  provider: badprovider\n"
+            "summarization:\n  provider: anthropic\n"
         )
 
         runner = CliRunner()
         result = runner.invoke(cli, ["config", "validate", "--file", str(config_file)])
-        assert result.exit_code != 0, f"Expected non-zero exit, got 0. Output: {result.output}"
+        assert (
+            result.exit_code != 0
+        ), f"Expected non-zero exit, got 0. Output: {result.output}"
         assert "embedding.provider" in result.output or "badprovider" in result.output
 
     def test_validate_json_valid(self, tmp_path: Path) -> None:
@@ -291,7 +294,9 @@ class TestValidateCliCommand:
         result = runner.invoke(
             cli, ["config", "validate", "--file", str(config_file), "--json"]
         )
-        assert result.exit_code == 0, f"Exit code: {result.exit_code}, Output: {result.output}"
+        assert (
+            result.exit_code == 0
+        ), f"Exit code: {result.exit_code}, Output: {result.output}"
         data = json.loads(result.output)
         assert data["valid"] is True
         assert data["errors"] == []
@@ -305,7 +310,9 @@ class TestValidateCliCommand:
         result = runner.invoke(
             cli, ["config", "validate", "--file", str(config_file), "--json"]
         )
-        assert result.exit_code != 0, f"Expected non-zero exit, got 0. Output: {result.output}"
+        assert (
+            result.exit_code != 0
+        ), f"Expected non-zero exit, got 0. Output: {result.output}"
         data = json.loads(result.output)
         assert data["valid"] is False
         assert len(data["errors"]) >= 1
@@ -317,7 +324,9 @@ class TestValidateCliCommand:
             "agent_brain_cli.commands.config._find_config_file", return_value=None
         ):
             result = runner.invoke(cli, ["config", "validate"])
-        assert result.exit_code == 0, f"Exit code: {result.exit_code}, Output: {result.output}"
+        assert (
+            result.exit_code == 0
+        ), f"Exit code: {result.exit_code}, Output: {result.output}"
         assert "No config file found" in result.output
 
 
@@ -366,9 +375,9 @@ class TestNestedPostgresValidation:
         pg_error = next(
             (e for e in errors if e.field == "storage.postgres.bad_key"), None
         )
-        assert pg_error is not None, (
-            f"Expected error for storage.postgres.bad_key, got: {errors}"
-        )
+        assert (
+            pg_error is not None
+        ), f"Expected error for storage.postgres.bad_key, got: {errors}"
         # Suggestion must mention known fields
         assert "Known fields:" in pg_error.suggestion
 
@@ -381,12 +390,10 @@ class TestNestedPostgresValidation:
             }
         }
         errors = validate_config_dict(config)
-        pg_timeout_error = next(
-            (e for e in errors if "pool_timeout" in e.field), None
-        )
-        assert pg_timeout_error is None, (
-            f"Unexpected error for pool_timeout: {pg_timeout_error}"
-        )
+        pg_timeout_error = next((e for e in errors if "pool_timeout" in e.field), None)
+        assert (
+            pg_timeout_error is None
+        ), f"Unexpected error for pool_timeout: {pg_timeout_error}"
 
     def test_pool_timeout_wrong_type_returns_error(self) -> None:
         """Config with storage.postgres.pool_timeout: 'thirty' returns type error."""
@@ -398,12 +405,10 @@ class TestNestedPostgresValidation:
         }
         errors = validate_config_dict(config)
         assert len(errors) >= 1
-        type_error = next(
-            (e for e in errors if "pool_timeout" in e.field), None
-        )
-        assert type_error is not None, (
-            f"Expected type error for pool_timeout, got: {errors}"
-        )
+        type_error = next((e for e in errors if "pool_timeout" in e.field), None)
+        assert (
+            type_error is not None
+        ), f"Expected type error for pool_timeout, got: {errors}"
         assert "must be an integer" in type_error.message
 
     def test_all_known_postgres_keys_accepted(self) -> None:
@@ -422,9 +427,9 @@ class TestNestedPostgresValidation:
             "hnsw_ef_construction": 64,
             "debug": False,
         }
-        assert set(all_known_keys.keys()) == POSTGRES_KNOWN_FIELDS, (
-            "Test must cover exactly the POSTGRES_KNOWN_FIELDS set"
-        )
+        assert (
+            set(all_known_keys.keys()) == POSTGRES_KNOWN_FIELDS
+        ), "Test must cover exactly the POSTGRES_KNOWN_FIELDS set"
         config = {
             "storage": {
                 "backend": "postgres",
@@ -433,9 +438,9 @@ class TestNestedPostgresValidation:
         }
         errors = validate_config_dict(config)
         postgres_errors = [e for e in errors if "storage.postgres." in e.field]
-        assert postgres_errors == [], (
-            f"Unexpected errors for known postgres keys: {postgres_errors}"
-        )
+        assert (
+            postgres_errors == []
+        ), f"Unexpected errors for known postgres keys: {postgres_errors}"
 
     def test_typo_in_postgres_key_is_caught(self) -> None:
         """Config with storage.postgres.pool_timeot (typo) returns error."""
@@ -447,10 +452,8 @@ class TestNestedPostgresValidation:
         }
         errors = validate_config_dict(config)
         assert len(errors) >= 1
-        typo_error = next(
-            (e for e in errors if "pool_timeot" in e.field), None
-        )
-        assert typo_error is not None, (
-            f"Expected error for pool_timeot typo, got: {errors}"
-        )
+        typo_error = next((e for e in errors if "pool_timeot" in e.field), None)
+        assert (
+            typo_error is not None
+        ), f"Expected error for pool_timeot typo, got: {errors}"
         assert typo_error.field == "storage.postgres.pool_timeot"

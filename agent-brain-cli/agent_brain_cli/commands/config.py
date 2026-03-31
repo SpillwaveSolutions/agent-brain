@@ -320,8 +320,7 @@ def wizard() -> None:
         console.print(format_validation_errors(post_write_errors))
         if not click.confirm("Continue with this config anyway?", default=False):
             console.print(
-                "[red]Config wizard aborted."
-                " Please fix the issues and try again.[/]"
+                "[red]Config wizard aborted." " Please fix the issues and try again.[/]"
             )
             sys.exit(1)
 

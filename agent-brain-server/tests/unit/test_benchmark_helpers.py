@@ -261,27 +261,25 @@ class TestModeSupportMatrix:
         """Mode values must be 2-tuples of (bool, str)."""
         for key, modes in MODE_SUPPORT_MATRIX.items():
             for mode_name, entry in modes.items():
-                assert isinstance(entry, tuple), (
-                    f"Entry [{key}][{mode_name!r}] is not a tuple"
-                )
-                assert len(entry) == 2, (
-                    f"Entry [{key}][{mode_name!r}] must be a 2-tuple"
-                )
+                assert isinstance(
+                    entry, tuple
+                ), f"Entry [{key}][{mode_name!r}] is not a tuple"
+                assert (
+                    len(entry) == 2
+                ), f"Entry [{key}][{mode_name!r}] must be a 2-tuple"
                 supported, reason = entry
-                assert isinstance(supported, bool), (
-                    f"Entry [{key}][{mode_name!r}] first element must be bool"
-                )
-                assert isinstance(reason, str), (
-                    f"Entry [{key}][{mode_name!r}] second element must be str"
-                )
+                assert isinstance(
+                    supported, bool
+                ), f"Entry [{key}][{mode_name!r}] first element must be bool"
+                assert isinstance(
+                    reason, str
+                ), f"Entry [{key}][{mode_name!r}] second element must be str"
 
 
 class TestBuildJsonOutput:
     """Tests for the build_json_output function."""
 
-    def _make_result(
-        self, mode: str, status: str = "ok", reason: str = ""
-    ) -> dict:
+    def _make_result(self, mode: str, status: str = "ok", reason: str = "") -> dict:
         """Build a minimal result dict as benchmark_mode would return."""
         return {
             "mode": mode,
@@ -304,7 +302,7 @@ class TestBuildJsonOutput:
         }
 
     def test_json_output_has_required_keys(self) -> None:
-        """JSON output must have metadata, results, supported_modes, unsupported_modes."""
+        """JSON output must have required keys."""
         results = [self._make_result(m) for m in DEFAULT_MODES]
         output = build_json_output(results, self._make_metadata())
         assert "metadata" in output

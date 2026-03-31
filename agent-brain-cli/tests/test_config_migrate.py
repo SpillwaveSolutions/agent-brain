@@ -2,12 +2,10 @@
 
 from pathlib import Path
 
-import pytest
 import yaml
 from click.testing import CliRunner
 
 from agent_brain_cli.cli import cli
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -59,7 +57,7 @@ class TestMigrateConfigDict:
     """Tests for migrate_config() with dict inputs."""
 
     def test_migrate_use_llm_extraction_true(self) -> None:
-        """migrate_config transforms use_llm_extraction=True -> doc_extractor=langextract."""
+        """Migrate use_llm_extraction=True to doc_extractor."""
         from agent_brain_cli.config_migrate import migrate_config
 
         result = migrate_config(OLD_SCHEMA_CONFIG)
@@ -113,8 +111,9 @@ class TestMigrateConfigDict:
 
     def test_migrate_does_not_mutate_input(self) -> None:
         """migrate_config must not mutate the original input dict."""
-        from agent_brain_cli.config_migrate import migrate_config
         import copy
+
+        from agent_brain_cli.config_migrate import migrate_config
 
         original = copy.deepcopy(OLD_SCHEMA_CONFIG)
         migrate_config(OLD_SCHEMA_CONFIG)
@@ -159,9 +158,7 @@ class TestDiffConfigDict:
 class TestMigrateConfigFile:
     """Tests for migrate_config_file() and diff_config_file()."""
 
-    def test_migrate_config_file_writes_migrated_yaml(
-        self, tmp_path: Path
-    ) -> None:
+    def test_migrate_config_file_writes_migrated_yaml(self, tmp_path: Path) -> None:
         """migrate_config_file writes migrated YAML to disk."""
         from agent_brain_cli.config_migrate import migrate_config_file
 
@@ -237,9 +234,7 @@ class TestMigrateCliCommand:
     def test_migrate_dry_run_does_not_modify_file(self, tmp_path: Path) -> None:
         """migrate --dry-run shows changes without modifying the file."""
         config_file = tmp_path / "config.yaml"
-        original_content = yaml.safe_dump(
-            OLD_SCHEMA_CONFIG, default_flow_style=False
-        )
+        original_content = yaml.safe_dump(OLD_SCHEMA_CONFIG, default_flow_style=False)
         config_file.write_text(original_content, encoding="utf-8")
 
         runner = CliRunner()
@@ -317,6 +312,7 @@ class TestWizardValidationIntegration:
     def test_wizard_validates_output_and_warns(self, tmp_path: Path) -> None:
         """Wizard warns when validate_config_file returns errors after writing."""
         from unittest.mock import patch
+
         from agent_brain_cli.config_schema import ConfigValidationError
 
         # Patch validate_config_file to return a fake error
