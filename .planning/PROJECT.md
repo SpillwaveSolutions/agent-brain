@@ -101,21 +101,24 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ### Active
 
-## Current Milestone: v9.5.0 Config Validation & Language Support
+ - [ ] Project-local runtime parity installs for Codex, OpenCode, and Gemini
+ - [ ] Headless JSON-verifiable CLI execution after install for each runtime
+ - [ ] Runtime backlog cleanup so pending todos match shipped support
 
-**Goal:** Add config validation tooling, expand AST-aware language support, and improve query performance for larger datasets.
+## Current Milestone: v9.6.0 Runtime Support Parity & Backlog Cleanup
+
+**Goal:** Prove that Codex, OpenCode, and Gemini can all install and execute Agent Brain inside isolated project directories without touching the operator's global runtime state.
 
 **Target features:**
-- Config validation command (`agent-brain config validate`) to check config correctness
-- Config migration tool for upgrading between schema versions
-- Interactive config diff showing what changed
-- Object Pascal AST-aware ingestion (PR #115)
-- Query performance benchmarking and optimization
-- PostgreSQL connection pooling tuning
+- Repo-owned integration folders for project-local runtime installs
+- Install verification before any runtime CLI execution begins
+- Headless Codex, OpenCode, and Gemini prompts that return JSON status
+- Shared runtime parity reporting for install, execution, and failure cases
+- Cleanup of stale runtime-related pending todos and planning artifacts
 
 ## Next Milestone Goals
 
-- TBD after v9.5.0 ships
+- TBD after v9.6.0 ships
 
 ### Out of Scope
 
@@ -129,8 +132,11 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ## Context
 
-**Current State (v9.5.0 SHIPPED, 2026-03-30):**
+**Current State (v9.5.0 SHIPPED, 2026-03-31):**
 - v9.5.0 shipped: Config Validation & Language Support milestone — 5 phases, 9 plans, 58 commits, +8,693 lines
+- `install-agent` already exposes Codex, OpenCode, Gemini, and skill-runtime targets, with converter-level and CLI-level tests covering installation behavior
+- Existing end-to-end CLI coverage is Claude-centric; runtime parity for project-local install plus headless execution is not yet verified for Codex, OpenCode, and Gemini
+- Repo-local runtime trees are uneven today: `.opencode/plugins/agent-brain/` exists, `.gemini/` is absent, and `.codex/` is used for GSD skills rather than a generated Agent Brain install tree
 - Config validate/migrate/diff commands with line numbers, fix suggestions, and wizard integration
 - Object Pascal AST-aware ingestion (.pas/.pp/.dpr/.dpk) with function/class extraction
 - OpenCode installer reference-quality: singular dirs, agent frontmatter, path rewriting, permission pre-auth
@@ -167,6 +173,7 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 - **Pre-Push Quality Gate**: `task before-push` MUST pass before any push
 - **Test Coverage**: >50% coverage required for CI
 - **Package Isolation**: Cross-package deps flow server <- cli/skill (never reverse)
+- **Environment Safety**: Runtime parity tests must install only into repo-owned integration projects — never the user's global Codex, OpenCode, or Gemini directories
 
 ## Key Decisions
 
@@ -199,6 +206,25 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 | ManifestTracker SHA-256 keyed manifest paths | Flat directory, no path-separator issues across OS | ✓ Good |
 | mtime fast-path before SHA-256 checksum | O(1) for ~95% of unchanged files | ✓ Good |
 | eviction_summary as dict[str, Any] on JobRecord | Pydantic-friendly serialization, no server import in CLI | ✓ Good |
+| Project-local runtime parity installs only | Protect local Codex/OpenCode/Gemini environments from test pollution | — Pending |
+| Headless JSON status is the runtime parity contract | Gives one machine-verifiable success signal across runtimes with different UX surfaces | — Pending |
+
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `$gsd-transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `$gsd-complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
 
 ---
-*Last updated: 2026-03-30 after v9.5.0 milestone shipped*
+*Last updated: 2026-03-31 after v9.6.0 milestone start*
