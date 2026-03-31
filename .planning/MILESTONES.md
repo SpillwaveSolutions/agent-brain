@@ -1,5 +1,15 @@
 # Milestones
 
+## v9.5.0 Config Validation & Language Support (Shipped: 2026-03-31)
+
+**Phases completed:** 5 phases, 8 plans, 11 tasks
+
+**Key accomplishments:**
+
+- (none recorded)
+
+---
+
 ## v9.3.0 LangExtract + Config Spec (Shipped: 2026-03-22)
 
 **Phases completed:** 2 phases, 2 plans, 0 tasks

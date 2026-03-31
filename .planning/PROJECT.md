@@ -129,12 +129,14 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ## Context
 
-**Current State (v9.5.0 COMPLETE, 2026-03-29):**
-- Phase 45 complete: Performance benchmarking — reproducible query benchmark script with MODE_SUPPORT_MATRIX, fixed query set, --prepare-docs-corpus, dual timing (client + server), nested storage.postgres.* config validation, pool_timeout tunability, BENCHMARKS.md with real baseline (5-10ms p50 on Chroma, 95-188 QPS)
-- Phase 44 complete: Config validation tooling — config validate/migrate/diff commands, wizard warns on invalid config
-- Phase 43 complete: OpenCode installer reference-quality output
-- Phase 42 complete: Object Pascal AST-aware ingestion
-- Phase 41 complete: Bug fixes — 120s start timeout, state_dir resolution, ChromaDB telemetry, Gemini migration
+**Current State (v9.5.0 SHIPPED, 2026-03-30):**
+- v9.5.0 shipped: Config Validation & Language Support milestone — 5 phases, 9 plans, 58 commits, +8,693 lines
+- Config validate/migrate/diff commands with line numbers, fix suggestions, and wizard integration
+- Object Pascal AST-aware ingestion (.pas/.pp/.dpr/.dpk) with function/class extraction
+- OpenCode installer reference-quality: singular dirs, agent frontmatter, path rewriting, permission pre-auth
+- Reproducible benchmark suite: MODE_SUPPORT_MATRIX, fixed query set, dual timing, baseline BENCHMARKS.md (5-10ms p50)
+- Nested storage.postgres.* config validation, pool_timeout tunability
+- 4 reliability bug fixes: 120s start timeout, state_dir resolution, ChromaDB telemetry, Gemini migration
 - 1392+ tests passing (1001 server + 391 CLI)
 - Dual-backend architecture: ChromaDB (default) + PostgreSQL (optional)
 - Folder management: list, add, remove indexed folders via CLI/API
@@ -199,4 +201,4 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 | eviction_summary as dict[str, Any] on JobRecord | Pydantic-friendly serialization, no server import in CLI | ✓ Good |
 
 ---
-*Last updated: 2026-03-29 after v9.5.0 milestone completion*
+*Last updated: 2026-03-30 after v9.5.0 milestone shipped*
