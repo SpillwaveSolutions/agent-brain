@@ -66,8 +66,7 @@ runtime_assert_repo_owned_project_dir() {
   fi
 
   local allowed_roots=(
-    "${E2E_ROOT}/.runs"
-    "${REPO_ROOT}/.tmp"
+    "${REPO_ROOT}/e2e_workdir"
   )
   if [[ -n "${RUNTIME_PARITY_ALLOWED_ROOTS:-}" ]]; then
     IFS=':' read -r -a extra_roots <<< "${RUNTIME_PARITY_ALLOWED_ROOTS}"
@@ -86,8 +85,14 @@ runtime_assert_repo_owned_project_dir() {
     esac
   done
 
-  echo "project dir must live under repo-owned runtime runs: $abs_project" >&2
+  echo "project dir must live under repo-owned runtime workdir: $abs_project" >&2
   return 1
+}
+
+runtime_workspace_root() {
+  local runtime="$1"
+  local scenario_root="$2"
+  printf '%s/%s-runtime\n' "${scenario_root%/}" "$runtime"
 }
 
 runtime_workspace_prepare() {
@@ -95,7 +100,9 @@ runtime_workspace_prepare() {
   local scenario_root="$2"
   local template_dir
   template_dir="$(runtime_fixture_template_dir)"
-  local project_dir="${scenario_root%/}/project"
+  local runtime_root
+  runtime_root="$(runtime_workspace_root "$runtime" "$scenario_root")"
+  local project_dir="${runtime_root}/project"
   local abs_project
   abs_project="$(_runtime_parity_abs_path "$project_dir")"
   local abs_template
@@ -114,12 +121,63 @@ runtime_workspace_prepare() {
     return 1
   fi
 
-  mkdir -p "$scenario_root"
+  mkdir -p "$runtime_root/cleanup" "$runtime_root/logs"
   rm -rf "$project_dir"
   mkdir -p "$project_dir"
   cp -R "$template_dir/." "$project_dir/"
 
   echo "$project_dir"
+}
+
+runtime_failure_log_path() {
+  local workspace="$1"
+  printf '%s/logs/failure.log\n' "${workspace%/}"
+}
+
+runtime_write_failure_log() {
+  local workspace="$1"
+  local runtime="$2"
+  local error_type="$3"
+  local details="$4"
+  local log_file
+  log_file="$(runtime_failure_log_path "$workspace")"
+  mkdir -p "$(dirname "$log_file")"
+  printf '%s [%s] %s: %s\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" "$runtime" "$error_type" "$details" >> "$log_file"
+}
+
+runtime_failure_json() {
+  local runtime="$1"
+  local error_type="$2"
+  local details="$3"
+  local remediation="$4"
+  local workspace="$5"
+  printf '{"runtime":"%s","status":"failed","error_type":"%s","details":"%s","remediation":"%s","workspace":"%s"}\n' \
+    "$(printf '%s' "$runtime" | sed 's/"/\\"/g')" \
+    "$(printf '%s' "$error_type" | sed 's/"/\\"/g')" \
+    "$(printf '%s' "$details" | sed ':a;N;$!ba;s/\n/\\n/g; s/"/\\"/g')" \
+    "$(printf '%s' "$remediation" | sed ':a;N;$!ba;s/\n/\\n/g; s/"/\\"/g')" \
+    "$(printf '%s' "$workspace" | sed 's/"/\\"/g')"
+}
+
+runtime_emit_failure() {
+  local runtime="$1"
+  local workspace="$2"
+  local error_type="$3"
+  local details="$4"
+  local remediation="$5"
+  runtime_write_failure_log "$workspace" "$runtime" "$error_type" "$details"
+  runtime_failure_json "$runtime" "$error_type" "$details" "$remediation" "$workspace"
+  return 1
+}
+
+runtime_extract_target_dir() {
+  local payload="$1"
+  printf '%s\n' "$payload" | tr -d '\n' | sed -n 's/.*"target_dir"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'
+}
+
+runtime_json_looks_valid() {
+  local payload="$1"
+  [[ "$payload" == *"{"* ]] && [[ "$payload" == *"}"* ]]
 }
 
 runtime_install_project_local() {
@@ -129,7 +187,14 @@ runtime_install_project_local() {
 
   local abs_project
   abs_project="$(_runtime_parity_abs_path "$project_dir")"
-  runtime_assert_repo_owned_project_dir "$abs_project"
+  local runtime_root
+  runtime_root="$(cd "$(dirname "$project_dir")" && pwd)"
+  if ! runtime_assert_repo_owned_project_dir "$abs_project"; then
+    runtime_emit_failure "$runtime" "$runtime_root" "forbidden_global_path" \
+      "project dir must live under repo-owned runtime workdir: $abs_project" \
+      "Use --project --path <repo-owned-dir> under e2e_workdir and retry."
+    return 1
+  fi
 
   local expected_relpath
   expected_relpath="$(runtime_expected_target_relpath "$runtime")"
@@ -146,34 +211,97 @@ runtime_install_project_local() {
   )"
 
   local target_dir
-  target_dir="$(
-    python3 -c '
-import json
-import sys
-
-payload = json.loads(sys.argv[1])
-target_dir = payload.get("target_dir")
-if not target_dir:
-    raise SystemExit(1)
-print(target_dir)
-' "$output"
-  )" || {
-    echo "install-agent JSON output missing target_dir" >&2
+  target_dir="$(runtime_extract_target_dir "$output")"
+  if [[ -z "$target_dir" ]]; then
+    runtime_emit_failure "$runtime" "$runtime_root" "malformed_json" \
+      "install-agent JSON output missing target_dir" \
+      "Inspect the raw installer output in the scenario logs and ensure the runtime emits valid JSON."
     return 1
-  }
+  fi
 
   local abs_target
   abs_target="$(_runtime_parity_abs_path "$target_dir")"
   if runtime_is_forbidden_global_path "$abs_target"; then
-    echo "forbidden global install target resolved: $abs_target" >&2
+    runtime_emit_failure "$runtime" "$runtime_root" "forbidden_global_path" \
+      "forbidden global install target resolved: $abs_target" \
+      "Use --project --path <repo-owned-dir> under e2e_workdir and inspect the offending target."
     return 1
   fi
   if [[ "$abs_target" != "$expected_target" ]]; then
-    echo "unexpected install target: $abs_target (expected $expected_target)" >&2
+    runtime_emit_failure "$runtime" "$runtime_root" "install_verification_failed" \
+      "unexpected install target: $abs_target (expected $expected_target)" \
+      "Inspect the installer mapping for the runtime and confirm target_dir resolves inside the project workspace."
     return 1
   fi
 
   printf '%s\n' "$output"
+}
+
+runtime_verify_install() {
+  local runtime="$1"
+  local workspace="$2"
+  local expected_target="$3"
+  local install_json="$4"
+  local dry_probe_cmd="${5:-}"
+
+  mkdir -p "${workspace%/}/logs"
+
+  if [[ ! -d "$workspace" ]]; then
+    runtime_emit_failure "$runtime" "$workspace" "install_verification_failed" \
+      "runtime workspace missing: $workspace" \
+      "Recreate the runtime workspace under e2e_workdir before re-running verification."
+    return 1
+  fi
+  if [[ ! -d "$expected_target" ]]; then
+    runtime_emit_failure "$runtime" "$workspace" "install_verification_failed" \
+      "expected install target missing: $expected_target" \
+      "Verify the installer created the project-local target directory before runtime execution."
+    return 1
+  fi
+  if [[ ! -d "${workspace%/}/logs" ]]; then
+    runtime_emit_failure "$runtime" "$workspace" "install_verification_failed" \
+      "runtime log directory missing: ${workspace%/}/logs" \
+      "Ensure the workspace scaffolding created logs/ before runtime verification."
+    return 1
+  fi
+
+  local parsed_target
+  parsed_target="$(runtime_extract_target_dir "$install_json")"
+  if [[ -z "$parsed_target" ]]; then
+    runtime_emit_failure "$runtime" "$workspace" "malformed_json" \
+      "install verification payload missing target_dir" \
+      "Inspect the runtime command and preserve the raw output in logs."
+    return 1
+  fi
+
+  local abs_parsed_target abs_expected_target
+  abs_parsed_target="$(_runtime_parity_abs_path "$parsed_target")"
+  abs_expected_target="$(_runtime_parity_abs_path "$expected_target")"
+  if [[ "$abs_parsed_target" != "$abs_expected_target" ]]; then
+    runtime_emit_failure "$runtime" "$workspace" "install_verification_failed" \
+      "install JSON target mismatch: $abs_parsed_target != $abs_expected_target" \
+      "Inspect the installer JSON and confirm target_dir points to the project-local runtime workspace."
+    return 1
+  fi
+
+  if [[ -n "$dry_probe_cmd" ]]; then
+    local probe_output
+    if ! probe_output="$(eval "$dry_probe_cmd" 2>&1)"; then
+      runtime_emit_failure "$runtime" "$workspace" "missing_cli" \
+        "dry probe command failed: $probe_output" \
+        "Install the runtime CLI or place a test double in PATH before running parity verification."
+      return 1
+    fi
+    if ! runtime_json_looks_valid "$probe_output"; then
+      runtime_emit_failure "$runtime" "$workspace" "malformed_json" \
+        "dry probe returned non-JSON output: $probe_output" \
+        "Inspect the runtime command and preserve the raw output in logs."
+      return 1
+    fi
+  fi
+
+  printf '{"runtime":"%s","status":"verified","target_dir":"%s","workspace":"%s"}\n' \
+    "$runtime" "$abs_expected_target" "$workspace"
 }
 
 runtime_parity_install_opencode_project() {
@@ -192,7 +320,13 @@ runtime_parity_snapshot_global_opencode() {
 runtime_parity_detect_global_mutation() {
   local before="$1"
   local after="$2"
+  local workspace="${3:-}"
   if ! diff -u "$before" "$after" >/tmp/gsd-runtime-diff.log; then
+    if [[ -n "$workspace" ]]; then
+      runtime_emit_failure "opencode" "$workspace" "global_path_mutated" \
+        "$(cat /tmp/gsd-runtime-diff.log)" \
+        "Use --project --path <repo-owned-dir>, inspect the mutation diff, and remove writes to ~/.config/opencode."
+    fi
     echo "global_path_mutated" >&2
     cat /tmp/gsd-runtime-diff.log >&2
     return 1

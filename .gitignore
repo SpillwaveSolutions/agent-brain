@@ -119,6 +119,7 @@ pip-delete-this-directory.txt
 data/
 indexed_docs/
 test_output/
+e2e_workdir/
 e2e/tmp/
 tmp/
 .tmp-*/
@@ -127,6 +128,8 @@ tmp/
 !AGENTS.md
 !.claude/
 !.opencode/
+!e2e-cli/lib/
+!e2e-cli/lib/*.sh
 .env
 !CLAUDE.md
 !AGENTS.md

@@ -1,2 +1,1 @@
-# Runtime artifacts — workspaces, logs, reports
-.runs/
+# Runtime artifacts live at the repo root under e2e_workdir/

@@ -131,7 +131,7 @@ fi
 # Initialize run
 # ---------------------------------------------------------------------------
 RUN_ID="$(date +%Y%m%d-%H%M%S)-$$"
-RUNS_DIR="${E2E_ROOT}/.runs/${RUN_ID}"
+RUNS_DIR="${REPO_ROOT}/e2e_workdir/${RUN_ID}"
 mkdir -p "$RUNS_DIR"
 export RUN_ID RUNS_DIR
 

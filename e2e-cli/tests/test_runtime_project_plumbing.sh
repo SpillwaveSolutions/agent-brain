@@ -4,7 +4,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 E2E_ROOT="$REPO_ROOT/e2e-cli"
 RUN_ID="runtime-project-plumbing-$$"
-RUNS_DIR="$E2E_ROOT/.runs/$RUN_ID"
+RUNS_DIR="$REPO_ROOT/e2e_workdir/$RUN_ID"
 ADAPTER_NAME="codex"
 
 export REPO_ROOT E2E_ROOT RUN_ID RUNS_DIR ADAPTER_NAME
@@ -58,9 +58,12 @@ TEMPLATE_BEFORE="$(snapshot_tree "$TEMPLATE_DIR")"
 
 workspace_create "runtime-project-plumbing" >/dev/null
 PROJECT_DIR="$(runtime_workspace_prepare codex "$SCENARIO_WORKSPACE")"
+RUNTIME_ROOT="$SCENARIO_WORKSPACE/codex-runtime"
 
-assert_equals "$PROJECT_DIR" "$SCENARIO_WORKSPACE/project" "project dir"
+assert_equals "$PROJECT_DIR" "$SCENARIO_WORKSPACE/codex-runtime/project" "project dir"
 assert_dir "$PROJECT_DIR"
+assert_dir "$RUNTIME_ROOT/cleanup"
+assert_dir "$RUNTIME_ROOT/logs"
 assert_file "$PROJECT_DIR/README.md"
 assert_file "$PROJECT_DIR/docs/fixture-doc.md"
 assert_file "$PROJECT_DIR/src/sample_module.py"
@@ -91,6 +94,9 @@ INSTALL_OUTPUT="$(runtime_install_project_local codex "$PROJECT_DIR")"
 assert_equals "$(cat "$POETRY_PWD_LOG")" "$REPO_ROOT/agent-brain-cli" "poetry cwd"
 assert_equals "$(cat "$POETRY_LOG")" "run agent-brain install-agent --agent codex --project --path $PROJECT_DIR --json" "poetry command"
 echo "$INSTALL_OUTPUT" | grep -q '"target_dir"' || fail "install output missing target_dir"
+mkdir -p "$FAKE_TARGET_DIR"
+VERIFY_OUTPUT="$(runtime_verify_install codex "$RUNTIME_ROOT" "$FAKE_TARGET_DIR" "$INSTALL_OUTPUT" "printf '{\"status\":\"ok\"}\n'")"
+echo "$VERIFY_OUTPUT" | grep -q '"status":"verified"' || fail "verify_install should report verified"
 
 runtime_is_forbidden_global_path "$HOME/.codex/skills/agent-brain"
 runtime_is_forbidden_global_path "$HOME/.config/opencode/plugins/agent-brain"
@@ -108,10 +114,12 @@ set -e
 if [[ $FORBIDDEN_EXIT -eq 0 ]]; then
   fail "expected forbidden global target to fail"
 fi
-echo "$FORBIDDEN_OUTPUT" | grep -q "forbidden global" || fail "missing forbidden global error"
+echo "$FORBIDDEN_OUTPUT" | grep -q '"error_type":"forbidden_global_path"' || fail "missing forbidden global error_type"
+echo "$FORBIDDEN_OUTPUT" | grep -q '"remediation":"' || fail "missing remediation"
+assert_file "$RUNTIME_ROOT/logs/failure.log"
 
 workspace_clean "$SCENARIO_WORKSPACE"
-[[ ! -d "$SCENARIO_WORKSPACE/project" ]] || fail "project directory should be removed on success"
+[[ ! -d "$SCENARIO_WORKSPACE/codex-runtime/project" ]] || fail "project directory should be removed on success"
 assert_file "$SCENARIO_WORKSPACE/scenario.log"
 
 TEMPLATE_AFTER="$(snapshot_tree "$TEMPLATE_DIR")"

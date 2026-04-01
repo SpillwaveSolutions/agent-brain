@@ -62,7 +62,7 @@ task e2e-cli
 
 ## Reports
 
-After each run, reports are generated in `.runs/<run-id>/`:
+After each run, reports are generated in `e2e_workdir/<run-id>/`:
 
 - `report.json` — Machine-readable results
 - `report.md` — Markdown summary for CI artifacts
@@ -103,7 +103,7 @@ Use assertion helpers from `lib/harness.sh`:
 
 ## Workspace Isolation
 
-Each scenario runs in an isolated workspace under `.runs/<run-id>/<adapter>/<scenario>/`. On success, workspaces are cleaned up. On failure, they are preserved with full logs for debugging.
+Each scenario runs in an isolated workspace under `e2e_workdir/<run-id>/<adapter>/<scenario>/`. On success, only the disposable `project/` tree is cleaned up; logs, reports, and `cleanup/` helpers remain in place. On failure, the entire scenario workspace is preserved for debugging.
 
 ## Runtime Parity Harness
 
@@ -111,7 +111,8 @@ Runtime parity phases reuse the existing `e2e-cli/` harness instead of creating 
 second framework.
 
 - Checked-in fixture template: `e2e-cli/fixtures/runtime-project-template/`
-- Disposable project copy: `e2e-cli/.runs/<run-id>/<adapter>/<scenario>/project/`
+- Disposable runtime copy: `e2e_workdir/<run-id>/<adapter>/<scenario>/<runtime>-runtime/project/`
+- Runtime helper directories: `e2e_workdir/<run-id>/<adapter>/<scenario>/<runtime>-runtime/{cleanup,logs}/`
 - Allowed install shape: `agent-brain install-agent --agent <runtime> --project --path <workspace> --json`
 - Success cleanup removes only the disposable `project/` copy and keeps scenario
   logs plus future status artifacts in the scenario root
@@ -121,6 +122,21 @@ second framework.
 ## OpenCode Parity Guard
 
 OpenCode now defaults to the user's global runtime path, so the parity harness intentionally keeps every install scoped to a disposable `.opencode/` workspace. The helper in `e2e-cli/lib/runtime_parity.sh` ensures `--agent opencode --project --path <workspace>` is enforced, snapshots the real `~/.config/opencode` tree, and flags any mutation as `global_path_mutated`. The regression guard lives at `e2e-cli/tests/test_opencode_scope_guard.sh`.
+
+## Runtime Verification Contract
+
+Runtime parity execution verifies installs in this exact order before any real headless runtime call:
+
+1. Structure check: confirm the expected project-local target directory exists under `e2e_workdir/` and the runtime-specific root has `logs/`.
+2. Install/file + JSON validation: confirm the installer JSON resolves `target_dir` to the expected project-local path.
+3. Dry runtime probe: run a runtime-specific probe command that must emit valid JSON.
+
+Failures always produce both:
+
+- `logs/failure.log` in the runtime-specific workspace
+- A machine-readable JSON payload with `runtime`, `status`, `error_type`, `details`, `remediation`, and `workspace`
+
+The current shared failure types are `missing_cli`, `install_verification_failed`, `malformed_json`, `forbidden_global_path`, and `global_path_mutated`.
 
 ## CI Integration
 
