@@ -120,14 +120,14 @@ def test_database_url_preserves_yaml_pool_timeout() -> None:
     reset_storage_backend_cache()
 
     with (
-        patch(
-            "agent_brain_server.storage.factory.settings"
-        ) as mock_settings,
+        patch("agent_brain_server.storage.factory.settings") as mock_settings,
         patch(
             "agent_brain_server.storage.factory.load_provider_settings",
             return_value=mock_provider_settings,
         ),
-        patch.dict("os.environ", {"DATABASE_URL": "postgresql://user:pass@db:5432/mydb"}),
+        patch.dict(
+            "os.environ", {"DATABASE_URL": "postgresql://user:pass@db:5432/mydb"}
+        ),
     ):
         mock_settings.AGENT_BRAIN_STORAGE_BACKEND = ""
         backend = get_storage_backend()

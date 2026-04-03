@@ -60,7 +60,7 @@ def _replace_paths(text: str) -> str:
 def _tools_to_bool_object(tools: list[str]) -> dict[str, bool]:
     """Convert a tool name list to OpenCode's boolean object format."""
     mapped = map_tools(tools, "opencode")
-    return {tool: True for tool in mapped}
+    return dict.fromkeys(mapped, True)
 
 
 def _color_to_hex(color: str) -> str:
