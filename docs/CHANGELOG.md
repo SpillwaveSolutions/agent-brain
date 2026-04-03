@@ -11,6 +11,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [9.6.0] - 2026-04-03
+
+### Added
+
+- Repo-owned runtime parity harness workspaces under `e2e_workdir/`
+- Shared shell helpers for E2E workspace lifecycle, reporting, and runtime install verification
+- Structured runtime parity failure payloads with remediation guidance
+- OpenCode global scope mutation regression coverage
+
+### Changed
+
+- Runtime parity plumbing now uses runtime-specific `<runtime>-runtime/` directories with `cleanup/` and `logs/`
+- E2E runtime documentation now describes the verification contract: structure check, install JSON validation, then dry JSON probe
+
+### Fixed
+
+- Prevented runtime parity installs from silently targeting forbidden global runtime paths
+- Fixed workspace cleanup so only disposable runtime `project/` trees are removed on success
+
+---
+
 ## [3.0.0] - 2026-02-03
 
 ### Added
