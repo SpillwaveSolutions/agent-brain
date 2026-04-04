@@ -222,6 +222,15 @@ This runs format, lint, typecheck, and tests with coverage.
 - PRs will fail CI if code coverage is below 50%
 - **If `task before-push` fails, DO NOT push. Fix first, test again, then push.**
 
+## GitHub Auth
+
+Before using `gh` for releases, PRs, or other repository operations, verify the active account and switch if needed:
+
+```bash
+gh auth status
+gh auth switch --user RichardHightower
+```
+
 ## Pre-Push Requirement (MANDATORY — READ THIS)
 
 **NEVER PUSH CODE WITHOUT RUNNING `task before-push` FIRST.**
