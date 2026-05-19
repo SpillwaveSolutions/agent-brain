@@ -1,8 +1,11 @@
 """Document loading from various file formats using LlamaIndex."""
 
 import asyncio
+import fnmatch
 import logging
+import os
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -380,11 +383,16 @@ class DocumentLoader:
         # Use LlamaIndex's SimpleDirectoryReader
         # Run in thread pool to avoid blocking the event loop
         try:
+            # Prune excluded dirs before descending so SimpleDirectoryReader
+            # does not walk them via its internal fs.walk.
+            collected = [
+                str(f)
+                for f in self._walk_pruned(path)
+                if f.suffix.lower() in self.extensions
+            ]
             reader = SimpleDirectoryReader(
-                input_dir=str(path),
-                recursive=recursive,
+                input_files=collected,
                 required_exts=list(self.extensions),
-                exclude=self.exclude_patterns,
                 filename_as_id=True,
             )
             # reader.load_data() is blocking I/O - run in thread pool
@@ -581,6 +589,21 @@ class DocumentLoader:
 
         return loaded_docs
 
+    def _walk_pruned(self, root: Path) -> Iterator[Path]:
+        """Pruned os.walk: skips excluded dirs before descending."""
+        excl = getattr(self, "exclude_patterns", None) or []
+        for dirpath, dirnames, filenames in os.walk(root):
+            dp = Path(dirpath)
+            dirnames[:] = [
+                d
+                for d in dirnames
+                if not any(
+                    fnmatch.fnmatch(str(dp / d), pat.replace("**", "*")) for pat in excl
+                )
+            ]
+            for f in filenames:
+                yield dp / f
+
     def get_supported_files(
         self,
         folder_path: str,
@@ -602,8 +625,8 @@ class DocumentLoader:
             return []
 
         if recursive:
-            files = list(path.rglob("*"))
+            files = list(self._walk_pruned(path))
         else:
-            files = list(path.glob("*"))
+            files = [f for f in path.iterdir() if f.is_file()]
 
-        return [f for f in files if f.is_file() and f.suffix.lower() in self.extensions]
+        return [f for f in files if f.suffix.lower() in self.extensions]
