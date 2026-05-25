@@ -58,7 +58,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd agent-brain-server
-          poetry install
+          poetry install --extras cohere
 
       - name: Run configuration tests
         run: |
@@ -135,7 +135,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd agent-brain-server
-          poetry install
+          poetry install --extras cohere
 
       - name: Check required API keys
         id: check_keys
