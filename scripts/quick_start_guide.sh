@@ -9,7 +9,7 @@ CLI_DIR="agent-brain-cli"
 WORKSPACE="integration/tests/quick_start"
 BASE_URL="http://127.0.0.1:$PORT"
 
-echo "=== Doc-Serve Quick Start Test Script ==="
+echo "=== Agent Brain Quick Start Test Script ==="
 
 # Check prerequisites
 if ! command -v poetry >/dev/null 2>&1; then
@@ -39,7 +39,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # 1. Cleanup old processes
-echo "Checking for old Doc-Serve processes on port $PORT..."
+echo "Checking for old Agent Brain processes on port $PORT..."
 PIDS=$(lsof -ti :$PORT || true)
 if [ ! -z "$PIDS" ]; then
     echo "Found processes: $PIDS. Killing..."
@@ -63,9 +63,9 @@ export DATABASE_PATH=$DB_PATH
 export DEBUG=true
 
 # 4. Start Server
-echo "Starting Doc-Serve server on port $PORT..."
+echo "Starting Agent Brain server on port $PORT..."
 cd $SERVER_DIR
-nohup poetry run doc-serve > "../$WORKSPACE/server.log" 2>&1 &
+nohup poetry run agent-brain-serve > "../$WORKSPACE/server.log" 2>&1 &
 SERVER_PID=$!
 cd ..
 
@@ -92,7 +92,7 @@ done
 echo "Installing CLI tool..."
 cd $CLI_DIR
 poetry install > /dev/null
-export DOC_SERVE_URL=$BASE_URL
+export AGENT_BRAIN_URL=$BASE_URL
 cd ..
 
 # 6. Index Project

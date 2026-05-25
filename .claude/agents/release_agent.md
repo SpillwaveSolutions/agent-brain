@@ -130,11 +130,12 @@ Before any release actions:
 
 1. **Calculate new version** based on bump type (major/minor/patch)
 2. **Flip dependency to PyPI** if needed (perl + poetry lock)
-3. **Update version** in 4 files:
+3. **Update version** in 5 files:
    - `agent-brain-server/pyproject.toml`
    - `agent-brain-server/agent_brain_server/__init__.py`
    - `agent-brain-cli/pyproject.toml` (both package version AND `agent-brain-rag` dependency)
    - `agent-brain-cli/agent_brain_cli/__init__.py`
+   - `agent-brain-plugin/.claude-plugin/plugin.json` (top-level `"version"` field — must match CLI/server)
 4. **Run quality gates**: `task before-push` (format, lint, typecheck, tests)
 5. **Commit version bump**: `chore(release): bump version to X.Y.Z`
 6. **Create git tag**: `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
