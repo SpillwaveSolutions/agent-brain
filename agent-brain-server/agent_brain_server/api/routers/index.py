@@ -10,7 +10,20 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, Request, status
 
 from agent_brain_server.config import settings
+from agent_brain_server.config.provider_config import load_provider_settings
 from agent_brain_server.models import IndexRequest, IndexResponse
+
+
+def _graphrag_enabled() -> bool:
+    """YAML-aware enable check; honors test patches of module-level ``settings``."""
+    try:
+        yaml_value = load_provider_settings().graphrag.enabled
+    except Exception:
+        yaml_value = None
+    if yaml_value is not None:
+        return bool(yaml_value)
+    return bool(settings.ENABLE_GRAPH_INDEX)
+
 
 logger = logging.getLogger(__name__)
 
@@ -183,11 +196,12 @@ async def index_documents(
     # Handle rebuild_graph parameter - rebuild graph index only
     if rebuild_graph:
         logger.info("Received rebuild_graph request")
-        if not settings.ENABLE_GRAPH_INDEX:
+        if not _graphrag_enabled():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot rebuild graph: ENABLE_GRAPH_INDEX is not enabled. "
-                "Set ENABLE_GRAPH_INDEX=true to use GraphRAG features.",
+                detail="Cannot rebuild graph: GraphRAG is not enabled. "
+                "Set graphrag.enabled: true in config.yaml or "
+                "ENABLE_GRAPH_INDEX=true to use GraphRAG features.",
             )
 
         # Get indexing service and rebuild graph from existing chunks

@@ -76,6 +76,43 @@ def mock_vector_store():
 
 
 @pytest.fixture(autouse=True)
+def isolate_provider_settings(monkeypatch):
+    """Stop the user's ~/.agent-brain/config.yaml from leaking into tests.
+
+    ``load_provider_settings()`` is lru_cached and walks a search path that
+    includes the developer's home directory. Tests that mock
+    ``settings.ENABLE_GRAPH_INDEX`` rely on the YAML side returning None;
+    if the developer has graphrag enabled in their home config, the new
+    YAML-aware accessors (``_graphrag_enabled``, ``get_graphrag_config``)
+    pick up that value and override the test's mock. Block every YAML
+    lookup path except an explicit ``AGENT_BRAIN_CONFIG`` env-var
+    override so per-test fixtures (e.g. the postgres backend fixtures
+    that pin ``embedding.params.dimensions``) can still inject their own
+    config.
+
+    Tests that need to exercise YAML loading use ``@patch`` on
+    ``load_provider_settings`` / ``_find_config_file`` directly; mock.patch
+    overrides this monkeypatch for the duration of that test.
+    """
+    from pathlib import Path
+
+    from agent_brain_server.config import provider_config as pc
+
+    def _isolated_find_config_file() -> Path | None:
+        env_config = os.getenv("AGENT_BRAIN_CONFIG")
+        if env_config:
+            path = Path(env_config)
+            if path.exists():
+                return path
+        return None
+
+    pc.load_provider_settings.cache_clear()
+    monkeypatch.setattr(pc, "_find_config_file", _isolated_find_config_file)
+    yield
+    pc.load_provider_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
 def reset_singletons():
     """Reset service singletons before each test."""
 

@@ -39,6 +39,28 @@ from agent_brain_server.storage import (
 logger = logging.getLogger(__name__)
 
 
+def _graphrag_enabled() -> bool:
+    """YAML-aware enable check; honors test patches of module-level ``settings``."""
+    try:
+        yaml_value = load_provider_settings().graphrag.enabled
+    except Exception:
+        yaml_value = None
+    if yaml_value is not None:
+        return bool(yaml_value)
+    return bool(settings.ENABLE_GRAPH_INDEX)
+
+
+def _graphrag_rrf_k() -> int:
+    """YAML-aware RRF k; falls back to env-var setting."""
+    try:
+        yaml_value = load_provider_settings().graphrag.rrf_k
+    except Exception:
+        yaml_value = None
+    if yaml_value is not None:
+        return int(yaml_value)
+    return int(settings.GRAPH_RRF_K)
+
+
 class VectorManagerRetriever(BaseRetriever):
     """LlamaIndex retriever wrapper for storage backend vector search."""
 
@@ -513,9 +535,10 @@ class QueryService:
                 f"To use graph queries, set AGENT_BRAIN_STORAGE_BACKEND=chroma."
             )
 
-        if not settings.ENABLE_GRAPH_INDEX:
+        if not _graphrag_enabled():
             raise ValueError(
-                "GraphRAG not enabled. Set ENABLE_GRAPH_INDEX=true in environment."
+                "GraphRAG not enabled. Set graphrag.enabled: true in config.yaml "
+                "or ENABLE_GRAPH_INDEX=true in the environment."
             )
 
         # Get filter parameters (use getattr for backward compat with test mocks)
@@ -618,7 +641,7 @@ class QueryService:
         from agent_brain_server.storage import get_effective_backend_type
 
         backend_type = get_effective_backend_type()
-        if settings.ENABLE_GRAPH_INDEX and backend_type == "chroma":
+        if _graphrag_enabled() and backend_type == "chroma":
             try:
                 graph_results = await self._execute_graph_query(request)
             except ValueError:
@@ -631,7 +654,7 @@ class QueryService:
             )
 
         # Apply Reciprocal Rank Fusion
-        rrf_k = settings.GRAPH_RRF_K  # Typical value is 60
+        rrf_k = _graphrag_rrf_k()  # Typical value is 60
         combined_scores: dict[str, dict[str, Any]] = {}
 
         # Process vector results

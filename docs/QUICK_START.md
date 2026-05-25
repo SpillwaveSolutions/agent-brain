@@ -198,6 +198,22 @@ This validates:
 - Server connectivity
 - Index health
 
+### CLI-only? Use `agent-brain doctor`
+
+When you're working outside Claude Code or want a script-friendly check,
+the CLI ships an equivalent diagnostic:
+
+```bash
+agent-brain doctor          # human-readable table
+agent-brain doctor --json   # machine-readable; exits non-zero on failures
+```
+
+The doctor verifies Python version, project initialization
+(`.agent-brain/config.json`), provider config, required API keys, optional
+dependencies (Cohere, LangExtract), `.gitignore` hygiene, and whether the
+server is reachable. Any command that can't reach the server now also
+prints `Tip: run 'agent-brain doctor' to diagnose your setup.`
+
 ---
 
 ## Next Steps

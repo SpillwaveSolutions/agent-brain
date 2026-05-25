@@ -96,6 +96,14 @@ class Settings(BaseSettings):
     QUERY_CACHE_TTL: int = 300  # TTL in seconds (5 minutes)
     QUERY_CACHE_MAX_SIZE: int = 256  # Max cached query results
 
+    # Tokenizer Configuration
+    # When True (default), tiktoken's encode() is called with
+    # disallowed_special=() so that text containing literal special-token
+    # strings like "<|endoftext|>" (common in LLM/inference docs) doesn't
+    # crash indexing. Set False to restore the historical strict behavior
+    # that raises ValueError on such tokens. Fixes issue #114.
+    ALLOW_SPECIAL_TOKENS_IN_TEXT: bool = True
+
     # Reranking Configuration (Feature 123)
     ENABLE_RERANKING: bool = False  # Off by default
     RERANKER_PROVIDER: str = "sentence-transformers"  # or "ollama"

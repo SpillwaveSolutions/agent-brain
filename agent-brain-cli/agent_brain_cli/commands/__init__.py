@@ -2,6 +2,7 @@
 
 from .cache import cache_group
 from .config import config_group
+from .doctor import doctor_command
 from .folders import folders_group
 from .index import index_command
 from .init import init_command
@@ -20,6 +21,7 @@ from .uninstall import uninstall_command
 __all__ = [
     "cache_group",
     "config_group",
+    "doctor_command",
     "folders_group",
     "index_command",
     "inject_command",

@@ -21,6 +21,25 @@ from .document_loader import LoadedDocument
 logger = logging.getLogger(__name__)
 
 
+def _safe_token_count(tokenizer: "tiktoken.Encoding", text: str) -> int:
+    """Count tokens without choking on special-token literals.
+
+    Some sources (LLM/inference docs like vLLM) include raw special-token
+    strings such as ``<|endoftext|>`` in their content. tiktoken's default
+    ``encode()`` raises *"Encountered text corresponding to disallowed
+    special token"* on those, which crashed indexing (issue #114).
+
+    For *counting* tokens we don't care whether the token is treated as a
+    single special token or as the literal characters — the downstream
+    embedding API never sees those literals as special tokens anyway. We
+    pass ``disallowed_special=()`` unless the strict-mode setting is on, in
+    which case the historical behavior (raise) is preserved.
+    """
+    if getattr(settings, "ALLOW_SPECIAL_TOKENS_IN_TEXT", True):
+        return len(tokenizer.encode(text, disallowed_special=()))
+    return len(tokenizer.encode(text))
+
+
 @dataclass
 class ChunkMetadata:
     """Structured metadata for document and code chunks with unified schema."""
@@ -232,7 +251,7 @@ class ContextAwareChunker:
 
     def count_tokens(self, text: str) -> int:
         """Count the number of tokens in a text string."""
-        return len(self.tokenizer.encode(text))
+        return _safe_token_count(self.tokenizer, text)
 
     async def chunk_documents(
         self,
@@ -341,7 +360,7 @@ class ContextAwareChunker:
                     source=document.source,
                     chunk_index=idx,
                     total_chunks=total_chunks,
-                    token_count=len(tokenizer.encode(chunk_text)),
+                    token_count=_safe_token_count(tokenizer, chunk_text),
                     metadata=chunk_metadata,
                 )
                 chunks.append(chunk)
@@ -738,7 +757,7 @@ class CodeChunker:
 
     def count_tokens(self, text: str) -> int:
         """Count the number of tokens in a text string."""
-        return len(self.tokenizer.encode(text))
+        return _safe_token_count(self.tokenizer, text)
 
     async def chunk_code_document(
         self,
@@ -851,7 +870,7 @@ class CodeChunker:
                     language=language,
                     chunk_index=idx,
                     total_chunks=total_chunks,
-                    token_count=len(tokenizer.encode(chunk_text)),
+                    token_count=_safe_token_count(tokenizer, chunk_text),
                     symbol_name=symbol_name,
                     symbol_kind=symbol_kind,
                     start_line=start_line,

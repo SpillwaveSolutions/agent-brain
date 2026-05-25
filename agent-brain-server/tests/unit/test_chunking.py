@@ -414,3 +414,23 @@ async def test_pascal_code_chunker_chunking() -> None:
     assert len(chunks) > 0
     names = [c.metadata.symbol_name for c in chunks if c.metadata.symbol_name]
     assert any(name in names for name in ["TCircle", "TCircle.SetRadius", "ClampValue"])
+
+
+def test_safe_token_count_handles_endoftext_literal() -> None:
+    """Regression test for issue #114.
+
+    Text containing literal special-token strings such as
+    ``<|endoftext|>`` (common in vLLM / LLM-inference docs) must not
+    crash tiktoken's ``encode()``; we count special tokens as characters
+    so the embedding model sees the text the same way the tokenizer does.
+    """
+    import tiktoken
+
+    from agent_brain_server.indexing.chunking import _safe_token_count
+
+    tokenizer = tiktoken.get_encoding("cl100k_base")
+    text = "Hello <|endoftext|> world <|im_start|> done"
+
+    # Must not raise. Returns a positive integer.
+    count = _safe_token_count(tokenizer, text)
+    assert count > 0

@@ -18,6 +18,10 @@ import re
 from typing import Any
 
 from agent_brain_server.config import settings
+from agent_brain_server.config.provider_config import (
+    get_graphrag_config,
+    load_provider_settings,
+)
 from agent_brain_server.models.graph import (
     CODE_ENTITY_TYPES,
     DOC_ENTITY_TYPES,
@@ -29,6 +33,69 @@ from agent_brain_server.models.graph import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _graphrag_enabled() -> bool:
+    """YAML-aware enable check; honors test patches of module-level ``settings``."""
+    try:
+        yaml_value = load_provider_settings().graphrag.enabled
+    except Exception:
+        yaml_value = None
+    if yaml_value is not None:
+        return bool(yaml_value)
+    return bool(settings.ENABLE_GRAPH_INDEX)
+
+
+# Prompt and exemplar set for langextract 1.x. langextract is a generic
+# extraction framework — it has no built-in notion of "subject-predicate-object
+# triplets", so we describe the task and seed it with one canonical example.
+_PROMPT = (
+    "Extract entity-relationship triplets from the text. For each fact, emit "
+    "an extraction with extraction_class='triplet' and attributes containing "
+    "'subject', 'predicate', 'object', plus optional 'subject_type' and "
+    "'object_type' fields. Use short, lowercase, snake_case predicates."
+)
+
+
+def _build_examples(lx_module: Any) -> list[Any]:
+    """Build the few-shot example list for ``lx.extract()``.
+
+    Built lazily so we don't import ``langextract.data`` at module load —
+    keeping the import inside the try/except in ``extract_triplets``.
+    """
+    data = lx_module.data
+    return [
+        data.ExampleData(
+            text=(
+                "FastAPI is a Python web framework created by Sebastián Ramírez. "
+                "It depends on Pydantic for data validation."
+            ),
+            extractions=[
+                data.Extraction(
+                    extraction_class="triplet",
+                    extraction_text="FastAPI was created by Sebastián Ramírez",
+                    attributes={
+                        "subject": "FastAPI",
+                        "subject_type": "Library",
+                        "predicate": "created_by",
+                        "object": "Sebastián Ramírez",
+                        "object_type": "Person",
+                    },
+                ),
+                data.Extraction(
+                    extraction_class="triplet",
+                    extraction_text="FastAPI depends on Pydantic",
+                    attributes={
+                        "subject": "FastAPI",
+                        "subject_type": "Library",
+                        "predicate": "depends_on",
+                        "object": "Pydantic",
+                        "object_type": "Library",
+                    },
+                ),
+            ],
+        ),
+    ]
 
 
 class LLMEntityExtractor:
@@ -100,7 +167,7 @@ class LLMEntityExtractor:
             List of GraphTriple objects extracted from text.
             Returns empty list on failure (graceful degradation).
         """
-        if not settings.ENABLE_GRAPH_INDEX:
+        if not _graphrag_enabled():
             return []
 
         if not settings.GRAPH_USE_LLM_EXTRACTION:
@@ -316,7 +383,7 @@ class CodeMetadataExtractor:
         Returns:
             List of GraphTriple objects extracted from metadata.
         """
-        if not settings.ENABLE_GRAPH_INDEX:
+        if not _graphrag_enabled():
             return []
 
         if not settings.GRAPH_USE_CODE_METADATA:
@@ -457,7 +524,7 @@ class CodeMetadataExtractor:
         Returns:
             List of GraphTriple objects.
         """
-        if not settings.ENABLE_GRAPH_INDEX:
+        if not _graphrag_enabled():
             return []
 
         triplets: list[GraphTriple] = []
@@ -670,17 +737,18 @@ class LangExtractExtractor:
         except Exception:
             pass  # Config not loaded yet (e.g. during testing) — use fallback
 
+        graphrag_cfg = get_graphrag_config()
         self.provider = (
             provider
-            or settings.GRAPH_LANGEXTRACT_PROVIDER
+            or graphrag_cfg.langextract_provider
             or _summarization_provider
             or "ollama"
         )
-        # Resolve model: explicit > GRAPH_LANGEXTRACT_MODEL > summarization model > ""
+        # Resolve model: explicit > graphrag.langextract_model > summarization > ""
         self.model = (
-            model or settings.GRAPH_LANGEXTRACT_MODEL or _summarization_model or ""
+            model or graphrag_cfg.langextract_model or _summarization_model or ""
         )
-        self.max_triplets = max_triplets or settings.GRAPH_MAX_TRIPLETS_PER_CHUNK
+        self.max_triplets = max_triplets or graphrag_cfg.max_triplets_per_chunk
 
     def extract_triplets(
         self,
@@ -702,22 +770,25 @@ class LangExtractExtractor:
             List of GraphTriple objects extracted from text.
             Returns empty list on failure (graceful degradation).
         """
-        if not settings.ENABLE_GRAPH_INDEX:
+        if not _graphrag_enabled():
             return []
 
-        if settings.GRAPH_DOC_EXTRACTOR == "none":
+        # Honor YAML override when set, otherwise the env-var-backed setting.
+        if (
+            load_provider_settings().graphrag.doc_extractor
+            or settings.GRAPH_DOC_EXTRACTOR
+        ) == "none":
             return []
 
         if not text:
             return []
 
         try:
-            import langextract  # noqa: F401 (check availability)
-            from langextract import extract_relations
+            import langextract as lx
         except ImportError:
             logger.warning(
                 "langextract not installed; document graph extraction disabled. "
-                "Install: cd agent-brain-server && poetry install --extras graphrag"
+                "Install: pip install 'agent-brain-rag[graphrag]'"
             )
             return []
 
@@ -729,14 +800,38 @@ class LangExtractExtractor:
             text = text[:max_chars] + "..."
 
         try:
-            relations = extract_relations(
-                text,
-                provider=self.provider,
-                model=self.model or None,
-                max_relations=max_count,
-            )
-
-            triplets = self._convert_relations(relations, source_chunk_id)
+            extract_fn = getattr(lx, "extract", None)
+            if extract_fn is None:
+                # Older langextract versions exposed extract_relations directly;
+                # fall back so users pinned to <1.0 still get triplets. The
+                # 1.x line removed extract_relations from the public API.
+                legacy_fn = getattr(lx, "extract_relations", None)
+                if legacy_fn is None:
+                    logger.warning(
+                        "langextract is installed but neither extract() nor "
+                        "extract_relations() is available — version mismatch. "
+                        "Upgrade with: pip install -U langextract"
+                    )
+                    return []
+                relations = legacy_fn(
+                    text,
+                    provider=self.provider,
+                    model=self.model or None,
+                    max_relations=max_count,
+                )
+                triplets = self._convert_relations(relations, source_chunk_id)
+            else:
+                result = extract_fn(
+                    text_or_documents=text,
+                    prompt_description=_PROMPT,
+                    examples=_build_examples(lx),
+                    model_id=self._resolve_model_id(),
+                )
+                triplets = self._convert_extractions(
+                    getattr(result, "extractions", None) or [],
+                    source_chunk_id,
+                    limit=max_count,
+                )
 
             logger.debug(
                 "langextract_extractor.extract_triplets: completed",
@@ -762,6 +857,74 @@ class LangExtractExtractor:
                 },
             )
             return []
+
+    def _resolve_model_id(self) -> str:
+        """Build the langextract ``model_id`` argument.
+
+        langextract 1.x identifies providers by the model id itself
+        (``gemini-…``, ``gpt-…``, ``claude-…``, ``ollama/…``). Fall back to a
+        sensible default per provider so callers that only set ``provider``
+        still work.
+        """
+        if self.model:
+            return self.model
+        defaults = {
+            "gemini": "gemini-2.0-flash",
+            "openai": "gpt-4o-mini",
+            "anthropic": "claude-haiku-4-5-20251001",
+            "claude": "claude-haiku-4-5-20251001",
+            "ollama": "ollama/llama3.1:8b",
+        }
+        return defaults.get(self.provider.lower(), "gemini-2.0-flash")
+
+    def _convert_extractions(
+        self,
+        extractions: Any,
+        source_chunk_id: str | None,
+        limit: int,
+    ) -> list[GraphTriple]:
+        """Convert langextract 1.x ``Extraction`` objects to GraphTriple list."""
+        triplets: list[GraphTriple] = []
+
+        for ex in extractions:
+            if len(triplets) >= limit:
+                break
+            try:
+                attrs = getattr(ex, "attributes", None) or {}
+                if not isinstance(attrs, dict):
+                    continue
+
+                subject = str(attrs.get("subject") or attrs.get("head") or "")
+                predicate = str(attrs.get("predicate") or attrs.get("relation") or "")
+                obj = str(attrs.get("object") or attrs.get("tail") or "")
+
+                if not (subject and predicate and obj):
+                    continue
+
+                subject_type = attrs.get("subject_type") or attrs.get("head_type")
+                object_type = attrs.get("object_type") or attrs.get("tail_type")
+
+                predicate = predicate.lower().strip()
+                if subject_type:
+                    subject_type = normalize_entity_type(str(subject_type))
+                if object_type:
+                    object_type = normalize_entity_type(str(object_type))
+
+                triplets.append(
+                    GraphTriple(
+                        subject=subject,
+                        subject_type=subject_type,
+                        predicate=predicate,
+                        object=obj,
+                        object_type=object_type,
+                        source_chunk_id=source_chunk_id,
+                    )
+                )
+            except Exception as e:
+                logger.debug(f"Failed to convert langextract extraction: {e}")
+                continue
+
+        return triplets
 
     def _convert_relations(
         self,

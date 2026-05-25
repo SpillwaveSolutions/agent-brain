@@ -251,25 +251,38 @@ def load_config(start_path: Path | None = None) -> AgentBrainConfig:
     return config
 
 
-def _find_project_root(start_path: Path | None = None) -> Path:
+def resolve_project_root(start_path: Path | None = None) -> Path:
     """Find the project root by looking for markers.
 
-    Walks up from start_path looking for:
-    1. Git repository root
-    2. .claude/ directory
-    3. pyproject.toml file
+    Resolution order (first match wins):
+    1. Walk up from ``start_path`` looking for ``.agent-brain/`` — this lets a
+       sub-project inside a mono-repo keep its own state dir and not get
+       pulled to the git top-level (issues #124, #128).
+    2. Walk up looking for legacy ``.claude/agent-brain/``.
+    3. Git repository root (``git rev-parse --show-toplevel``).
+    4. Walk up looking for ``.claude/`` or ``pyproject.toml``.
+    5. Fall back to ``start_path``.
 
     Args:
         start_path: Starting directory. Defaults to cwd.
 
     Returns:
-        Project root path or start_path if no markers found.
+        Project root path.
     """
     import subprocess
 
     start = (start_path or Path.cwd()).resolve()
 
-    # Try git root first
+    # 1 & 2. Prefer a local state dir over git root so nested projects work.
+    current = start
+    while current != current.parent:
+        if (current / STATE_DIR_NAME).is_dir():
+            return current
+        if (current / LEGACY_STATE_DIR_NAME).is_dir():
+            return current
+        current = current.parent
+
+    # 3. Git root next — useful when this is the first time the user runs init.
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
@@ -283,11 +296,9 @@ def _find_project_root(start_path: Path | None = None) -> Path:
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         pass
 
-    # Walk up looking for markers
+    # 4. Other markers.
     current = start
     while current != current.parent:
-        if (current / ".agent-brain").is_dir():
-            return current
         if (current / ".claude").is_dir():
             return current
         if (current / "pyproject.toml").is_file():
@@ -295,6 +306,10 @@ def _find_project_root(start_path: Path | None = None) -> Path:
         current = current.parent
 
     return start
+
+
+# Backwards-compatible alias for any external callers.
+_find_project_root = resolve_project_root
 
 
 def get_state_dir(
@@ -318,7 +333,7 @@ def get_state_dir(
     """
     # 1. Auto-detect project root and check for existing state dir
     if project_root is None:
-        project_root = _find_project_root()
+        project_root = resolve_project_root()
 
     # Check new path first, then legacy
     new_state_dir = project_root / STATE_DIR_NAME

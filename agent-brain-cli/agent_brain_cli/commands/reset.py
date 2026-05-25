@@ -6,6 +6,7 @@ from rich.prompt import Confirm
 
 from ..client import ConnectionError, DocServeClient, ServerError
 from ..config import get_server_url
+from ..diagnostics import doctor_hint_message
 
 console = Console()
 
@@ -67,6 +68,7 @@ def reset_command(url: str | None, yes: bool, json_output: bool) -> None:
             click.echo(json.dumps({"error": str(e)}))
         else:
             console.print(f"[red]Connection Error:[/] {e}")
+            console.print(f"[dim]{doctor_hint_message()}[/]")
         raise SystemExit(1) from e
 
     except ServerError as e:

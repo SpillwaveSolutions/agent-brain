@@ -2,6 +2,12 @@
 # ab-setup-check.sh — Agent Brain pre-flight detection
 # Usage: bash /path/to/ab-setup-check.sh
 # Output: JSON object with current environment state
+#
+# When the agent-brain CLI (>=9.7) is installed, the canonical source of
+# truth is `agent-brain doctor --json`. This script still emits the
+# environment snapshot below (Ollama/Docker/large dirs) which the plugin
+# wizard consumes, but it also includes a "doctor" key delegating to the
+# CLI's checks so the two surfaces never drift out of sync.
 
 # Use set -uo pipefail without -e to avoid aborting on tool-not-found
 set -uo pipefail
@@ -12,6 +18,17 @@ if [ -n "$AB_VERSION" ]; then
   AB_INSTALLED="true"
 else
   AB_INSTALLED="false"
+fi
+
+# --- Doctor report (delegates to CLI when available) ---
+DOCTOR_JSON="null"
+if [ "$AB_INSTALLED" = "true" ]; then
+  # agent-brain doctor exits non-zero on critical failures but always emits
+  # a JSON body on --json; capture it either way.
+  DOCTOR_OUTPUT=$(agent-brain doctor --json 2>/dev/null || true)
+  if [ -n "$DOCTOR_OUTPUT" ]; then
+    DOCTOR_JSON="$DOCTOR_OUTPUT"
+  fi
 fi
 
 # --- Config file detection (XDG + legacy) ---
@@ -138,6 +155,7 @@ cat <<JSON
     "google": $GOOGLE_KEY_SET
   },
   "available_postgres_port": "$AVAILABLE_POSTGRES_PORT",
-  "large_dirs": $LARGE_DIRS
+  "large_dirs": $LARGE_DIRS,
+  "doctor": $DOCTOR_JSON
 }
 JSON
