@@ -40,11 +40,12 @@ Execute a versioned release with these steps:
 
 1. Calculate new version from current + bump type
 2. Flip CLI dependency to PyPI if path-based
-3. Update version in 4 files:
+3. Update version in 5 files:
    - `agent-brain-server/pyproject.toml`
    - `agent-brain-server/agent_brain_server/__init__.py`
    - `agent-brain-cli/pyproject.toml`
    - `agent-brain-cli/agent_brain_cli/__init__.py`
+   - `agent-brain-plugin/.claude-plugin/plugin.json` (top-level `"version"` field — must match CLI/server)
 4. Commit: `chore(release): bump version to X.Y.Z`
 5. Tag: `vX.Y.Z`
 6. Push branch and tag
