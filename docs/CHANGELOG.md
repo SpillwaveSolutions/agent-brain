@@ -11,6 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [10.0.1] - 2026-05-25
+
+### Fixed
+
+- `scripts/quick_start_guide.sh` was silently broken since v9.0.0 — line 68 still invoked the legacy `doc-serve` binary (renamed to `agent-brain-serve` in v9.0.0) and the script's exported `DOC_SERVE_URL` env var was no longer read by the modern CLI. The script is cited as a mandatory pre-release gate in `.claude/CLAUDE.md`, so the gate had been effectively bypassed for the entire v9.x line. Replaced the binary call, updated three echo banners from "Doc-Serve" to "Agent Brain", and renamed `DOC_SERVE_URL` to `AGENT_BRAIN_URL`. Closes #134.
+- Release automation now bumps `agent-brain-plugin/.claude-plugin/plugin.json` in lockstep with `pyproject.toml` and `__init__.py` files. The release agent's documented contract required the plugin manifest to match (line 119) but its actual step list only enumerated 4 files, requiring a manual catchup commit each release (see `4997007` for v10.0.0). Both `.claude/agents/release_agent.md` and `.claude/commands/ag-brain-release.md` now list 5 files. The v10.0.1 release commit (`fc8f9bb`) is the first to bump `plugin.json` automatically. Closes #135.
+
+### Internal
+
+- Identified `.claude/commands/ag-brain-release.md` as the runtime source of truth for the release slash command — its "Task" section is what the skill follows, not the duplicate file list in the agent definition. PR #137 was needed because PR #136 only updated the agent file.
+
 ## [10.0.0] - 2026-05-25
 
 ### Breaking
