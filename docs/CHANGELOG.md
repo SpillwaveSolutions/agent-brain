@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [10.0.2] - 2026-05-25
+
+### Fixed
+
+- Release automation now refuses to proceed if `docs/CHANGELOG.md` is missing an entry for the new version. Previously the release agent silently shipped without updating the CHANGELOG, requiring a post-release docs catchup commit each time (see PR #139 for v10.0.1). The new pre-release check (Check #6 in `.claude/agents/release_agent.md`, Check #5 in `.claude/commands/ag-brain-release.md`) computes the target version from the bump type and greps `docs/CHANGELOG.md` for a matching `## [X.Y.Z]` heading. On failure it aborts with a clear instruction to add the section and commit before re-running. Same root cause as #135 (release agent's documented contract diverging from automation) — now resolved structurally. Closes #138.
+
+### Internal
+
+- This v10.0.2 CHANGELOG entry self-demonstrates the new check: the release that ships it is the first release to actually run the check, and it will validate its own existence in `docs/CHANGELOG.md` before proceeding.
+
 ## [10.0.1] - 2026-05-25
 
 ### Fixed

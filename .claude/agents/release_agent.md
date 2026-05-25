@@ -125,6 +125,7 @@ Before any release actions:
 3. **Synced with remote**: `git fetch origin && git diff origin/main` must be empty
 4. **Quality gates pass**: `task before-push` must exit 0
 5. **CLI dependency on PyPI**: Check `agent-brain-cli/pyproject.toml` does NOT have `path = "../agent-brain-server"`. If it does, flip to PyPI first.
+6. **CHANGELOG entry present**: Calculate the new version from current + bump type, then `grep -q "^## \[X.Y.Z\]" docs/CHANGELOG.md` must match. If missing, abort with: *"Add a `## [X.Y.Z] - YYYY-MM-DD` section to docs/CHANGELOG.md and commit it before re-running. See the existing [10.0.0] entry for the expected Keep-a-Changelog format."* This preserves curator-authored release notes rather than auto-generating from commit messages.
 
 ## Release Steps
 
@@ -159,6 +160,7 @@ Format with sections: Features, Bug Fixes, Performance, Documentation, Other Cha
 - Out of sync with remote
 - `task before-push` fails
 - Dependency flip fails
+- CHANGELOG entry missing for the new version
 - Any git operation fails
 
 ## Dry-Run Mode
