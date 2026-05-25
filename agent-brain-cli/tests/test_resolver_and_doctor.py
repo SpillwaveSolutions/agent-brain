@@ -16,11 +16,20 @@ from agent_brain_cli.diagnostics import doctor_hint_message, run_doctor
 
 @pytest.fixture
 def isolated_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Run each test in an isolated cwd with no environment overrides."""
+    """Run each test in an isolated cwd with no environment overrides.
+
+    Also redirects ``$HOME`` and ``$XDG_CONFIG_HOME`` at ``tmp_path`` so the
+    provider-config loader can't fall back to the developer's real
+    ``~/.agent-brain/config.yaml`` or ``~/.config/agent-brain/`` — those would
+    emit a "Using legacy config path" warning that contaminates the doctor
+    ``--json`` stream.
+    """
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("AGENT_BRAIN_URL", raising=False)
     monkeypatch.delenv("AGENT_BRAIN_STATE_DIR", raising=False)
     monkeypatch.delenv("AGENT_BRAIN_CONFIG", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
     return tmp_path
 
 
