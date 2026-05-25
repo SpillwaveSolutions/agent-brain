@@ -1,5 +1,5 @@
 ---
-last_validated: 2026-03-16
+last_validated: 2026-05-25
 ---
 
 # Changelog
@@ -8,6 +8,37 @@ All notable changes to Agent Brain will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [10.0.0] - 2026-05-25
+
+### Breaking
+
+- `cohere` is now an optional extra. Install with `pip install 'agent-brain-rag[cohere]'` to use the Cohere provider. Without the extra, selecting cohere raises a clear `ImportError` with install hint. Closes #122, #125.
+
+### Added
+
+- `agent-brain doctor` CLI command — checks Python version, project init, provider config, required API keys, optional deps (`cohere`/`langextract`), `.gitignore` hygiene, and server reachability. Supports `--json` and exits non-zero on critical failures.
+- Connect-time hints — when `status`, `query`, `jobs`, `index`, `reset` hit `ConnectionError`, they now print a context-sensitive tip pointing at `agent-brain doctor` or the missing `runtime.json`.
+- Plugin delegation — `ab-setup-check.sh` now calls `agent-brain doctor --json` when the CLI is installed.
+
+### Fixed
+
+- File watcher infinite re-index loop — `.agent-brain/` and `.claude/` added to `AgentBrainWatchFilter`'s ignore_dirs. Closes #123.
+- Monorepo project-root resolver — CLI/server walked past nested `.agent-brain/` to the git root in mono-repos, so `status` always queried port 8000. Unified four duplicate project-root resolvers; check for a local state dir before consulting git. Closes #124, #128.
+- `graphrag:` YAML section was silently ignored — added `GraphRAGConfig` Pydantic model + `get_graphrag_config()` accessor that merges YAML over env-var defaults. Graph index dir resolved under `{state_dir}/data/graph_index` instead of CWD. Closes #126.
+- `langextract` 1.x migration — `extract_relations` removed from the public API; migrated `LangExtractExtractor` to `lx.extract()` with a prompt + few-shot examples, kept a legacy fallback path, stopped swallowing `AttributeError` as "not installed." Closes #129.
+- `tiktoken` rejected `<|endoftext|>` literals in indexed text — added `ALLOW_SPECIAL_TOKENS_IN_TEXT` (on by default) and a `_safe_token_count` helper used by every `encode()` call in chunking. Closes #114.
+
+### Performance
+
+- Prune excluded dirs during traversal instead of after walking them — significantly faster indexing on large trees with deep ignore patterns. Closes #127.
+
+### Internal
+
+- Test-isolation fix — `isolate_provider_settings` autouse fixture now honors `AGENT_BRAIN_CONFIG` env-var overrides while still blocking home/XDG/walk-up YAML lookups. Unblocked CI on the pgvector contract/integration/load test suites that had been erroring with `column cannot have more than 2000 dimensions for hnsw index`.
+- CI — `provider-e2e.yml` workflow now installs the `[cohere]` extra so the cohere matrix step works after the cohere-is-optional change.
 
 ---
 
