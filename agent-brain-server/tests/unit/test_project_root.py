@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 from agent_brain_server.project_root import (
     _resolve_git_root,
     _walk_up_for_marker,
+    _walk_up_for_state_dir,
     resolve_project_root,
 )
 
@@ -52,6 +53,36 @@ class TestResolveProjectRoot:
             result = resolve_project_root()
             assert result == Path.cwd().resolve()
 
+    def test_local_state_dir_preferred_over_git_root(self, tmp_path):
+        """Nested ``.agent-brain/`` must win over the surrounding git root.
+
+        Regression test for #124 (mono-repo) and #128 (status hitting wrong
+        port). Before the fix, ``_resolve_git_root`` was called first and
+        jumped to the top of the repo, skipping the local state dir.
+        """
+        # Simulate: git_root = tmp_path, but project lives in projects/app/
+        # with its own .agent-brain/.
+        nested = tmp_path / "projects" / "app"
+        nested.mkdir(parents=True)
+        (nested / ".agent-brain").mkdir()
+
+        with patch(
+            "agent_brain_server.project_root._resolve_git_root",
+            return_value=tmp_path,
+        ):
+            assert resolve_project_root(nested) == nested
+
+    def test_git_root_used_when_no_local_state_dir(self, tmp_path):
+        """When there is no nested .agent-brain/, fall through to git root."""
+        nested = tmp_path / "src"
+        nested.mkdir()
+
+        with patch(
+            "agent_brain_server.project_root._resolve_git_root",
+            return_value=tmp_path,
+        ):
+            assert resolve_project_root(nested) == tmp_path
+
 
 class TestResolveGitRoot:
     """Tests for _resolve_git_root function."""
@@ -95,13 +126,15 @@ class TestWalkUpForMarker:
     """Tests for _walk_up_for_marker function."""
 
     def test_finds_agent_brain_dir(self, tmp_path):
-        """Test finding .agent-brain directory marker."""
+        """Test finding .agent-brain directory marker via the state-dir walker."""
         (tmp_path / ".agent-brain").mkdir()
         child = tmp_path / "sub" / "deep"
         child.mkdir(parents=True)
 
-        result = _walk_up_for_marker(child)
-        assert result == tmp_path
+        # .agent-brain is now found by _walk_up_for_state_dir so it can take
+        # precedence over the git root (issue #124). _walk_up_for_marker only
+        # handles non-state markers.
+        assert _walk_up_for_state_dir(child) == tmp_path
 
     def test_finds_claude_dir(self, tmp_path):
         """Test finding .claude directory marker."""
@@ -112,15 +145,15 @@ class TestWalkUpForMarker:
         result = _walk_up_for_marker(child)
         assert result == tmp_path
 
-    def test_prefers_agent_brain_over_claude(self, tmp_path):
-        """Test .agent-brain takes priority over .claude."""
+    def test_state_dir_takes_priority_over_claude(self, tmp_path):
+        """Test .agent-brain takes priority over .claude (issue #124)."""
         (tmp_path / ".agent-brain").mkdir()
         (tmp_path / ".claude").mkdir()
         child = tmp_path / "src"
         child.mkdir()
 
-        result = _walk_up_for_marker(child)
-        assert result == tmp_path
+        # The high-level resolver picks state dir first.
+        assert resolve_project_root(child) == tmp_path
 
     def test_finds_pyproject_toml(self, tmp_path):
         """Test finding pyproject.toml marker."""

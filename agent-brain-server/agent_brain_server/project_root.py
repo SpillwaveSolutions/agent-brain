@@ -11,10 +11,12 @@ def resolve_project_root(start_path: Path | None = None) -> Path:
     """Resolve the canonical project root directory.
 
     Resolution order:
-    1. Git repository root (git rev-parse --show-toplevel)
-    2. Walk up looking for .claude/ directory
-    3. Walk up looking for pyproject.toml
-    4. Fall back to cwd
+    1. Walk up looking for ``.agent-brain/`` or legacy ``.claude/agent-brain/``
+       — prefer a local state dir so nested projects inside a mono-repo
+       don't get pulled to the git top-level (issues #124, #128).
+    2. Git repository root (``git rev-parse --show-toplevel``).
+    3. Walk up looking for ``.claude/`` or ``pyproject.toml``.
+    4. Fall back to ``start_path``.
 
     Always resolves symlinks for canonical paths.
 
@@ -26,12 +28,15 @@ def resolve_project_root(start_path: Path | None = None) -> Path:
     """
     start = (start_path or Path.cwd()).resolve()
 
-    # Try git root first
+    # Local state dir wins over git root.
+    state_root = _walk_up_for_state_dir(start)
+    if state_root:
+        return state_root
+
     git_root = _resolve_git_root(start)
     if git_root:
         return git_root
 
-    # Walk up looking for markers
     marker_root = _walk_up_for_marker(start)
     if marker_root:
         return marker_root
@@ -63,10 +68,35 @@ def _resolve_git_root(start: Path) -> Path | None:
     return None
 
 
-def _walk_up_for_marker(start: Path) -> Path | None:
-    """Walk up directories looking for project markers.
+def _walk_up_for_state_dir(start: Path) -> Path | None:
+    """Walk up looking for an existing Agent Brain state directory.
 
-    Looks for .agent-brain/, .claude/ directory, or pyproject.toml file.
+    Returns the deepest directory containing ``.agent-brain/`` or the
+    legacy ``.claude/agent-brain/``. Used to make a local sub-project
+    take precedence over the surrounding git repository's top level.
+
+    Args:
+        start: Directory to start walking from.
+
+    Returns:
+        Directory containing a state dir, or None.
+    """
+    current = start
+    while current != current.parent:
+        if (current / ".agent-brain").is_dir():
+            return current
+        if (current / ".claude" / "agent-brain").is_dir():
+            return current
+        current = current.parent
+    return None
+
+
+def _walk_up_for_marker(start: Path) -> Path | None:
+    """Walk up directories looking for non-state project markers.
+
+    Looks for ``.claude/`` directory or ``pyproject.toml`` file. State
+    directories are handled separately by :func:`_walk_up_for_state_dir`
+    so they can take precedence over git roots.
 
     Args:
         start: Directory to start walking from.
@@ -76,8 +106,6 @@ def _walk_up_for_marker(start: Path) -> Path | None:
     """
     current = start
     while current != current.parent:
-        if (current / ".agent-brain").is_dir():
-            return current
         if (current / ".claude").is_dir():
             return current
         if (current / "pyproject.toml").is_file():

@@ -265,6 +265,67 @@ class StorageConfig(BaseModel):
         return val
 
 
+class GraphRAGConfig(BaseModel):
+    """Configuration for GraphRAG (Feature 113).
+
+    Mirrors the GRAPH_* fields on :class:`agent_brain_server.config.settings.Settings`.
+    All fields are optional so that an unset value falls through to the
+    env-var-backed Settings default; this preserves backwards compatibility
+    with installations that only configure GraphRAG via environment.
+
+    Fixes issue #126 (``graphrag:`` section silently ignored).
+    """
+
+    enabled: bool | None = Field(
+        default=None,
+        description="Master switch for graph indexing (alias for ENABLE_GRAPH_INDEX)",
+    )
+    store_type: str | None = Field(
+        default=None,
+        description="Backend: 'simple' (in-memory + JSON) or 'kuzu' (persistent)",
+    )
+    index_path: str | None = Field(
+        default=None,
+        description=(
+            "Override for graph persistence dir. If unset, resolves to "
+            "{state_dir}/data/graph_index. Relative paths are resolved against "
+            "the project state directory, not CWD."
+        ),
+    )
+    extraction_model: str | None = Field(
+        default=None,
+        description="Model used for entity extraction",
+    )
+    max_triplets_per_chunk: int | None = Field(
+        default=None,
+        description="Maximum triplets to extract per document chunk",
+    )
+    use_code_metadata: bool | None = Field(
+        default=None,
+        description="Use AST metadata for code entity extraction",
+    )
+    doc_extractor: str | None = Field(
+        default=None,
+        description="Document extractor: 'langextract' or 'none'",
+    )
+    langextract_provider: str | None = Field(
+        default=None,
+        description="Provider override for LangExtract (defaults to summarization)",
+    )
+    langextract_model: str | None = Field(
+        default=None,
+        description="Model override for LangExtract",
+    )
+    traversal_depth: int | None = Field(
+        default=None,
+        description="Depth for graph traversal in queries",
+    )
+    rrf_k: int | None = Field(
+        default=None,
+        description="Reciprocal Rank Fusion constant for multi-retrieval",
+    )
+
+
 class ProviderSettings(BaseModel):
     """Top-level provider configuration."""
 
@@ -283,6 +344,10 @@ class ProviderSettings(BaseModel):
     storage: StorageConfig = Field(
         default_factory=StorageConfig,
         description="Storage backend configuration",
+    )
+    graphrag: GraphRAGConfig = Field(
+        default_factory=GraphRAGConfig,
+        description="GraphRAG configuration (Feature 113)",
     )
 
 
@@ -569,3 +634,75 @@ def has_critical_errors(errors: list[ValidationError]) -> bool:
         True if any error has CRITICAL severity
     """
     return any(e.severity == ValidationSeverity.CRITICAL for e in errors)
+
+
+@dataclass(frozen=True)
+class EffectiveGraphRAGConfig:
+    """Resolved GraphRAG configuration combining YAML and env-var defaults.
+
+    YAML values from ``graphrag:`` win when present, otherwise the env-var
+    backed :class:`Settings` defaults apply. Built once per call from
+    :func:`get_graphrag_config`.
+    """
+
+    enabled: bool
+    store_type: str
+    index_path: str
+    extraction_model: str
+    max_triplets_per_chunk: int
+    use_code_metadata: bool
+    doc_extractor: str
+    langextract_provider: str
+    langextract_model: str
+    traversal_depth: int
+    rrf_k: int
+
+
+def get_graphrag_config() -> EffectiveGraphRAGConfig:
+    """Resolve effective GraphRAG configuration.
+
+    YAML ``graphrag:`` section takes precedence over env-var-backed Settings
+    defaults. The reverse historical behavior was the bug in issue #126,
+    where the YAML section was parsed away as ``extra="ignore"`` and never
+    consulted.
+
+    Returns:
+        Merged GraphRAG configuration.
+    """
+    # Local imports to avoid circular dependency at module load.
+    from agent_brain_server.config.settings import settings as env_settings
+
+    yaml_settings = load_provider_settings().graphrag
+
+    def _pick(yaml_value: Any, env_value: Any) -> Any:
+        return env_value if yaml_value is None else yaml_value
+
+    return EffectiveGraphRAGConfig(
+        enabled=_pick(yaml_settings.enabled, env_settings.ENABLE_GRAPH_INDEX),
+        store_type=_pick(yaml_settings.store_type, env_settings.GRAPH_STORE_TYPE),
+        index_path=_pick(yaml_settings.index_path, env_settings.GRAPH_INDEX_PATH),
+        extraction_model=_pick(
+            yaml_settings.extraction_model, env_settings.GRAPH_EXTRACTION_MODEL
+        ),
+        max_triplets_per_chunk=_pick(
+            yaml_settings.max_triplets_per_chunk,
+            env_settings.GRAPH_MAX_TRIPLETS_PER_CHUNK,
+        ),
+        use_code_metadata=_pick(
+            yaml_settings.use_code_metadata, env_settings.GRAPH_USE_CODE_METADATA
+        ),
+        doc_extractor=_pick(
+            yaml_settings.doc_extractor, env_settings.GRAPH_DOC_EXTRACTOR
+        ),
+        langextract_provider=_pick(
+            yaml_settings.langextract_provider,
+            env_settings.GRAPH_LANGEXTRACT_PROVIDER,
+        ),
+        langextract_model=_pick(
+            yaml_settings.langextract_model, env_settings.GRAPH_LANGEXTRACT_MODEL
+        ),
+        traversal_depth=_pick(
+            yaml_settings.traversal_depth, env_settings.GRAPH_TRAVERSAL_DEPTH
+        ),
+        rrf_k=_pick(yaml_settings.rrf_k, env_settings.GRAPH_RRF_K),
+    )

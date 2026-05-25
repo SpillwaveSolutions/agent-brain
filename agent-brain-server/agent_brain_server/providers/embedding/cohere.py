@@ -1,9 +1,7 @@
 """Cohere embedding provider implementation."""
 
 import logging
-from typing import TYPE_CHECKING
-
-import cohere
+from typing import TYPE_CHECKING, Any
 
 from agent_brain_server.providers.base import BaseEmbeddingProvider
 from agent_brain_server.providers.exceptions import AuthenticationError, ProviderError
@@ -12,6 +10,28 @@ if TYPE_CHECKING:
     from agent_brain_server.config.provider_config import EmbeddingConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _import_cohere() -> Any:
+    """Import cohere lazily so the package is only required when the provider
+    is actually selected.
+
+    Cohere drags in heavy ML deps (notably ``tokenizers``) that historically
+    have shipped broken sdists for macOS/M1 (issues #122, #125). Keeping the
+    import lazy means a plain ``pip install agent-brain-rag`` works without
+    the extra, and users who pick the Cohere provider see a clean install
+    hint instead of an ImportError.
+    """
+    try:
+        import cohere
+    except ImportError as exc:
+        raise ImportError(
+            "Cohere provider selected but the 'cohere' package is not "
+            "installed. Install it with: "
+            "pip install 'agent-brain-rag[cohere]'"
+        ) from exc
+    return cohere
+
 
 # Model dimension mappings for Cohere embedding models
 COHERE_MODEL_DIMENSIONS: dict[str, int] = {
@@ -62,6 +82,7 @@ class CohereEmbeddingProvider(BaseEmbeddingProvider):
         batch_size = config.params.get("batch_size", 96)  # Cohere limit
         super().__init__(model=config.model, batch_size=batch_size)
 
+        cohere = _import_cohere()
         self._client = cohere.AsyncClientV2(api_key=api_key)
         self._input_type = config.params.get("input_type", "search_document")
         self._truncate = config.params.get("truncate", "END")

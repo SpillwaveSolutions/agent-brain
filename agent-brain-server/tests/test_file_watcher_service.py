@@ -42,6 +42,18 @@ def test_watch_filter_includes_extra_ignore_dirs() -> None:
     assert "htmlcov" in ignore_dirs
 
 
+def test_watch_filter_ignores_agent_brain_dirs() -> None:
+    """Regression test for issue #123 — file watcher infinite re-index loop.
+
+    Writes inside ``.agent-brain/`` (job logs, runtime.json) must not
+    trigger a new indexing job; otherwise the server fires a fresh job in
+    response to its own log writes, ad infinitum.
+    """
+    ignore_dirs = set(AgentBrainWatchFilter.ignore_dirs)
+    assert ".agent-brain" in ignore_dirs
+    assert ".claude" in ignore_dirs
+
+
 def test_watch_filter_inherits_default_ignores() -> None:
     """AgentBrainWatchFilter still inherits DefaultFilter ignored dirs."""
     from watchfiles import DefaultFilter

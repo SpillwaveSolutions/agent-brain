@@ -7,6 +7,7 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 
+from agent_brain_cli.config import resolve_project_root
 from agent_brain_cli.migration import migrate_state_dir
 from agent_brain_cli.xdg_paths import migrate_legacy_paths
 
@@ -35,53 +36,6 @@ DEFAULT_CONFIG = {
 }
 
 STATE_DIR_NAME = ".agent-brain"
-
-
-def resolve_project_root(start_path: Path | None = None) -> Path:
-    """Resolve the canonical project root directory.
-
-    Resolution order:
-    1. Git repository root (git rev-parse --show-toplevel)
-    2. Walk up looking for .claude/ directory
-    3. Walk up looking for pyproject.toml
-    4. Fall back to cwd
-
-    Args:
-        start_path: Starting path for resolution. Defaults to cwd.
-
-    Returns:
-        Resolved project root path.
-    """
-    import subprocess
-
-    start = (start_path or Path.cwd()).resolve()
-
-    # Try git root first
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            cwd=str(start),
-        )
-        if result.returncode == 0:
-            return Path(result.stdout.strip()).resolve()
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        pass
-
-    # Walk up looking for markers
-    current = start
-    while current != current.parent:
-        if (current / ".agent-brain").is_dir():
-            return current
-        if (current / ".claude").is_dir():
-            return current
-        if (current / "pyproject.toml").is_file():
-            return current
-        current = current.parent
-
-    return start
 
 
 @click.command("init")

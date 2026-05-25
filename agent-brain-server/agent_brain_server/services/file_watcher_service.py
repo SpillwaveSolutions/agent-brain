@@ -31,9 +31,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# Directories to exclude from watching (extends DefaultFilter defaults)
+# Directories to exclude from watching (extends DefaultFilter defaults).
+# ".agent-brain" and ".claude" are critical: job logs, runtime.json and
+# job-state files live there, and writes to them would otherwise trigger a
+# new indexing job, producing an infinite re-index loop (issue #123).
 _EXTRA_IGNORE_DIRS = frozenset(
     {
+        ".agent-brain",
+        ".claude",
         "dist",
         "build",
         ".next",

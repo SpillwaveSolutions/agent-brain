@@ -10,6 +10,7 @@ from . import __version__
 from .commands import (
     cache_group,
     config_group,
+    doctor_command,
     folders_group,
     index_command,
     init_command,
@@ -50,6 +51,7 @@ def cli() -> None:
       inject   Index documents with content injection
       jobs     View and manage job queue
       reset    Clear all indexed documents
+      doctor   Diagnose installation, configuration, and server state
 
     \b
     Cache Commands:
@@ -103,6 +105,7 @@ cli.add_command(types_group, name="types")
 cli.add_command(cache_group, name="cache")
 cli.add_command(uninstall_command, name="uninstall")
 cli.add_command(install_agent_command, name="install-agent")
+cli.add_command(doctor_command, name="doctor")
 
 
 if __name__ == "__main__":

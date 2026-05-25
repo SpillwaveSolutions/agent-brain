@@ -9,13 +9,62 @@ All graph operations are no-ops when ENABLE_GRAPH_INDEX is False.
 
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
 from agent_brain_server.config import settings
+from agent_brain_server.config.provider_config import (
+    load_provider_settings,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _graphrag_enabled() -> bool:
+    """Whether GraphRAG is enabled, merging YAML and env-var config.
+
+    YAML wins when set; otherwise the (env-var-backed) ``settings`` value
+    applies. Reading ``settings`` here at call time keeps tests that
+    ``@patch("agent_brain_server.storage.graph_store.settings", …)`` working.
+    """
+    try:
+        yaml_value = load_provider_settings().graphrag.enabled
+    except Exception:
+        yaml_value = None
+    if yaml_value is not None:
+        return bool(yaml_value)
+    return bool(settings.ENABLE_GRAPH_INDEX)
+
+
+def _resolve_graph_index_path(configured_path: str) -> Path:
+    """Resolve the graph-index directory.
+
+    - Absolute paths are used verbatim.
+    - The legacy default (``./graph_index``) is mapped under the project
+      state directory so it lands in ``<state_dir>/data/graph_index``
+      rather than CWD, matching how every other persistent store resolves
+      its location (issue #126).
+    - Any other relative path is resolved against ``state_dir`` if one is
+      configured, else against CWD.
+    """
+    p = Path(configured_path).expanduser()
+    if p.is_absolute():
+        return p
+
+    state_dir_env = os.getenv("AGENT_BRAIN_STATE_DIR") or os.getenv(
+        "DOC_SERVE_STATE_DIR"
+    )
+    if state_dir_env:
+        state_dir = Path(state_dir_env).expanduser().resolve()
+        # Treat the historical default specially so it lands in the standard
+        # storage location used by resolve_storage_paths().
+        if configured_path in {"./graph_index", "graph_index"}:
+            return state_dir / "data" / "graph_index"
+        return (state_dir / p).resolve()
+
+    return p.resolve()
 
 
 class GraphStoreManager:
@@ -62,10 +111,22 @@ class GraphStoreManager:
             The singleton GraphStoreManager instance.
         """
         if cls._instance is None:
-            if persist_dir is None:
-                persist_dir = Path(settings.GRAPH_INDEX_PATH)
-            if store_type is None:
-                store_type = settings.GRAPH_STORE_TYPE
+            if persist_dir is None or store_type is None:
+                # YAML wins when set; otherwise fall back to env-var settings
+                # so existing tests that patch ``settings`` keep working.
+                try:
+                    yaml_cfg = load_provider_settings().graphrag
+                except Exception:
+                    yaml_cfg = None
+
+                if persist_dir is None:
+                    yaml_path = getattr(yaml_cfg, "index_path", None)
+                    persist_dir = _resolve_graph_index_path(
+                        yaml_path or settings.GRAPH_INDEX_PATH
+                    )
+                if store_type is None:
+                    yaml_store = getattr(yaml_cfg, "store_type", None)
+                    store_type = yaml_store or settings.GRAPH_STORE_TYPE
             cls._instance = cls(persist_dir, store_type)
         return cls._instance
 
@@ -82,7 +143,7 @@ class GraphStoreManager:
 
         This is a no-op when ENABLE_GRAPH_INDEX is False.
         """
-        if not settings.ENABLE_GRAPH_INDEX:
+        if not _graphrag_enabled():
             logger.debug("graph_store.initialize: skipped (ENABLE_GRAPH_INDEX=false)")
             return
 
@@ -169,7 +230,7 @@ class GraphStoreManager:
 
         This is a no-op when ENABLE_GRAPH_INDEX is False or not initialized.
         """
-        if not settings.ENABLE_GRAPH_INDEX:
+        if not _graphrag_enabled():
             return
 
         if not self._initialized or self._graph_store is None:
@@ -230,7 +291,7 @@ class GraphStoreManager:
         Returns:
             True if loaded successfully, False otherwise.
         """
-        if not settings.ENABLE_GRAPH_INDEX:
+        if not _graphrag_enabled():
             return False
 
         if self._graph_store is None:
@@ -354,7 +415,7 @@ class GraphStoreManager:
         Returns:
             True if added successfully, False otherwise.
         """
-        if not settings.ENABLE_GRAPH_INDEX:
+        if not _graphrag_enabled():
             return False
 
         if not self._initialized or self._graph_store is None:
@@ -422,7 +483,7 @@ class GraphStoreManager:
 
         This is a no-op when ENABLE_GRAPH_INDEX is False.
         """
-        if not settings.ENABLE_GRAPH_INDEX:
+        if not _graphrag_enabled():
             logger.debug("graph_store.clear: skipped (ENABLE_GRAPH_INDEX=false)")
             return
 

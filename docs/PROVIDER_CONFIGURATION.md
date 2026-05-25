@@ -157,6 +157,14 @@ summarization:
 
 **Reference:** `e2e/fixtures/config_cohere.yaml`
 
+**Install the Cohere extra** — `cohere` is an optional dependency so that a
+plain `pip install agent-brain-rag` does not pull in `tokenizers`, which has
+shipped broken sdists on macOS / M1 (issues #122, #125):
+
+```bash
+pip install 'agent-brain-rag[cohere]'
+```
+
 **Required environment variables:**
 ```bash
 export COHERE_API_KEY=...

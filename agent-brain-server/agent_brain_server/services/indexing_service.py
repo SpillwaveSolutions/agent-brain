@@ -42,6 +42,17 @@ from agent_brain_server.storage import (
 logger = logging.getLogger(__name__)
 
 
+def _graphrag_enabled() -> bool:
+    """YAML-aware enable check; honors test patches of module-level ``settings``."""
+    try:
+        yaml_value = load_provider_settings().graphrag.enabled
+    except Exception:
+        yaml_value = None
+    if yaml_value is not None:
+        return bool(yaml_value)
+    return bool(settings.ENABLE_GRAPH_INDEX)
+
+
 # Type alias for progress callback
 ProgressCallback = Callable[[int, int, str], Awaitable[None]]
 
@@ -701,7 +712,7 @@ class IndexingService:
                             )
 
             # Step 6: Build graph index if enabled (Feature 113)
-            if settings.ENABLE_GRAPH_INDEX:
+            if _graphrag_enabled():
                 if progress_callback:
                     await progress_callback(97, 100, "Building graph index...")
 

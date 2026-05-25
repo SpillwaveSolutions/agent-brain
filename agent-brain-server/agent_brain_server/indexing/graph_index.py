@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from agent_brain_server.config import settings
+from agent_brain_server.config.provider_config import load_provider_settings
 from agent_brain_server.indexing.graph_extractors import (
     CodeMetadataExtractor,
     LangExtractExtractor,
@@ -24,7 +25,20 @@ from agent_brain_server.models.graph import (
     GraphTriple,
     normalize_entity_type,
 )
-from agent_brain_server.storage.graph_store import (
+
+
+def _graphrag_enabled() -> bool:
+    """YAML-aware enable check that still honors test patches of ``settings``."""
+    try:
+        yaml_value = load_provider_settings().graphrag.enabled
+    except Exception:
+        yaml_value = None
+    if yaml_value is not None:
+        return bool(yaml_value)
+    return bool(settings.ENABLE_GRAPH_INDEX)
+
+
+from agent_brain_server.storage.graph_store import (  # noqa: E402
     GraphStoreManager,
     get_graph_store_manager,
 )
@@ -100,9 +114,9 @@ class GraphIndexManager:
         Returns:
             Total number of triplets extracted and stored.
         """
-        if not settings.ENABLE_GRAPH_INDEX:
+        if not _graphrag_enabled():
             logger.debug(
-                "graph_index.build_from_documents: skipped (ENABLE_GRAPH_INDEX=false)"
+                "graph_index.build_from_documents: skipped (graphrag disabled)"
             )
             return 0
 
@@ -279,7 +293,7 @@ class GraphIndexManager:
         Returns:
             List of result dicts with entity info and relationship paths.
         """
-        if not settings.ENABLE_GRAPH_INDEX:
+        if not _graphrag_enabled():
             logger.debug(
                 "graph_index.query: skipped (ENABLE_GRAPH_INDEX=false)",
                 extra={"query": query_text[:100]},
@@ -606,7 +620,7 @@ class GraphIndexManager:
         Returns:
             GraphQueryContext with related entities and paths.
         """
-        if not settings.ENABLE_GRAPH_INDEX:
+        if not _graphrag_enabled():
             return GraphQueryContext()
 
         results = self.query(query_text, top_k=top_k, traversal_depth=traversal_depth)
@@ -662,7 +676,7 @@ class GraphIndexManager:
         Returns:
             GraphIndexStatus with entity/relationship counts.
         """
-        if not settings.ENABLE_GRAPH_INDEX:
+        if not _graphrag_enabled():
             return GraphIndexStatus(
                 enabled=False,
                 initialized=False,
@@ -682,7 +696,8 @@ class GraphIndexManager:
 
     def clear(self) -> None:
         """Clear the graph index."""
-        if settings.ENABLE_GRAPH_INDEX and self.graph_store.is_initialized:
+        enabled = _graphrag_enabled()
+        if enabled and self.graph_store.is_initialized:
             prev_triplet_count = self._last_triplet_count
             self.graph_store.clear()
             self._last_build_time = None
@@ -695,11 +710,9 @@ class GraphIndexManager:
             logger.debug(
                 "graph_index.clear: skipped",
                 extra={
-                    "enabled": settings.ENABLE_GRAPH_INDEX,
+                    "enabled": enabled,
                     "initialized": (
-                        self.graph_store.is_initialized
-                        if settings.ENABLE_GRAPH_INDEX
-                        else False
+                        self.graph_store.is_initialized if enabled else False
                     ),
                 },
             )
