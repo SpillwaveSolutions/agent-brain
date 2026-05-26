@@ -319,8 +319,16 @@ class ContextAwareChunker:
             chunks: list[TextChunk] = []
             total_chunks = len(text_chunks)
 
+            page_label = document.metadata.get("page_label")
             for idx, chunk_text in enumerate(text_chunks):
-                id_seed = f"{document.source}_{idx}"
+                # Multi-part loaders (e.g. PyMuPDF) emit one LoadedDocument per
+                # page, all sharing the same `source`. Without per-part
+                # disambiguation, chunk IDs collide and storage silently
+                # overwrites pages (issue #141).
+                if page_label:
+                    id_seed = f"{document.source}#{page_label}_{idx}"
+                else:
+                    id_seed = f"{document.source}_{idx}"
                 stable_id = hashlib.md5(id_seed.encode()).hexdigest()
 
                 doc_language = document.metadata.get("language", "markdown")
@@ -820,8 +828,15 @@ class CodeChunker:
             current_pos = 0
             original_text = document.text
 
+            page_label = document.metadata.get("page_label")
             for idx, chunk_text in enumerate(raw_chunks):
-                id_seed = f"{document.source}_{idx}"
+                # Mirror ContextAwareChunker: disambiguate by page_label when
+                # the loader emits multiple LoadedDocuments per source path
+                # (issue #141).
+                if page_label:
+                    id_seed = f"{document.source}#{page_label}_{idx}"
+                else:
+                    id_seed = f"{document.source}_{idx}"
                 stable_id = hashlib.md5(id_seed.encode()).hexdigest()
 
                 start_line = None

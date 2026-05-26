@@ -431,19 +431,34 @@ class DocumentLoader:
                         source_type = "code"
                         language = LanguageDetector.detect_language(file_path, doc.text)
 
+                # Preserve any per-part identifier the loader put in
+                # metadata["source"] before we overwrite it with file_path.
+                # PyMuPDFReader, for example, sets it to the 1-based page
+                # number string ("1", "2", ...); without this, multi-page
+                # PDFs collide on chunk_id (issue #141).
+                prior_source = doc.metadata.get("source")
+                merged_metadata: dict[str, Any] = {
+                    **doc.metadata,
+                    "doc_id": doc.doc_id,
+                    "source": file_path,
+                    "source_type": source_type,
+                    "language": language,
+                }
+                if (
+                    prior_source
+                    and isinstance(prior_source, str)
+                    and prior_source != file_path
+                    and "page_label" not in doc.metadata
+                ):
+                    merged_metadata["page_label"] = prior_source
+
                 loaded_doc = LoadedDocument(
                     text=doc.text,
                     source=file_path,
                     file_name=file_name,
                     file_path=file_path,
                     file_size=file_size,
-                    metadata={
-                        **doc.metadata,
-                        "doc_id": doc.doc_id,
-                        "source": file_path,
-                        "source_type": source_type,
-                        "language": language,
-                    },
+                    metadata=merged_metadata,
                 )
                 docs.append(loaded_doc)
             return docs
