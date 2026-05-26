@@ -11,6 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [10.0.4] - 2026-05-26
+
+### Fixed
+
+- **Graph search with Kuzu now works.** The `--mode graph` retrieval path had been silently broken since the `llama-index-graph-stores-kuzu` package bumped to `>=0.9.0`, which renamed the `KuzuGraphStore` constructor parameters and removed the legacy positional signature Agent Brain was passing. Indexing in graph mode raised `TypeError: __init__() got an unexpected keyword argument` and the server fell back to vector-only retrieval without surfacing the failure. The constructor call in `agent_brain_server/storage/graph_store.py` has been migrated to the new keyword-only API (`db_path=`, plus optional `node_table_name`/`rel_table_name`), the optional dependency pin in `agent-brain-server/pyproject.toml` has been raised to `^0.9.0`, and an integration test exercises a full graph-mode index + query cycle so the regression cannot reoccur. Closes #144.
+- `exclude_patterns` now uses gitignore-style glob semantics via the `pathspec` library instead of naive substring matching. Previously a pattern like `**/node_modules/**` matched only paths that literally contained the string `**/node_modules/**`, so users had to enumerate every level (`node_modules/**`, `*/node_modules/**`, ...) to get the same effect they get from `.gitignore`. The matcher in `agent_brain_server/indexing/document_loader.py` was rewritten to compile patterns through `pathspec.PathSpec.from_lines("gitwildmatch", ...)`, which gives the same precedence and wildcard rules as Git. `pathspec` is now a required dependency. Existing simple patterns (`*.log`, `__pycache__`) continue to work unchanged. Closes #142.
+- BM25 indexing no longer crashes when a folder produces zero indexable chunks (e.g., a directory of only binary files, or a folder where every file is filtered out by `exclude_patterns`). `BM25Retriever.from_defaults([])` raises `ValueError: docstore must contain at least one node` in `llama-index-retrievers-bm25`, which propagated as a 500 from `/index` and aborted the whole queued job. `agent_brain_server/services/indexing_service.py` now short-circuits before constructing the retriever, logs a `WARNING` with the folder path, marks the job `completed` with `indexed_count=0`, and returns. The vector store path was already a no-op in this case, so behavior is now consistent across backends. Closes #143.
+
+### Internal
+
+- Removed a duplicate `resolve_project_root()` definition in `agent_brain_cli/commands/stop.py` that shadowed the shared implementation in `agent_brain_cli.utils.project`. The shadow had drifted: it silently returned `Path.cwd()` when no `.agent-brain/` marker was found, whereas the canonical version walks up the tree and raises a clear error. Behavior of `agent-brain stop` outside an initialized project is now consistent with `start`/`status`/`list`. Closes #131.
+
 ## [10.0.3] - 2026-05-26
 
 ### Fixed
