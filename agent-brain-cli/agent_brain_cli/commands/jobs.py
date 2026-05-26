@@ -25,13 +25,32 @@ def _format_timestamp(ts: str | None) -> str:
     return ts
 
 
-def _format_progress(progress: float | None, total: int | None) -> str:
-    """Format progress for display."""
+def _format_progress(
+    progress: float | int | dict[str, Any] | None,
+    total: int | None,
+) -> str:
+    """Format progress for display.
+
+    Copes with both the legacy float shape and the structured ``JobProgress``
+    dict the server emits today (#150). Falls back to a string coercion for
+    unknown types so the CLI never raises.
+    """
     if progress is None:
         return "-"
-    if total:
-        return f"{progress:.1f}% ({total} files)"
-    return f"{progress:.1f}%"
+    if isinstance(progress, dict):
+        pct = progress.get("percent_complete")
+        if isinstance(pct, (int, float)):
+            files_total = progress.get("files_total") or 0
+            files_done = progress.get("files_processed") or 0
+            if files_total:
+                return f"{pct:.1f}% ({files_done}/{files_total} files)"
+            return f"{pct:.1f}%"
+        return ", ".join(f"{k}={v}" for k, v in progress.items())
+    if isinstance(progress, (int, float)):
+        if total:
+            return f"{progress:.1f}% ({total} files)"
+        return f"{progress:.1f}%"
+    return str(progress)
 
 
 def _get_status_style(status: str) -> str:
@@ -121,12 +140,17 @@ def _create_job_detail_panel(job: dict[str, Any]) -> Panel:
     if (progress := job.get("progress_percent", job.get("progress"))) is not None:
         total = job.get("total_files", 0)
         processed = job.get("processed_files", 0)
-        if total:
+        # #150: server emits structured JobProgress dicts in addition to floats.
+        # Defer formatting to _format_progress so list-view and detail-view
+        # never diverge on type handling.
+        if isinstance(progress, (int, float)) and total:
             lines.append(
                 f"[bold]Progress:[/] {progress:.1f}% ({processed}/{total} files)"
             )
         else:
-            lines.append(f"[bold]Progress:[/] {progress:.1f}%")
+            lines.append(
+                f"[bold]Progress:[/] {_format_progress(progress, total or None)}"
+            )
 
     if enqueued := job.get("enqueued_at", job.get("created_at")):
         lines.append(f"[bold]Enqueued:[/] {_format_timestamp(enqueued)}")

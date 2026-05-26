@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import click
 from rich.console import Console
 from rich.panel import Panel
@@ -11,6 +13,7 @@ from agent_brain_cli.diagnostics import (
     SEVERITY_FAIL,
     SEVERITY_OK,
     SEVERITY_WARN,
+    apply_safe_fixes,
     report_to_json,
     run_doctor,
 )
@@ -33,18 +36,40 @@ _STATUS_STYLE = {
     help="Server URL to probe (default: resolved from runtime.json or config).",
 )
 @click.option("--json", "json_output", is_flag=True, help="Emit machine-readable JSON.")
-def doctor_command(url: str | None, json_output: bool) -> None:
+@click.option(
+    "--fix",
+    "apply_fixes",
+    is_flag=True,
+    help=(
+        "Apply safe, idempotent, offline fixes (add .agent-brain/ to .gitignore, "
+        "create state dir + stub config.json). Will not touch API keys, network, "
+        "or user code. Re-runs the report after fixing."
+    ),
+)
+def doctor_command(url: str | None, json_output: bool, apply_fixes: bool) -> None:
     """Diagnose your Agent Brain setup.
 
     Inspects Python version, project init state, provider config, required
     API keys, optional dependencies, .gitignore hygiene, and whether the
     server is reachable. Exits non-zero on any critical failure so it can
     be used in scripts (``agent-brain doctor || agent-brain init``).
+
+    Pass ``--fix`` to auto-apply the safe subset of remediations and re-run.
     """
     report = run_doctor(server_url_override=url)
 
+    fix_actions: list[str] = []
+    if apply_fixes:
+        fix_actions = apply_safe_fixes(report)
+        if fix_actions:
+            # Re-run so the printed report reflects the fixed state.
+            report = run_doctor(server_url_override=url)
+
     if json_output:
-        click.echo(report_to_json(report))
+        payload = json.loads(report_to_json(report))
+        if apply_fixes:
+            payload["applied_fixes"] = fix_actions
+        click.echo(json.dumps(payload, indent=2))
         raise SystemExit(report.exit_code)
 
     header_color = "green" if report.exit_code == 0 else "red"
@@ -74,6 +99,17 @@ def doctor_command(url: str | None, json_output: bool) -> None:
         table.add_row(check.name, f"[{style}]{label}[/]", body)
 
     console.print(table)
+
+    if apply_fixes:
+        if fix_actions:
+            console.print("\n[cyan]Applied safe fixes:[/]")
+            for action in fix_actions:
+                console.print(f"  • {action}")
+        else:
+            console.print(
+                "\n[dim]No safe fixes applied (nothing actionable, or all "
+                "checks already passing).[/]"
+            )
 
     if report.exit_code != 0:
         console.print(

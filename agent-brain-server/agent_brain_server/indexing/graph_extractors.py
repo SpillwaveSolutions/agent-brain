@@ -31,6 +31,7 @@ from agent_brain_server.models.graph import (
     GraphTriple,
     normalize_entity_type,
 )
+from agent_brain_server.providers.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
 
@@ -744,11 +745,50 @@ class LangExtractExtractor:
             or _summarization_provider
             or "ollama"
         )
-        # Resolve model: explicit > graphrag.langextract_model > summarization > ""
+        # Resolve model: explicit > graphrag.langextract_model > inherit
+        # summarization.model ONLY when summarization was also the provider
+        # source (#149 — otherwise we'd cross-wire a Claude model under an
+        # OpenAI provider, etc.). Else fall through to the per-provider default
+        # picked by _resolve_model_id at extract time.
+        inherit_summarization_model = (
+            provider is None
+            and not graphrag_cfg.langextract_provider
+            and bool(_summarization_provider)
+        )
         self.model = (
-            model or graphrag_cfg.langextract_model or _summarization_model or ""
+            model
+            or graphrag_cfg.langextract_model
+            or (_summarization_model if inherit_summarization_model else "")
         )
         self.max_triplets = max_triplets or graphrag_cfg.max_triplets_per_chunk
+
+        # Issue #149: Claude / Anthropic model ids are not in langextract's
+        # provider registry, so reusing summarization.provider=anthropic would
+        # silently produce zero triplets. Auto-route to openai/gpt-4o-mini in
+        # that common case — the user almost certainly has OPENAI_API_KEY for
+        # embeddings already. Explicit langextract overrides win.
+        if (
+            provider is None
+            and model is None
+            and not graphrag_cfg.langextract_provider
+            and not graphrag_cfg.langextract_model
+            and _summarization_provider.lower() in ("anthropic", "claude")
+        ):
+            logger.info(
+                "graphrag: summarization=%s has no langextract provider; "
+                "defaulting langextract to openai/gpt-4o-mini. Override with "
+                "graphrag.langextract_{provider,model} in .agent-brain/config.yaml.",
+                _summarization_provider,
+            )
+            self.provider = "openai"
+            self.model = "gpt-4o-mini"
+
+        # Issue #149: validate at construction time so the failure surfaces
+        # once at startup instead of silently per chunk. Only run when graphrag
+        # is enabled and langextract is installed; defer to extract_triplets()
+        # for the import error path so callers without graphrag get a soft fail.
+        if _graphrag_enabled():
+            self._validate_model_against_langextract_registry()
 
     def extract_triplets(
         self,
@@ -846,8 +886,15 @@ class LangExtractExtractor:
             return triplets
 
         except Exception as e:
+            # Issue #149: include the error text in the human message because
+            # default log formatters do not print extra={...}. The structured
+            # extra= is preserved for log collectors that do consume it.
             logger.warning(
-                "langextract_extractor.extract_triplets: failed",
+                "langextract_extractor.extract_triplets: failed "
+                "(provider=%s model=%s): %s",
+                self.provider,
+                self.model,
+                e,
                 extra={
                     "error": str(e),
                     "provider": self.provider,
@@ -857,6 +904,41 @@ class LangExtractExtractor:
                 },
             )
             return []
+
+    def _validate_model_against_langextract_registry(self) -> None:
+        """Probe langextract's provider registry up front so misconfiguration
+        fails loudly at construction instead of silently per chunk (#149).
+
+        The registry is keyed by regex patterns on the model id; Anthropic /
+        Claude ids match nothing, so reusing summarization.provider=anthropic
+        produces zero triplets in v10.0.4 without a clear log. We call the
+        same lookup langextract.extract() would call internally and surface
+        the registry error as a ConfigurationError.
+        """
+        try:
+            from langextract.providers import load_builtins_once, router
+        except ImportError:
+            return  # graphrag-kuzu extra not installed; soft fail elsewhere
+        try:
+            load_builtins_once()
+        except Exception:  # noqa: BLE001 — initialization is best-effort
+            return
+        model_id = self._resolve_model_id()
+        try:
+            router.resolve(model_id)
+        except Exception as exc:  # noqa: BLE001 — registry uses its own exc class
+            raise ConfigurationError(
+                message=(
+                    f"GraphRAG enabled but model {model_id!r} is not registered "
+                    "with langextract. Set graphrag.langextract_provider and "
+                    "graphrag.langextract_model in .agent-brain/config.yaml to "
+                    "a supported model (e.g. provider=openai, "
+                    "model=gpt-4o-mini). "
+                    f"Underlying langextract error: {exc}"
+                ),
+                provider=self.provider,
+                cause=exc,
+            ) from exc
 
     def _resolve_model_id(self) -> str:
         """Build the langextract ``model_id`` argument.
@@ -868,12 +950,15 @@ class LangExtractExtractor:
         """
         if self.model:
             return self.model
+        # langextract's router matches model_id against regex patterns and
+        # rejects the historical "ollama/llama..." prefix shape (#149). Use
+        # bare model names so resolve() finds the right adapter.
         defaults = {
             "gemini": "gemini-2.0-flash",
             "openai": "gpt-4o-mini",
             "anthropic": "claude-haiku-4-5-20251001",
             "claude": "claude-haiku-4-5-20251001",
-            "ollama": "ollama/llama3.1:8b",
+            "ollama": "llama3.1:8b",
         }
         return defaults.get(self.provider.lower(), "gemini-2.0-flash")
 

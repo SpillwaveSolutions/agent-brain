@@ -761,3 +761,123 @@ class TestModuleFunctions:
         extractor2 = get_llm_extractor()
 
         assert extractor1 is not extractor2
+
+
+# --------------------------------------------------------------------------- #
+# Issue #149 — langextract provider/model routing for Anthropic summarization.
+# Default fallback chain reused summarization.provider, but langextract's
+# registry doesn't know Claude model ids, so doc-chunk extraction silently
+# produced zero triplets. Tests pin the v10.0.5 auto-route + startup validation.
+# --------------------------------------------------------------------------- #
+
+
+class TestLangExtractAnthropicRouting:
+    """Regression tests for issue #149."""
+
+    def _patch_settings(
+        self,
+        summarization_provider: str = "anthropic",
+        summarization_model: str = "claude-haiku-4-5-20251001",
+        langextract_provider: str | None = None,
+        langextract_model: str | None = None,
+    ):
+        """Return a context manager that patches the two settings sources
+        ``LangExtractExtractor.__init__`` reads."""
+        from contextlib import contextmanager
+
+        @contextmanager
+        def _ctx():
+            # NOTE: LangExtractExtractor.__init__ re-imports load_provider_settings
+            # inside a try-block, so patching the module-level binding in
+            # graph_extractors doesn't help — we need to patch at the source.
+            with (
+                patch(
+                    "agent_brain_server.config.provider_config.load_provider_settings"
+                ) as mock_lps,
+                patch(
+                    "agent_brain_server.indexing.graph_extractors.get_graphrag_config"
+                ) as mock_cfg,
+                patch(
+                    "agent_brain_server.indexing.graph_extractors._graphrag_enabled",
+                    return_value=True,
+                ),
+            ):
+                summ = MagicMock()
+                summ.provider = summarization_provider
+                summ.model = summarization_model
+                prov_settings = MagicMock()
+                prov_settings.summarization = summ
+                mock_lps.return_value = prov_settings
+
+                graphrag_cfg = MagicMock()
+                graphrag_cfg.langextract_provider = langextract_provider
+                graphrag_cfg.langextract_model = langextract_model
+                graphrag_cfg.max_triplets_per_chunk = 10
+                mock_cfg.return_value = graphrag_cfg
+
+                yield
+
+        return _ctx()
+
+    def test_anthropic_summarization_auto_routes_to_openai(self, caplog):
+        """When summarization=anthropic and no override, langextract should
+        default to openai/gpt-4o-mini with an INFO log explaining why."""
+        import logging
+
+        caplog.set_level(
+            logging.INFO, logger="agent_brain_server.indexing.graph_extractors"
+        )
+
+        with self._patch_settings(summarization_provider="anthropic"):
+            extractor = LangExtractExtractor()
+
+        assert extractor.provider == "openai"
+        assert extractor.model == "gpt-4o-mini"
+        assert any(
+            "defaulting langextract to openai/gpt-4o-mini" in r.message
+            for r in caplog.records
+        )
+
+    def test_claude_summarization_also_auto_routes(self):
+        """Case-insensitive match on `claude` as well as `anthropic`."""
+        with self._patch_settings(summarization_provider="Claude"):
+            extractor = LangExtractExtractor()
+        assert extractor.provider == "openai"
+        assert extractor.model == "gpt-4o-mini"
+
+    def test_explicit_overrides_win_over_auto_route(self):
+        """If the user sets graphrag.langextract_{provider,model}, those win."""
+        with self._patch_settings(
+            summarization_provider="anthropic",
+            langextract_provider="openai",
+            langextract_model="gpt-4o",
+        ):
+            extractor = LangExtractExtractor()
+
+        assert extractor.provider == "openai"
+        assert extractor.model == "gpt-4o"
+
+    def test_explicit_claude_model_raises_configuration_error(self):
+        """If the user forces a Claude model on langextract, validation should
+        fail loudly at construction instead of silently producing zero triplets."""
+        from agent_brain_server.providers.exceptions import ConfigurationError
+
+        with self._patch_settings(
+            summarization_provider="anthropic",
+            langextract_provider="anthropic",
+            langextract_model="claude-haiku-4-5-20251001",
+        ):
+            with pytest.raises(
+                ConfigurationError, match="not registered with langextract"
+            ):
+                LangExtractExtractor()
+
+    def test_openai_summarization_passes_through_unchanged(self):
+        """No auto-routing when summarization is already a supported provider."""
+        with self._patch_settings(
+            summarization_provider="openai",
+            summarization_model="gpt-4o-mini",
+        ):
+            extractor = LangExtractExtractor()
+        assert extractor.provider == "openai"
+        assert extractor.model == "gpt-4o-mini"

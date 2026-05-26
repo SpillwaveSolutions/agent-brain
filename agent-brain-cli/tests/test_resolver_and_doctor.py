@@ -10,8 +10,16 @@ import pytest
 from click.testing import CliRunner
 
 from agent_brain_cli.commands.doctor import doctor_command
-from agent_brain_cli.config import resolve_project_root
-from agent_brain_cli.diagnostics import doctor_hint_message, run_doctor
+from agent_brain_cli.config import (
+    resolve_project_root,
+    resolve_project_root_with_strategy,
+)
+from agent_brain_cli.diagnostics import (
+    _check_version,
+    apply_safe_fixes,
+    doctor_hint_message,
+    run_doctor,
+)
 
 
 @pytest.fixture
@@ -150,3 +158,106 @@ def test_doctor_command_emits_json(
     assert "checks" in payload
     assert payload["exit_code"] == 1
     assert any(c["name"] == "python_version" for c in payload["checks"])
+
+
+# --------------------------------------------------------------------------- #
+# Issue #146 — doctor enhancements (--fix, --version check, project-root
+# strategy explanation, langextract dep check).
+# --------------------------------------------------------------------------- #
+
+
+def test_check_version_reports_installed_cli_version() -> None:
+    """Regression for #146 check #2 — version check should resolve cleanly."""
+    result = _check_version()
+    # We can't assert the exact version (varies per release) but it must be OK
+    # and the message must include the package name.
+    assert result.status == "ok"
+    assert "agent-brain-cli" in result.message
+    assert "version" in result.details
+
+
+def test_resolve_project_root_with_strategy_returns_label(
+    isolated_cwd: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#146 check #3 — resolver must report *which* rule matched."""
+    (isolated_cwd / ".agent-brain").mkdir()
+
+    def fake_git(args, *_, **__):  # type: ignore[no-untyped-def]
+        return subprocess.CompletedProcess(
+            args=args, returncode=0, stdout=str(isolated_cwd) + "\n", stderr=""
+        )
+
+    monkeypatch.setattr("subprocess.run", fake_git)
+
+    root, strategy = resolve_project_root_with_strategy(isolated_cwd)
+    assert root == isolated_cwd
+    assert strategy == "agent_brain_dir"
+
+
+def test_doctor_project_init_message_includes_strategy(
+    isolated_cwd: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The project_initialized check should explain *why* the dir was picked."""
+
+    def fake_git(args, *_, **__):  # type: ignore[no-untyped-def]
+        return subprocess.CompletedProcess(
+            args=args, returncode=128, stdout="", stderr=""
+        )
+
+    monkeypatch.setattr("subprocess.run", fake_git)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    report = run_doctor()
+    proj_check = next(c for c in report.checks if c.name == "project_initialized")
+    # cwd_fallback strategy because no markers exist in the tmp dir.
+    assert "no markers found" in proj_check.message
+    assert proj_check.details.get("resolved_via") == "cwd_fallback"
+
+
+def test_apply_safe_fixes_adds_gitignore_entry(
+    isolated_cwd: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#146 --fix layer A — append .agent-brain/ to .gitignore (safe, idempotent)."""
+
+    def fake_git(args, *_, **__):  # type: ignore[no-untyped-def]
+        return subprocess.CompletedProcess(
+            args=args, returncode=128, stdout="", stderr=""
+        )
+
+    monkeypatch.setattr("subprocess.run", fake_git)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    report = run_doctor()
+    actions = apply_safe_fixes(report)
+
+    gi = isolated_cwd / ".gitignore"
+    assert gi.exists()
+    assert ".agent-brain/" in gi.read_text()
+    assert any("gitignore" in a.lower() for a in actions)
+
+
+def test_doctor_fix_flag_creates_state_dir(
+    isolated_cwd: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--fix end-to-end: stub config.json gets created when project not initialized."""
+
+    def fake_git(args, *_, **__):  # type: ignore[no-untyped-def]
+        return subprocess.CompletedProcess(
+            args=args, returncode=128, stdout="", stderr=""
+        )
+
+    monkeypatch.setattr("subprocess.run", fake_git)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    runner = CliRunner()
+    result = runner.invoke(doctor_command, ["--json", "--fix"])
+    payload = json.loads(result.output)
+
+    assert "applied_fixes" in payload
+    # State dir created → fix actions should mention either config.json or
+    # gitignore (both apply on a clean tmp dir).
+    assert payload["applied_fixes"], "expected at least one safe fix action"
+    assert (isolated_cwd / ".agent-brain" / "config.json").exists()

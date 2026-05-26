@@ -26,6 +26,7 @@ from agent_brain_cli.config import (
     get_server_url,
     load_config,
     resolve_project_root,
+    resolve_project_root_with_strategy,
 )
 
 #: Severity returned by every diagnostic check.
@@ -69,6 +70,49 @@ class DoctorReport:
         return data
 
 
+_RESOLVE_STRATEGY_LABEL: dict[str, str] = {
+    "agent_brain_dir": f"found {STATE_DIR_NAME}/ in this dir or an ancestor",
+    "legacy_claude_dir": f"found legacy {LEGACY_STATE_DIR_NAME}/",
+    "git_root": "git repository root (no state dir present yet)",
+    "claude_dir": ".claude/ marker in this dir or an ancestor",
+    "pyproject": "pyproject.toml marker in this dir or an ancestor",
+    "cwd_fallback": "no markers found — falling back to cwd",
+}
+
+
+def _check_version() -> CheckResult:
+    """Confirm the installed agent-brain-cli is importable and report version.
+
+    Issue #146 check #2 — surfaces broken installs (missing entry-point,
+    namespace shadowing, half-rolled-back upgrades) at the top of the doctor
+    report instead of leaving the user to discover them later.
+    """
+    try:
+        from importlib.metadata import PackageNotFoundError, version
+
+        ver = version("agent-brain-cli")
+    except PackageNotFoundError as exc:
+        return CheckResult(
+            "cli_version",
+            SEVERITY_FAIL,
+            "agent-brain-cli is not installed in this Python environment.",
+            fix="pip install agent-brain-cli  (or uv tool install agent-brain-cli)",
+            details={"error": str(exc)},
+        )
+    except Exception as exc:  # noqa: BLE001
+        return CheckResult(
+            "cli_version",
+            SEVERITY_FAIL,
+            f"Could not determine agent-brain-cli version: {exc}",
+        )
+    return CheckResult(
+        "cli_version",
+        SEVERITY_OK,
+        f"agent-brain-cli {ver}",
+        details={"version": ver},
+    )
+
+
 def _check_python() -> CheckResult:
     major, minor = sys.version_info[:2]
     version = f"{major}.{minor}.{sys.version_info.micro}"
@@ -88,23 +132,35 @@ def _check_python() -> CheckResult:
     )
 
 
-def _check_project_init(project_root: Path, state_dir: Path) -> CheckResult:
+def _check_project_init(
+    project_root: Path, state_dir: Path, resolved_via: str
+) -> CheckResult:
+    """Validate the resolved project root and explain *why* it was picked.
+
+    Issue #146 check #3 — operators on monorepos / nested projects can be
+    surprised by which directory wins; the strategy label tells them.
+    """
+    strategy_msg = _RESOLVE_STRATEGY_LABEL.get(resolved_via, resolved_via)
     config_path = state_dir / "config.json"
     if config_path.exists():
         return CheckResult(
             "project_initialized",
             SEVERITY_OK,
-            f"Project initialized at {state_dir}",
-            details={"state_dir": str(state_dir)},
+            f"Project initialized at {state_dir} ({strategy_msg})",
+            details={
+                "state_dir": str(state_dir),
+                "resolved_via": resolved_via,
+            },
         )
     return CheckResult(
         "project_initialized",
         SEVERITY_FAIL,
-        f"No {STATE_DIR_NAME}/config.json under {project_root}",
+        (f"No {STATE_DIR_NAME}/config.json under {project_root} " f"({strategy_msg})"),
         fix="Run `agent-brain init` in your project directory.",
         details={
             "project_root": str(project_root),
             "expected_path": str(config_path),
+            "resolved_via": resolved_via,
         },
     )
 
@@ -223,11 +279,21 @@ def _check_server(server_url: str, runtime_file: Path | None) -> CheckResult:
         req = Request(server_url.rstrip("/") + "/health")
         with urlopen(req, timeout=3) as resp:  # noqa: S310 — local URL
             body = resp.read().decode("utf-8", errors="replace")
+        # Issue #146 check #7 — also pull /health/status for the richer
+        # indexing summary. Tolerate older servers that 404 here.
+        indexing_summary, indexing_payload = _fetch_indexing_summary(server_url)
+        message = f"Server responded at {server_url}"
+        if indexing_summary:
+            message = f"{message} — {indexing_summary}"
         return CheckResult(
             "server_reachable",
             SEVERITY_OK,
-            f"Server responded at {server_url}",
-            details={"server_url": server_url, "response_preview": body[:120]},
+            message,
+            details={
+                "server_url": server_url,
+                "response_preview": body[:120],
+                "indexing": indexing_payload,
+            },
         )
     except URLError as exc:
         return CheckResult(
@@ -245,6 +311,30 @@ def _check_server(server_url: str, runtime_file: Path | None) -> CheckResult:
             fix="Start it with `agent-brain start` (or pass --url).",
             details={"server_url": server_url, "error": str(exc)},
         )
+
+
+def _fetch_indexing_summary(
+    server_url: str,
+) -> tuple[str | None, dict[str, Any] | None]:
+    """Best-effort fetch of /health/status, returning (one-line summary, raw)."""
+    try:
+        req = Request(server_url.rstrip("/") + "/health/status")
+        with urlopen(req, timeout=3) as resp:  # noqa: S310 — local URL
+            payload = json.loads(resp.read().decode("utf-8", errors="replace"))
+    except Exception:  # noqa: BLE001 — old server or transient error is fine
+        return None, None
+    if not isinstance(payload, dict):
+        return None, None
+    state = payload.get("state") or payload.get("indexing_state") or "unknown"
+    chunk_count = (
+        payload.get("chunk_count")
+        or payload.get("total_chunks")
+        or payload.get("document_count")
+    )
+    parts = [f"indexing={state}"]
+    if isinstance(chunk_count, int):
+        parts.append(f"chunks={chunk_count}")
+    return ", ".join(parts), payload
 
 
 def _check_optional_dep(provider: str, module_name: str, extra: str) -> CheckResult:
@@ -314,7 +404,7 @@ def _check_gitignore(project_root: Path) -> CheckResult:
 
 def run_doctor(server_url_override: str | None = None) -> DoctorReport:
     """Run every check and return a structured report."""
-    project_root = resolve_project_root()
+    project_root, resolved_via = resolve_project_root_with_strategy()
     state_dir = project_root / STATE_DIR_NAME
     runtime_file: Path | None
     if state_dir.exists():
@@ -327,7 +417,8 @@ def run_doctor(server_url_override: str | None = None) -> DoctorReport:
 
     checks: list[CheckResult] = []
     checks.append(_check_python())
-    checks.append(_check_project_init(project_root, state_dir))
+    checks.append(_check_version())
+    checks.append(_check_project_init(project_root, state_dir, resolved_via))
     checks.append(_check_provider_config(state_dir))
     checks.extend(_check_api_keys())
 
@@ -338,6 +429,13 @@ def run_doctor(server_url_override: str | None = None) -> DoctorReport:
         cfg = None
     if cfg and cfg.embedding.provider.lower() == "cohere":
         checks.append(_check_optional_dep("cohere", "cohere", "cohere"))
+
+    # Issue #146 check #8 — surface graphrag's langextract dependency.
+    if cfg and getattr(getattr(cfg, "graphrag", None), "enabled", False):
+        checks.append(
+            _check_optional_dep("graphrag (langextract)", "langextract", "graphrag")
+        )
+
     checks.append(_check_gitignore(project_root))
 
     checks.append(_check_server(server_url, runtime_file))
@@ -350,6 +448,49 @@ def run_doctor(server_url_override: str | None = None) -> DoctorReport:
         server_url=server_url,
         checks=checks,
     )
+
+
+def apply_safe_fixes(report: DoctorReport) -> list[str]:
+    """Apply the subset of fixes that are safe + idempotent + offline.
+
+    Returns the list of human-readable actions taken (empty if nothing to fix).
+    Used by ``agent-brain doctor --fix``. Anything that calls the network,
+    modifies user code, or requires an API key is *not* covered here — the
+    user must still address those manually.
+    """
+    actions: list[str] = []
+    project_root = Path(report.project_root)
+    state_dir = Path(report.state_dir)
+    for check in report.checks:
+        if check.name == "gitignore_state_dir" and check.status != SEVERITY_OK:
+            gi = project_root / ".gitignore"
+            line = f"{STATE_DIR_NAME}/\n"
+            if gi.exists():
+                content = gi.read_text()
+                if not content.endswith("\n"):
+                    content += "\n"
+                gi.write_text(content + line)
+            else:
+                gi.write_text(line)
+            actions.append(f"Added {STATE_DIR_NAME}/ to {gi}.")
+        elif check.name == "project_initialized" and check.status == SEVERITY_FAIL:
+            # Create the state dir + a minimal config.json shell so a follow-up
+            # `agent-brain init` (or any command) has something to read.
+            state_dir.mkdir(parents=True, exist_ok=True)
+            cfg_json = state_dir / "config.json"
+            if not cfg_json.exists():
+                cfg_json.write_text(
+                    json.dumps(
+                        {
+                            "project_root": str(project_root),
+                            "created_by": "agent-brain doctor --fix",
+                        },
+                        indent=2,
+                    )
+                    + "\n"
+                )
+                actions.append(f"Created {cfg_json}.")
+    return actions
 
 
 def doctor_hint_message(project_root: Path | None = None) -> str:
