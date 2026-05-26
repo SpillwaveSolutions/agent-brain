@@ -3,7 +3,6 @@
 import json
 import os
 import signal
-import subprocess
 import time
 from pathlib import Path
 from typing import Any
@@ -12,6 +11,7 @@ from urllib.request import Request, urlopen
 import click
 from rich.console import Console
 
+from agent_brain_cli.config import resolve_project_root
 from agent_brain_cli.migration import resolve_state_dir_with_fallback
 from agent_brain_cli.xdg_paths import get_registry_path
 
@@ -21,38 +21,6 @@ STATE_DIR_NAME = ".agent-brain"
 LOCK_FILE = "agent-brain.lock"
 PID_FILE = "agent-brain.pid"
 RUNTIME_FILE = "runtime.json"
-
-
-def resolve_project_root(start_path: Path | None = None) -> Path:
-    """Resolve the canonical project root directory."""
-    start = (start_path or Path.cwd()).resolve()
-
-    # Try git root first
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            cwd=str(start),
-        )
-        if result.returncode == 0:
-            return Path(result.stdout.strip()).resolve()
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        pass
-
-    # Walk up looking for markers
-    current = start
-    while current != current.parent:
-        if (current / ".agent-brain").is_dir():
-            return current
-        if (current / ".claude").is_dir():
-            return current
-        if (current / "pyproject.toml").is_file():
-            return current
-        current = current.parent
-
-    return start
 
 
 def read_runtime(state_dir: Path) -> dict[str, Any] | None:

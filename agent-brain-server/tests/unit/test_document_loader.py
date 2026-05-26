@@ -1,6 +1,9 @@
 """Tests for DocumentLoader and LanguageDetector in document_loader.py."""
 
+from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 from agent_brain_server.indexing.document_loader import (
     _DOCX_AVAILABLE,
@@ -202,3 +205,90 @@ class TestDefaultExcludePatterns:
         """.git should still be excluded."""
         loader = DocumentLoader()
         assert "**/.git/**" in loader.exclude_patterns
+
+
+class TestExcludePatternMatching:
+    """Tests for _walk_pruned exclude-pattern matching (issue #142).
+
+    Before the pathspec migration, ``**/dir/**`` patterns silently no-oped
+    because ``pat.replace("**", "*")`` produced ``*/dir/*`` which
+    ``fnmatch`` couldn't match against the directory's own absolute path.
+    These tests pin the corrected behavior.
+    """
+
+    @pytest.fixture
+    def sample_tree(self, tmp_path: Path) -> Path:
+        """Build a tmp tree mirroring the reproducer in issue #142."""
+        root = tmp_path / "reference"
+        (root / "research" / "chapter13").mkdir(parents=True)
+        (root / "research" / "chapter13" / "ch13_perplexity.md").write_text("")
+        (root / "research" / "chapter14").mkdir(parents=True)
+        (root / "research" / "chapter14" / "ch14_notes.md").write_text("notes")
+        (root / "other").mkdir(parents=True)
+        (root / "other" / "keep.md").write_text("keep me")
+        (root / "logs").mkdir()
+        (root / "logs" / "build.log").write_text("noise")
+        return root
+
+    def _walk(self, loader: DocumentLoader, root: Path) -> set[str]:
+        """Run _walk_pruned and return paths relative to root for assertion."""
+        return {str(p.relative_to(root.resolve())) for p in loader._walk_pruned(root)}
+
+    def test_documented_double_star_dir_double_star_shape_prunes(
+        self, sample_tree: Path
+    ) -> None:
+        """**/dir/** must prune the directory — the documented shape (#142)."""
+        loader = DocumentLoader(exclude_patterns=["**/chapter13/**"])
+        files = self._walk(loader, sample_tree)
+        assert all("chapter13" not in f for f in files), files
+        # Sibling chapter14 should survive
+        assert any("chapter14" in f for f in files), files
+
+    def test_workaround_shape_still_prunes(self, sample_tree: Path) -> None:
+        """**/dir (no trailing) — the workaround from #142 — still works."""
+        loader = DocumentLoader(exclude_patterns=["**/research/chapter14"])
+        files = self._walk(loader, sample_tree)
+        assert all("chapter14" not in f for f in files), files
+        # chapter13 unaffected
+        assert any("chapter13" in f for f in files), files
+
+    def test_file_level_glob_excludes_individual_files(self, sample_tree: Path) -> None:
+        """File-level patterns like **/*.log should drop matching files."""
+        loader = DocumentLoader(exclude_patterns=["**/*.log"])
+        files = self._walk(loader, sample_tree)
+        assert all(not f.endswith(".log") for f in files), files
+        # Non-matching files survive
+        assert any(f.endswith("keep.md") for f in files), files
+
+    def test_default_patterns_still_prune(self, tmp_path: Path) -> None:
+        """Default DEFAULT_EXCLUDE_PATTERNS continue to prune their targets."""
+        root = tmp_path / "proj"
+        (root / "src").mkdir(parents=True)
+        (root / "src" / "app.py").write_text("# code")
+        (root / "node_modules" / "lib").mkdir(parents=True)
+        (root / "node_modules" / "lib" / "index.js").write_text("noise")
+        (root / "__pycache__").mkdir()
+        (root / "__pycache__" / "x.pyc").write_text("noise")
+        (root / ".agent-brain").mkdir()
+        (root / ".agent-brain" / "config.json").write_text("{}")
+
+        loader = DocumentLoader()
+        files = self._walk(loader, root)
+        assert any(f.endswith("app.py") for f in files), files
+        assert all("node_modules" not in f for f in files), files
+        assert all("__pycache__" not in f for f in files), files
+        # Note: .agent-brain is not in the default patterns yet (#123 fix lives
+        # in the file watcher) — but if a project lists it explicitly, it
+        # should prune.
+        loader2 = DocumentLoader(exclude_patterns=["**/.agent-brain/**"])
+        files2 = self._walk(loader2, root)
+        assert all(".agent-brain" not in f for f in files2), files2
+
+    def test_no_patterns_yields_everything(self, sample_tree: Path) -> None:
+        """Empty exclude_patterns list disables pruning entirely."""
+        loader = DocumentLoader(exclude_patterns=[])
+        files = self._walk(loader, sample_tree)
+        assert any("chapter13" in f for f in files), files
+        assert any("chapter14" in f for f in files), files
+        assert any("keep.md" in f for f in files), files
+        assert any("build.log" in f for f in files), files

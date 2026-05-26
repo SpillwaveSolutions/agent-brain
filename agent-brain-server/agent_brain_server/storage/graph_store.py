@@ -90,6 +90,7 @@ class GraphStoreManager:
         self.persist_dir = persist_dir
         self.store_type = store_type
         self._graph_store: Any | None = None
+        self._kuzu_db: Any | None = None
         self._initialized = False
         self._entity_count = 0
         self._relationship_count = 0
@@ -202,22 +203,35 @@ class GraphStoreManager:
             logger.debug("Using minimal fallback graph store")
 
     def _initialize_kuzu_store(self) -> None:
-        """Initialize Kuzu graph store with fallback to simple."""
+        """Initialize Kuzu graph store with fallback to simple.
+
+        Compatible with ``llama-index-graph-stores-kuzu>=0.9.0``, whose
+        ``KuzuPropertyGraphStore`` constructor takes a positional
+        ``kuzu.Database`` object instead of the old ``database_path`` kwarg
+        (issue #144). ``use_vector_index=False`` keeps the constructor from
+        requiring an ``embed_model`` — agent-brain uses ChromaDB for vectors,
+        not Kuzu's native vector index.
+        """
         try:
-            import kuzu  # noqa: F401 - just check import
+            import kuzu
             from llama_index.graph_stores.kuzu import KuzuPropertyGraphStore
 
+            # kuzu >= 0.10 uses a single-file database format; pre-creating
+            # the path as a directory makes Database() raise. Ensure the
+            # parent exists but leave the database path itself to Kuzu.
+            self.persist_dir.mkdir(parents=True, exist_ok=True)
             kuzu_db_path = self.persist_dir / "kuzu_db"
-            kuzu_db_path.mkdir(parents=True, exist_ok=True)
 
+            self._kuzu_db = kuzu.Database(str(kuzu_db_path))
             self._graph_store = KuzuPropertyGraphStore(
-                database_path=str(kuzu_db_path),
+                self._kuzu_db,
+                use_vector_index=False,
             )
             logger.debug(f"Initialized KuzuPropertyGraphStore at {kuzu_db_path}")
         except ImportError as e:
             logger.warning(
                 f"Kuzu not available ({e}), falling back to SimplePropertyGraphStore. "
-                "Install with: pip install llama-index-graph-stores-kuzu"
+                "Install with: pip install 'agent-brain-rag[graphrag-kuzu]'"
             )
             self.store_type = "simple"
             self._initialize_simple_store()
@@ -435,6 +449,30 @@ class GraphStoreManager:
                     subject=subject,
                     predicate=predicate,
                     object_=obj,
+                )
+            elif hasattr(self._graph_store, "upsert_relations") and hasattr(
+                self._graph_store, "upsert_nodes"
+            ):
+                # Modern PropertyGraphStore API (e.g. KuzuPropertyGraphStore >= 0.9).
+                # No upsert_triplet helper — build EntityNode + Relation objects.
+                from llama_index.core.graph_stores.types import EntityNode, Relation
+
+                subj_node = EntityNode(name=subject, label=subject_type or "Entity")
+                obj_node = EntityNode(name=obj, label=object_type or "Entity")
+                self._graph_store.upsert_nodes([subj_node, obj_node])
+                self._graph_store.upsert_relations(
+                    [
+                        Relation(
+                            label=predicate,
+                            source_id=subj_node.id,
+                            target_id=obj_node.id,
+                            properties=(
+                                {"source_chunk_id": source_chunk_id}
+                                if source_chunk_id
+                                else {}
+                            ),
+                        )
+                    ]
                 )
             elif hasattr(self._graph_store, "add_triplet"):
                 self._graph_store.add_triplet(subject, predicate, obj)

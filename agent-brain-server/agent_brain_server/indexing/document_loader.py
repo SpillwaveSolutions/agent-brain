@@ -1,7 +1,6 @@
 """Document loading from various file formats using LlamaIndex."""
 
 import asyncio
-import fnmatch
 import logging
 import os
 import re
@@ -11,6 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from llama_index.core import Document, SimpleDirectoryReader
+from pathspec import PathSpec
+from pathspec.patterns.gitwildmatch import GitWildMatchPattern
 
 logger = logging.getLogger(__name__)
 
@@ -345,6 +346,14 @@ class DocumentLoader:
             if exclude_patterns is not None
             else self.DEFAULT_EXCLUDE_PATTERNS
         )
+        # Compile a gitignore-style matcher once. Using pathspec instead of
+        # fnmatch.fnmatch + pat.replace("**", "*") fixes issue #142, where
+        # the documented "**/dir/**" pattern silently failed to prune.
+        self._exclude_spec: PathSpec | None = (
+            PathSpec.from_lines(GitWildMatchPattern, self.exclude_patterns)
+            if self.exclude_patterns
+            else None
+        )
 
     async def load_from_folder(
         self,
@@ -605,19 +614,35 @@ class DocumentLoader:
         return loaded_docs
 
     def _walk_pruned(self, root: Path) -> Iterator[Path]:
-        """Pruned os.walk: skips excluded dirs before descending."""
-        excl = getattr(self, "exclude_patterns", None) or []
-        for dirpath, dirnames, filenames in os.walk(root):
+        """Pruned os.walk: skips excluded dirs before descending.
+
+        Uses gitignore-style matching via pathspec so the documented
+        ``**/dir/**`` shape (and friends) prune correctly (issue #142).
+        Patterns match against the path relative to ``root`` rather than
+        absolute paths, matching operator intuition.
+        """
+        spec = self._exclude_spec
+        root_abs = root.resolve()
+        for dirpath, dirnames, filenames in os.walk(root_abs):
             dp = Path(dirpath)
-            dirnames[:] = [
-                d
-                for d in dirnames
-                if not any(
-                    fnmatch.fnmatch(str(dp / d), pat.replace("**", "*")) for pat in excl
-                )
-            ]
-            for f in filenames:
-                yield dp / f
+            if spec is not None:
+                # Prune directories in-place to avoid descending into them.
+                # Trailing "/" tells pathspec these are directories — needed
+                # for patterns like "**/dir/" that only match directories.
+                kept: list[str] = []
+                for d in dirnames:
+                    rel = (dp / d).relative_to(root_abs).as_posix()
+                    if not (spec.match_file(rel) or spec.match_file(rel + "/")):
+                        kept.append(d)
+                dirnames[:] = kept
+
+                for f in filenames:
+                    rel = (dp / f).relative_to(root_abs).as_posix()
+                    if not spec.match_file(rel):
+                        yield dp / f
+            else:
+                for f in filenames:
+                    yield dp / f
 
     def get_supported_files(
         self,
