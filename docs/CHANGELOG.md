@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [10.0.3] - 2026-05-26
+
+### Fixed
+
+- Multi-page PDF indexing silently lost data because `chunk_id` was derived from only `(source, idx)`. Every page reset `idx` to 0, so chunks collided and ChromaDB's upsert kept only the last page (a 128-page PDF was indexed as only a handful of chunks, all from later pages). The collisions were masked by a last-occurrence-wins dedupe in `vector_store.py` with only a server-log warning. Fix: `DocumentLoader` now preserves the per-part identifier PyMuPDFReader sets in `metadata["source"]` as `page_label`, and both `chunking.py` and the `CodeChunker` mix `page_label` into the id_seed when present (using `#` as a URL-fragment-style separator so filenames like `foo.pdf_3` cannot collide with `foo.pdf#3_0`). Non-PDF sources without `page_label` keep the legacy `f"{source}_{idx}"` seed, so already-indexed corpora are unaffected. Includes new regression suite `tests/unit/test_chunk_id_uniqueness.py` covering disjoint IDs across pages, legacy-formula backwards compat, and stability across re-indexing. Closes #141.
+
 ## [10.0.2] - 2026-05-25
 
 ### Fixed
