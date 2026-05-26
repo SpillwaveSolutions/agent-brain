@@ -657,6 +657,9 @@ class IndexingService:
             ]
             # BM25 index build is CPU-heavy (tokenization + scoring).
             # Run in a thread so the event loop stays responsive.
+            # When chunks (and therefore nodes) is empty — e.g. all new files
+            # were empty placeholders — bm25_index.build_index treats it as
+            # a no-op rather than raising. Issue #143.
             bm25_mgr = self.bm25_manager
             await asyncio.to_thread(bm25_mgr.build_index, nodes)
 

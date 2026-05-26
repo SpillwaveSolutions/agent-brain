@@ -90,17 +90,18 @@ class TestGraphStoreManagerInitialization:
         manager.initialize()  # Second call
         assert manager.graph_store is first_store
 
+    @patch.dict("sys.modules", {"kuzu": None})
     @patch("agent_brain_server.storage.graph_store.settings")
     def test_initialize_kuzu_fallback(
         self, mock_settings: MagicMock, graph_persist_dir: Path
     ):
-        """Test Kuzu initialization falls back to simple when not available."""
+        """Test Kuzu initialization falls back to simple when import fails."""
         mock_settings.ENABLE_GRAPH_INDEX = True
 
         manager = GraphStoreManager(graph_persist_dir, store_type="kuzu")
         manager.initialize()
 
-        # Should fall back to simple since kuzu is likely not installed
+        # With kuzu forced to fail import, store falls back to simple
         assert manager.is_initialized
         assert manager.store_type == "simple"  # Fallback
 
@@ -460,21 +461,23 @@ class TestKuzuStoreInitialization:
         manager = GraphStoreManager(graph_persist_dir, store_type="kuzu")
         assert manager.store_type == "kuzu"
 
+    @patch.dict("sys.modules", {"kuzu": None})
     @patch("agent_brain_server.storage.graph_store.settings")
     def test_kuzu_fallback_to_simple_when_not_installed(
         self, mock_settings: MagicMock, graph_persist_dir: Path
     ):
-        """Test Kuzu falls back to simple when kuzu package not installed."""
+        """Test Kuzu falls back to simple when kuzu package import fails."""
         mock_settings.ENABLE_GRAPH_INDEX = True
 
         manager = GraphStoreManager(graph_persist_dir, store_type="kuzu")
         manager.initialize()
 
-        # Should fall back to simple since kuzu is likely not installed in tests
+        # With kuzu forced to fail import, store falls back to simple
         assert manager.is_initialized
         # store_type should be updated to 'simple' on fallback
         assert manager.store_type == "simple"
 
+    @patch.dict("sys.modules", {"kuzu": None})
     @patch("agent_brain_server.storage.graph_store.settings")
     def test_kuzu_fallback_logs_warning(
         self, mock_settings: MagicMock, graph_persist_dir: Path, caplog
@@ -559,11 +562,16 @@ class TestKuzuStoreInitialization:
         # Verify manager was configured for kuzu
         assert manager.store_type == "kuzu"
 
+    @patch.dict("sys.modules", {"kuzu": None})
     @patch("agent_brain_server.storage.graph_store.settings")
     def test_kuzu_persist_is_automatic(
         self, mock_settings: MagicMock, graph_persist_dir: Path
     ):
-        """Test that Kuzu persist is automatic (no-op for kuzu type)."""
+        """Test that Kuzu persist is automatic (no-op for kuzu type).
+
+        Forces the kuzu import to fail so this exercises the fallback path
+        consistently — the metadata-file behavior is what's being verified.
+        """
         mock_settings.ENABLE_GRAPH_INDEX = True
 
         manager = GraphStoreManager(graph_persist_dir, store_type="kuzu")
@@ -685,6 +693,7 @@ class TestStoreTypeDetection:
         manager = GraphStoreManager(graph_persist_dir)
         assert manager.store_type == "simple"
 
+    @patch.dict("sys.modules", {"kuzu": None})
     @patch("agent_brain_server.storage.graph_store.settings")
     def test_store_type_updated_on_fallback(
         self, mock_settings: MagicMock, graph_persist_dir: Path
@@ -698,7 +707,7 @@ class TestStoreTypeDetection:
 
         manager.initialize()
 
-        # After fallback (kuzu not installed), should be simple
+        # After fallback (kuzu import forced to fail), should be simple
         assert manager.store_type == "simple"
 
     @patch("agent_brain_server.storage.graph_store.settings")

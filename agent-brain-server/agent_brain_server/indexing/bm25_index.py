@@ -58,6 +58,13 @@ class BM25IndexManager:
             nodes: List of LlamaIndex nodes.
         """
         logger.info(f"Building BM25 index with {len(nodes)} nodes")
+        # LlamaIndex's BM25Retriever.from_defaults raises
+        # "Please pass exactly one of index, nodes, or docstore." when
+        # nodes=[]. Treat an empty node list as a no-op rather than failing
+        # the whole indexing job (issue #143).
+        if not nodes:
+            logger.info("BM25 build_index called with empty nodes; skipping")
+            return
         self._retriever = BM25Retriever.from_defaults(nodes=nodes)
         self.persist()
 
