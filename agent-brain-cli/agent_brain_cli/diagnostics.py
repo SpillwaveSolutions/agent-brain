@@ -371,6 +371,103 @@ def _check_optional_dep(provider: str, module_name: str, extra: str) -> CheckRes
     )
 
 
+def _graph_index_dir(state_dir: Path) -> Path:
+    """Return the conventional graph_index location under a state dir."""
+    return state_dir / "data" / "graph_index"
+
+
+def _read_graphrag_block(state_dir: Path) -> dict[str, Any] | None:
+    """Read the ``graphrag`` block from the project's config.yaml, if any.
+
+    The CLI's Pydantic ``AgentBrainConfig`` doesn't model graphrag (it's a
+    server concern), so this peeks directly at the YAML. Returns None when
+    no graphrag block is present.
+    """
+    import yaml  # local import to avoid a hard dep at module load
+
+    for name in ("config.yaml", "agent-brain.yaml", "config.yml"):
+        path = state_dir / name
+        if not path.exists():
+            continue
+        try:
+            data = yaml.safe_load(path.read_text()) or {}
+        except (OSError, yaml.YAMLError):
+            continue
+        block = data.get("graphrag")
+        if isinstance(block, dict):
+            return block
+    return None
+
+
+def _check_graph_store_health(state_dir: Path) -> CheckResult | None:
+    """Verify the Kuzu DB opens cleanly when GraphRAG is enabled (Issue #166).
+
+    Returns None when GraphRAG is disabled or the store backend isn't Kuzu —
+    those cases have no graph health to report. Otherwise opens the Kuzu DB
+    in process briefly. A successful open is OK. An IndexError / RuntimeError
+    (the typical kill-mid-write signature) is FAIL with a fix hint pointing
+    at ``--fix`` or manual recovery.
+    """
+    block = _read_graphrag_block(state_dir)
+    if not block or not block.get("enabled"):
+        return None
+    store_type = str(block.get("store_type") or "simple").lower()
+    if store_type != "kuzu":
+        return None
+
+    graph_dir = _graph_index_dir(state_dir)
+    kuzu_db_path = graph_dir / "kuzu_db"
+    if not kuzu_db_path.exists():
+        # Nothing on disk yet — nothing to be corrupted.
+        return CheckResult(
+            "graph_store_health",
+            SEVERITY_OK,
+            f"No Kuzu DB on disk yet at {kuzu_db_path} (will be created on "
+            "first indexing job).",
+            details={"path": str(kuzu_db_path)},
+        )
+
+    try:
+        import kuzu
+    except ImportError:
+        # The langextract optional-dep check already covers missing extras.
+        return None
+
+    try:
+        kuzu.Database(str(kuzu_db_path))
+    except (IndexError, RuntimeError) as exc:
+        return CheckResult(
+            "graph_store_health",
+            SEVERITY_FAIL,
+            f"Kuzu DB at {kuzu_db_path} appears corrupted: {exc}. This "
+            "typically happens when the server was killed mid-indexing.",
+            fix=(
+                "Run `agent-brain doctor --fix` (server must be stopped) to "
+                "quarantine the corrupted file and restore from the latest "
+                "snapshot, or manually `rm` the file (loses all triplets)."
+            ),
+            details={"path": str(kuzu_db_path), "error": str(exc)},
+        )
+    except Exception as exc:  # noqa: BLE001 — anything unexpected
+        return CheckResult(
+            "graph_store_health",
+            SEVERITY_WARN,
+            f"Could not check Kuzu DB at {kuzu_db_path}: {exc}",
+        )
+
+    return CheckResult(
+        "graph_store_health",
+        SEVERITY_OK,
+        f"Kuzu DB at {kuzu_db_path} opens cleanly.",
+        details={"path": str(kuzu_db_path)},
+    )
+
+
+def _server_is_running(state_dir: Path) -> bool:
+    """Best-effort check for an active server lock under state_dir."""
+    return (state_dir / "server.lock").exists() or (state_dir / "lock").exists()
+
+
 def _check_gitignore(project_root: Path) -> CheckResult:
     gi = project_root / ".gitignore"
     if not gi.exists():
@@ -436,6 +533,11 @@ def run_doctor(server_url_override: str | None = None) -> DoctorReport:
             _check_optional_dep("graphrag (langextract)", "langextract", "graphrag")
         )
 
+    # Issue #166 — verify Kuzu DB opens cleanly.
+    graph_check = _check_graph_store_health(state_dir)
+    if graph_check is not None:
+        checks.append(graph_check)
+
     checks.append(_check_gitignore(project_root))
 
     checks.append(_check_server(server_url, runtime_file))
@@ -490,7 +592,117 @@ def apply_safe_fixes(report: DoctorReport) -> list[str]:
                     + "\n"
                 )
                 actions.append(f"Created {cfg_json}.")
+        elif check.name == "graph_store_health" and check.status == SEVERITY_FAIL:
+            # Issue #166 — recover a corrupted Kuzu DB offline.
+            if _server_is_running(state_dir):
+                actions.append(
+                    "Skipped Kuzu recovery: server appears to be running. "
+                    "Stop it with `agent-brain stop` first, then re-run "
+                    "`agent-brain doctor --fix`."
+                )
+                continue
+            graph_dir = _graph_index_dir(state_dir)
+            kuzu_db = graph_dir / "kuzu_db"
+            kuzu_wal = graph_dir / "kuzu_db.wal"
+            stamp = _utc_stamp()
+            for src in (kuzu_db, kuzu_wal):
+                if src.exists():
+                    dest = src.with_name(f"{src.name}.corrupted-{stamp}")
+                    src.rename(dest)
+                    actions.append(
+                        f"Quarantined {src.name} → {dest.name} "
+                        "(forensic preservation)."
+                    )
+            # Restore from latest snapshot, if one exists.
+            restored = _replay_latest_snapshot(graph_dir)
+            if restored is not None:
+                snapshot_name, count = restored
+                actions.append(
+                    f"Restored {count} triplets from snapshot "
+                    f"{snapshot_name} into a fresh Kuzu DB."
+                )
+            else:
+                actions.append(
+                    "No snapshot available to restore; graph index will "
+                    "start empty. Re-run `agent-brain index <folder>` to "
+                    "rebuild."
+                )
     return actions
+
+
+def _utc_stamp() -> str:
+    """Filesystem-safe UTC timestamp suffix shared with the server's
+    quarantine logic (graph_store._corrupted_sibling)."""
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _replay_latest_snapshot(graph_dir: Path) -> tuple[str, int] | None:
+    """Replay triplets from the newest valid snapshot into a fresh Kuzu DB.
+
+    Returns ``(snapshot_filename, triplet_count)`` on success, or ``None`` if
+    there's no usable snapshot. Best-effort: any failure becomes a None
+    return (the caller will report it). The CLI doesn't import the server
+    code path because the CLI may be installed without the server package;
+    instead it reads snapshot JSON directly using a minimal schema.
+    """
+    snap_dir = graph_dir / "snapshots"
+    if not snap_dir.is_dir():
+        return None
+    try:
+        import kuzu
+        from llama_index.core.graph_stores.types import EntityNode, Relation
+        from llama_index.graph_stores.kuzu import KuzuPropertyGraphStore
+    except ImportError:
+        return None
+
+    candidates = sorted(
+        (p for p in snap_dir.iterdir() if p.is_file() and p.suffix == ".json"),
+        key=lambda p: (p.stat().st_mtime, p.name),
+        reverse=True,
+    )
+    for snap in candidates:
+        try:
+            payload = json.loads(snap.read_text())
+            if payload.get("schema_version") != 1:
+                continue
+            triplets = payload.get("triplets") or []
+        except (OSError, json.JSONDecodeError):
+            continue
+
+        try:
+            db = kuzu.Database(str(graph_dir / "kuzu_db"))
+            store = KuzuPropertyGraphStore(db, use_vector_index=False)
+            for t in triplets:
+                subj = EntityNode(
+                    name=t["subject"],
+                    label=t.get("subject_type") or "Entity",
+                )
+                obj = EntityNode(
+                    name=t["object"],
+                    label=t.get("object_type") or "Entity",
+                )
+                store.upsert_nodes([subj, obj])
+                store.upsert_relations(
+                    [
+                        Relation(
+                            label=t["predicate"],
+                            source_id=subj.id,
+                            target_id=obj.id,
+                            properties=(
+                                {"source_chunk_id": t["source_chunk_id"]}
+                                if t.get("source_chunk_id")
+                                else {}
+                            ),
+                        )
+                    ]
+                )
+            return snap.name, len(triplets)
+        except Exception:  # noqa: BLE001
+            # If replay against this snapshot failed, try the next-older.
+            continue
+    return None
 
 
 def doctor_hint_message(project_root: Path | None = None) -> str:
