@@ -79,6 +79,13 @@ class Settings(BaseSettings):
     GRAPH_LANGEXTRACT_PROVIDER: str = ""
     # Override model for LangExtract (default: from summarization config)
     GRAPH_LANGEXTRACT_MODEL: str = ""
+    # Triplet snapshot durability (Issue #166). Snapshots are written
+    # under <graph_index>/snapshots/ during indexing so a process kill
+    # mid-langextract doesn't lose extraction work. Hybrid cadence: a
+    # snapshot is taken whenever EITHER threshold is crossed.
+    GRAPH_SNAPSHOT_CHUNKS: int = 25  # Snapshot every N processed chunks
+    GRAPH_SNAPSHOT_INTERVAL_SEC: int = 60  # ...or after this many seconds
+    GRAPH_SNAPSHOT_KEEP: int = 3  # Number of snapshots to retain (>= 1)
 
     # Job Queue Configuration (Feature 115)
     AGENT_BRAIN_MAX_QUEUE: int = 100  # Max pending jobs in queue

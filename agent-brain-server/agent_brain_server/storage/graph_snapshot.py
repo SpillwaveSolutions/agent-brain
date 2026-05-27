@@ -150,7 +150,13 @@ class GraphSnapshotManager:
         return target
 
     def list_snapshots(self) -> list[Path]:
-        """Return snapshot paths sorted newest-first by filename timestamp."""
+        """Return snapshot paths sorted newest-first.
+
+        Sort key is (mtime, filename) — mtime is the primary signal so a
+        snapshot written milliseconds after another is correctly newer,
+        even when both share the same ISO-second filename stamp. Filename
+        breaks ties for determinism in tests that pre-create files.
+        """
         if not self.snapshot_dir.is_dir():
             return []
         candidates = [
@@ -158,9 +164,7 @@ class GraphSnapshotManager:
             for p in self.snapshot_dir.iterdir()
             if p.is_file() and _FILENAME_RE.match(p.name)
         ]
-        # Filename sort is equivalent to timestamp sort because of the
-        # zero-padded ISO8601 format.
-        candidates.sort(key=lambda p: p.name, reverse=True)
+        candidates.sort(key=lambda p: (p.stat().st_mtime, p.name), reverse=True)
         return candidates
 
     def latest(self) -> Path | None:
