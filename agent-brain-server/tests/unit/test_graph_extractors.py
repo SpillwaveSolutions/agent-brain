@@ -857,29 +857,43 @@ class TestLangExtractAnthropicRouting:
         assert extractor.provider == "openai"
         assert extractor.model == "gpt-4o"
 
-    def test_unregistered_model_raises_configuration_error(self):
+    def test_unregistered_model_raises_configuration_error(self, monkeypatch):
         """When langextract's registry rejects the resolved model id, our
         wrapper must surface a ConfigurationError instead of silently producing
-        zero triplets per chunk later. Patches ``router.resolve`` directly so
-        the assertion is independent of which patterns langextract ships in any
-        given 1.x release (the registry grows release-to-release)."""
+        zero triplets per chunk later. Injects a fake ``langextract.providers``
+        module so the test runs both with and without the optional ``graphrag``
+        extra installed (CI's base env doesn't install it) and is independent
+        of which patterns the real langextract ships in any given 1.x release.
+        """
+        import sys
+        import types
+
         from agent_brain_server.providers.exceptions import ConfigurationError
+
+        fake_router = types.SimpleNamespace(
+            resolve=MagicMock(
+                side_effect=RuntimeError(
+                    "No provider registered for model_id=" "'claude-haiku-4-5-20251001'"
+                )
+            )
+        )
+        fake_providers = types.ModuleType("langextract.providers")
+        fake_providers.load_builtins_once = lambda: None  # type: ignore[attr-defined]
+        fake_providers.router = fake_router  # type: ignore[attr-defined]
+        fake_langextract = types.ModuleType("langextract")
+        fake_langextract.providers = fake_providers  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "langextract", fake_langextract)
+        monkeypatch.setitem(sys.modules, "langextract.providers", fake_providers)
 
         with self._patch_settings(
             summarization_provider="anthropic",
             langextract_provider="anthropic",
             langextract_model="claude-haiku-4-5-20251001",
         ):
-            with patch(
-                "langextract.providers.router.resolve",
-                side_effect=RuntimeError(
-                    "No provider registered for model_id=" "'claude-haiku-4-5-20251001'"
-                ),
+            with pytest.raises(
+                ConfigurationError, match="not registered with langextract"
             ):
-                with pytest.raises(
-                    ConfigurationError, match="not registered with langextract"
-                ):
-                    LangExtractExtractor()
+                LangExtractExtractor()
 
     def test_openai_summarization_passes_through_unchanged(self):
         """No auto-routing when summarization is already a supported provider."""
