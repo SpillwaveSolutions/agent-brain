@@ -8,6 +8,7 @@ import logging
 import time
 from collections.abc import Callable
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from agent_brain_server.config import settings
@@ -140,7 +141,16 @@ class GraphIndexManager:
         total_triplets = 0
         total_docs = len(documents)
 
-        snapshot_mgr = GraphSnapshotManager(self.graph_store.persist_dir)
+        # Snapshots only run when the graph store has a real on-disk
+        # persist_dir. Mock-based unit tests of build_from_documents (where
+        # persist_dir is a MagicMock attribute) should still work without
+        # creating stray directories named after the mock.
+        persist_dir = getattr(self.graph_store, "persist_dir", None)
+        snapshot_mgr: GraphSnapshotManager | None
+        if isinstance(persist_dir, Path):
+            snapshot_mgr = GraphSnapshotManager(persist_dir)
+        else:
+            snapshot_mgr = None
         accumulated_snapshot_triplets: list[SnapshotTriplet] = []
         chunks_since_snapshot = 0
         last_snapshot_ts = time.monotonic()
@@ -160,6 +170,8 @@ class GraphIndexManager:
         )
 
         def _take_snapshot() -> None:
+            if snapshot_mgr is None:
+                return
             try:
                 snapshot_mgr.write(
                     list(accumulated_snapshot_triplets),
