@@ -568,11 +568,36 @@ _vector_store: VectorStoreManager | None = None
 
 
 def get_vector_store() -> VectorStoreManager:
-    """Get the global vector store instance."""
+    """Get the global vector store instance.
+
+    If unset, falls back to constructing with default settings — which
+    resolves to the CWD-relative legacy path. Callers that need the
+    state-dir-resolved path must call set_vector_store() during startup
+    (the FastAPI lifespan does this).
+    """
     global _vector_store
     if _vector_store is None:
+        logger.warning(
+            "get_vector_store() called before set_vector_store(); "
+            "using CWD-relative default %r. This indicates the FastAPI "
+            "lifespan did not run, e.g. in a unit test or misconfigured "
+            "ad-hoc script.",
+            settings.CHROMA_PERSIST_DIR,
+        )
         _vector_store = VectorStoreManager()
     return _vector_store
+
+
+def set_vector_store(instance: VectorStoreManager) -> None:
+    """Register the singleton vector store.
+
+    Called by the FastAPI lifespan after constructing the manager with
+    the state-dir-resolved path so that downstream services
+    (IndexingService, QueryService, ChromaBackend) all share the same
+    instance instead of falling back to the CWD-relative default.
+    """
+    global _vector_store
+    _vector_store = instance
 
 
 async def initialize_vector_store() -> VectorStoreManager:

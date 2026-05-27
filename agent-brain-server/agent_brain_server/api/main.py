@@ -30,7 +30,7 @@ from agent_brain_server.config.provider_config import (
     load_provider_settings,
     validate_provider_config,
 )
-from agent_brain_server.indexing.bm25_index import BM25IndexManager
+from agent_brain_server.indexing.bm25_index import BM25IndexManager, set_bm25_manager
 from agent_brain_server.job_queue import JobQueueService, JobQueueStore, JobWorker
 from agent_brain_server.locking import (
     acquire_lock,
@@ -45,6 +45,7 @@ from agent_brain_server.storage import (
     VectorStoreManager,
     get_effective_backend_type,
     get_storage_backend,
+    set_vector_store,
 )
 from agent_brain_server.storage_paths import resolve_state_dir, resolve_storage_paths
 
@@ -73,6 +74,42 @@ _job_worker: JobWorker | None = None
 
 # Module-level reference to file watcher service for cleanup
 _file_watcher: object = None
+
+
+_STRAY_CWD_DATA_DIRS = ("chroma_db", "bm25_index", "graph_index")
+
+
+def _warn_about_stray_cwd_data_dirs(state_dir: Path) -> None:
+    """Log a warning if CWD-relative data dirs from older versions exist.
+
+    Issue #170: prior to the singleton setter fix, calling
+    get_vector_store() or get_bm25_manager() before the FastAPI lifespan
+    had registered the state-dir-resolved instance would create stray
+    directories named ``chroma_db/`` or ``bm25_index/`` at the current
+    working directory. The fix prevents new strays but does not migrate
+    existing ones — silent data motion is dangerous.
+
+    Args:
+        state_dir: The resolved state directory, used to build the
+            recommended ``mv`` command in the warning message.
+    """
+    cwd = Path.cwd().resolve()
+    for name in _STRAY_CWD_DATA_DIRS:
+        stray = cwd / name
+        if not stray.is_dir():
+            continue
+        canonical = state_dir / "data" / name
+        if stray.resolve() == canonical.resolve():
+            continue
+        logger.warning(
+            "Detected stray data directory %s (likely from a pre-fix "
+            "release of agent-brain — issue #170). The canonical "
+            "location is %s. If this directory holds valuable data, "
+            "merge it manually; otherwise remove it: rm -rf %s",
+            stray,
+            canonical,
+            stray,
+        )
 
 
 def _build_provider_fingerprint() -> str:
@@ -264,6 +301,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     assert state_dir is not None, "state_dir must be resolved by lifespan"
     logger.info(f"Resolved storage paths: state_dir={state_dir}")
 
+    # Warn if stray CWD-relative data dirs from older versions are present.
+    # See issue #170 — older versions could leak ./chroma_db and ./bm25_index
+    # next to the project root if the singleton getters were hit before
+    # lifespan registered the explicit state-dir-resolved instances.
+    _warn_about_stray_cwd_data_dirs(state_dir)
+
     # Determine project root for path validation
     project_root: Path | None = None
     if state_dir is not None:
@@ -315,6 +358,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 persist_dir=chroma_dir,
             )
             await vector_store.initialize()
+            # Register the singleton so downstream services that pull
+            # through get_vector_store() share this state-dir-resolved
+            # instance instead of constructing a CWD-relative one.
+            set_vector_store(vector_store)
             app.state.vector_store = vector_store
             logger.info("Vector store initialized")
 
@@ -331,6 +378,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 persist_dir=bm25_dir,
             )
             bm25_manager.initialize()
+            set_bm25_manager(bm25_manager)
             app.state.bm25_manager = bm25_manager
             logger.info("BM25 index manager initialized")
         else:

@@ -178,8 +178,32 @@ _bm25_manager: BM25IndexManager | None = None
 
 
 def get_bm25_manager() -> BM25IndexManager:
-    """Get the global BM25 manager instance."""
+    """Get the global BM25 manager instance.
+
+    If unset, falls back to constructing with default settings — which
+    resolves to the CWD-relative legacy path. Callers that need the
+    state-dir-resolved path must call set_bm25_manager() during startup
+    (the FastAPI lifespan does this).
+    """
     global _bm25_manager
     if _bm25_manager is None:
+        logger.warning(
+            "get_bm25_manager() called before set_bm25_manager(); "
+            "using CWD-relative default %r. This indicates the FastAPI "
+            "lifespan did not run, e.g. in a unit test or misconfigured "
+            "ad-hoc script.",
+            settings.BM25_INDEX_PATH,
+        )
         _bm25_manager = BM25IndexManager()
     return _bm25_manager
+
+
+def set_bm25_manager(instance: BM25IndexManager) -> None:
+    """Register the singleton BM25 manager.
+
+    Called by the FastAPI lifespan after constructing the manager with
+    the state-dir-resolved path so that downstream services share the
+    same instance instead of falling back to the CWD-relative default.
+    """
+    global _bm25_manager
+    _bm25_manager = instance
