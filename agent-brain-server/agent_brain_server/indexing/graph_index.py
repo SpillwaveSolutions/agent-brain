@@ -5,8 +5,10 @@ Coordinates between extractors, graph store, and vector store.
 """
 
 import logging
+import time
 from collections.abc import Callable
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from agent_brain_server.config import settings
@@ -24,6 +26,10 @@ from agent_brain_server.models.graph import (
     GraphQueryContext,
     GraphTriple,
     normalize_entity_type,
+)
+from agent_brain_server.storage.graph_snapshot import (
+    GraphSnapshotManager,
+    SnapshotTriplet,
 )
 
 
@@ -101,15 +107,22 @@ class GraphIndexManager:
         self,
         documents: list[Any],
         progress_callback: ProgressCallback | None = None,
+        source_job_id: str | None = None,
     ) -> int:
         """Build graph index from documents.
 
         Extracts entities and relationships from document chunks
-        and stores them in the graph.
+        and stores them in the graph. Periodically snapshots the
+        accumulated triplets to disk (hybrid cadence — every
+        ``GRAPH_SNAPSHOT_CHUNKS`` chunks OR ``GRAPH_SNAPSHOT_INTERVAL_SEC``
+        seconds, whichever comes first) so a process kill mid-langextract
+        does not lose extraction work.
 
         Args:
             documents: List of document chunks with text and metadata.
             progress_callback: Optional callback(current, total, message).
+            source_job_id: Optional job id, recorded in snapshots for
+                attribution.
 
         Returns:
             Total number of triplets extracted and stored.
@@ -128,14 +141,52 @@ class GraphIndexManager:
         total_triplets = 0
         total_docs = len(documents)
 
+        # Snapshots only run when the graph store has a real on-disk
+        # persist_dir. Mock-based unit tests of build_from_documents (where
+        # persist_dir is a MagicMock attribute) should still work without
+        # creating stray directories named after the mock.
+        persist_dir = getattr(self.graph_store, "persist_dir", None)
+        snapshot_mgr: GraphSnapshotManager | None
+        if isinstance(persist_dir, Path):
+            snapshot_mgr = GraphSnapshotManager(persist_dir)
+        else:
+            snapshot_mgr = None
+        accumulated_snapshot_triplets: list[SnapshotTriplet] = []
+        chunks_since_snapshot = 0
+        last_snapshot_ts = time.monotonic()
+        snapshot_chunk_threshold = max(1, int(settings.GRAPH_SNAPSHOT_CHUNKS))
+        snapshot_interval = max(1, int(settings.GRAPH_SNAPSHOT_INTERVAL_SEC))
+        snapshot_keep = max(1, int(settings.GRAPH_SNAPSHOT_KEEP))
+
         logger.info(
             "graph_index.build_from_documents: starting",
             extra={
                 "document_count": total_docs,
                 "llm_extraction": settings.GRAPH_USE_LLM_EXTRACTION,
                 "code_metadata": settings.GRAPH_USE_CODE_METADATA,
+                "snapshot_chunk_threshold": snapshot_chunk_threshold,
+                "snapshot_interval_sec": snapshot_interval,
             },
         )
+
+        def _take_snapshot() -> None:
+            if snapshot_mgr is None:
+                return
+            try:
+                snapshot_mgr.write(
+                    list(accumulated_snapshot_triplets),
+                    source_job_id=source_job_id,
+                )
+                snapshot_mgr.rotate(keep=snapshot_keep)
+            except OSError as exc:
+                # Snapshot is a safety net — never fail indexing because the
+                # snapshot couldn't be written (e.g. disk full).
+                logger.warning(
+                    "graph_index: snapshot write failed (%s); continuing "
+                    "without snapshot — corruption recovery will only restore "
+                    "earlier triplets",
+                    exc,
+                )
 
         for idx, doc in enumerate(documents):
             if progress_callback:
@@ -158,6 +209,31 @@ class GraphIndexManager:
                 )
                 if success:
                     total_triplets += 1
+                    accumulated_snapshot_triplets.append(
+                        SnapshotTriplet(
+                            subject=triplet.subject,
+                            predicate=triplet.predicate,
+                            object=triplet.object,
+                            subject_type=triplet.subject_type,
+                            object_type=triplet.object_type,
+                            source_chunk_id=triplet.source_chunk_id,
+                        )
+                    )
+
+            chunks_since_snapshot += 1
+            elapsed = time.monotonic() - last_snapshot_ts
+            if (
+                chunks_since_snapshot >= snapshot_chunk_threshold
+                or elapsed >= snapshot_interval
+            ):
+                _take_snapshot()
+                chunks_since_snapshot = 0
+                last_snapshot_ts = time.monotonic()
+
+        # Final snapshot at end of build so the on-disk state matches the
+        # full extraction even if neither threshold was reached on the tail.
+        if accumulated_snapshot_triplets and chunks_since_snapshot > 0:
+            _take_snapshot()
 
         # Persist the graph
         self.graph_store.persist()

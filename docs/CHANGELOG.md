@@ -1,5 +1,5 @@
 ---
-last_validated: 2026-05-25
+last_validated: 2026-05-26
 ---
 
 # Changelog
@@ -8,6 +8,23 @@ All notable changes to Agent Brain will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [10.0.6] - 2026-05-26
+
+### Fixed
+
+- **Kuzu graph store now self-heals from kill-mid-write corruption.** When the server was killed (SIGKILL or even SIGTERM) during the `langextract` triplet phase, the on-disk Kuzu catalog at `.agent-brain/data/graph_index/kuzu_db` could enter a state where `kuzu.Database(path)` raises `IndexError: unordered_map::at: key not found` from the pybind11 C++ constructor — every subsequent `agent-brain index` job then failed instantly inside `_initialize_kuzu_store` with no actionable recovery hint. Manual `rm kuzu_db` worked but destroyed all previously-extracted triplets (real `gpt-4o-mini` API spend). `_initialize_kuzu_store` in `agent_brain_server/storage/graph_store.py` now wraps `kuzu.Database()` in defensive `try/except (IndexError, RuntimeError)`. On catch it logs a loud actionable WARN, quarantines `kuzu_db` (and `kuzu_db.wal`) to `.corrupted-<ts>` sibling files (never deletes — forensic preservation), then retries on the now-empty path. A second failure raises a structured `RuntimeError` with explicit reset instructions. The lifespan in `agent_brain_server/api/main.py` calls a new `preflight_check()` at startup so corruption is detected once at boot rather than on the first user-facing indexing job. Same shape as the existing `#151` stale-directory self-heal pattern. Cross-reference: upstream [kuzudb/kuzu#6020](https://github.com/kuzudb/kuzu/issues/6020) tracks the catalog-load fragility on a different code path. Closes #166.
+
+### Added
+
+- **Triplet snapshots during langextract** (`agent_brain_server/storage/graph_snapshot.py` + hook in `agent_brain_server/indexing/graph_index.py`). `build_from_documents` now writes JSON triplet snapshots to `<graph_index>/snapshots/snapshot-<ISO8601>.json` on a hybrid cadence — whenever either `GRAPH_SNAPSHOT_CHUNKS` chunks (default 25) OR `GRAPH_SNAPSHOT_INTERVAL_SEC` seconds (default 60) have elapsed — plus a final tail snapshot at end-of-build. Rotation keeps the `GRAPH_SNAPSHOT_KEEP` most recent (default 3). Writes are atomic (`tmp + os.fsync + os.replace`). When the corruption-recovery path detects a quarantined Kuzu DB, it walks newest-to-oldest snapshots (skipping any that themselves got corrupted) and replays the triplets into the fresh database — silently restoring previously-extracted work with a single WARN log line. Snapshot write failure is non-fatal (a disk-full `OSError` logs WARN and indexing continues; the snapshot is a safety net, not a critical path). New env-var settings: `GRAPH_SNAPSHOT_CHUNKS`, `GRAPH_SNAPSHOT_INTERVAL_SEC`, `GRAPH_SNAPSHOT_KEEP`.
+- **`agent-brain doctor` now checks Kuzu DB health** (`agent_brain_cli/agent_brain_cli/diagnostics.py`). When GraphRAG is enabled with `store_type: kuzu`, the new `graph_store_health` check briefly opens `kuzu_db` in-process and reports OK / FAIL with an actionable fix hint. `agent-brain doctor --fix` extends to recover a corrupted Kuzu DB offline: refuses to run while a `server.lock` exists (avoids racing the live server), quarantines `kuzu_db` + `kuzu_db.wal` to `.corrupted-<ts>` siblings, and replays the newest valid triplet snapshot into a fresh DB. The CLI peeks at `config.yaml` directly for the `graphrag` block since `AgentBrainConfig` doesn't model graphrag (server concern). Closes the remaining graph DB durability gap from `#146`.
+
+### Internal
+
+- Server-side snapshot manager (`GraphSnapshotManager`) is deliberately backend-agnostic — operates on plain `SnapshotTriplet` dataclasses, never imports Kuzu directly. Same module could later snapshot SimplePropertyGraphStore. Loads sort snapshots by mtime (with filename tie-break) rather than filename alone — collision-suffixed names like `snapshot-T-001.json` sort *before* `snapshot-T.json` lexically, the wrong direction for "newest first". Test coverage: 36 new unit tests across `tests/unit/storage/test_graph_snapshot.py` (write/list/load/rotate lifecycle, corruption handling), `tests/unit/storage/test_graph_store_recovery.py` (defensive recovery state machine with a mocked Kuzu), and `tests/unit/test_graph_index_snapshot.py` (hybrid-cadence hook). Five new doctor tests in `agent-brain-cli/tests/test_resolver_and_doctor.py`.
 
 ---
 

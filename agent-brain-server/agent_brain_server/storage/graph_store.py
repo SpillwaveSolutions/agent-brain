@@ -10,6 +10,7 @@ All graph operations are no-ops when ENABLE_GRAPH_INDEX is False.
 import json
 import logging
 import os
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -18,8 +19,37 @@ from agent_brain_server.config import settings
 from agent_brain_server.config.provider_config import (
     load_provider_settings,
 )
+from agent_brain_server.storage.graph_snapshot import (
+    GraphSnapshotManager,
+    SnapshotTriplet,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _corrupted_sibling(path: Path, now: datetime | None = None) -> Path:
+    """Return a sibling path with a .corrupted-<ts> suffix for renaming."""
+    moment = now or datetime.now(timezone.utc)
+    stamp = moment.strftime("%Y%m%dT%H%M%SZ")
+    return path.with_name(f"{path.name}.corrupted-{stamp}")
+
+
+def _quarantine_file(path: Path) -> Path | None:
+    """Rename a (possibly corrupted) file to a .corrupted-<ts> sibling.
+
+    Returns the quarantined path, or ``None`` if the source did not exist.
+    Falls back to ``shutil.move`` if ``Path.rename`` fails (e.g. across
+    filesystem boundaries — shouldn't happen for sibling renames but the
+    extra robustness costs nothing).
+    """
+    if not path.exists():
+        return None
+    dest = _corrupted_sibling(path)
+    try:
+        path.rename(dest)
+    except OSError:
+        shutil.move(str(path), str(dest))
+    return dest
 
 
 def _graphrag_enabled() -> bool:
@@ -244,12 +274,15 @@ class GraphStoreManager:
                         "location."
                     ) from exc
 
-            self._kuzu_db = kuzu.Database(str(kuzu_db_path))
-            self._graph_store = KuzuPropertyGraphStore(
-                self._kuzu_db,
-                use_vector_index=False,
+            self._kuzu_db, self._graph_store = self._open_kuzu_with_recovery(
+                kuzu, KuzuPropertyGraphStore, kuzu_db_path
             )
             logger.debug(f"Initialized KuzuPropertyGraphStore at {kuzu_db_path}")
+
+            # If we just recovered from corruption, replay the latest valid
+            # snapshot to restore previously-extracted triplets. Done after
+            # the graph store wrapper is in place so we can route through it.
+            self._restore_from_snapshot_if_available()
         except ImportError as e:
             logger.warning(
                 f"Kuzu not available ({e}), falling back to SimplePropertyGraphStore. "
@@ -257,6 +290,218 @@ class GraphStoreManager:
             )
             self.store_type = "simple"
             self._initialize_simple_store()
+
+    def _open_kuzu_with_recovery(
+        self, kuzu: Any, kuzu_store_cls: Any, kuzu_db_path: Path
+    ) -> tuple[Any, Any]:
+        """Open the Kuzu DB *and* its property-graph wrapper, recovering on
+        corruption.
+
+        Both ``kuzu.Database()`` AND ``KuzuPropertyGraphStore(db, ...)`` can
+        fail when the on-disk catalog is corrupted — the wrapper opens a
+        ``kuzu.Connection`` and runs ``init_schema()`` DDL during its
+        constructor. We wrap both calls together so corruption that
+        manifests during connection setup (not just the Database constructor)
+        is also caught and self-healed.
+
+        Sequence on corruption (see issue #166):
+
+        1. Log a loud, actionable WARN naming the path and the originating
+           exception (IndexError ``unordered_map::at: key not found`` is the
+           canonical kill-mid-write signature; we also catch RuntimeError
+           and broadly-typed exceptions raised from pybind11 internals).
+        2. Rename ``kuzu_db`` and ``kuzu_db.wal`` to ``.corrupted-<ts>``
+           siblings — preserved for post-mortem, never deleted.
+        3. Retry the open-and-wrap pair on the now-empty path.
+        4. Trigger snapshot replay (handled by caller after this returns).
+
+        If the retry *also* fails we raise a structured ``RuntimeError`` with
+        explicit reset instructions. We never loop.
+
+        Sets ``self._recovered_from_corruption`` so
+        ``_restore_from_snapshot_if_available`` only runs when there's
+        something to restore.
+
+        Returns:
+            ``(kuzu.Database, KuzuPropertyGraphStore)`` tuple.
+        """
+        self._recovered_from_corruption = False
+
+        def _attempt() -> tuple[Any, Any]:
+            db = kuzu.Database(str(kuzu_db_path))
+            store = kuzu_store_cls(db, use_vector_index=False)
+            return db, store
+
+        # Catch the narrow corruption signatures (IndexError, RuntimeError)
+        # for the Database/Connection layer. We deliberately don't catch
+        # broader Exception here so genuine misconfigurations (e.g.
+        # ImportError from a missing extra) still surface clearly.
+        try:
+            return _attempt()
+        except (IndexError, RuntimeError) as exc:
+            logger.warning(
+                "Kuzu graph store at %s appears corrupted (likely from a "
+                "prior process kill mid-indexing): %s. Renaming to "
+                ".corrupted-<ts> and starting fresh. Previously-extracted "
+                "triplets will be restored from the latest snapshot if "
+                "available; otherwise re-index to rebuild.",
+                kuzu_db_path,
+                exc,
+            )
+            quarantined_db = _quarantine_file(kuzu_db_path)
+            quarantined_wal = _quarantine_file(
+                kuzu_db_path.with_name(kuzu_db_path.name + ".wal")
+            )
+            logger.info(
+                "Quarantined corrupted Kuzu files: db=%s wal=%s",
+                quarantined_db,
+                quarantined_wal,
+            )
+            self._recovered_from_corruption = True
+            try:
+                return _attempt()
+            except (IndexError, RuntimeError) as retry_exc:
+                raise RuntimeError(
+                    f"Failed to initialize Kuzu graph store at {kuzu_db_path} "
+                    f"even after quarantining the corrupted database "
+                    f"({quarantined_db}). The retry attempt also raised: "
+                    f"{retry_exc}. To fully reset, stop the server and "
+                    f"`rm -rf {kuzu_db_path.parent}` (this loses all "
+                    "previously-extracted triplets)."
+                ) from retry_exc
+
+    def _restore_from_snapshot_if_available(self) -> int:
+        """Replay the latest valid triplet snapshot into the graph store.
+
+        Only runs when ``self._recovered_from_corruption`` is True — on a
+        clean DB there's nothing to restore. Walks newest-to-oldest
+        snapshots, skipping (and renaming) corrupted ones, until a valid
+        snapshot is found.
+
+        Returns:
+            Number of triplets restored (0 if no snapshot available).
+        """
+        if not getattr(self, "_recovered_from_corruption", False):
+            return 0
+
+        snapshot_mgr = GraphSnapshotManager(self.persist_dir)
+        loaded = snapshot_mgr.load_latest_valid()
+        if loaded is None:
+            logger.info(
+                "graph_store: no snapshot available after recovery; "
+                "starting with empty graph at %s",
+                self.persist_dir,
+            )
+            return 0
+
+        snapshot_path, triplets = loaded
+        restored = 0
+        for triplet in triplets:
+            if self._apply_triplet_to_store(triplet):
+                restored += 1
+        # Update bookkeeping counters so subsequent persist/load matches reality
+        self._relationship_count = restored
+        self._last_updated = datetime.now(timezone.utc)
+
+        logger.warning(
+            "Restored %d triplets from snapshot %s after recovering "
+            "corrupted kuzu_db at %s",
+            restored,
+            snapshot_path.name,
+            self.persist_dir / "kuzu_db",
+        )
+        return restored
+
+    def _apply_triplet_to_store(self, triplet: SnapshotTriplet) -> bool:
+        """Insert a triplet into the underlying graph store backend.
+
+        This is the same body as ``add_triplet`` but without the
+        ``_initialized`` guard, so it can run during initialization (during
+        snapshot replay). Returns True on success.
+        """
+        store = self._graph_store
+        if store is None:
+            return False
+        try:
+            if hasattr(store, "upsert_triplet"):
+                store.upsert_triplet(
+                    subject=triplet.subject,
+                    predicate=triplet.predicate,
+                    object_=triplet.object,
+                )
+            elif hasattr(store, "upsert_relations") and hasattr(store, "upsert_nodes"):
+                from llama_index.core.graph_stores.types import (
+                    EntityNode,
+                    Relation,
+                )
+
+                subj_node = EntityNode(
+                    name=triplet.subject,
+                    label=triplet.subject_type or "Entity",
+                )
+                obj_node = EntityNode(
+                    name=triplet.object,
+                    label=triplet.object_type or "Entity",
+                )
+                store.upsert_nodes([subj_node, obj_node])
+                store.upsert_relations(
+                    [
+                        Relation(
+                            label=triplet.predicate,
+                            source_id=subj_node.id,
+                            target_id=obj_node.id,
+                            properties=(
+                                {"source_chunk_id": triplet.source_chunk_id}
+                                if triplet.source_chunk_id
+                                else {}
+                            ),
+                        )
+                    ]
+                )
+            elif hasattr(store, "add_triplet"):
+                store.add_triplet(triplet.subject, triplet.predicate, triplet.object)
+            elif hasattr(store, "_add_triplet"):
+                store._add_triplet(
+                    triplet.subject,
+                    triplet.predicate,
+                    triplet.object,
+                    triplet.subject_type,
+                    triplet.object_type,
+                    triplet.source_chunk_id,
+                )
+            else:
+                return False
+            return True
+        except Exception as exc:
+            logger.warning(
+                "graph_store._apply_triplet_to_store: failed for %s -%s-> %s: %s",
+                triplet.subject,
+                triplet.predicate,
+                triplet.object,
+                exc,
+            )
+            return False
+
+    def preflight_check(self) -> bool:
+        """Open the Kuzu DB proactively so corruption is caught at startup.
+
+        Called from the server lifespan before any indexing job runs, so the
+        first user-facing job doesn't pay the corruption-recovery tax. Safe
+        to call multiple times; no-ops if GraphRAG is disabled or already
+        initialized.
+
+        Returns:
+            True if the store is healthy (possibly after recovery), False
+            if the preflight was skipped (graphrag disabled, non-kuzu).
+        """
+        if not _graphrag_enabled():
+            return False
+        if self.store_type != "kuzu":
+            return False
+        if self._initialized:
+            return True
+        self.initialize()
+        return True
 
     def persist(self) -> None:
         """Persist graph to disk.

@@ -727,7 +727,9 @@ class IndexingService:
 
                 def _build_graph() -> int:
                     return graph_mgr.build_from_documents(
-                        chunks, progress_callback=graph_progress
+                        chunks,
+                        progress_callback=graph_progress,
+                        source_job_id=job_id,
                     )
 
                 triplet_count = await asyncio.to_thread(_build_graph)

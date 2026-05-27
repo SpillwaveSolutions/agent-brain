@@ -261,3 +261,166 @@ def test_doctor_fix_flag_creates_state_dir(
     # gitignore (both apply on a clean tmp dir).
     assert payload["applied_fixes"], "expected at least one safe fix action"
     assert (isolated_cwd / ".agent-brain" / "config.json").exists()
+
+
+# ---- Issue #166 — graph store health check & --fix ----
+
+
+def _make_graphrag_config(state_dir: Path, store_type: str = "kuzu") -> None:
+    """Write a minimal config.yaml that enables GraphRAG."""
+    state_dir.mkdir(parents=True, exist_ok=True)
+    # Need both: config.json for project_initialized check, config.yaml so
+    # load_config picks up the graphrag block.
+    (state_dir / "config.json").write_text(
+        json.dumps({"project_root": str(state_dir.parent)}) + "\n"
+    )
+    (state_dir / "config.yaml").write_text(
+        "embedding:\n"
+        "  provider: openai\n"
+        "  model: text-embedding-3-large\n"
+        "summarization:\n"
+        "  provider: anthropic\n"
+        "  model: claude-haiku-4-5\n"
+        "graphrag:\n"
+        "  enabled: true\n"
+        f"  store_type: {store_type}\n"
+    )
+
+
+def test_graph_store_health_check_skipped_when_graphrag_disabled(
+    isolated_cwd: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When GraphRAG is off, the new health check should not show up at all."""
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    state_dir = isolated_cwd / ".agent-brain"
+    state_dir.mkdir()
+    (state_dir / "config.json").write_text(
+        json.dumps({"project_root": str(isolated_cwd)}) + "\n"
+    )
+
+    report = run_doctor()
+    assert all(c.name != "graph_store_health" for c in report.checks)
+
+
+def test_graph_store_health_check_ok_when_db_missing(
+    isolated_cwd: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No on-disk Kuzu file yet → OK (will be created on first index)."""
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    state_dir = isolated_cwd / ".agent-brain"
+    _make_graphrag_config(state_dir)
+
+    report = run_doctor()
+    health = [c for c in report.checks if c.name == "graph_store_health"]
+    assert len(health) == 1
+    assert health[0].status == "ok"
+    assert "No Kuzu DB on disk yet" in health[0].message
+
+
+def test_graph_store_health_check_fails_on_corrupted_db(
+    isolated_cwd: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Write a junk-bytes 'kuzu_db' file and verify the check FAILs."""
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    state_dir = isolated_cwd / ".agent-brain"
+    _make_graphrag_config(state_dir)
+    graph_dir = state_dir / "data" / "graph_index"
+    graph_dir.mkdir(parents=True)
+    (graph_dir / "kuzu_db").write_bytes(b"\x00\x01\x02junk-not-a-valid-kuzu-catalog")
+
+    # Stub kuzu.Database to raise the same way the real bug does
+    import sys
+    import types
+
+    fake_kuzu = types.ModuleType("kuzu")
+
+    def database(_path):  # type: ignore[no-untyped-def]
+        raise IndexError("unordered_map::at: key not found")
+
+    fake_kuzu.Database = database  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "kuzu", fake_kuzu)
+
+    report = run_doctor()
+    health = [c for c in report.checks if c.name == "graph_store_health"]
+    assert len(health) == 1
+    assert health[0].status == "fail"
+    assert "corrupted" in health[0].message.lower()
+    assert health[0].fix is not None and "doctor --fix" in health[0].fix
+
+
+def test_graph_store_fix_quarantines_corrupted_db(
+    isolated_cwd: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--fix should rename the corrupted kuzu_db aside and report the action."""
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    state_dir = isolated_cwd / ".agent-brain"
+    _make_graphrag_config(state_dir)
+    graph_dir = state_dir / "data" / "graph_index"
+    graph_dir.mkdir(parents=True)
+    db_file = graph_dir / "kuzu_db"
+    db_file.write_bytes(b"junk")
+
+    import sys
+    import types
+
+    fake_kuzu = types.ModuleType("kuzu")
+
+    def database(_path):  # type: ignore[no-untyped-def]
+        raise IndexError("unordered_map::at: key not found")
+
+    fake_kuzu.Database = database  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "kuzu", fake_kuzu)
+
+    report = run_doctor()
+    actions = apply_safe_fixes(report)
+
+    # The kuzu_db file should be renamed to a .corrupted-<ts> sibling.
+    assert not db_file.exists()
+    quarantined = list(graph_dir.glob("kuzu_db.corrupted-*"))
+    assert len(quarantined) == 1
+    assert any("Quarantined kuzu_db" in a for a in actions)
+    # No snapshot was present, so we should also see the "no snapshot" note.
+    assert any("No snapshot available" in a for a in actions)
+
+
+def test_graph_store_fix_skips_when_server_lock_exists(
+    isolated_cwd: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If a server.lock exists, --fix must refuse to touch the kuzu_db so it
+    doesn't race the server."""
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    state_dir = isolated_cwd / ".agent-brain"
+    _make_graphrag_config(state_dir)
+    graph_dir = state_dir / "data" / "graph_index"
+    graph_dir.mkdir(parents=True)
+    db_file = graph_dir / "kuzu_db"
+    db_file.write_bytes(b"junk")
+    (state_dir / "server.lock").write_text("pid=12345\n")
+
+    import sys
+    import types
+
+    fake_kuzu = types.ModuleType("kuzu")
+
+    def database(_path):  # type: ignore[no-untyped-def]
+        raise IndexError("unordered_map::at: key not found")
+
+    fake_kuzu.Database = database  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "kuzu", fake_kuzu)
+
+    report = run_doctor()
+    actions = apply_safe_fixes(report)
+
+    # File still present, lock detection kept --fix from touching it.
+    assert db_file.exists()
+    assert any("server appears to be running" in a for a in actions)

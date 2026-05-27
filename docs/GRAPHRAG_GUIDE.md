@@ -477,6 +477,46 @@ agent-brain reset --yes
 agent-brain index /path/to/project
 ```
 
+#### Kuzu DB recovers automatically from kill-mid-write (v10.0.6+)
+
+When the server is killed during indexing — especially during the
+`langextract` triplet-extraction phase — the on-disk Kuzu catalog can
+corrupt. As of **v10.0.6** agent-brain self-heals:
+
+1. On the next server start (or first indexing job), `kuzu.Database()`
+   raises `IndexError: unordered_map::at: key not found`.
+2. The server quarantines `kuzu_db` and `kuzu_db.wal` to
+   `.corrupted-<timestamp>` sibling files (never deleted — preserved for
+   post-mortem).
+3. A fresh `kuzu_db` is opened.
+4. The most recent valid **triplet snapshot** (see below) is replayed
+   into the fresh database so previously-extracted triplets aren't lost.
+
+You'll see a single WARN log line like:
+
+```
+Kuzu DB at .../kuzu_db appears corrupted ... Renaming to .corrupted-<ts>
+Restored 1247 triplets from snapshot snapshot-2026-05-26T21-05-32Z.json
+```
+
+If automatic recovery doesn't kick in, run `agent-brain doctor --fix`
+(server must be stopped) to perform the same recovery offline.
+
+#### Triplet snapshots
+
+To survive process kills, the indexer writes periodic JSON snapshots of
+extracted triplets to `.agent-brain/data/graph_index/snapshots/`. The
+hybrid cadence (whichever comes first) keeps disk and CPU overhead small:
+
+| Setting | Default | What it does |
+|---|---|---|
+| `GRAPH_SNAPSHOT_CHUNKS` | 25 | Snapshot every N processed chunks |
+| `GRAPH_SNAPSHOT_INTERVAL_SEC` | 60 | ...or after this many seconds |
+| `GRAPH_SNAPSHOT_KEEP` | 3 | Number of snapshots to retain |
+
+A `kill -9` mid-build loses at most ~60 seconds (or 25 chunks) of
+triplet work — not the entire run.
+
 ---
 
 ## Next Steps
