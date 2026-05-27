@@ -1,5 +1,5 @@
 ---
-last_validated: 2026-05-26
+last_validated: 2026-05-27
 ---
 
 # Changelog
@@ -8,6 +8,18 @@ All notable changes to Agent Brain will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [10.0.7] - 2026-05-27
+
+### Fixed
+
+- **Vector store and BM25 manager singletons now converge with the lifespan-registered instance** (`agent_brain_server/storage/vector_store.py`, `agent_brain_server/indexing/bm25_index.py`, `agent_brain_server/api/main.py`). The FastAPI lifespan correctly resolved `chroma_db/` and `bm25_index/` paths under `AGENT_BRAIN_STATE_DIR` and stored the configured managers in `app.state`, but the module-level singletons (`_vector_store`, `_bm25_manager`) were never updated. Any caller that pulled through `get_vector_store()` or `get_bm25_manager()` — including `IndexingService`, `QueryService`, and `ChromaBackend` — constructed a *separate* manager that fell back to the CWD-relative defaults `./chroma_db` and `./bm25_index`, leaking a stray `chroma_db/` directory next to the project root and (in the worst case) writing to a different ChromaDB than the lifespan registered. Fix: new `set_vector_store(instance)` and `set_bm25_manager(instance)` helpers that the lifespan now calls after construction, so the singleton and `app.state.*` point at the same state-dir-resolved manager. The unset-getter path emits a clear WARNING ("called before set_*; using CWD-relative default …") so silent fallbacks become visible in tests and dev runs. The lifespan also performs a startup `_warn_about_stray_cwd_data_dirs(state_dir)` check that detects `./chroma_db`, `./bm25_index`, and `./graph_index` directories at CWD from pre-fix releases and logs the canonical path plus a manual `rm -rf` command — no silent migration, because the stray directory may hold real embedding work. The legacy `CHROMA_PERSIST_DIR = "./chroma_db"` and `BM25_INDEX_PATH = "./bm25_index"` defaults in `config/settings.py:34-35` are deliberately preserved as documented fallbacks for ad-hoc scripts and unit tests; the fix lives in the wiring, not the defaults. Eight regression tests in `tests/unit/test_issue_170_singleton_path_resolution.py` lock the setter-then-getter convergence, the unset-getter warning, the stray-dir warning under three CWD shapes, and a source-level assertion that `main.py` still calls the setters. Closes #170.
+
+### Internal
+
+- **Planning artifact drift caught up with v10.0.x reality.** `.planning/STATE.md` had been pinned at `v9.6.0 / Phase 46` since 2026-04-01 even though releases v9.3.0 → v10.0.6 had shipped in the intervening eight weeks. Audited `.planning/todos/pending/` — seven of ten entries were demonstrably resolved by code already in `main` (Gemini → `google-genai` migration in `b19ab35`; ChromaDB telemetry suppression at `api/main.py:167-169`; `agent-brain start --timeout` default raised 30s → 120s at `start.py:166-169`; Ollama broken-pipe retry at `providers/embedding/ollama.py:88`; AST + LangExtract first-class config wizard option at `agent-brain-config.md:590-592` from v9.3.0; port auto-discover documented at `agent-brain-start.md:58,275`; Object Pascal language support shipped via direct commits `de34cd0`, `4777890`). Each archived file in `.planning/todos/done/` now carries `status: closed`, `closed_at`, and `closed_by_release` frontmatter plus a one-line audit-trail blockquote at the top of the body. `STATE.md` rewritten to reflect the v10.0.x patch train (graph durability, Kuzu resilience, doctor diagnostic) and to mark the v9.6.0 runtime-parity milestone as parked. The three genuinely-still-open items were promoted to GitHub issues with bidirectional cross-references: **#170** (this release's fix), **#171** (verify-and-close — pre-authorize setup-assistant across six setup commands; static inspection confirmed all six already carry `context: fork` + `agent: setup-assistant`), and **#172** (verify-and-close — setup-assistant Bash/Write/Edit permission scopes; confirmed present at `agent-brain-plugin/agents/setup-assistant.md:23-33`, `last_validated` refreshed). The three remaining `.planning/todos/pending/` files each gained a `Tracked in: #NNN` blockquote linking back to the corresponding issue. Plan archived at `docs/plans/2026-05-27-low-hanging-fruit-triage.md`.
 
 ---
 
