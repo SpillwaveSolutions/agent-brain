@@ -8,6 +8,7 @@ multiple workers, ensure only one worker handles indexing jobs by using
 the single-worker model or a separate job processor service.
 """
 
+import asyncio
 import logging
 import os
 import socket
@@ -537,6 +538,35 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             _job_worker.set_folder_manager(folder_manager)
             # Wire JobWorker to QueryCacheService (Phase 17)
             _job_worker.set_query_cache(query_cache)
+
+        # Kuzu graph store preflight (Issue #166): proactively open the
+        # Kuzu DB so corruption from a prior kill-mid-write is detected and
+        # self-healed at startup, rather than failing the first user
+        # indexing job. No-op when GraphRAG is disabled or store_type !=
+        # "kuzu". Runs in a thread because kuzu.Database() is sync I/O.
+        try:
+            from agent_brain_server.storage.graph_store import (
+                get_graph_store_manager,
+            )
+
+            graph_store_mgr = get_graph_store_manager()
+            preflight_ok = await asyncio.to_thread(graph_store_mgr.preflight_check)
+            if preflight_ok:
+                logger.info(
+                    "Kuzu graph store preflight: OK " "(entities=%d, relationships=%d)",
+                    graph_store_mgr.entity_count,
+                    graph_store_mgr.relationship_count,
+                )
+        except Exception as preflight_exc:  # pragma: no cover - defensive
+            # Preflight is best-effort. A failure here means recovery
+            # couldn't complete; surface it but don't block startup so the
+            # user can still hit /health and run `agent-brain doctor --fix`.
+            logger.error(
+                "Kuzu graph store preflight failed: %s. Server will start "
+                "but graph operations may fail until you run "
+                "`agent-brain doctor --fix`.",
+                preflight_exc,
+            )
 
         # Set multi-instance metadata on app.state for health endpoint
         app.state.mode = mode
