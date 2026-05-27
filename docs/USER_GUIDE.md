@@ -1018,6 +1018,52 @@ agent-brain query "term" --scores
 
 ---
 
+## Diagnosing Setup Issues
+
+`agent-brain doctor` audits your installation, configuration, and server state
+and prints a per-check OK / WARN / FAIL table with one-line fix hints.
+
+```bash
+agent-brain doctor                # human-readable table
+agent-brain doctor --json         # machine-readable for scripts and plugins
+agent-brain doctor --fix          # apply safe, idempotent, offline remediations
+```
+
+**What it checks:**
+
+- Python version (>= 3.10)
+- Installed agent-brain-cli version
+- Project root resolution (and *why* this root was picked — `.agent-brain/`
+  match, git root, etc.)
+- `.agent-brain/config.json` present
+- `config.yaml` parses; active embedding + summarization providers
+- API key env var set for the active provider (boolean — never prints values)
+- Optional dependencies — `cohere` when the embedding provider is Cohere,
+  `langextract` when GraphRAG is enabled
+- `.agent-brain/` is in `.gitignore`
+- Server reachable on the resolved URL; when reachable, surfaces
+  `/health/status` indexing summary (state + chunk count)
+
+**What `--fix` does:** appends `.agent-brain/` to `.gitignore` (creating it if
+missing), creates a stub state dir + `config.json` if absent. It does NOT
+touch API keys, run network calls, or modify user code; address those
+manually. The report is re-run after fixing so the printed table reflects
+the new state.
+
+**Exit code** is `0` when every check is OK or WARN, non-zero when any check
+is FAIL. Use it in scripts:
+
+```bash
+agent-brain doctor || agent-brain init
+```
+
+When a CLI command (`status`, `query`, `jobs`, `index`, `reset`) can't reach
+the server, it automatically appends a `Tip: run agent-brain doctor …` hint
+that differentiates "missing runtime.json" (you haven't run `start`) from
+"server unreachable" (it crashed or is on another host).
+
+---
+
 ## Local Integration Check
 
 Before releasing or after major changes, run the local integration check to validate E2E functionality.

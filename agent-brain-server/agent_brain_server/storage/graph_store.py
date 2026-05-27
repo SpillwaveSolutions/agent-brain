@@ -222,6 +222,28 @@ class GraphStoreManager:
             self.persist_dir.mkdir(parents=True, exist_ok=True)
             kuzu_db_path = self.persist_dir / "kuzu_db"
 
+            # Self-heal: pre-v10.0.4 left an empty kuzu_db/ directory at this
+            # path, which kuzu 0.10+ rejects with "Database path cannot be a
+            # directory". rmdir() only succeeds on empty dirs, so this is
+            # safe; a non-empty leftover gets a clearer error than the raw
+            # Kuzu message. Issue #151.
+            if kuzu_db_path.is_dir():
+                try:
+                    kuzu_db_path.rmdir()
+                    logger.info(
+                        "Removed stale empty kuzu_db/ directory from a prior "
+                        "version: %s",
+                        kuzu_db_path,
+                    )
+                except OSError as exc:
+                    raise RuntimeError(
+                        f"Expected a kuzu database file at {kuzu_db_path} but "
+                        "found a non-empty directory. This may be leftover "
+                        "state from an earlier agent-brain version. Inspect "
+                        "and remove it, or point GRAPH_INDEX_PATH at a fresh "
+                        "location."
+                    ) from exc
+
             self._kuzu_db = kuzu.Database(str(kuzu_db_path))
             self._graph_store = KuzuPropertyGraphStore(
                 self._kuzu_db,

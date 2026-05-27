@@ -125,9 +125,11 @@ You can also configure GraphRAG via the `config.yaml` file (typically at `.agent
 
 ```yaml
 graphrag:
-  enabled: true             # Master switch (default: false)
-  store_type: "simple"      # "simple" (JSON) or "kuzu" (embedded DB)
-  use_code_metadata: true   # Extract entities from AST metadata
+  enabled: true                    # Master switch (default: false)
+  store_type: "simple"             # "simple" (JSON) or "kuzu" (embedded DB)
+  use_code_metadata: true          # Extract entities from AST metadata
+  langextract_provider: openai     # Override LLM provider for doc extraction
+  langextract_model: gpt-4o-mini   # Override LLM model for doc extraction
 ```
 
 The corresponding environment variable mapping is:
@@ -137,8 +139,19 @@ The corresponding environment variable mapping is:
 | `ENABLE_GRAPH_INDEX` | `graphrag.enabled` | `false` |
 | `GRAPH_STORE_TYPE` | `graphrag.store_type` | `simple` |
 | `GRAPH_USE_CODE_METADATA` | `graphrag.use_code_metadata` | `true` |
+| `GRAPH_LANGEXTRACT_PROVIDER` | `graphrag.langextract_provider` | _(reuses summarization)_ |
+| `GRAPH_LANGEXTRACT_MODEL` | `graphrag.langextract_model` | _(reuses summarization)_ |
 
 Environment variables override config.yaml values.
+
+**Anthropic / Claude summarization users:** langextract's provider registry
+recognises OpenAI, Gemini, and Ollama model ids but not Claude ids. When
+`summarization.provider: anthropic` is set with no langextract override,
+Agent Brain auto-routes langextract to `openai/gpt-4o-mini` (you will see an
+INFO log at startup). Provide `langextract_provider` and `langextract_model`
+explicitly to use a different model — the server validates the choice at
+startup and refuses to start with a clear `ConfigurationError` if the model
+is not registered with langextract (#149).
 
 **Note:** The `graph` query mode requires GraphRAG enabled with the ChromaDB backend and is not available with the PostgreSQL storage backend. The `multi` query mode gracefully adapts when GraphRAG or ChromaDB is unavailable -- it automatically uses BM25 + vector search only, skipping the graph component without error.
 

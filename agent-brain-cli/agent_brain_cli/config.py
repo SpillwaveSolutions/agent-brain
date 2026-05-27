@@ -254,6 +254,20 @@ def load_config(start_path: Path | None = None) -> AgentBrainConfig:
 def resolve_project_root(start_path: Path | None = None) -> Path:
     """Find the project root by looking for markers.
 
+    Thin wrapper around :func:`resolve_project_root_with_strategy` that drops
+    the strategy label for callers that only need the path.
+    """
+    return resolve_project_root_with_strategy(start_path)[0]
+
+
+def resolve_project_root_with_strategy(
+    start_path: Path | None = None,
+) -> tuple[Path, str]:
+    """Find the project root and report *which* rule matched.
+
+    Used by ``agent-brain doctor`` to explain why a given directory was
+    selected (issue #146).
+
     Resolution order (first match wins):
     1. Walk up from ``start_path`` looking for ``.agent-brain/`` — this lets a
        sub-project inside a mono-repo keep its own state dir and not get
@@ -263,11 +277,10 @@ def resolve_project_root(start_path: Path | None = None) -> Path:
     4. Walk up looking for ``.claude/`` or ``pyproject.toml``.
     5. Fall back to ``start_path``.
 
-    Args:
-        start_path: Starting directory. Defaults to cwd.
-
     Returns:
-        Project root path.
+        ``(root, strategy)`` where ``strategy`` is one of
+        ``"agent_brain_dir"``, ``"legacy_claude_dir"``, ``"git_root"``,
+        ``"claude_dir"``, ``"pyproject"``, ``"cwd_fallback"``.
     """
     import subprocess
 
@@ -277,9 +290,9 @@ def resolve_project_root(start_path: Path | None = None) -> Path:
     current = start
     while current != current.parent:
         if (current / STATE_DIR_NAME).is_dir():
-            return current
+            return current, "agent_brain_dir"
         if (current / LEGACY_STATE_DIR_NAME).is_dir():
-            return current
+            return current, "legacy_claude_dir"
         current = current.parent
 
     # 3. Git root next — useful when this is the first time the user runs init.
@@ -292,7 +305,7 @@ def resolve_project_root(start_path: Path | None = None) -> Path:
             cwd=str(start),
         )
         if result.returncode == 0:
-            return Path(result.stdout.strip()).resolve()
+            return Path(result.stdout.strip()).resolve(), "git_root"
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         pass
 
@@ -300,12 +313,12 @@ def resolve_project_root(start_path: Path | None = None) -> Path:
     current = start
     while current != current.parent:
         if (current / ".claude").is_dir():
-            return current
+            return current, "claude_dir"
         if (current / "pyproject.toml").is_file():
-            return current
+            return current, "pyproject"
         current = current.parent
 
-    return start
+    return start, "cwd_fallback"
 
 
 # Backwards-compatible alias for any external callers.

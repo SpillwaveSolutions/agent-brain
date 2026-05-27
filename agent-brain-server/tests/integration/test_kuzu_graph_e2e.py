@@ -87,6 +87,38 @@ def test_add_triplet_persists_to_kuzu(tmp_path: Path, enable_graphrag) -> None:
     assert "DEPENDS_ON" in predicates
 
 
+def test_kuzu_init_self_heals_stale_empty_dir(tmp_path: Path, enable_graphrag) -> None:
+    """Regression for #151 — pre-v10.0.4 upgrade leaves an empty kuzu_db/ dir
+    that kuzu 0.10+ refuses to open. Init must rmdir-empty it transparently."""
+    # Simulate the v10.0.2 leftover state
+    (tmp_path / "kuzu_db").mkdir()
+    assert (tmp_path / "kuzu_db").is_dir(), "fixture precondition failed"
+
+    manager = _make_manager(tmp_path)
+
+    assert manager.store_type == "kuzu"
+    assert manager._initialized
+    # The self-heal turned the directory into a Kuzu database file.
+    assert not (tmp_path / "kuzu_db").is_dir()
+
+    # And the freshly-healed store still accepts writes.
+    assert manager.add_triplet("Alice", "KNOWS", "Bob")
+
+
+def test_kuzu_init_refuses_to_clobber_non_empty_dir(
+    tmp_path: Path, enable_graphrag
+) -> None:
+    """#151 negative case — never silently delete user data; raise a clear error."""
+    stale = tmp_path / "kuzu_db"
+    stale.mkdir()
+    (stale / "important.txt").write_text("don't delete me")
+
+    GraphStoreManager._instance = None
+    manager = GraphStoreManager(tmp_path, store_type="kuzu")
+    with pytest.raises(RuntimeError, match="non-empty directory"):
+        manager.initialize()
+
+
 def test_kuzu_triplets_survive_reopen(tmp_path: Path, enable_graphrag) -> None:
     """Kuzu auto-persists; reopening the store should see prior triplets."""
     manager = _make_manager(tmp_path)

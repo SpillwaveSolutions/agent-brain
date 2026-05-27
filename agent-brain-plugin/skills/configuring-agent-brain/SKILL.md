@@ -375,9 +375,11 @@ GraphRAG enables graph-based entity-relationship extraction for advanced query m
 
 ```yaml
 graphrag:
-  enabled: false          # Master switch (default: false)
-  store_type: "simple"    # "simple" (in-memory) or "kuzu" (persistent disk)
-  use_code_metadata: true # Extract entities from AST metadata (imports, classes)
+  enabled: false                    # Master switch (default: false)
+  store_type: "simple"              # "simple" (in-memory) or "kuzu" (persistent disk)
+  use_code_metadata: true           # Extract entities from AST metadata (imports, classes)
+  langextract_provider: openai      # Optional override — see below
+  langextract_model: gpt-4o-mini    # Optional override — see below
 ```
 
 **Corresponding environment variables**:
@@ -387,6 +389,16 @@ graphrag:
 | `ENABLE_GRAPH_INDEX` | `graphrag.enabled` | `false` | Master switch |
 | `GRAPH_STORE_TYPE` | `graphrag.store_type` | `simple` | `simple` or `kuzu` |
 | `GRAPH_USE_CODE_METADATA` | `graphrag.use_code_metadata` | `true` | AST metadata extraction |
+| `GRAPH_LANGEXTRACT_PROVIDER` | `graphrag.langextract_provider` | _(reuses summarization)_ | Override the provider used for doc-chunk extraction |
+| `GRAPH_LANGEXTRACT_MODEL` | `graphrag.langextract_model` | _(reuses summarization)_ | Override the model used for doc-chunk extraction |
+
+**Anthropic / Claude summarization users:** langextract's provider registry does
+not recognise Claude model ids. If `summarization.provider: anthropic` is set
+and no langextract override is given, Agent Brain auto-routes langextract to
+`openai/gpt-4o-mini` (you'll see an INFO log). Set `langextract_provider` /
+`langextract_model` explicitly to use a different model — Agent Brain validates
+the choice at startup and raises a clear `ConfigurationError` if the model is
+not registered with langextract.
 
 **Note**: GraphRAG requires the `--include-code` flag during indexing to extract code structure:
 
