@@ -4,7 +4,12 @@ title: Add "AST for code + LangExtract for docs" as a first-class GraphRAG optio
 area: tooling
 files:
   - agent-brain-plugin/commands/agent-brain-config.md:544-690
+status: closed
+closed_at: 2026-05-27
+closed_by_release: v9.3.0
 ---
+
+> **✅ Closed (2026-05-27)** — Shipped in v9.3.0 (LangExtract + Config milestone). Verified at `agent-brain-plugin/commands/agent-brain-config.md:590-592` which now lists `2) AST + LangExtract (Recommended for mixed repos)` and `3) Kuzu + AST + LangExtract` as top-level Step 7 options.
 
 ## Problem
 

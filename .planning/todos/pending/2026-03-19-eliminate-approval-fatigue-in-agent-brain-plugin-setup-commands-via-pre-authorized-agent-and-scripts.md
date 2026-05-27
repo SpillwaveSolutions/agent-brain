@@ -11,7 +11,11 @@ files:
   - agent-brain-plugin/commands/agent-brain-start.md
   - agent-brain-plugin/commands/agent-brain-verify.md
   - agent-brain-plugin/scripts/ab-setup-check.sh
+tracked_in:
+  - https://github.com/SpillwaveSolutions/agent-brain/issues/171
 ---
+
+> **Tracked in:** [#171](https://github.com/SpillwaveSolutions/agent-brain/issues/171) — Related: [#170](https://github.com/SpillwaveSolutions/agent-brain/issues/170), [#172](https://github.com/SpillwaveSolutions/agent-brain/issues/172)
 
 ## Problem
 

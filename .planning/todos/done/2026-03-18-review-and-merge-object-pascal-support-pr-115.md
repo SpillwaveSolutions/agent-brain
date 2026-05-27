@@ -7,7 +7,12 @@ files:
   - agent-brain-server/agent_brain_server/config/file_type_presets.py
   - agent-brain-cli/agent_brain_cli/commands/types.py
   - agent-brain-server/tests/unit/test_pascal_chunker.py
+status: closed
+closed_at: 2026-05-27
+closed_by_release: v9.5.0
 ---
+
+> **✅ Closed (2026-05-27)** — PR #115 was closed without merge, but the work landed via Phase 42 direct commits: `de34cd0` (`feat(42): add .dpk extension support for Object Pascal`) and `4777890` (`feat(42): add object-pascal preset alias, sync CLI types, fix verification gap`). Object Pascal is fully supported.
 
 ## Problem
 

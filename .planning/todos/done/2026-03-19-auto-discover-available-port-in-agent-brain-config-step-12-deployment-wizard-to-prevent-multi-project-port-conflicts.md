@@ -4,7 +4,12 @@ title: Auto-discover available port in agent-brain-config Step 12 deployment wiz
 area: tooling
 files:
   - agent-brain-plugin/commands/agent-brain-config.md:997-1047
+status: closed
+closed_at: 2026-05-27
+closed_by_release: v9.5.0
 ---
+
+> **✅ Closed (2026-05-27)** — Auto-port shipped. Verified at `agent-brain-plugin/commands/agent-brain-start.md:58,275` which documents `auto-select (8000-8100)` and the `auto_port` config flag enabled by default.
 
 ## Problem
 
