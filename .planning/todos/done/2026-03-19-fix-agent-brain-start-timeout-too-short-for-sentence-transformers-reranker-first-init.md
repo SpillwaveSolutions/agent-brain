@@ -5,7 +5,12 @@ area: tooling
 files:
   - agent-brain-server/agent_brain_server/api/main.py
   - agent-brain-cli/agent_brain_cli/commands/
+status: closed
+closed_at: 2026-05-27
+closed_by_release: v9.5.0
 ---
+
+> **✅ Closed (2026-05-27)** — Approach A shipped (default timeout raised from 30s to 120s). Verified at `agent-brain-cli/agent_brain_cli/commands/start.py:166-169` (`--timeout` Click option, `default=120`).
 
 ## Problem
 

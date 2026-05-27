@@ -5,7 +5,12 @@ area: tooling
 files:
   - agent-brain-server/agent_brain_server/services/indexing_service.py
   - agent-brain-server/agent_brain_server/api/routers/
+status: closed
+closed_at: 2026-05-27
+closed_by_release: v9.5.0
 ---
+
+> **✅ Closed (2026-05-27)** — Solution item 1 (retry on dropped connection) shipped. Verified at `agent-brain-server/agent_brain_server/providers/embedding/ollama.py:88` which catches `BrokenPipeError` and `ConnectionResetError` and retries with backoff. Solution items 2–5 (job-progress separation, watch streaming, concurrency limit, false-failure verification) are nice-to-have polish — file follow-up issues separately if observed in v10.x.
 
 ## Problem
 

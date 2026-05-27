@@ -17,7 +17,12 @@ from .protocol import (
     StorageBackendProtocol,
     StorageError,
 )
-from .vector_store import VectorStoreManager, get_vector_store, initialize_vector_store
+from .vector_store import (
+    VectorStoreManager,
+    get_vector_store,
+    initialize_vector_store,
+    set_vector_store,
+)
 
 __all__ = [
     # Storage backend protocol (Phase 5)
@@ -31,6 +36,7 @@ __all__ = [
     # Vector store (legacy, for backward compat)
     "VectorStoreManager",
     "get_vector_store",
+    "set_vector_store",
     "initialize_vector_store",
     # Graph store (Feature 113)
     "GraphStoreManager",

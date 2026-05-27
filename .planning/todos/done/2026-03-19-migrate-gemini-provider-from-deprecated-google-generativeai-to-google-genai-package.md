@@ -5,7 +5,13 @@ area: tooling
 files:
   - agent-brain-server/agent_brain_server/providers/summarization/gemini.py:6
   - agent-brain-server/pyproject.toml
+status: closed
+closed_at: 2026-05-27
+closed_by_commit: b19ab35
+closed_by_release: v9.5.0
 ---
+
+> **✅ Closed (2026-05-27)** — Migration shipped in commit `b19ab35` (`fix(38-03): migrate Gemini provider to google-genai SDK`). Verified by `agent-brain-server/pyproject.toml:51` declaring `google-genai = "^1.0.0"`. Regression tests added in commit `48816cf`.
 
 ## Problem
 

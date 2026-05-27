@@ -5,7 +5,12 @@ area: tooling
 files:
   - agent-brain-server/pyproject.toml
   - agent-brain-server/agent_brain_server/api/main.py
+status: closed
+closed_at: 2026-05-27
+closed_by_release: v9.5.0
 ---
+
+> **✅ Closed (2026-05-27)** — Approach A shipped. Verified at `agent-brain-server/agent_brain_server/api/main.py:167-169` which sets `os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")` and demotes `chromadb.telemetry` / `posthog` loggers to WARNING.
 
 ## Problem
 

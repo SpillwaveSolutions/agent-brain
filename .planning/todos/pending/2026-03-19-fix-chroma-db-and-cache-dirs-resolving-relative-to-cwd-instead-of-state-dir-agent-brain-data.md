@@ -6,7 +6,11 @@ files:
   - agent-brain-server/agent_brain_server/config/settings.py
   - agent-brain-server/agent_brain_server/storage/vector_store.py
   - agent-brain-server/agent_brain_server/api/main.py
+tracked_in:
+  - https://github.com/SpillwaveSolutions/agent-brain/issues/170
 ---
+
+> **Tracked in:** [#170](https://github.com/SpillwaveSolutions/agent-brain/issues/170) — Related: [#171](https://github.com/SpillwaveSolutions/agent-brain/issues/171), [#172](https://github.com/SpillwaveSolutions/agent-brain/issues/172)
 
 ## Problem
 

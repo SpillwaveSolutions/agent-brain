@@ -6,7 +6,11 @@ files:
   - agent-brain-plugin/agents/setup-assistant.md
   - agent-brain-plugin/commands/agent-brain-config.md:56-63
   - agent-brain-plugin/scripts/ab-setup-check.sh
+tracked_in:
+  - https://github.com/SpillwaveSolutions/agent-brain/issues/172
 ---
+
+> **Tracked in:** [#172](https://github.com/SpillwaveSolutions/agent-brain/issues/172) — Related: [#170](https://github.com/SpillwaveSolutions/agent-brain/issues/170), [#171](https://github.com/SpillwaveSolutions/agent-brain/issues/171)
 
 ## Problem
 
