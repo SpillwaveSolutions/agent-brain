@@ -176,6 +176,11 @@ tasks:
   before-push:
     desc: Run all checks before pushing (format, lint, typecheck, yaml, test)
     cmds:
+      # defer: runs at end of task even on failure (Taskfile 3.x).
+      # The guard reverts any in-monorepo poetry.lock drift caused by
+      # `poetry install` running transitively below. See issue #174.
+      - defer: ./scripts/before_push_lock_guard.sh check
+      - ./scripts/before_push_lock_guard.sh start
       - echo "--- Formatting code ---"
       - task: format
       - echo "--- Linting code ---"

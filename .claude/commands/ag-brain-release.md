@@ -37,6 +37,8 @@ Execute a versioned release with these steps:
 4. CLI dependency points to PyPI (not path) - flip if needed
 5. CHANGELOG entry exists for the new version. Calculate the new version from current + bump type, then verify `docs/CHANGELOG.md` contains a `## [X.Y.Z]` heading matching it. If missing, abort with: "Add a `## [X.Y.Z] - YYYY-MM-DD` section to docs/CHANGELOG.md and commit it before re-running. See the existing [10.0.0] entry for the expected Keep-a-Changelog format."
 
+> **Note**: `task before-push` is wrapped by an automatic lock-drift guard (`scripts/before_push_lock_guard.sh`, see issue #174). The guard snapshots clean `agent-brain-{server,cli}/poetry.lock` files at task entry and reverts any in-task churn on exit. The release flow inherits this protection — no separate manual `git checkout HEAD -- poetry.lock` step is required after `task before-push`.
+
 ### Release Steps
 
 1. Calculate new version from current + bump type (also used by pre-release check #5)
