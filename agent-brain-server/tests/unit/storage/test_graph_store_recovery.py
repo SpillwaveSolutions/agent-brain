@@ -279,6 +279,54 @@ class TestCorruptionRecovery:
         with pytest.raises(RuntimeError, match="Failed to initialize Kuzu"):
             mgr.initialize()
 
+    @patch("agent_brain_server.storage.graph_store._graphrag_enabled")
+    def test_corruption_in_wrapper_init_is_also_recovered(
+        self,
+        mock_enabled,
+        monkeypatch,
+        persist_dir: Path,
+        kuzu_db_file: Path,
+    ):
+        """Real Kuzu corruption can surface during ``KuzuPropertyGraphStore``
+        construction (which opens a Connection and runs ``init_schema()``),
+        not just during ``kuzu.Database()``. The recovery wrapper must
+        cover both."""
+        mock_enabled.return_value = True
+
+        kuzu_mod = MagicMock()
+        kuzu_mod.Database.return_value = MagicMock(name="kuzu.Database()")
+
+        wrapper_calls = {"count": 0}
+
+        class FlakyKuzuStore:
+            def __init__(self, db, use_vector_index=False):
+                wrapper_calls["count"] += 1
+                if wrapper_calls["count"] == 1:
+                    raise RuntimeError(
+                        "kuzu.Connection: catalog corruption (synthetic)"
+                    )
+                self.db = db
+                self._upserted_nodes = []
+                self._upserted_relations = []
+
+            def upsert_nodes(self, nodes):
+                self._upserted_nodes.extend(nodes)
+
+            def upsert_relations(self, relations):
+                self._upserted_relations.extend(relations)
+
+        self._install_mocks(monkeypatch, kuzu_mod, FlakyKuzuStore)
+
+        mgr = GraphStoreManager(persist_dir, store_type="kuzu")
+        mgr.initialize()
+
+        # Wrapper construction attempted twice: first failed, second
+        # succeeded after the recovery path quarantined the bad file.
+        assert wrapper_calls["count"] == 2
+        assert mgr._recovered_from_corruption is True
+        assert not kuzu_db_file.exists()
+        assert list(persist_dir.glob("kuzu_db.corrupted-*"))
+
 
 class TestPreflightCheck:
     @patch("agent_brain_server.storage.graph_store._graphrag_enabled")

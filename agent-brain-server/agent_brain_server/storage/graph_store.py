@@ -274,10 +274,8 @@ class GraphStoreManager:
                         "location."
                     ) from exc
 
-            self._kuzu_db = self._open_kuzu_with_recovery(kuzu, kuzu_db_path)
-            self._graph_store = KuzuPropertyGraphStore(
-                self._kuzu_db,
-                use_vector_index=False,
+            self._kuzu_db, self._graph_store = self._open_kuzu_with_recovery(
+                kuzu, KuzuPropertyGraphStore, kuzu_db_path
             )
             logger.debug(f"Initialized KuzuPropertyGraphStore at {kuzu_db_path}")
 
@@ -293,42 +291,66 @@ class GraphStoreManager:
             self.store_type = "simple"
             self._initialize_simple_store()
 
-    def _open_kuzu_with_recovery(self, kuzu: Any, kuzu_db_path: Path) -> Any:
-        """Open the Kuzu database, recovering from corruption if needed.
+    def _open_kuzu_with_recovery(
+        self, kuzu: Any, kuzu_store_cls: Any, kuzu_db_path: Path
+    ) -> tuple[Any, Any]:
+        """Open the Kuzu DB *and* its property-graph wrapper, recovering on
+        corruption.
 
-        On a clean DB this is a one-line wrapper around ``kuzu.Database()``.
-        When the on-disk catalog is corrupted (e.g. from a prior process kill
-        mid-write — see issue #166), Kuzu raises ``IndexError`` /
-        ``RuntimeError`` from its pybind11 C++ constructor. In that case we:
+        Both ``kuzu.Database()`` AND ``KuzuPropertyGraphStore(db, ...)`` can
+        fail when the on-disk catalog is corrupted — the wrapper opens a
+        ``kuzu.Connection`` and runs ``init_schema()`` DDL during its
+        constructor. We wrap both calls together so corruption that
+        manifests during connection setup (not just the Database constructor)
+        is also caught and self-healed.
 
-        1. Log a loud, actionable WARN naming the path
+        Sequence on corruption (see issue #166):
+
+        1. Log a loud, actionable WARN naming the path and the originating
+           exception (IndexError ``unordered_map::at: key not found`` is the
+           canonical kill-mid-write signature; we also catch RuntimeError
+           and broadly-typed exceptions raised from pybind11 internals).
         2. Rename ``kuzu_db`` and ``kuzu_db.wal`` to ``.corrupted-<ts>``
-           siblings (preserved for post-mortem, never deleted)
-        3. Retry ``kuzu.Database()`` on the now-empty path
-        4. Trigger snapshot replay (handled by caller after wrapper is built)
+           siblings — preserved for post-mortem, never deleted.
+        3. Retry the open-and-wrap pair on the now-empty path.
+        4. Trigger snapshot replay (handled by caller after this returns).
 
         If the retry *also* fails we raise a structured ``RuntimeError`` with
-        an explicit reset instruction. We never loop.
+        explicit reset instructions. We never loop.
 
-        Sets ``self._recovered_from_corruption`` so ``_restore_from_snapshot``
-        only runs when there's something to restore.
+        Sets ``self._recovered_from_corruption`` so
+        ``_restore_from_snapshot_if_available`` only runs when there's
+        something to restore.
+
+        Returns:
+            ``(kuzu.Database, KuzuPropertyGraphStore)`` tuple.
         """
         self._recovered_from_corruption = False
+
+        def _attempt() -> tuple[Any, Any]:
+            db = kuzu.Database(str(kuzu_db_path))
+            store = kuzu_store_cls(db, use_vector_index=False)
+            return db, store
+
+        # Catch the narrow corruption signatures (IndexError, RuntimeError)
+        # for the Database/Connection layer. We deliberately don't catch
+        # broader Exception here so genuine misconfigurations (e.g.
+        # ImportError from a missing extra) still surface clearly.
         try:
-            return kuzu.Database(str(kuzu_db_path))
+            return _attempt()
         except (IndexError, RuntimeError) as exc:
             logger.warning(
-                "Kuzu DB at %s appears corrupted (likely from a prior "
-                "process kill mid-indexing): %s. Renaming to .corrupted-<ts> "
-                "and starting fresh. Previously-extracted triplets will be "
-                "restored from the latest snapshot if available; otherwise "
-                "re-index to rebuild.",
+                "Kuzu graph store at %s appears corrupted (likely from a "
+                "prior process kill mid-indexing): %s. Renaming to "
+                ".corrupted-<ts> and starting fresh. Previously-extracted "
+                "triplets will be restored from the latest snapshot if "
+                "available; otherwise re-index to rebuild.",
                 kuzu_db_path,
                 exc,
             )
             quarantined_db = _quarantine_file(kuzu_db_path)
             quarantined_wal = _quarantine_file(
-                kuzu_db_path.with_suffix(kuzu_db_path.suffix + ".wal")
+                kuzu_db_path.with_name(kuzu_db_path.name + ".wal")
             )
             logger.info(
                 "Quarantined corrupted Kuzu files: db=%s wal=%s",
@@ -337,7 +359,7 @@ class GraphStoreManager:
             )
             self._recovered_from_corruption = True
             try:
-                return kuzu.Database(str(kuzu_db_path))
+                return _attempt()
             except (IndexError, RuntimeError) as retry_exc:
                 raise RuntimeError(
                     f"Failed to initialize Kuzu graph store at {kuzu_db_path} "
