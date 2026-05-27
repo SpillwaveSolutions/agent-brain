@@ -857,9 +857,12 @@ class TestLangExtractAnthropicRouting:
         assert extractor.provider == "openai"
         assert extractor.model == "gpt-4o"
 
-    def test_explicit_claude_model_raises_configuration_error(self):
-        """If the user forces a Claude model on langextract, validation should
-        fail loudly at construction instead of silently producing zero triplets."""
+    def test_unregistered_model_raises_configuration_error(self):
+        """When langextract's registry rejects the resolved model id, our
+        wrapper must surface a ConfigurationError instead of silently producing
+        zero triplets per chunk later. Patches ``router.resolve`` directly so
+        the assertion is independent of which patterns langextract ships in any
+        given 1.x release (the registry grows release-to-release)."""
         from agent_brain_server.providers.exceptions import ConfigurationError
 
         with self._patch_settings(
@@ -867,10 +870,16 @@ class TestLangExtractAnthropicRouting:
             langextract_provider="anthropic",
             langextract_model="claude-haiku-4-5-20251001",
         ):
-            with pytest.raises(
-                ConfigurationError, match="not registered with langextract"
+            with patch(
+                "langextract.providers.router.resolve",
+                side_effect=RuntimeError(
+                    "No provider registered for model_id=" "'claude-haiku-4-5-20251001'"
+                ),
             ):
-                LangExtractExtractor()
+                with pytest.raises(
+                    ConfigurationError, match="not registered with langextract"
+                ):
+                    LangExtractExtractor()
 
     def test_openai_summarization_passes_through_unchanged(self):
         """No auto-routing when summarization is already a supported provider."""
