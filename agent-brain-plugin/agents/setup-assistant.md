@@ -31,7 +31,7 @@ allowed_tools:
   - "Edit(~/.config/agent-brain/**)"
   - "Write(.claude/agent-brain/**)"
   - "Edit(.claude/agent-brain/**)"
-last_validated: 2026-03-16
+last_validated: 2026-05-27
 ---
 
 # Setup Assistant Agent
