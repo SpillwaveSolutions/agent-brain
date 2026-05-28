@@ -55,3 +55,8 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    "e2e: end-to-end test requiring a real agent-brain-serve subprocess and the official MCP Python SDK as client (slow; opt-in via `task mcp:e2e`)",
+]
+# Default test runs exclude the e2e suite to keep `task mcp:test` fast.
+addopts = "-m 'not e2e'"

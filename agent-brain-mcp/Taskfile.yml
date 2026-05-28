@@ -70,6 +70,18 @@ tasks:
     cmds:
       - echo "MCP contract validation lands in Phase 4."
 
+  e2e:
+    desc: End-to-end suite — spawns agent-brain-serve + agent-brain-mcp (slow, Phase 4+)
+    deps: [install]
+    cmds:
+      - poetry run pytest {{.TEST_DIR}}/e2e -v -m e2e
+
+  test:all:
+    desc: Unit + integration + e2e
+    deps: [install]
+    cmds:
+      - poetry run pytest {{.TEST_DIR}} -v -m ""
+
   # ===================
   # Code Quality
   # ===================
