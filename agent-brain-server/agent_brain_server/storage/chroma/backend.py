@@ -23,6 +23,50 @@ from agent_brain_server.storage.vector_store import (
 logger = logging.getLogger(__name__)
 
 
+# Issue #159: matched_terms support.
+# Tokenization mirrors LlamaIndex BM25Retriever's default: lowercase the
+# input, ASCII-word split, strip English stopwords. We avoid stemming
+# because the indexer doesn't stem either — keeping the two sides
+# symmetric is what makes the intersection meaningful.
+def _bm25_tokens(text: str) -> list[str]:
+    """Return BM25-relevant tokens in ``text`` (in occurrence order)."""
+    try:
+        import bm25s
+    except ImportError:
+        # bm25s ships transitively with llama-index-retrievers-bm25; the
+        # safety net below means a packaging glitch degrades to "no
+        # matched_terms" rather than a 500.
+        return []
+    try:
+        tokens_lists = bm25s.tokenize(
+            text,
+            return_ids=False,
+            stopwords="english",
+            show_progress=False,
+        )
+    except Exception:
+        return []
+    if not tokens_lists:
+        return []
+    return list(tokens_lists[0]) if tokens_lists[0] else []
+
+
+def _intersect_tokens(query_tokens: list[str], doc_text: str) -> list[str]:
+    """Return query tokens that appear in ``doc_text``, in query order.
+
+    Deduplicates so a user query like ``"auth auth setup"`` produces
+    ``["auth", "setup"]`` rather than repeating the same term.
+    """
+    doc_token_set = set(_bm25_tokens(doc_text))
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for token in query_tokens:
+        if token in doc_token_set and token not in seen:
+            seen.add(token)
+            ordered.append(token)
+    return ordered
+
+
 class ChromaBackend:
     """ChromaDB storage backend implementing StorageBackendProtocol.
 
@@ -168,6 +212,7 @@ class ChromaBackend:
         top_k: int,
         source_types: list[str] | None = None,
         languages: list[str] | None = None,
+        explain: bool = False,
     ) -> list[SearchResult]:
         """Perform BM25 keyword search with score normalization.
 
@@ -176,6 +221,8 @@ class ChromaBackend:
             top_k: Maximum number of results
             source_types: Optional filter by source_type
             languages: Optional filter by language
+            explain: When True, populate ``SearchResult.matched_terms``
+                for each result (issue #159).
 
         Returns:
             List of SearchResult with scores normalized to 0-1 range
@@ -195,27 +242,29 @@ class ChromaBackend:
             if not nodes_with_score:
                 return []
 
+            # Issue #159: precompute the stopword-stripped query tokens once;
+            # we'll intersect them with each document's tokens to derive
+            # matched_terms. The tokenizer matches LlamaIndex BM25Retriever's
+            # default (lowercase, ASCII-word split, English stopword filter).
+            query_tokens: list[str] | None = None
+            if explain:
+                query_tokens = _bm25_tokens(query)
+
             # Normalize BM25 scores to 0-1 range (per-query normalization)
             max_score = max(node.score or 0.0 for node in nodes_with_score)
-            if max_score == 0.0:
-                # All scores are zero, return with zero scores
-                return [
-                    SearchResult(
-                        text=node.node.get_content(),
-                        metadata=dict(node.node.metadata),
-                        score=0.0,
-                        chunk_id=node.node.node_id or "",
-                    )
-                    for node in nodes_with_score
-                ]
+            divisor = max_score if max_score > 0.0 else 1.0
 
-            # Normalize to 0-1 by dividing by max
             return [
                 SearchResult(
                     text=node.node.get_content(),
                     metadata=dict(node.node.metadata),
-                    score=(node.score or 0.0) / max_score,
+                    score=(node.score or 0.0) / divisor if max_score > 0.0 else 0.0,
                     chunk_id=node.node.node_id or "",
+                    matched_terms=(
+                        _intersect_tokens(query_tokens, node.node.get_content())
+                        if query_tokens is not None
+                        else None
+                    ),
                 )
                 for node in nodes_with_score
             ]

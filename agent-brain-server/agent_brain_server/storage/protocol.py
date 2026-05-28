@@ -23,6 +23,11 @@ class SearchResult:
     metadata: dict[str, Any]
     score: float  # Normalized 0-1, higher=better
     chunk_id: str
+    # Issue #159: populated only when keyword_search is called with
+    # explain=True. Lists the query terms (after backend-specific
+    # tokenization) that hit this document. None for non-keyword
+    # retrievers and for explain=False keyword queries.
+    matched_terms: list[str] | None = None
 
 
 @dataclass
@@ -178,6 +183,7 @@ class StorageBackendProtocol(Protocol):
         top_k: int,
         source_types: list[str] | None = None,
         languages: list[str] | None = None,
+        explain: bool = False,
     ) -> list[SearchResult]:
         """Perform keyword search (BM25 or tsvector).
 
@@ -186,6 +192,11 @@ class StorageBackendProtocol(Protocol):
             top_k: Maximum number of results to return
             source_types: Optional filter by source_type metadata
             languages: Optional filter by language metadata
+            explain: When True (issue #159), backends populate
+                ``SearchResult.matched_terms`` with the query terms
+                (after backend-specific tokenization) that hit each
+                document. Off by default to avoid the per-result
+                tokenization cost on hot paths.
 
         Returns:
             List of SearchResult objects sorted by score descending.

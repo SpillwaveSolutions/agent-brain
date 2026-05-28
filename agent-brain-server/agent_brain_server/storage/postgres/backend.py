@@ -239,6 +239,7 @@ class PostgresBackend:
         top_k: int,
         source_types: list[str] | None = None,
         languages: list[str] | None = None,
+        explain: bool = False,
     ) -> list[SearchResult]:
         """Perform full-text keyword search.
 
@@ -249,6 +250,8 @@ class PostgresBackend:
             top_k: Maximum number of results.
             source_types: Optional source_type metadata filter.
             languages: Optional language metadata filter.
+            explain: When True (issue #159), populate
+                ``SearchResult.matched_terms`` from ts_headline output.
 
         Returns:
             List of SearchResult with 0-1 normalized scores.
@@ -261,6 +264,7 @@ class PostgresBackend:
             top_k=top_k,
             source_types=source_types,
             languages=languages,
+            explain=explain,
         )
 
     async def hybrid_search_with_rrf(

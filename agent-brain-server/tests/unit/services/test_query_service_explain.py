@@ -191,8 +191,30 @@ class TestBuildExplanation:
         result = _result(bm25_score=0.91)
         explanation = _build_explanation_for_result(result, {}, QueryMode.BM25)
         assert explanation.fusion is None
-        assert explanation.matched_terms is None  # commit 3 territory
+        assert explanation.matched_terms is None  # nothing stashed -> None
         assert "BM25" in explanation.reason
+
+    def test_bm25_mode_with_matched_terms(self) -> None:
+        """When the backend supplied matched_terms, they appear in the payload
+        and the reason string mentions them."""
+        result = _result(bm25_score=0.91)
+        explanation = _build_explanation_for_result(
+            result,
+            {"matched_terms": ["authentication", "setup"]},
+            QueryMode.BM25,
+        )
+        assert explanation.matched_terms == ["authentication", "setup"]
+        assert "authentication" in explanation.reason
+        assert "setup" in explanation.reason
+
+    def test_matched_terms_empty_list_becomes_none(self) -> None:
+        """An empty matched_terms list normalizes to None — clients can rely
+        on `None` meaning 'no BM25 contribution' without checking length."""
+        result = _result(bm25_score=0.91)
+        explanation = _build_explanation_for_result(
+            result, {"matched_terms": []}, QueryMode.BM25
+        )
+        assert explanation.matched_terms is None
 
 
 class TestDrainScratch:

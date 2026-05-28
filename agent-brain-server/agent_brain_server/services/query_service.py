@@ -128,6 +128,10 @@ def _build_reason(
         return f"Graph match (score {result.graph_score:.2f})"
 
     if mode == QueryMode.BM25 and result.bm25_score is not None:
+        terms = scratch.get("matched_terms") or []
+        if terms:
+            term_str = ", ".join(terms[:5])
+            return f"BM25 keyword match (score {result.bm25_score:.2f}): {term_str}"
         return f"BM25 keyword match (score {result.bm25_score:.2f})"
 
     if mode == QueryMode.VECTOR and result.vector_score is not None:
@@ -171,9 +175,15 @@ def _build_explanation_for_result(
     if rerank_movement is not None:
         rerank_movement = int(rerank_movement)
 
+    matched_terms = scratch.get("matched_terms")
+    if matched_terms is not None:
+        matched_terms = [str(t) for t in matched_terms]
+        if not matched_terms:
+            matched_terms = None
+
     return ResultExplanation(
         reason=_build_reason(result, scratch, mode),
-        matched_terms=None,  # populated in commit 3 (storage-level concern)
+        matched_terms=matched_terms,
         fusion=fusion,
         graph_path=graph_path,
         rerank_movement=rerank_movement,
@@ -506,27 +516,38 @@ class QueryService:
             top_k=request.top_k,
             source_types=request.source_types,
             languages=request.languages,
+            explain=request.explain,
         )
 
-        return [
-            QueryResult(
-                text=res.text,
-                source=res.metadata.get(
-                    "source", res.metadata.get("file_path", "unknown")
-                ),
-                score=res.score,
-                bm25_score=res.score,  # Already normalized 0-1
-                chunk_id=res.chunk_id,
-                source_type=res.metadata.get("source_type", "doc"),
-                language=res.metadata.get("language"),
-                metadata={
-                    k: v
-                    for k, v in res.metadata.items()
-                    if k not in ("source", "file_path", "source_type", "language")
-                },
+        results: list[QueryResult] = []
+        for res in search_results:
+            clean_metadata = {
+                k: v
+                for k, v in res.metadata.items()
+                if k not in ("source", "file_path", "source_type", "language")
+            }
+            # Issue #159: stash matched_terms into the explain scratch dict
+            # so the final ResultExplanation can surface them. Always stash
+            # when explain=True so the drain pass finds the data.
+            if request.explain and res.matched_terms is not None:
+                clean_metadata[EXPLAIN_SCRATCH_KEY] = {
+                    "matched_terms": list(res.matched_terms)
+                }
+            results.append(
+                QueryResult(
+                    text=res.text,
+                    source=res.metadata.get(
+                        "source", res.metadata.get("file_path", "unknown")
+                    ),
+                    score=res.score,
+                    bm25_score=res.score,  # Already normalized 0-1
+                    chunk_id=res.chunk_id,
+                    source_type=res.metadata.get("source_type", "doc"),
+                    language=res.metadata.get("language"),
+                    metadata=clean_metadata,
+                )
             )
-            for res in search_results
-        ]
+        return results
 
     async def _execute_hybrid_query(self, request: QueryRequest) -> list[QueryResult]:
         """Execute hybrid search using Relative Score Fusion."""
@@ -551,6 +572,10 @@ class QueryService:
 
         # 2. BM25 Search (scores already normalized 0-1 by ChromaBackend)
         bm25_search_results = []
+        # Issue #159: build a chunk_id -> matched_terms map so we can
+        # attach BM25 matched terms to results that came in via the
+        # vector retriever too (a chunk can be in both result sets).
+        matched_terms_by_chunk: dict[str, list[str]] = {}
         if self.bm25_manager.is_initialized:
             # Use storage backend's keyword_search
             # (returns SearchResult with normalized scores)
@@ -559,7 +584,12 @@ class QueryService:
                 top_k=effective_top_k,
                 source_types=request.source_types,
                 languages=request.languages,
+                explain=request.explain,
             )
+            if request.explain:
+                for res in bm25_search_results:
+                    if res.matched_terms:
+                        matched_terms_by_chunk[res.chunk_id] = list(res.matched_terms)
 
         # Convert BM25 SearchResults to QueryResults
         bm25_query_results = []
@@ -651,12 +681,17 @@ class QueryService:
             # can rebuild a structured explanation after rerank. Values are
             # already in the local dict — we just persist them onto the
             # result before returning.
-            result.metadata[EXPLAIN_SCRATCH_KEY] = {
+            scratch: dict[str, Any] = {
                 "vector_score_weighted": request.alpha * data["vector_score"],
                 "bm25_score_weighted": (1.0 - request.alpha) * data["bm25_score"],
                 "alpha": request.alpha,
                 "fused_score": data["total_score"],
             }
+            if request.explain:
+                terms = matched_terms_by_chunk.get(_chunk_id)
+                if terms:
+                    scratch["matched_terms"] = terms
+            result.metadata[EXPLAIN_SCRATCH_KEY] = scratch
             fused_nodes.append(result)
 
         # Sort by combined score and take top_k
@@ -806,6 +841,17 @@ class QueryService:
         vector_results = await self._execute_vector_query(request)
         bm25_results = await self._execute_bm25_query(request)
 
+        # Issue #159: harvest matched_terms from the BM25 sub-results before
+        # the multi handler overwrites scratch with per-retriever ranks.
+        # We re-stash matched_terms when we finalize the multi result below.
+        matched_terms_by_chunk: dict[str, list[str]] = {}
+        if request.explain:
+            for r in bm25_results:
+                upstream_scratch = r.metadata.get(EXPLAIN_SCRATCH_KEY, {})
+                terms = upstream_scratch.get("matched_terms")
+                if terms:
+                    matched_terms_by_chunk[r.chunk_id] = list(terms)
+
         # Get graph results if enabled and backend supports it
         graph_results: list[QueryResult] = []
         from agent_brain_server.storage import get_effective_backend_type
@@ -899,13 +945,17 @@ class QueryService:
             # explanation can describe which retrievers contributed. Without
             # this stash, the per-retriever ranks die when this method
             # returns (they only existed in the local combined_scores dict).
-            result.metadata[EXPLAIN_SCRATCH_KEY] = {
+            scratch: dict[str, Any] = {
                 "rrf_score": data["rrf_score"],
                 "vector_rank": data.get("vector_rank"),
                 "bm25_rank": data.get("bm25_rank"),
                 "graph_rank": data.get("graph_rank"),
                 "fused_rank": fused_idx + 1,
             }
+            terms = matched_terms_by_chunk.get(result.chunk_id)
+            if terms:
+                scratch["matched_terms"] = terms
+            result.metadata[EXPLAIN_SCRATCH_KEY] = scratch
             final_results.append(result)
 
         return final_results
