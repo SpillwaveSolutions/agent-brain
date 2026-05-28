@@ -1,6 +1,9 @@
 # MCP Server for Agent Brain — Design Scoping Document
 
-**Status:** Design-only scoping artifact. **No code shipped.**
+> **⚠️ Superseded by [`2026-05-28-mcp-uds-transport-design.md`](./2026-05-28-mcp-uds-transport-design.md)** (2026-05-28).
+> The v1 plan there carries forward this doc's discipline — opt-in QA gate, no resources/prompts deferred to later phases — but bundles UDS + MCP into one release and expands the v1 surface to 7 tools + 5 read-only resources + 6 prompts. Read the new plan for current scope; this file remains for historical context.
+
+**Status:** Design-only scoping artifact. **No code shipped.** (Superseded.)
 **Tracking issue:** [#153 — feat(integration): native MCP server (sub-20ms direct protocol)](https://github.com/SpillwaveSolutions/agent-brain/issues/153)
 **Strategic context:** [`docs/plans/2026-strategic-recommendations-integration.md`](./2026-strategic-recommendations-integration.md), section "Transport Layer Strategy" (R5 / MCP listed third behind HTTP and UDS)
 **Date:** 2026-05-26
