@@ -37,7 +37,13 @@ from .job import (
     JobSummary,
     QueueStats,
 )
-from .query import QueryMode, QueryRequest, QueryResponse, QueryResult
+from .query import (
+    QueryMode,
+    QueryRequest,
+    QueryResponse,
+    QueryResult,
+    ResultExplanation,
+)
 
 __all__ = [
     # Folder management models (Feature 12)
@@ -50,6 +56,7 @@ __all__ = [
     "QueryRequest",
     "QueryResponse",
     "QueryResult",
+    "ResultExplanation",
     # Index models
     "IndexRequest",
     "IndexResponse",

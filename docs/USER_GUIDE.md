@@ -221,6 +221,37 @@ Combines all modes using Reciprocal Rank Fusion. Best for maximum recall.
 
 ---
 
+## Explaining Results — `--explain`
+
+Pass `--explain` to `agent-brain query` to see *why* each result ranked where it did. The default output is byte-identical to before; explanations only appear when you ask for them.
+
+```bash
+agent-brain query "authentication setup" --mode hybrid --explain
+```
+
+Under each result you'll see a block like:
+
+```
+Why:      Hybrid match (alpha=0.50): vector 0.44 + BM25 0.41 -> fused 0.85
+Matched:  authentication, setup
+Fusion:   vector_score_weighted=0.4400 | bm25_score_weighted=0.4100 | alpha=0.5000 | fused_score=0.8500
+```
+
+Sections populate based on the active mode:
+
+| Section | When it appears |
+|---------|-----------------|
+| `Why:` | Always — a one-line summary of the rank reason. |
+| `Matched:` | When BM25 contributed to the result (highlights the query terms that hit the document). |
+| `Fusion:` | `mode=hybrid` or `mode=multi` — per-retriever weighted scores or RRF ranks. |
+| `Graph:` | `mode=graph` or `mode=multi` with a graph contributor — the full `subject -> predicate -> object` chain. |
+| `Rerank:` | `ENABLE_RERANKING=true` — how many positions the reranker moved this result. |
+| `Fallback:` | `mode=graph` returned no hits and fell back to vector search. |
+
+The same data is available in the JSON response under the new `explanation` field. See `docs/API_REFERENCE.md` for the wire format.
+
+---
+
 ## Two-Stage Retrieval with Reranking
 
 Agent Brain can optionally use two-stage retrieval to improve search precision by 15-20%.

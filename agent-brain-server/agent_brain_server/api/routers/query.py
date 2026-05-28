@@ -3,6 +3,7 @@
 import logging
 
 from fastapi import APIRouter, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 
 from agent_brain_server.models import QueryRequest, QueryResponse
 
@@ -17,9 +18,7 @@ router = APIRouter()
     summary="Query Documents",
     description="Perform semantic, keyword, or hybrid search on indexed documents.",
 )
-async def query_documents(
-    request_body: QueryRequest, request: Request
-) -> QueryResponse:
+async def query_documents(request_body: QueryRequest, request: Request) -> JSONResponse:
     """Execute a search query on indexed documents.
 
     Args:
@@ -83,7 +82,16 @@ async def query_documents(
             detail=f"Query failed: {str(e)}",
         ) from e
 
-    return response
+    # Issue #159: when explain=false (default), omit `explanation` per result
+    # so the wire format is byte-identical to historical responses. When
+    # explain=true, dump normally — `null` values inside ResultExplanation are
+    # explicit signals (e.g., matched_terms=null means no BM25 contribution)
+    # and are intentionally preserved.
+    if not request_body.explain:
+        payload = response.model_dump(exclude={"results": {"__all__": {"explanation"}}})
+    else:
+        payload = response.model_dump()
+    return JSONResponse(content=payload)
 
 
 @router.get(

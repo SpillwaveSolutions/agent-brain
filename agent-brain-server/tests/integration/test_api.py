@@ -184,15 +184,17 @@ class TestQueryEndpoints:
         self, app_with_mocks, client, mock_vector_store, mock_embedding_generator
     ):
         """Test successful document query."""
+        from agent_brain_server.models import QueryResponse, QueryResult
+
         mock_vector_store.is_initialized = True
 
         # Set up mock query service on app.state
         mock_service = MagicMock()
         mock_service.is_ready.return_value = True
         mock_service.execute_query = AsyncMock(
-            return_value=MagicMock(
+            return_value=QueryResponse(
                 results=[
-                    MagicMock(
+                    QueryResult(
                         text="Sample result",
                         source="docs/test.md",
                         score=0.92,
@@ -241,12 +243,14 @@ class TestQueryEndpoints:
         self, app_with_mocks, client, mock_vector_store
     ):
         """Test query endpoint structure when service is ready."""
+        from agent_brain_server.models import QueryResponse
+
         mock_vector_store.is_initialized = True
 
         mock_service = MagicMock()
         mock_service.is_ready.return_value = True
         mock_service.execute_query = AsyncMock(
-            return_value=MagicMock(
+            return_value=QueryResponse(
                 results=[],
                 query_time_ms=10.0,
                 total_results=0,
@@ -270,12 +274,14 @@ class TestQueryEndpoints:
         self, app_with_mocks, client, mock_vector_store
     ):
         """Test query returns empty results when no documents match."""
+        from agent_brain_server.models import QueryResponse
+
         mock_vector_store.is_initialized = True
 
         mock_service = MagicMock()
         mock_service.is_ready.return_value = True
         mock_service.execute_query = AsyncMock(
-            return_value=MagicMock(
+            return_value=QueryResponse(
                 results=[],
                 query_time_ms=5.0,
                 total_results=0,

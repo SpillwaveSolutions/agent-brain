@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any
 
 from sqlalchemy import text
@@ -17,6 +18,25 @@ from agent_brain_server.storage.postgres.connection import PostgresConnectionMan
 from agent_brain_server.storage.protocol import SearchResult, StorageError
 
 logger = logging.getLogger(__name__)
+
+
+# Issue #159: parse the wrapped fragments from a ts_headline output back
+# into a deduplicated, lowercase list of matched terms.
+_HEADLINE_TERM_RE = re.compile(r"<<<(.+?)>>>")
+
+
+def _parse_headline_terms(headline: str | None) -> list[str] | None:
+    """Extract the highlighted terms from a ts_headline string."""
+    if not headline:
+        return None
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for raw in _HEADLINE_TERM_RE.findall(headline):
+        term = raw.strip().lower()
+        if term and term not in seen:
+            seen.add(term)
+            ordered.append(term)
+    return ordered or None
 
 
 class KeywordOps:
@@ -125,6 +145,7 @@ class KeywordOps:
         top_k: int,
         source_types: list[str] | None = None,
         languages: list[str] | None = None,
+        explain: bool = False,
     ) -> list[SearchResult]:
         """Perform full-text keyword search using tsvector.
 
@@ -139,6 +160,8 @@ class KeywordOps:
             top_k: Maximum number of results to return.
             source_types: Optional filter by ``source_type`` metadata field.
             languages: Optional filter by ``language`` metadata field.
+            explain: When True (issue #159), include ``ts_headline()`` output
+                and parse it to populate ``SearchResult.matched_terms``.
 
         Returns:
             List of SearchResult sorted by score descending, with
@@ -170,10 +193,22 @@ class KeywordOps:
 
             filter_sql = "\n".join(filter_clauses)
 
+            # Issue #159: when explain=True, also pull a ts_headline using
+            # a sentinel "<<<term>>>" wrapper so we can parse the matched
+            # terms back out without HTML escaping concerns.
+            headline_select = (
+                ", ts_headline(:language, document_text, "
+                "websearch_to_tsquery(:language, :query), "
+                "'StartSel=<<<, StopSel=>>>, MaxFragments=10, MaxWords=20, "
+                "MinWords=5') AS headline"
+                if explain
+                else ""
+            )
+
             sql = f"""
                 SELECT chunk_id, document_text, metadata,
                        ts_rank(tsv, websearch_to_tsquery(:language, :query))
-                           AS score
+                           AS score{headline_select}
                 FROM documents
                 WHERE tsv @@ websearch_to_tsquery(:language, :query)
                 {filter_sql}
@@ -202,12 +237,17 @@ class KeywordOps:
                 if isinstance(metadata_val, str):
                     metadata_val = json.loads(metadata_val)
 
+                matched_terms = (
+                    _parse_headline_terms(row[4]) if explain and len(row) > 4 else None
+                )
+
                 results.append(
                     SearchResult(
                         text=row[1],
                         metadata=metadata_val,
                         score=normalized_score,
                         chunk_id=row[0],
+                        matched_terms=matched_terms,
                     )
                 )
 
