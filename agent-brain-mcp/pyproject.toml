@@ -1,0 +1,57 @@
+[tool.poetry]
+name = "agent-brain-mcp"
+version = "10.0.7"
+description = "Agent Brain MCP - Model Context Protocol server exposing Agent Brain as MCP tools, resources, and prompts"
+authors = ["Spillwave Solutions"]
+readme = "README.md"
+license = "MIT"
+homepage = "https://github.com/SpillwaveSolutions/agent-brain"
+repository = "https://github.com/SpillwaveSolutions/agent-brain"
+documentation = "https://github.com/SpillwaveSolutions/agent-brain/wiki"
+keywords = ["agent-brain", "mcp", "model-context-protocol", "rag", "claude", "claude-desktop"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+packages = [{include = "agent_brain_mcp"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+# Phase 0 scaffold: deps land in Phase 4 implementation.
+# Planned: mcp>=1.0, agent-brain-uds>=10.1.0, agent-brain-rag>=10.1.0.
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.0"
+pytest-asyncio = "^0.24.0"
+pytest-cov = "^6.0.0"
+black = "^24.10.0"
+ruff = "^0.8.0"
+mypy = "^1.13.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
