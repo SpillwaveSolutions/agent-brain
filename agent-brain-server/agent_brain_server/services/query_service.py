@@ -27,6 +27,7 @@ from agent_brain_server.models import (
     QueryRequest,
     QueryResponse,
     QueryResult,
+    ResultExplanation,
 )
 from agent_brain_server.providers import ProviderRegistry
 from agent_brain_server.storage import (
@@ -59,6 +60,143 @@ def _graphrag_rrf_k() -> int:
     if yaml_value is not None:
         return int(yaml_value)
     return int(settings.GRAPH_RRF_K)
+
+
+# Issue #159: explain=true support.
+# Each mode handler stashes intermediate data in
+# `QueryResult.metadata["_explain_scratch"]` (a transient dict) so that
+# `_drain_explain_scratch` can rebuild a `ResultExplanation` at the end of
+# `execute_query` — after reranking, which would otherwise discard
+# per-retriever ranks and fusion weights.
+EXPLAIN_SCRATCH_KEY = "_explain_scratch"
+
+
+def _build_reason(
+    result: QueryResult,
+    scratch: dict[str, Any],
+    mode: QueryMode,
+) -> str:
+    """Build the deterministic 'why this rank' one-liner.
+
+    Priority order (first match wins):
+      1. Rerank movement — cross-encoder changed the order (highest signal)
+      2. Graph fallback — rare path that must be announced
+      3. Top-of-mode summary for the active retrieval mode
+    """
+    movement = scratch.get("rerank_movement")
+    if movement is not None and result.rerank_score is not None:
+        if movement == 0:
+            return (
+                f"Reranker confirmed position #{result.original_rank} "
+                f"(cross-encoder score {result.rerank_score:.2f})"
+            )
+        direction = "up" if movement > 0 else "down"
+        plural = "" if abs(movement) == 1 else "s"
+        return (
+            f"Reranked {direction} {abs(movement)} place{plural} from "
+            f"#{result.original_rank} (cross-encoder score "
+            f"{result.rerank_score:.2f})"
+        )
+
+    if mode == QueryMode.GRAPH and scratch.get("graph_fallback"):
+        score = result.vector_score if result.vector_score is not None else result.score
+        return (
+            f"Graph returned no hits; fell back to vector search "
+            f"(score {score:.2f})"
+        )
+
+    if mode == QueryMode.HYBRID and "fused_score" in scratch:
+        return (
+            f"Hybrid match (alpha={scratch.get('alpha', 0.0):.2f}): "
+            f"vector {scratch.get('vector_score_weighted', 0.0):.2f} + "
+            f"BM25 {scratch.get('bm25_score_weighted', 0.0):.2f} -> "
+            f"fused {scratch.get('fused_score', 0.0):.2f}"
+        )
+
+    if mode == QueryMode.MULTI and "rrf_score" in scratch:
+        sources = []
+        if scratch.get("vector_rank") is not None:
+            sources.append(f"vector #{scratch['vector_rank']}")
+        if scratch.get("bm25_rank") is not None:
+            sources.append(f"BM25 #{scratch['bm25_rank']}")
+        if scratch.get("graph_rank") is not None:
+            sources.append(f"graph #{scratch['graph_rank']}")
+        joined = ", ".join(sources) if sources else "no retrievers"
+        return f"RRF fusion ({joined}); rrf_score={scratch.get('rrf_score', 0.0):.4f}"
+
+    if mode == QueryMode.GRAPH and result.graph_score is not None:
+        return f"Graph match (score {result.graph_score:.2f})"
+
+    if mode == QueryMode.BM25 and result.bm25_score is not None:
+        return f"BM25 keyword match (score {result.bm25_score:.2f})"
+
+    if mode == QueryMode.VECTOR and result.vector_score is not None:
+        return f"Vector similarity match (score {result.vector_score:.2f})"
+
+    return f"Retrieved by {mode.value} (score {result.score:.2f})"
+
+
+def _build_explanation_for_result(
+    result: QueryResult,
+    scratch: dict[str, Any],
+    mode: QueryMode,
+) -> ResultExplanation:
+    """Assemble a ResultExplanation from a result's fields and its scratch dict."""
+    fusion: dict[str, float] | None = None
+    if mode == QueryMode.HYBRID and "fused_score" in scratch:
+        fusion = {
+            "vector_score_weighted": float(scratch.get("vector_score_weighted", 0.0)),
+            "bm25_score_weighted": float(scratch.get("bm25_score_weighted", 0.0)),
+            "alpha": float(scratch.get("alpha", 0.0)),
+            "fused_score": float(scratch.get("fused_score", 0.0)),
+        }
+    elif mode == QueryMode.MULTI and "rrf_score" in scratch:
+        fusion = {"rrf_score": float(scratch["rrf_score"])}
+        for key in ("vector_rank", "bm25_rank", "graph_rank", "fused_rank"):
+            val = scratch.get(key)
+            if val is not None:
+                fusion[key] = float(val)
+
+    graph_path: list[str] | None = None
+    if result.relationship_path:
+        graph_path = [str(p) for p in result.relationship_path if p]
+        if not graph_path:
+            graph_path = None
+
+    graph_fallback: bool | None = None
+    if mode == QueryMode.GRAPH:
+        graph_fallback = bool(scratch.get("graph_fallback", False))
+
+    rerank_movement = scratch.get("rerank_movement")
+    if rerank_movement is not None:
+        rerank_movement = int(rerank_movement)
+
+    return ResultExplanation(
+        reason=_build_reason(result, scratch, mode),
+        matched_terms=None,  # populated in commit 3 (storage-level concern)
+        fusion=fusion,
+        graph_path=graph_path,
+        rerank_movement=rerank_movement,
+        graph_fallback=graph_fallback,
+    )
+
+
+def _drain_explain_scratch(
+    results: list[QueryResult],
+    request: QueryRequest,
+) -> None:
+    """Pop `_explain_scratch` from each result's metadata.
+
+    Always called, regardless of `request.explain`, so the scratch never
+    leaks into the wire format. When `request.explain=True`, also build
+    and attach a `ResultExplanation` before clearing.
+    """
+    for result in results:
+        scratch = result.metadata.pop(EXPLAIN_SCRATCH_KEY, {})
+        if request.explain:
+            result.explanation = _build_explanation_for_result(
+                result, scratch, request.mode
+            )
 
 
 class VectorManagerRetriever(BaseRetriever):
@@ -197,8 +335,14 @@ class QueryService:
 
         cache = self.query_cache
         cache_key: str | None = None
-        if cache is not None and QueryCacheService.is_cacheable_mode(
-            request.mode.value
+        # Issue #159: explain=true requests bypass the cache. The explanation
+        # payload is debugging output that shouldn't share cache entries with
+        # ordinary requests, and re-running the query on each call avoids
+        # having to fabricate explanations from cached responses.
+        if (
+            cache is not None
+            and not request.explain
+            and QueryCacheService.is_cacheable_mode(request.mode.value)
         ):
             cache_params: dict[str, Any] = {
                 "query": request.query,
@@ -257,6 +401,7 @@ class QueryService:
                 file_paths=request.file_paths,
                 entity_types=request.entity_types,
                 relationship_types=request.relationship_types,
+                explain=request.explain,
             )
         else:
             stage1_request = request
@@ -292,6 +437,12 @@ class QueryService:
             )
             results = results[:original_top_k]
         # else: reranking disabled, results already at correct size
+
+        # Issue #159: always drain the _explain_scratch metadata so it never
+        # leaks into the wire format. When request.explain=True the drain
+        # also builds and attaches the structured ResultExplanation to each
+        # result.
+        _drain_explain_scratch(results, request)
 
         query_time_ms = (time.time() - start_time) * 1000
 
@@ -496,6 +647,16 @@ class QueryService:
             result = data["result"]
             # Update score with combined score
             result.score = data["total_score"]
+            # Issue #159: stash the fusion breakdown so _drain_explain_scratch
+            # can rebuild a structured explanation after rerank. Values are
+            # already in the local dict — we just persist them onto the
+            # result before returning.
+            result.metadata[EXPLAIN_SCRATCH_KEY] = {
+                "vector_score_weighted": request.alpha * data["vector_score"],
+                "bm25_score_weighted": (1.0 - request.alpha) * data["bm25_score"],
+                "alpha": request.alpha,
+                "fused_score": data["total_score"],
+            }
             fused_nodes.append(result)
 
         # Sort by combined score and take top_k
@@ -563,7 +724,10 @@ class QueryService:
 
         if not graph_results:
             logger.debug("No graph results found, falling back to vector search")
-            return await self._execute_vector_query(request)
+            fallback = await self._execute_vector_query(request)
+            for r in fallback:
+                r.metadata[EXPLAIN_SCRATCH_KEY] = {"graph_fallback": True}
+            return fallback
 
         # Convert graph results to QueryResults
         results: list[QueryResult] = []
@@ -573,7 +737,10 @@ class QueryService:
 
         if not chunk_ids:
             # No source chunks in graph, fall back to vector search
-            return await self._execute_vector_query(request)
+            fallback = await self._execute_vector_query(request)
+            for r in fallback:
+                r.metadata[EXPLAIN_SCRATCH_KEY] = {"graph_fallback": True}
+            return fallback
 
         # Look up the actual documents from vector store
         for graph_result in graph_results:
@@ -616,7 +783,10 @@ class QueryService:
         # If no results from graph, fall back to vector search
         if not results:
             logger.debug("No documents found from graph, falling back to vector search")
-            return await self._execute_vector_query(request)
+            fallback = await self._execute_vector_query(request)
+            for r in fallback:
+                r.metadata[EXPLAIN_SCRATCH_KEY] = {"graph_fallback": True}
+            return fallback
 
         return results[: request.top_k]
 
@@ -722,9 +892,20 @@ class QueryService:
 
         # Update scores and return
         final_results: list[QueryResult] = []
-        for data in sorted_results[: request.top_k]:
+        for fused_idx, data in enumerate(sorted_results[: request.top_k]):
             result = data["result"]
             result.score = data["rrf_score"]
+            # Issue #159: stash per-retriever ranks + RRF score so the final
+            # explanation can describe which retrievers contributed. Without
+            # this stash, the per-retriever ranks die when this method
+            # returns (they only existed in the local combined_scores dict).
+            result.metadata[EXPLAIN_SCRATCH_KEY] = {
+                "rrf_score": data["rrf_score"],
+                "vector_rank": data.get("vector_rank"),
+                "bm25_rank": data.get("bm25_rank"),
+                "graph_rank": data.get("graph_rank"),
+                "fused_rank": fused_idx + 1,
+            }
             final_results.append(result)
 
         return final_results
@@ -876,8 +1057,16 @@ class QueryService:
 
             # Build reranked results with updated scores and metadata
             reranked_results: list[QueryResult] = []
-            for original_index, rerank_score in reranked:
+            for new_index, (original_index, rerank_score) in enumerate(reranked):
                 result = results[original_index]
+                # Issue #159: rerank_movement is signed — positive = moved up
+                # (better rank). Build a fresh metadata dict so we can merge
+                # the upstream scratch (e.g., hybrid fusion) with the rerank
+                # marker without mutating the source result's metadata.
+                new_metadata = dict(result.metadata)
+                upstream_scratch = dict(new_metadata.get(EXPLAIN_SCRATCH_KEY, {}))
+                upstream_scratch["rerank_movement"] = original_index - new_index
+                new_metadata[EXPLAIN_SCRATCH_KEY] = upstream_scratch
                 # Create new result with reranking metadata
                 reranked_result = QueryResult(
                     text=result.text,
@@ -893,7 +1082,7 @@ class QueryService:
                     relationship_path=result.relationship_path,
                     rerank_score=rerank_score,
                     original_rank=original_index + 1,  # 1-indexed
-                    metadata=result.metadata,
+                    metadata=new_metadata,
                 )
                 reranked_results.append(reranked_result)
 

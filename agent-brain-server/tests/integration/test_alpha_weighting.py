@@ -2,6 +2,8 @@
 
 from unittest.mock import AsyncMock, MagicMock
 
+from agent_brain_server.models import QueryResponse
+
 
 class TestAlphaWeighting:
     """Tests for alpha parameter validation and behavior."""
@@ -12,7 +14,7 @@ class TestAlphaWeighting:
         mock_service = MagicMock()
         mock_service.is_ready.return_value = True
         mock_service.execute_query = AsyncMock(
-            return_value=MagicMock(results=[], query_time_ms=0, total_results=0)
+            return_value=QueryResponse(results=[], query_time_ms=0, total_results=0)
         )
         mock_idx_service = MagicMock()
         mock_idx_service.is_indexing = False
