@@ -33,6 +33,9 @@ pytest-cov = "^6.0.0"
 black = "^24.10.0"
 ruff = "^0.8.0"
 mypy = "^1.13.0"
+# Roundtrip test spawns a minimal ASGI app bound to a UDS socket via uvicorn.
+uvicorn = "^0.32.0"
+starlette = "^0.41.0"
 
 [build-system]
 requires = ["poetry-core"]
