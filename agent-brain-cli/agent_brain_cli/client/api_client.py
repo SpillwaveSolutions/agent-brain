@@ -54,6 +54,22 @@ class IndexingStatus:
 
 
 @dataclass
+class ResultExplanation:
+    """Structured per-result explanation (issue #159).
+
+    Populated only when the request set `explain=true`. All fields are
+    optional because their relevance depends on retrieval mode.
+    """
+
+    reason: str
+    matched_terms: list[str] | None = None
+    fusion: dict[str, float] | None = None
+    graph_path: list[str] | None = None
+    rerank_movement: int | None = None
+    graph_fallback: bool | None = None
+
+
+@dataclass
 class QueryResult:
     """Single query result."""
 
@@ -64,6 +80,14 @@ class QueryResult:
     metadata: dict[str, Any]
     vector_score: float | None = None
     bm25_score: float | None = None
+    graph_score: float | None = None
+    rerank_score: float | None = None
+    original_rank: int | None = None
+    relationship_path: list[str] | None = None
+    related_entities: list[str] | None = None
+    source_type: str = "doc"
+    language: str | None = None
+    explanation: ResultExplanation | None = None
 
 
 @dataclass
@@ -93,6 +117,39 @@ class IndexResponse:
     job_id: str
     status: str
     message: str | None
+
+
+def _parse_query_result(payload: dict[str, Any]) -> QueryResult:
+    """Build a QueryResult from a server response dict, including optional
+    explanation block (issue #159)."""
+    explanation_data = payload.get("explanation")
+    explanation: ResultExplanation | None = None
+    if explanation_data is not None:
+        explanation = ResultExplanation(
+            reason=explanation_data.get("reason", ""),
+            matched_terms=explanation_data.get("matched_terms"),
+            fusion=explanation_data.get("fusion"),
+            graph_path=explanation_data.get("graph_path"),
+            rerank_movement=explanation_data.get("rerank_movement"),
+            graph_fallback=explanation_data.get("graph_fallback"),
+        )
+    return QueryResult(
+        text=payload["text"],
+        source=payload["source"],
+        score=payload["score"],
+        chunk_id=payload["chunk_id"],
+        metadata=payload.get("metadata", {}),
+        vector_score=payload.get("vector_score"),
+        bm25_score=payload.get("bm25_score"),
+        graph_score=payload.get("graph_score"),
+        rerank_score=payload.get("rerank_score"),
+        original_rank=payload.get("original_rank"),
+        relationship_path=payload.get("relationship_path"),
+        related_entities=payload.get("related_entities"),
+        source_type=payload.get("source_type", "doc"),
+        language=payload.get("language"),
+        explanation=explanation,
+    )
 
 
 class DocServeClient:
@@ -229,6 +286,7 @@ class DocServeClient:
         source_types: list[str] | None = None,
         languages: list[str] | None = None,
         file_paths: list[str] | None = None,
+        explain: bool = False,
     ) -> QueryResponse:
         """
         Query indexed documents.
@@ -242,11 +300,14 @@ class DocServeClient:
             source_types: Filter by source types (doc, code, test).
             languages: Filter by programming languages.
             file_paths: Filter by file path patterns.
+            explain: When True, include structured per-result explanations
+                (matched terms, fusion breakdown, graph path, rerank movement,
+                and a 'why this rank' summary). See issue #159.
 
         Returns:
             QueryResponse with matching results.
         """
-        request_data = {
+        request_data: dict[str, Any] = {
             "query": query_text,
             "top_k": top_k,
             "similarity_threshold": similarity_threshold,
@@ -259,21 +320,12 @@ class DocServeClient:
             request_data["languages"] = languages
         if file_paths is not None:
             request_data["file_paths"] = file_paths
+        if explain:
+            request_data["explain"] = True
 
         data = self._request("POST", "/query/", json=request_data)
 
-        results = [
-            QueryResult(
-                text=r["text"],
-                source=r["source"],
-                score=r["score"],
-                chunk_id=r["chunk_id"],
-                metadata=r.get("metadata", {}),
-                vector_score=r.get("vector_score"),
-                bm25_score=r.get("bm25_score"),
-            )
-            for r in data.get("results", [])
-        ]
+        results = [_parse_query_result(r) for r in data.get("results", [])]
 
         return QueryResponse(
             results=results,
