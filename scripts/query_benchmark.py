@@ -361,10 +361,14 @@ def prepare_docs_corpus(server_url: str, docs_path: str) -> None:
 
     # Trigger indexing
     console.print(f"  Starting indexing of {docs_path}...")
+    # Path containment: the benchmark indexes a docs path that may live
+    # outside the server's resolved project root. Setting
+    # AGENT_BRAIN_ALLOW_EXTERNAL_PATHS=true on the server process is now
+    # required for that to succeed (issue #180); the previous per-request
+    # ?allow_external=true query parameter is no longer honored.
     try:
         idx_resp = httpx.post(
             f"{server_url}/index/",
-            params={"allow_external": "true"},
             json={"folder_path": docs_path},
             timeout=30.0,
         )

@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **`allow_external` query parameter replaced by server-side setting** (`agent_brain_server/api/routers/index.py`, `agent_brain_server/config/settings.py`, `agent_brain_server/job_queue/job_service.py`, `agent_brain_cli/client/api_client.py`, `agent_brain_cli/commands/index.py`, `agent_brain_cli/commands/inject.py`, `scripts/query_benchmark.py`, `docs/API_REFERENCE.md`, `.env.example`). The previous `POST /index/?allow_external=true` query parameter let any HTTP caller bypass project-root path containment. Combined with the lack of endpoint authentication on the server, this enabled directory-traversal-style exfiltration: a caller could index `~/.ssh`, `~/.config/sops`, or any other sensitive path and read the contents back through `POST /query`. The parameter is now removed from both `POST /index` and `POST /index/add`; containment is controlled exclusively by the new `AGENT_BRAIN_ALLOW_EXTERNAL_PATHS` server-side environment variable (default `false`). Operators who relied on the per-request override must set the variable on the server process after reading the threat model in `.env.example`. The CLI's `--allow-external` flag was removed from `agent-brain index` and `agent-brain inject` to match. Internal callers such as `file_watcher_service` continue to pass `allow_external=True` directly to `JobQueueService.enqueue_job()`; only the HTTP boundary is locked down. Six new tests in `tests/unit/job_queue/test_job_service_path_validation.py` and `tests/integration/test_api.py` pin the four-quadrant containment matrix and the rejection-path contract. Closes #180.
+
 ---
 
 ## [10.1.2] - 2026-05-29
