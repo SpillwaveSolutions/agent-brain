@@ -3,9 +3,11 @@
 import click
 from rich.console import Console
 from rich.panel import Panel
+from rich.table import Table
 from rich.text import Text
 
 from ..client import ConnectionError, DocServeClient, ServerError
+from ..client.api_client import ResultExplanation
 from ..config import get_server_url
 from ..diagnostics import doctor_hint_message
 
@@ -15,6 +17,50 @@ console = Console()
 def _get_default_url() -> str:
     """Get default server URL from config."""
     return get_server_url()
+
+
+def _render_explanation(explanation: ResultExplanation) -> None:
+    """Render a ResultExplanation as a sub-panel below the main result.
+
+    Layout (only rows that have data are emitted):
+        Why:      <reason string>
+        Matched:  term1, term2, ...
+        Fusion:   key=value | key=value | ...
+        Graph:    subject -> predicate -> object
+        Rerank:   moved up/down N places (if any)
+        Fallback: graph -> vector
+    """
+    table = Table(show_header=False, box=None, padding=(0, 1), expand=False)
+    table.add_column("label", style="cyan", no_wrap=True)
+    table.add_column("value", style="dim")
+
+    table.add_row("Why:", explanation.reason)
+
+    if explanation.matched_terms:
+        highlighted = Text(", ".join(explanation.matched_terms))
+        highlighted.highlight_words(explanation.matched_terms, style="bold yellow")
+        table.add_row("Matched:", highlighted)
+
+    if explanation.fusion:
+        parts = [f"{k}={v:.4f}" for k, v in explanation.fusion.items()]
+        table.add_row("Fusion:", " | ".join(parts))
+
+    if explanation.graph_path:
+        table.add_row("Graph:", " -> ".join(explanation.graph_path))
+
+    if explanation.rerank_movement is not None:
+        if explanation.rerank_movement > 0:
+            arrow = f"+{explanation.rerank_movement} (moved up)"
+        elif explanation.rerank_movement < 0:
+            arrow = f"{explanation.rerank_movement} (moved down)"
+        else:
+            arrow = "0 (held position)"
+        table.add_row("Rerank:", arrow)
+
+    if explanation.graph_fallback:
+        table.add_row("Fallback:", "graph returned no hits -> vector")
+
+    console.print(table)
 
 
 @click.command("query")
@@ -64,6 +110,15 @@ def _get_default_url() -> str:
 @click.option("--full", is_flag=True, help="Show full text content")
 @click.option("--scores", is_flag=True, help="Show individual vector/BM25 scores")
 @click.option(
+    "--explain",
+    is_flag=True,
+    help=(
+        "Show structured 'why this rank' explanations under each result: "
+        "matched terms, fusion breakdown, graph path, and rerank movement "
+        "(issue #159)."
+    ),
+)
+@click.option(
     "--source-types",
     help="Comma-separated source types to filter by (doc,code,test)",
 )
@@ -85,6 +140,7 @@ def query_command(
     json_output: bool,
     full: bool,
     scores: bool,
+    explain: bool,
     source_types: str | None,
     languages: str | None,
     file_paths: str | None,
@@ -115,6 +171,7 @@ def query_command(
                 source_types=source_types_list,
                 languages=languages_list,
                 file_paths=file_paths_list,
+                explain=explain,
             )
 
             if json_output:
@@ -201,6 +258,10 @@ def query_command(
                         padding=(0, 1),
                     )
                 )
+
+                # Issue #159: optional structured explanation block.
+                if explain and result.explanation is not None:
+                    _render_explanation(result.explanation)
 
     except ConnectionError as e:
         if json_output:
