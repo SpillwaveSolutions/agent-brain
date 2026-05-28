@@ -265,6 +265,7 @@ Execute a search query.
 | `file_paths` | array | `null` | Filter by file patterns (supports wildcards) |
 | `entity_types` | array | `null` | Filter graph results by entity types (graph/multi modes only) |
 | `relationship_types` | array | `null` | Filter graph results by relationship types (graph/multi modes only) |
+| `explain` | boolean | `false` | When `true`, each result includes a structured `explanation` block (matched terms, fusion breakdown, graph path, rerank movement, and a "why this rank" summary). Default keeps the wire format byte-identical to historical responses. Issue #159. |
 
 **Mode Values**:
 
@@ -324,6 +325,34 @@ Execute a search query.
 | `rerank_score` | float or null | Score from reranking stage (if enabled) |
 | `original_rank` | integer or null | Position before reranking (1-indexed) |
 | `metadata` | object | Additional metadata |
+| `explanation` | object or absent | Structured "why this rank" payload. Present per result only when the request set `explain: true`. Excluded entirely otherwise. See ResultExplanation below. |
+
+**ResultExplanation** (only when `explain: true`):
+
+```json
+{
+  "reason": "Hybrid match (alpha=0.50): vector 0.44 + BM25 0.41 -> fused 0.85",
+  "matched_terms": ["authentication", "setup"],
+  "fusion": {
+    "vector_score_weighted": 0.44,
+    "bm25_score_weighted": 0.41,
+    "alpha": 0.5,
+    "fused_score": 0.85
+  },
+  "graph_path": null,
+  "rerank_movement": null,
+  "graph_fallback": null
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `reason` | string | Deterministic one-line summary of why this result ranked here. Priority order: rerank movement > graph fallback > top-of-mode summary. |
+| `matched_terms` | array or null | Query terms (after backend tokenization) that hit this document. Populated for results with a BM25 contribution; `null` means no BM25 contribution. |
+| `fusion` | object or null | Per-retriever score/rank breakdown. Hybrid keys: `vector_score_weighted`, `bm25_score_weighted`, `alpha`, `fused_score`. Multi keys: `rrf_score`, `vector_rank`, `bm25_rank`, `graph_rank`, `fused_rank` (any rank with no contribution from that retriever is omitted). |
+| `graph_path` | array or null | Full `subject -> predicate -> object` chain when graph retrieval contributed. Mirrors `relationship_path`. |
+| `rerank_movement` | integer or null | Signed positions moved during reranking. Positive = moved up. `null` when reranking did not run. |
+| `graph_fallback` | boolean or null | `true` when `mode=graph` fell back to vector search because no graph hits were found. `null` for non-graph queries. |
 
 **Errors**:
 

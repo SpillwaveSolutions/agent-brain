@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **Opt-in `explain=true` query parameter** (`agent_brain_server/models/query.py`, `agent_brain_server/services/query_service.py`, `agent_brain_server/api/routers/query.py`, `agent_brain_server/storage/protocol.py`, `agent_brain_server/storage/chroma/backend.py`, `agent_brain_server/storage/postgres/keyword_ops.py`). When the client sends `{"explain": true}` on `POST /query`, each result now carries a structured `explanation` block: a deterministic "why this rank" `reason` string, the BM25 `matched_terms` that hit the document, a `fusion` breakdown for hybrid/multi modes (per-retriever weighted scores or RRF ranks), the `graph_path` for graph contributors, and the signed `rerank_movement` when reranking fired. Default (`explain=false`) keeps the wire format byte-identical to historical responses — the field is *excluded* from serialization, not present-with-null. The retriever handlers stash intermediate fusion data in a transient `metadata["_explain_scratch"]` dict that the final drain pass clears before the response is built, so the scratch never leaks. The cache is bypassed for `explain=true` requests so cached responses can't serve stale explanations across request shapes. `SearchResult` gained an optional `matched_terms` field; the Chroma BM25 backend uses `bm25s.tokenize` (mirroring LlamaIndex BM25Retriever's tokenizer — lowercase + English stopword strip, no stemmer) to produce the intersection, while the Postgres backend uses `ts_headline()` with a `<<<...>>>` sentinel wrapper parsed back into a deduplicated list. A new `--explain` flag on `agent-brain query` surfaces the same payload as a Rich sub-panel beneath each result, with matched terms highlighted in bold yellow. 41 new tests cover the wire-format contract (4), service-layer builder priority order and per-mode payload assembly (21), storage-tier tokenization/headline parsing (14), CLI rendering (5), and rerank-movement annotation (2 end-to-end). Closes #159.
+
+---
+
 ## [10.0.7] - 2026-05-27
 
 ### Fixed
