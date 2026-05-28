@@ -56,6 +56,18 @@ class Settings(BaseSettings):
     # Strict Mode Configuration
     AGENT_BRAIN_STRICT_MODE: bool = False  # Fail on critical validation errors
 
+    # Path Containment Configuration (Issue #180)
+    # Default False: indexing requests with paths outside the resolved project
+    # root are rejected (HTTP 400). Set True to allow external paths. This is
+    # a deployment-time trust posture controlled by the operator, NOT a
+    # per-request choice — the previous `?allow_external=true` query parameter
+    # was removed because it let any HTTP caller bypass containment, which
+    # combined with unauthenticated endpoints (issue #179) enabled exfiltration
+    # of files outside the project (e.g. ~/.ssh, ~/.config/sops). Internal
+    # callers such as the file watcher service still pass allow_external=True
+    # explicitly when the operator has opted in via the watcher CLI.
+    AGENT_BRAIN_ALLOW_EXTERNAL_PATHS: bool = False
+
     # Storage Backend Configuration (Phase 5)
     AGENT_BRAIN_STORAGE_BACKEND: str = (
         ""  # Empty = use YAML config; "chroma" or "postgres" overrides YAML

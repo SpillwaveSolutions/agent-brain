@@ -160,9 +160,6 @@ async def index_documents(
     request_body: IndexRequest,
     request: Request,
     force: bool = Query(False, description="Bypass deduplication and force a new job"),
-    allow_external: bool = Query(
-        False, description="Allow paths outside the project directory"
-    ),
     rebuild_graph: bool = Query(
         False,
         description="Rebuild only the graph index without re-indexing documents "
@@ -178,18 +175,24 @@ async def index_documents(
     If rebuild_graph=true, only rebuilds the graph index from existing chunks
     without re-indexing documents (requires ENABLE_GRAPH_INDEX=true).
 
+    Path containment: paths outside the resolved project root are rejected
+    with HTTP 400 unless the operator has set
+    ``AGENT_BRAIN_ALLOW_EXTERNAL_PATHS=true`` on the server process. The
+    previous per-request ``allow_external`` query parameter was removed in
+    issue #180 because it allowed any HTTP caller to bypass containment.
+
     Args:
         request_body: IndexRequest with folder_path and optional configuration.
         request: FastAPI request for accessing app state.
         force: If True, bypass deduplication and create a new job.
-        allow_external: If True, allow indexing paths outside the project.
         rebuild_graph: If True, only rebuild graph index from existing chunks.
 
     Returns:
         IndexResponse with job_id and status.
 
     Raises:
-        400: Invalid folder path or path outside project (without allow_external)
+        400: Invalid folder path or path outside project root (when the server's
+            AGENT_BRAIN_ALLOW_EXTERNAL_PATHS is False)
         400: rebuild_graph=true but GraphRAG not enabled
         429: Queue is full (backpressure)
     """
@@ -352,7 +355,7 @@ async def index_documents(
             request=resolved_request,
             operation="index",
             force=force,
-            allow_external=allow_external,
+            allow_external=settings.AGENT_BRAIN_ALLOW_EXTERNAL_PATHS,
         )
     except ValueError as e:
         # Path validation error (outside project)
@@ -392,20 +395,21 @@ async def add_documents(
     request_body: IndexRequest,
     request: Request,
     force: bool = Query(False, description="Bypass deduplication and force a new job"),
-    allow_external: bool = Query(
-        False, description="Allow paths outside the project directory"
-    ),
 ) -> IndexResponse:
     """Enqueue a job to add documents from a new folder to the existing index.
 
     This is similar to the index endpoint but adds to the existing
     vector store instead of replacing it.
 
+    Path containment: see ``index_documents`` for the rules. The per-request
+    ``allow_external`` query parameter was removed in issue #180; containment
+    is now controlled exclusively by the server-side setting
+    ``AGENT_BRAIN_ALLOW_EXTERNAL_PATHS``.
+
     Args:
         request_body: IndexRequest with folder_path and optional configuration.
         request: FastAPI request for accessing app state.
         force: If True, bypass deduplication and create a new job.
-        allow_external: If True, allow indexing paths outside the project.
 
     Returns:
         IndexResponse with job_id and status.
@@ -469,7 +473,7 @@ async def add_documents(
             request=resolved_request,
             operation="add",
             force=force,
-            allow_external=allow_external,
+            allow_external=settings.AGENT_BRAIN_ALLOW_EXTERNAL_PATHS,
         )
     except ValueError as e:
         raise HTTPException(
