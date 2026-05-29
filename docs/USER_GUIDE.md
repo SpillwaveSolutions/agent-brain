@@ -25,6 +25,8 @@ This guide covers how to use Agent Brain for document indexing and semantic sear
 - [Multi-Project Support](#multi-project-support)
 - [Runtime Autodiscovery](#runtime-autodiscovery)
 - [Runtime Installation](#runtime-installation)
+- [Choosing a Transport (HTTP vs UDS)](#choosing-a-transport-http-vs-uds)
+- [Using Agent Brain via MCP](#using-agent-brain-via-mcp)
 - [CLI Reference](#cli-reference)
 - [Local Integration Check](#local-integration-check)
 - [Troubleshooting](#troubleshooting)
@@ -960,6 +962,150 @@ class MyConverter:
 ```
 
 Then register it in `install_agent.py`'s `CONVERTERS` dict.
+
+---
+
+## Choosing a Transport (HTTP vs UDS)
+
+Agent Brain ships two local transports between the CLI/MCP client and the server. They serve the same wire format — choose by **trust model** and **environment**, not by performance alone.
+
+### HTTP (default)
+
+The server binds `127.0.0.1:<port>` and the CLI hits it over TCP loopback.
+
+**Use when:**
+- You're the only user of the machine and just want the default to work.
+- You need to connect from a non-process child (a sidecar container, a separate shell, a remote VS Code session that proxies a port).
+- You haven't set `--uds` and don't want to.
+
+### UDS (Unix-domain socket)
+
+Opt-in via `agent-brain start --uds` (dual-bind: TCP *and* UDS) or `--uds-only` (UDS only, no TCP listener). The socket lives at `<state_dir>/agent-brain.sock` with mode `0600` inside a `0700` parent directory; the CLI validates ownership, mode, and parent-dir mode on every connect.
+
+**Use when:**
+- You're on a shared machine and want **filesystem permissions as the auth model** — only your UID can open the socket; group/world bits are rejected outright.
+- You want to avoid binding a TCP port at all (`--uds-only`).
+- You're running multiple Agent Brain instances per project and want each one's transport scoped to its `state_dir`.
+
+The validator rejects: symlinked socket paths, sockets owned by another UID, any group or world permission bit on the socket, and a parent directory that isn't `0700`. It also rejects symlinked, non-regular, or attacker-controlled pointer files used for the long-path fallback. See `agent-brain-uds/agent_brain_uds/permissions.py` for the full check list.
+
+### Selecting the transport from the CLI
+
+The root group accepts four flags that override every command:
+
+```bash
+agent-brain --transport auto query "auth handler"      # default — UDS first, HTTP fallback
+agent-brain --transport uds query "auth handler"       # force UDS; fail loud if unavailable
+agent-brain --transport http query "auth handler"      # force HTTP
+agent-brain --socket-path /tmp/x.sock --transport uds  # override the resolver
+agent-brain --base-url http://127.0.0.1:9100 query …   # override base URL for HTTP
+agent-brain --debug-transport status                   # print the resolved transport
+```
+
+Or via env vars: `AGENT_BRAIN_TRANSPORT`, `AGENT_BRAIN_URL`, `AGENT_BRAIN_UDS_PATH`.
+
+Resolution precedence: explicit flag → env var → `runtime.json::socket_path` (UDS) or `base_url` (HTTP) → defaults. `auto` validates UDS first and falls back transparently to HTTP if the socket is missing or fails validation. `uds` against a missing/invalid socket raises with the specific `SocketPermissionError` remediation rather than hanging on TCP retry.
+
+### Starting the server with both transports
+
+```bash
+agent-brain start --uds            # bind TCP and UDS in one process
+agent-brain start --uds-only       # bind only UDS, no TCP listener
+agent-brain start                  # TCP only (default)
+```
+
+The dual-bind path runs two `uvicorn.Server` instances on the shared asyncio loop. `SIGTERM` cleans up the socket atomically; a stale socket from a crashed prior run is overwritten by the next bind.
+
+---
+
+## Using Agent Brain via MCP
+
+Agent Brain ships an MCP (Model Context Protocol) server — `agent-brain-mcp` — that exposes the indexed corpus as **7 tools, 5 read-only resources, and 6 prompts** over stdio. LLM clients that speak MCP (Claude Desktop, Claude Code's MCP support, Cline, Continue.dev, Cursor, Goose) can call Agent Brain directly without shelling out to the CLI.
+
+### Claude Desktop / Code config
+
+```json
+{
+  "mcpServers": {
+    "agent-brain": {
+      "command": "agent-brain-mcp",
+      "args": ["--backend", "auto"],
+      "env": { "AGENT_BRAIN_STATE_DIR": "/Users/me/project/.agent-brain" }
+    }
+  }
+}
+```
+
+`--backend auto` tries UDS first and falls back to HTTP. Set `--backend uds` or `--backend http` to force one. Override the backend URL with `--backend-url http://127.0.0.1:9100` or `AGENT_BRAIN_MCP_BACKEND_URL`.
+
+The MCP server runs a one-time version-compat check at startup: it calls `GET /health/` and refuses to start when the backend reports a `version` below the pinned floor (`MIN_BACKEND_VERSION` in `agent_brain_mcp/server.py`). This prevents the MCP wire from drifting from the server it talks to.
+
+### The 7 tools
+
+| Tool | What it does |
+|---|---|
+| `search_documents` | All 5 retrieval modes (`semantic`, `bm25`, `hybrid`, `graph`, `multi`) via `mode` param. Returns ranked chunks with paths and scores. |
+| `query_count` | Total documents + total chunks currently indexed. |
+| `index_folder` | Queue a folder for indexing. Returns `{job_id, status}`. Honors `include_code`, `chunk_size`, `chunk_overlap`, `force`, `allow_external`. |
+| `get_job` | Poll a specific indexing job. |
+| `list_jobs` | List queue with cursor pagination (opaque base64 offset). |
+| `cancel_job` | Cancel a job. Requires `confirm: true` in input as a destructive-op gate (JSON-Schema-enforced). |
+| `server_health` | Server health, version, mode. |
+
+Each response includes both a `content` block (human-readable summary) and a `structuredContent` payload with declared `outputSchema` — so models that consume MCP structured output get typed data, not just text.
+
+### The 5 resources (read-only)
+
+| URI | Mirrors | What the model sees |
+|---|---|---|
+| `corpus://config` | `GET /health/config` | Storage backend, vector/BM25/graph enable flags, embedding + rerank model names, graph extractor, watcher state |
+| `corpus://status` | `GET /health/status` | `total_chunks`, `total_documents`, indexing in progress, current job, queue depth, cache hit rates |
+| `corpus://health` | `GET /health/` | Status, version, mode, instance_id, project_id |
+| `corpus://providers` | `GET /health/providers` | Active embedding/summarization/reranker provider, model name, healthy/degraded/unavailable |
+| `corpus://folders` | `GET /index/folders/` | Indexed folders with chunk counts, last-indexed timestamps, watch mode |
+
+`resources.subscribe` is **not** advertised in v1 — clients fetch with `resources/read` on demand. Subscriptions land in v2 (see Roadmap in CHANGELOG `[10.1.0]`).
+
+### The 6 prompts
+
+| Prompt | Arguments | What it does |
+|---|---|---|
+| `find-callers` | `symbol` (required), `language` (optional) | Graph-mode search for callers of `symbol`, returns ranked source paths. |
+| `find-implementation` | `feature` (required) | Two-step: BM25 for exact match, then graph walk to tests + related code. |
+| `explain-architecture` | `folder` (required), `depth` (default 2) | Multi-mode search restricted to `folder`, pulls READMEs + entrypoints + graph at depth. |
+| `compare-search-modes` | `query` (required) | Runs same query under BM25/hybrid/multi and shows the three result sets side by side. |
+| `onboard-to-codebase` | `area` (optional) | Reads config + folders resources, runs search for top entrypoints in `area`, produces a "where to start" briefing. |
+| `audit-indexed-folders` | (none) | Reads `corpus://folders`, identifies stale (>7 days) and unwatched folders, suggests `index_folder` calls. |
+
+### Error handling
+
+HTTP backend errors are mapped to MCP JSON-RPC error codes per a fixed table — every error carries `data.httpStatus` and `data.cause`:
+
+| HTTP | MCP code | Notes |
+|---|---|---|
+| 400 / 404 / 422 | `-32602 InvalidParams` | Pydantic validation detail echoed |
+| 409 | `-32000 InvalidRequest` | Conflict (custom code) |
+| 500 | `-32603 InternalError` | |
+| 502 | `-32001 BackendUnavailable` | UDS gone / HTTP unreachable (custom) |
+| 503 | `-32002 ServiceIndexing` | Indexing-in-progress (custom) |
+| 504 | `-32003 BackendTimeout` | Wrapped httpx timeout (custom) |
+
+Transport-level errors (connect refused, read timeout) map to the same custom codes (`-32001`, `-32003`) so MCP clients can distinguish "backend down" from "backend rejected my request".
+
+### Cancellation
+
+MCP `notifications/cancelled` propagates: every tool/resource handler runs in `asyncio.to_thread` so the asyncio event loop stays responsive while a sync `httpx` call is in flight. Cancelling a tool call returns control to the MCP client within ~1 second; the underlying OS-level request may still complete in the background (Python can't portably kill threads), but the MCP-side handler unblocks cleanly. v1 has no long-running tools (no `wait_for_job` — that's v2), so this is a fast-path guarantee.
+
+### What's not in v1
+
+- Resource **subscriptions** (`resources/subscribe`) — v2
+- Streamable HTTP MCP transport — v2 (stdio only in v1)
+- `chunk://<id>` and `graph-entity://<type>/<id>` resource schemes — v2 (need new server endpoints)
+- 9 deferred tools: `explain_result`, `add_documents`, `inject_documents`, `wait_for_job`, `list_folders`, `remove_folder`, `cache_status`, `clear_cache`, `list_file_types` — v2
+- CLI-via-MCP (`agent-brain --transport mcp`) and framework adapter matrix — v3
+- OAuth 2.1 for remote Agent Brain — v4
+
+See `docs/roadmaps/mcp/` for the per-version roadmap bodies.
 
 ---
 

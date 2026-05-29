@@ -131,11 +131,15 @@ Before any release actions:
 
 1. **Calculate new version** based on bump type (major/minor/patch)
 2. **Flip dependency to PyPI** if needed (perl + poetry lock)
-3. **Update version** in 5 files:
+3. **Update version** in 9 files:
    - `agent-brain-server/pyproject.toml`
    - `agent-brain-server/agent_brain_server/__init__.py`
    - `agent-brain-cli/pyproject.toml` (both package version AND `agent-brain-rag` dependency)
    - `agent-brain-cli/agent_brain_cli/__init__.py`
+   - `agent-brain-uds/pyproject.toml`
+   - `agent-brain-uds/agent_brain_uds/__init__.py`
+   - `agent-brain-mcp/pyproject.toml` (both package version AND `agent-brain-rag` / `agent-brain-uds` deps — path-deps for dev, flip to PyPI before publish)
+   - `agent-brain-mcp/agent_brain_mcp/__init__.py`
    - `agent-brain-plugin/.claude-plugin/plugin.json` (top-level `"version"` field — must match CLI/server)
 4. **Run quality gates**: `task before-push` (format, lint, typecheck, tests)
 5. **Commit version bump**: `chore(release): bump version to X.Y.Z`
