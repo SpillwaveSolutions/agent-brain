@@ -28,6 +28,9 @@ rich = "^13.9.0"
 pyyaml = "^6.0.0"
 pydantic = "^2.10.0"
 agent-brain-rag = "^10.0.7"
+# agent-brain-uds is path-installed for local dev (see Plan §13).
+# Release process swaps to PyPI version pin before publishing.
+agent-brain-uds = {path = "../agent-brain-uds", develop = true}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"
