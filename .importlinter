@@ -49,4 +49,9 @@ forbidden_modules =
     agent_brain_server.api
     agent_brain_server.indexing
     agent_brain_server.storage
+    agent_brain_server.config
+    agent_brain_server.providers
+    agent_brain_server.runtime
+    agent_brain_server.storage_paths
+    agent_brain_server.job_queue
     agent_brain_cli

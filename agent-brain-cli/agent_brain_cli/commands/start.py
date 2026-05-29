@@ -106,6 +106,31 @@ def check_health(base_url: str, timeout: float = 3.0) -> bool:
         return False
 
 
+def _probe_uds(socket_path: str, *, timeout_s: float = 2.0) -> bool:
+    """Probe ``socket_path`` with a UDS GET /health/ — True if 200.
+
+    Used by ``start --uds`` after the HTTP readiness probe to confirm
+    the UDS transport is actually live before advertising it in
+    runtime.json (Phase 7 reviewer #4). Local import keeps httpx out of
+    the start command's hot path when UDS isn't requested.
+    """
+    try:
+        import httpx
+    except ImportError:
+        return False
+    try:
+        transport = httpx.HTTPTransport(uds=str(socket_path))
+        with httpx.Client(
+            transport=transport,
+            base_url="http://agent-brain",
+            timeout=timeout_s,
+        ) as client:
+            response = client.get("/health/")
+            return bool(response.status_code == 200)
+    except Exception:
+        return False
+
+
 def find_available_port(host: str, start_port: int, end_port: int) -> int | None:
     """Find an available port in the given range."""
     for port in range(start_port, end_port + 1):
@@ -318,12 +343,17 @@ def start_command(
         if not json_output:
             console.print(f"[dim]Starting server on {base_url}...[/]")
 
-        # Build server command
+        # Build server command. We invoke `agent_brain_server.api.main`'s
+        # Click CLI (not raw `python -m uvicorn`) so the server's `run()`
+        # function actually fires — it's the only place that branches on
+        # AGENT_BRAIN_UDS / _UDS_ONLY env vars to delegate to uds_bind
+        # (Phase 7 fix for reviewer finding A1). Behaviour for HTTP-only
+        # users is identical because run() ends up calling uvicorn.run()
+        # with the same args.
         server_cmd = [
             sys.executable,
             "-m",
-            "uvicorn",
-            "agent_brain_server.api.main:app",
+            "agent_brain_server.api.main",
             "--host",
             bind_host,
             "--port",
@@ -434,6 +464,22 @@ def start_command(
                     break
                 time.sleep(0.5)
 
+            # If UDS was requested, probe the socket too and unset the
+            # runtime.json::socket_path field if it isn't actually live.
+            # Otherwise a runtime.json entry for socket_path misleads any
+            # client (MCP, CLI auto-mode) that prefers UDS (Phase 7
+            # reviewer #4).
+            if ready and enable_uds and socket_path:
+                if not _probe_uds(socket_path, timeout_s=2.0):
+                    runtime_state["socket_path"] = None
+                    write_runtime(state_dir, runtime_state)
+                    if not json_output:
+                        console.print(
+                            "[yellow]UDS socket probe failed — "
+                            "runtime.json::socket_path cleared. "
+                            "Clients will use HTTP.[/]"
+                        )
+
             if ready:
                 if json_output:
                     click.echo(
@@ -444,7 +490,7 @@ def start_command(
                                 "pid": process.pid,
                                 "project_root": str(project_root),
                                 "log_file": str(stdout_log),
-                                "socket_path": socket_path,
+                                "socket_path": runtime_state.get("socket_path"),
                             },
                             indent=2,
                         )

@@ -10,11 +10,11 @@ from mcp import McpError
 
 from agent_brain_mcp.client import ApiClient
 from agent_brain_mcp.errors import (
+    BACKEND_CONFLICT,
     BACKEND_TIMEOUT,
     BACKEND_UNAVAILABLE,
     INTERNAL_ERROR,
     INVALID_PARAMS,
-    INVALID_REQUEST,
     SERVICE_INDEXING,
 )
 
@@ -25,7 +25,7 @@ from agent_brain_mcp.errors import (
         (400, INVALID_PARAMS),
         (404, INVALID_PARAMS),
         (422, INVALID_PARAMS),
-        (409, INVALID_REQUEST),
+        (409, BACKEND_CONFLICT),
         (500, INTERNAL_ERROR),
         (502, BACKEND_UNAVAILABLE),
         (503, SERVICE_INDEXING),

@@ -42,7 +42,7 @@ def _resolve_path(
         return socket_path
     env_path = os.environ.get("AGENT_BRAIN_UDS_PATH")
     if env_path:
-        return Path(env_path)
+        return Path(env_path).expanduser()
     return resolve_socket_path(state_dir)
 
 

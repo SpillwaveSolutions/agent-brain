@@ -22,6 +22,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from agent_brain_server import __version__
+from agent_brain_server.api import uds_bind
 from agent_brain_server.config import settings
 from agent_brain_server.config.provider_config import (
     ValidationSeverity,
@@ -775,6 +776,67 @@ def run(
         _state_dir.mkdir(parents=True, exist_ok=True)
         write_runtime(_state_dir, _runtime_state)
         logger.info(f"Per-project mode enabled: {_state_dir}")
+
+    # UDS branch — wire AGENT_BRAIN_UDS / _UDS_ONLY env vars from
+    # `agent-brain start --uds` through to the uds_bind helpers (plan §5,
+    # Phase 7 fix for reviewer finding A1).
+    uds_only_env = os.environ.get("AGENT_BRAIN_UDS_ONLY", "0") == "1"
+    uds_env = uds_only_env or os.environ.get("AGENT_BRAIN_UDS", "0") == "1"
+
+    if uds_env:
+        uds_path_env = os.environ.get("AGENT_BRAIN_UDS_PATH")
+        if uds_path_env:
+            requested_socket: Path | None = Path(uds_path_env).expanduser()
+        else:
+            requested_socket = None
+
+        if _state_dir is None:
+            if requested_socket is None:
+                raise RuntimeError(
+                    "UDS requested (AGENT_BRAIN_UDS=1) but neither "
+                    "AGENT_BRAIN_UDS_PATH nor --state-dir was provided; "
+                    "refusing to guess at the socket location."
+                )
+            socket_path = requested_socket
+            used_fallback = False
+        else:
+            socket_path, used_fallback = uds_bind.resolve_bind_path(
+                _state_dir, requested_socket
+            )
+
+        socket_path.parent.mkdir(parents=True, exist_ok=True)
+        # Pre-emptively chmod the parent dir to satisfy validate_socket().
+        try:
+            os.chmod(socket_path.parent, 0o700)
+        except OSError as exc:
+            logger.warning("Failed to chmod parent dir 0o700: %s", exc)
+
+        if used_fallback:
+            logger.info(
+                "Long-path fallback: binding UDS at %s (pointer in %s)",
+                socket_path,
+                _state_dir,
+            )
+
+        if uds_only_env:
+            logger.info("Binding UDS only at %s", socket_path)
+            asyncio.run(uds_bind.serve_uds_only(app, socket_path=socket_path))
+        else:
+            logger.info(
+                "Dual-binding TCP %s:%s + UDS %s",
+                resolved_host,
+                resolved_port,
+                socket_path,
+            )
+            asyncio.run(
+                uds_bind.serve_dual(
+                    app,
+                    host=resolved_host,
+                    port=resolved_port,
+                    socket_path=socket_path,
+                )
+            )
+        return
 
     uvicorn.run(
         "agent_brain_server.api.main:app",

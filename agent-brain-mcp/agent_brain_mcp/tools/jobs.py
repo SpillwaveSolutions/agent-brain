@@ -5,6 +5,10 @@ from __future__ import annotations
 import base64
 from typing import TYPE_CHECKING
 
+from mcp import McpError
+from mcp.types import ErrorData
+
+from ..errors import INVALID_PARAMS
 from ..schemas import (
     CancelJobInput,
     CancelJobOutput,
@@ -20,14 +24,24 @@ if TYPE_CHECKING:
 
 
 def _decode_cursor(cursor: str | None) -> int:
-    """Translate an opaque base64-encoded cursor to a numeric offset."""
+    """Translate an opaque base64-encoded cursor to a numeric offset.
+
+    Raises ``McpError(INVALID_PARAMS)`` on a malformed cursor so the
+    client surfaces a real error instead of silently restarting pagination
+    from offset 0 (reviewer #9 — Phase 7).
+    """
     if cursor is None:
         return 0
     try:
         return int(base64.urlsafe_b64decode(cursor.encode("ascii")).decode("ascii"))
-    except Exception:
-        # Bad cursor → start from the beginning rather than blow up the call.
-        return 0
+    except Exception as exc:
+        raise McpError(
+            ErrorData(
+                code=INVALID_PARAMS,
+                message=f"Invalid cursor: {exc}",
+                data={"cursor": cursor},
+            )
+        ) from exc
 
 
 def _encode_cursor(offset: int) -> str:

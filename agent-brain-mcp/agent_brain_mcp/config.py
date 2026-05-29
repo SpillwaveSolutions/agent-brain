@@ -79,6 +79,29 @@ def _resolve_http_url(
     return DEFAULT_HTTP_BASE_URL
 
 
+def _read_runtime_socket_path(state_dir: Path | None) -> Path | None:
+    """Return ``socket_path`` from ``<state_dir>/runtime.json`` if set.
+
+    Mirrors what ``_resolve_http_url`` does for ``base_url`` so UDS
+    resolution honours the same authoritative source the CLI writes when
+    starting the server (Phase 7 / reviewer #7).
+    """
+    sdir = _resolve_state_dir(state_dir)
+    if sdir is None:
+        return None
+    runtime = sdir / "runtime.json"
+    if not runtime.exists():
+        return None
+    try:
+        data = json.loads(runtime.read_text())
+    except (json.JSONDecodeError, OSError):
+        return None
+    sp = data.get("socket_path")
+    if not isinstance(sp, str) or not sp:
+        return None
+    return Path(sp).expanduser()
+
+
 def _open_uds_client(
     socket_path: Path | None,
     state_dir: Path | None,
@@ -86,7 +109,12 @@ def _open_uds_client(
 ) -> httpx.Client:
     if socket_path is None:
         env_path = os.environ.get("AGENT_BRAIN_UDS_PATH")
-        socket_path = Path(env_path) if env_path else resolve_socket_path(state_dir)
+        if env_path:
+            socket_path = Path(env_path).expanduser()
+        else:
+            socket_path = _read_runtime_socket_path(state_dir) or resolve_socket_path(
+                state_dir
+            )
     validate_socket(socket_path)
     client: httpx.Client = make_uds_client(socket_path=socket_path, timeout=timeout)
     return client

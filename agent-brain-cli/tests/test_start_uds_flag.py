@@ -150,7 +150,12 @@ class TestRuntimeSocketPath:
     def test_runtime_json_includes_socket_path_with_uds(
         self, runner: CliRunner, initialized_project: Path
     ) -> None:
-        """Server start with --uds populates runtime.json::socket_path."""
+        """Server start with --uds populates runtime.json::socket_path.
+
+        After Phase 7 (reviewer #4) the CLI also probes the UDS socket
+        and clears ``socket_path`` on probe failure, so this test must
+        stub the probe to True to keep the field populated.
+        """
         popen_calls: list[dict[str, str]] = []
         with (
             patch(
@@ -158,6 +163,7 @@ class TestRuntimeSocketPath:
                 side_effect=_popen_env_capture(popen_calls),
             ),
             patch("agent_brain_cli.commands.start.check_health", return_value=True),
+            patch("agent_brain_cli.commands.start._probe_uds", return_value=True),
         ):
             result = runner.invoke(
                 start_command,
@@ -184,6 +190,7 @@ class TestJsonOutputIncludesSocketPath:
                 side_effect=_popen_env_capture([]),
             ),
             patch("agent_brain_cli.commands.start.check_health", return_value=True),
+            patch("agent_brain_cli.commands.start._probe_uds", return_value=True),
         ):
             result = runner.invoke(
                 start_command,

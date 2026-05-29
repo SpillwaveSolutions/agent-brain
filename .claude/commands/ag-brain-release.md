@@ -43,11 +43,15 @@ Execute a versioned release with these steps:
 
 1. Calculate new version from current + bump type (also used by pre-release check #5)
 2. Flip CLI dependency to PyPI if path-based
-3. Update version in 5 files:
+3. Update version in 9 files:
    - `agent-brain-server/pyproject.toml`
    - `agent-brain-server/agent_brain_server/__init__.py`
    - `agent-brain-cli/pyproject.toml`
    - `agent-brain-cli/agent_brain_cli/__init__.py`
+   - `agent-brain-uds/pyproject.toml`
+   - `agent-brain-uds/agent_brain_uds/__init__.py`
+   - `agent-brain-mcp/pyproject.toml`
+   - `agent-brain-mcp/agent_brain_mcp/__init__.py`
    - `agent-brain-plugin/.claude-plugin/plugin.json` (top-level `"version"` field — must match CLI/server)
 4. Commit: `chore(release): bump version to X.Y.Z`
 5. Tag: `vX.Y.Z`

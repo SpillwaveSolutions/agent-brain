@@ -9,11 +9,11 @@ Standard JSON-RPC error codes (per spec):
     -32700 ParseError, -32600 InvalidRequest, -32601 MethodNotFound,
     -32602 InvalidParams, -32603 InternalError
 
-Custom Agent Brain codes (in the application-defined range):
-    -32000 InvalidRequest (HTTP 409 Conflict)
+Custom Agent Brain codes (in the application-defined -32000…-32099 range):
+    -32000 BackendConflict   (HTTP 409 Conflict)
     -32001 BackendUnavailable (HTTP 502)
-    -32002 ServiceIndexing (HTTP 503 — server is in mid-index)
-    -32003 BackendTimeout (HTTP 504)
+    -32002 ServiceIndexing    (HTTP 503 — server is in mid-index)
+    -32003 BackendTimeout     (HTTP 504)
 """
 
 from __future__ import annotations
@@ -24,31 +24,45 @@ import httpx
 from mcp import McpError
 from mcp.types import ErrorData
 
+# Maximum chars we copy out of a server error body into ``data.cause``;
+# a misconfigured backend can return multi-MB HTML stack traces, and
+# that would blow up MCP error payloads on the stdio wire.
+_MAX_DETAIL_CHARS = 2048
+
 # Standard JSON-RPC codes
 INVALID_PARAMS = -32602
 INTERNAL_ERROR = -32603
 
-# Agent Brain custom application codes (plan §6.3)
-INVALID_REQUEST = -32000
+# Agent Brain custom application codes (plan §6.3).
+# NB: -32000 is in the app-defined range; this is NOT JSON-RPC's
+# standard -32600 InvalidRequest. The earlier ``INVALID_REQUEST`` name
+# collided with that standard; renamed to ``BACKEND_CONFLICT`` to make
+# the distinction obvious to future readers. Phase 5 reviewer #5.
+BACKEND_CONFLICT = -32000
 BACKEND_UNAVAILABLE = -32001
 SERVICE_INDEXING = -32002
 BACKEND_TIMEOUT = -32003
 
 
 def _extract_detail(response: httpx.Response) -> str:
-    """Pull a useful detail string out of a server error body."""
+    """Pull a useful detail string out of a server error body.
+
+    Truncates to ``_MAX_DETAIL_CHARS`` (reviewer #12) so a multi-MB HTML
+    stack trace from a misconfigured backend doesn't blow up the MCP
+    error payload on stdio.
+    """
     try:
         data = response.json()
         if isinstance(data, dict):
             detail = data.get("detail")
             if isinstance(detail, str):
-                return detail
+                return detail[:_MAX_DETAIL_CHARS]
             if isinstance(detail, list | dict):
-                return str(detail)
-            return str(data)
-        return str(data)
+                return str(detail)[:_MAX_DETAIL_CHARS]
+            return str(data)[:_MAX_DETAIL_CHARS]
+        return str(data)[:_MAX_DETAIL_CHARS]
     except Exception:
-        return response.text or "(empty body)"
+        return (response.text or "(empty body)")[:_MAX_DETAIL_CHARS]
 
 
 def raise_for_status(
@@ -78,7 +92,7 @@ def raise_for_status(
         code = INVALID_PARAMS
         message = f"Invalid parameters (HTTP {status}): {detail}"
     elif status == 409:
-        code = INVALID_REQUEST
+        code = BACKEND_CONFLICT
         message = f"Conflict (HTTP 409): {detail}"
     elif status == 502:
         code = BACKEND_UNAVAILABLE

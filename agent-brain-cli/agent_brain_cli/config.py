@@ -455,9 +455,9 @@ def resolve_transport(
         from agent_brain_uds import resolve_socket_path, validate_socket
 
         if socket_path_override is not None:
-            path = Path(socket_path_override)
+            path = Path(socket_path_override).expanduser()
         elif env_path := os.environ.get("AGENT_BRAIN_UDS_PATH"):
-            path = Path(env_path)
+            path = Path(env_path).expanduser()
         else:
             path = resolve_socket_path(None)
         validate_socket(path)
