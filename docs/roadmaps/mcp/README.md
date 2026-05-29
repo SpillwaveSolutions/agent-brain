@@ -19,9 +19,9 @@ Shipped per the plan above. UDS transport + 7-tool / 5-resource / 6-prompt stdio
 
 ## Roadmap
 
-- [ ] **MCP v2** — Resource subscriptions + the 2 deferred URI schemes + Streamable HTTP + 9 remaining tools. Body: [v2-subscriptions-and-resources.md](v2-subscriptions-and-resources.md).
-- [ ] **MCP v3** — CLI-via-MCP + framework integration matrix (OpenAI Agents SDK, LangChain, LlamaIndex, Pydantic AI, Mastra, Vercel AI SDK, Autogen). Body: [v3-cli-via-mcp-and-frameworks.md](v3-cli-via-mcp-and-frameworks.md).
-- [ ] **MCP v4** — OAuth 2.1 for remote Agent Brain instances (Protected Resource Metadata, Dynamic Client Registration, Resource Indicators, DPoP optional). Body: [v4-oauth-for-remote.md](v4-oauth-for-remote.md).
+- [ ] **MCP v2** — #186 — Resource subscriptions + the 2 deferred URI schemes + Streamable HTTP + 9 remaining tools. Body: [v2-subscriptions-and-resources.md](v2-subscriptions-and-resources.md).
+- [ ] **MCP v3** — #187 — CLI-via-MCP + framework integration matrix (OpenAI Agents SDK, LangChain, LlamaIndex, Pydantic AI, Mastra, Vercel AI SDK, Autogen). Body: [v3-cli-via-mcp-and-frameworks.md](v3-cli-via-mcp-and-frameworks.md).
+- [ ] **MCP v4** — #188 — OAuth 2.1 for remote Agent Brain instances (Protected Resource Metadata, Dynamic Client Registration, Resource Indicators, DPoP optional). Body: [v4-oauth-for-remote.md](v4-oauth-for-remote.md).
 
 Each phase requires its own design doc before implementation lands. Phase order is hard:
 
