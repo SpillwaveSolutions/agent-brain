@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agent-brain-mcp"
-version = "10.0.7"
+version = "10.1.0"
 description = "Agent Brain MCP - Model Context Protocol server exposing Agent Brain as MCP tools, resources, and prompts"
 authors = ["Spillwave Solutions"]
 readme = "README.md"
@@ -31,8 +31,8 @@ pydantic = "^2.10.0"
 click = "^8.1.0"
 # Path-installed for local dev (plan §13 + need Phase 2 ConfigStatus model).
 # Release process swaps both to PyPI pins before publishing.
-agent-brain-rag = {path = "../agent-brain-server", develop = true}
-agent-brain-uds = {path = "../agent-brain-uds", develop = true}
+agent-brain-rag = "^10.1.0"
+agent-brain-uds = "^10.1.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"

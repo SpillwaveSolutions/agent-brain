@@ -27,7 +27,18 @@ tasks:
   install:
     desc: Install project dependencies
     cmds:
-      - poetry install
+      - |
+        # Monorepo: agent-brain-rag / agent-brain-uds may not be on PyPI
+        # yet during development. Temporarily switch to path dependencies
+        # for resolution, then restore the PyPI pins.
+        if ! poetry install 2>/dev/null; then
+          cp pyproject.toml pyproject.toml.bak
+          perl -pi -e 's|agent-brain-rag = "\^[0-9]+\.[0-9]+\.[0-9]+"|agent-brain-rag = {path = "../agent-brain-server", develop = false}|' pyproject.toml
+          perl -pi -e 's|agent-brain-uds = "\^[0-9]+\.[0-9]+\.[0-9]+"|agent-brain-uds = {path = "../agent-brain-uds", develop = false}|' pyproject.toml
+          poetry lock
+          poetry install
+          mv pyproject.toml.bak pyproject.toml
+        fi
 
   # ===================
   # Build
