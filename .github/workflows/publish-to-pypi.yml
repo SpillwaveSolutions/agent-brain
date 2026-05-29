@@ -68,14 +68,30 @@ jobs:
           cd agent-brain-server
           poetry install
 
-      - name: Install CLI with local server dependency
+      - name: Install UDS package
+        run: |
+          cd agent-brain-uds
+          poetry install
+
+      - name: Install CLI with local server + uds dependencies
         run: |
           cd agent-brain-cli
-          # agent-brain-rag isn't on PyPI yet, temporarily use path dependency
-          sed -i 's|agent-brain-rag = "^[0-9]*\.[0-9]*\.[0-9]*"|agent-brain-rag = {path = "../agent-brain-server", develop = false}|' pyproject.toml
+          # agent-brain-rag / agent-brain-uds may not be on PyPI yet for
+          # this release; temporarily flip both to path deps.
+          sed -i 's|agent-brain-rag = "\^[0-9]*\.[0-9]*\.[0-9]*"|agent-brain-rag = {path = "../agent-brain-server", develop = false}|' pyproject.toml
+          sed -i 's|agent-brain-uds = "\^[0-9]*\.[0-9]*\.[0-9]*"|agent-brain-uds = {path = "../agent-brain-uds", develop = false}|' pyproject.toml
           poetry lock
           poetry install
-          # Restore PyPI dependency for consistency
+          # Restore PyPI deps for consistency
+          git checkout pyproject.toml
+
+      - name: Install MCP with local server + uds dependencies
+        run: |
+          cd agent-brain-mcp
+          sed -i 's|agent-brain-rag = "\^[0-9]*\.[0-9]*\.[0-9]*"|agent-brain-rag = {path = "../agent-brain-server", develop = false}|' pyproject.toml
+          sed -i 's|agent-brain-uds = "\^[0-9]*\.[0-9]*\.[0-9]*"|agent-brain-uds = {path = "../agent-brain-uds", develop = false}|' pyproject.toml
+          poetry lock
+          poetry install
           git checkout pyproject.toml
 
       - name: Run linting
