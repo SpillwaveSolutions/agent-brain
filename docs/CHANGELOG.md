@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [10.1.1] - 2026-05-29
+
+### Fixed
+
+- **PyPI publish workflow now handles the 4-package monorepo bootstrap.** The `publish-to-pypi` quality gate's `Install CLI` step had a `sed` flip for the `agent-brain-rag` path-dep but no equivalent for the new `agent-brain-uds` PyPI pin shipped in CLI 10.1.0; `Install MCP` was missing entirely. The 10.1.0 release tag triggered the workflow, the quality gate failed at the CLI install step, and no packages were published. 10.1.1 carries the workflow fix only — extending both Install steps to flip `agent-brain-rag` AND `agent-brain-uds` path-deps so all four packages resolve during quality gate, plus an Install MCP step for symmetry. Functional surface is byte-identical to the 10.1.0 design (see entry below). v10.1.0 tag is preserved as a historical marker but holds no PyPI artifacts.
+
+---
+
 ## [10.1.0] - 2026-05-29
 
 ### Added

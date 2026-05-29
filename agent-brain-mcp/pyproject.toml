@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agent-brain-mcp"
-version = "10.1.0"
+version = "10.1.1"
 description = "Agent Brain MCP - Model Context Protocol server exposing Agent Brain as MCP tools, resources, and prompts"
 authors = ["Spillwave Solutions"]
 readme = "README.md"

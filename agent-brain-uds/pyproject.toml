@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agent-brain-uds"
-version = "10.1.0"
+version = "10.1.1"
 description = "Agent Brain UDS - Unix-domain-socket transport for Agent Brain (socket path resolution, permission validation, httpx UDS client factory)"
 authors = ["Spillwave Solutions"]
 readme = "README.md"
