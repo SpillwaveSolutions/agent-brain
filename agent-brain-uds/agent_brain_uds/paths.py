@@ -13,9 +13,10 @@ from __future__ import annotations
 
 import hashlib
 import os
+import stat
 from pathlib import Path
 
-from .errors import SocketPathTooLongError
+from .errors import SocketPathTooLongError, SocketPermissionError
 
 #: Default state-directory name. Mirrors ``STATE_DIR_NAME`` in the server.
 STATE_DIR_NAME = ".agent-brain"
@@ -95,10 +96,12 @@ def resolve_socket_path(state_dir: Path | None = None) -> Path:
     """
     resolved_state_dir = resolve_state_dir(state_dir)
 
-    # If a previous server run dropped a pointer file, honor it.
+    # If a previous server run dropped a pointer file, honor it — but
+    # validate it first (plan §8). The pointer file is a privilege
+    # boundary: whoever writes it controls every client's destination.
     pointer = resolved_state_dir / POINTER_FILE_NAME
-    if pointer.is_file():
-        target = Path(pointer.read_text().strip())
+    target = _read_pointer_file(pointer)
+    if target is not None:
         if len(str(target).encode("utf-8")) >= MAX_SOCKET_PATH_BYTES:
             raise SocketPathTooLongError(
                 "Pointer-file target exceeds platform socket-path limit.",
@@ -123,6 +126,66 @@ def resolve_socket_path(state_dir: Path | None = None) -> Path:
             remediation=("Set AGENT_BRAIN_UDS_PATH to a path shorter than 104 bytes."),
         )
     return fallback
+
+
+def _read_pointer_file(pointer: Path) -> Path | None:
+    """Return the validated socket path from ``pointer`` or ``None``.
+
+    Defenses (plan §8 — Phase 5):
+
+    * ``os.lstat`` instead of ``Path.is_file`` so a symlink at the
+      pointer path is detected, not silently followed.
+    * Pointer must be a regular file; symlinks / sockets / fifos / dirs
+      are rejected outright.
+    * Pointer contents must be an absolute path with no embedded null
+      bytes.
+
+    ``validate_socket(...)`` still runs on the returned path before any
+    connection, so this is defense-in-depth — the goal is to fail fast
+    on obviously attacker-controlled inputs rather than to substitute
+    for the socket-level checks.
+    """
+    try:
+        pst = os.lstat(pointer)
+    except FileNotFoundError:
+        return None
+
+    if stat.S_ISLNK(pst.st_mode):
+        raise SocketPermissionError(
+            "Refusing to follow symlinked pointer file.",
+            socket_path=pointer,
+            remediation=(
+                f"Delete {pointer} (it is a symlink) and re-bind the "
+                "server, which will write a real pointer file."
+            ),
+        )
+    if not stat.S_ISREG(pst.st_mode):
+        raise SocketPermissionError(
+            "Pointer file is not a regular file.",
+            socket_path=pointer,
+            remediation=f"Delete {pointer} and re-bind the server.",
+        )
+
+    raw = pointer.read_bytes()
+    if b"\x00" in raw:
+        raise SocketPermissionError(
+            "Pointer file contains an embedded null byte; refusing to parse.",
+            socket_path=pointer,
+            remediation=f"Delete {pointer} and re-bind the server.",
+        )
+
+    target_str = raw.decode("utf-8", errors="strict").strip()
+    target = Path(target_str)
+    if not target.is_absolute():
+        raise SocketPermissionError(
+            f"Pointer-file target {target_str!r} is not an absolute path.",
+            socket_path=target,
+            remediation=(
+                f"Delete {pointer} and re-bind the server (or set "
+                "AGENT_BRAIN_UDS_PATH to an absolute path under 104 bytes)."
+            ),
+        )
+    return target
 
 
 def write_pointer_file(state_dir: Path, real_socket_path: Path) -> Path:

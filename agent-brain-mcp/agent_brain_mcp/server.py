@@ -11,6 +11,7 @@ No sampling / elicitation / logging / completions / subscriptions in v1.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from collections.abc import Iterable
@@ -122,7 +123,11 @@ def build_server(httpx_client: httpx.Client, *, transport: str = "http") -> Serv
             ) from e
 
         api = ApiClient(httpx_client)
-        result = spec.handler(api, args)
+        # Run the sync handler in a thread so the asyncio event loop stays
+        # responsive (plan §6.4 / §12.3 #12). A blocking httpx call inline
+        # in an async def would freeze stdio and defeat MCP
+        # ``notifications/cancelled``.
+        result = await asyncio.to_thread(spec.handler, api, args)
         structured = result.model_dump(mode="json", exclude_none=False)
         text_summary = _summarize(name, structured)
         return ([types.TextContent(type="text", text=text_summary)], structured)
@@ -148,7 +153,9 @@ def build_server(httpx_client: httpx.Client, *, transport: str = "http") -> Serv
                 ErrorData(code=INVALID_PARAMS, message=f"Unknown resource: {uri}")
             )
         api = ApiClient(httpx_client)
-        data = spec.handler(api)
+        # Same to_thread treatment as call_tool — resource handlers also
+        # issue sync httpx calls.
+        data = await asyncio.to_thread(spec.handler, api)
         return [
             ReadResourceContents(
                 content=json.dumps(data, indent=2, default=str),
