@@ -30,6 +30,8 @@ class RuntimeState(BaseModel):
     # Shared mode fields
     project_id: str | None = None
     active_projects: list[str] | None = None
+    # UDS transport (plan §4.3 — present when --uds, None otherwise)
+    socket_path: str | None = None
 
 
 def write_runtime(state_dir: Path, state: RuntimeState) -> None:

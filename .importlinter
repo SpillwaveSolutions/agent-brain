@@ -1,0 +1,57 @@
+; Import-Linter contracts for the Agent Brain monorepo.
+; See docs/plans/2026-05-28-mcp-uds-transport-design.md §9.
+;
+; Layering: server (bottom) → uds → mcp → cli (top).
+; Server must have no upward deps. UDS may only touch server.models.
+; MCP must never call server internals — always via HTTP/UDS API.
+; CLI may consume uds + server.models.
+;
+; Enforced at the repo root via `task check:layering`.
+
+[importlinter]
+root_packages =
+    agent_brain_server
+    agent_brain_uds
+    agent_brain_mcp
+    agent_brain_cli
+include_external_packages = False
+
+[importlinter:contract:server-has-no-upward-deps]
+name = server has no upward deps
+type = forbidden
+source_modules =
+    agent_brain_server
+forbidden_modules =
+    agent_brain_uds
+    agent_brain_mcp
+    agent_brain_cli
+
+[importlinter:contract:uds-touches-only-server-models]
+name = uds touches only server.models
+type = forbidden
+source_modules =
+    agent_brain_uds
+forbidden_modules =
+    agent_brain_server.services
+    agent_brain_server.api
+    agent_brain_server.indexing
+    agent_brain_server.storage
+    agent_brain_mcp
+    agent_brain_cli
+
+[importlinter:contract:mcp-never-calls-server-internals]
+name = mcp never calls server internals
+type = forbidden
+source_modules =
+    agent_brain_mcp
+forbidden_modules =
+    agent_brain_server.services
+    agent_brain_server.api
+    agent_brain_server.indexing
+    agent_brain_server.storage
+    agent_brain_server.config
+    agent_brain_server.providers
+    agent_brain_server.runtime
+    agent_brain_server.storage_paths
+    agent_brain_server.job_queue
+    agent_brain_cli

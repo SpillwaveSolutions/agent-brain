@@ -17,7 +17,7 @@ def runner():
 class TestCLIQueryModes:
     """Tests for query command with different modes and alpha."""
 
-    @patch("agent_brain_cli.commands.query.DocServeClient")
+    @patch("agent_brain_cli.commands.query.open_client")
     def test_query_bm25_mode(self, mock_client_class, runner):
         """Test query command with --mode bm25."""
         mock_client = MagicMock()
@@ -39,7 +39,7 @@ class TestCLIQueryModes:
         args, kwargs = mock_client.query.call_args
         assert kwargs["mode"] == "bm25"
 
-    @patch("agent_brain_cli.commands.query.DocServeClient")
+    @patch("agent_brain_cli.commands.query.open_client")
     def test_query_hybrid_alpha(self, mock_client_class, runner):
         """Test query command with --mode hybrid and --alpha."""
         mock_client = MagicMock()

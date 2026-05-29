@@ -5,8 +5,8 @@ from rich.console import Console
 from rich.prompt import Confirm
 from rich.table import Table
 
-from ..client import ConnectionError, DocServeClient, ServerError
-from ..config import get_server_url
+from ..client import ConnectionError, ServerError
+from ..client.transport import open_client
 
 console = Console()
 
@@ -25,11 +25,15 @@ def cache_group() -> None:
     help="Agent Brain server URL (default: from config or http://127.0.0.1:8000)",
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
-def cache_status(url: str | None, json_output: bool) -> None:
+@click.pass_context
+def cache_status(ctx: click.Context, url: str | None, json_output: bool) -> None:
     """Show embedding cache statistics."""
-    resolved_url = url or get_server_url()
+    if url:
+        ctx.ensure_object(dict)
+        ctx.obj["base_url_override"] = url
+        ctx.obj["transport_hint"] = "http"
     try:
-        with DocServeClient(base_url=resolved_url) as client:
+        with open_client(ctx) as client:
             data = client.cache_status()
 
             if json_output:
@@ -91,14 +95,18 @@ def cache_status(url: str | None, json_output: bool) -> None:
     is_flag=True,
     help="Skip confirmation prompt",
 )
-def cache_clear(url: str | None, yes: bool) -> None:
+@click.pass_context
+def cache_clear(ctx: click.Context, url: str | None, yes: bool) -> None:
     """Clear all cached embeddings from the cache.
 
     Without --yes, shows the current entry count and prompts for confirmation.
     """
-    resolved_url = url or get_server_url()
+    if url:
+        ctx.ensure_object(dict)
+        ctx.obj["base_url_override"] = url
+        ctx.obj["transport_hint"] = "http"
     try:
-        with DocServeClient(base_url=resolved_url) as client:
+        with open_client(ctx) as client:
             if not yes:
                 # Get current count before asking
                 try:

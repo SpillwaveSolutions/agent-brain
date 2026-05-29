@@ -171,6 +171,29 @@ class DocServeClient:
         self.timeout = timeout
         self._client = httpx.Client(timeout=timeout)
 
+    @classmethod
+    def from_httpx(cls, client: httpx.Client) -> "DocServeClient":
+        """Build a DocServeClient that uses a pre-constructed httpx.Client.
+
+        Used by the transport selector to inject a UDS-backed client
+        (see ``agent_brain_cli.client.transport.open_client``). The
+        inner client's ``base_url`` is preserved; this wrapper sends
+        relative paths only.
+
+        Args:
+            client: An already-configured ``httpx.Client``. The wrapper
+                takes ownership and will close it on ``__exit__``.
+
+        Returns:
+            A DocServeClient backed by ``client``.
+        """
+        instance = cls.__new__(cls)
+        instance.base_url = ""  # inner client carries the real base_url
+        timeout = client.timeout
+        instance.timeout = timeout.read or 30.0
+        instance._client = client
+        return instance
+
     def __enter__(self) -> "DocServeClient":
         return self
 

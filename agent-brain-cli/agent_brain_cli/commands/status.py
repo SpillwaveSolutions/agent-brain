@@ -5,8 +5,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from ..client import ConnectionError, DocServeClient, ServerError
-from ..config import get_server_url
+from ..client import ConnectionError, ServerError
+from ..client.transport import open_client
 from ..diagnostics import doctor_hint_message
 
 console = Console()
@@ -21,11 +21,19 @@ console = Console()
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
 @click.option("--verbose", "-v", is_flag=True, help="Show additional detail")
-def status_command(url: str | None, json_output: bool, verbose: bool) -> None:
+@click.pass_context
+def status_command(
+    ctx: click.Context, url: str | None, json_output: bool, verbose: bool
+) -> None:
     """Check Agent Brain server status and health."""
-    resolved_url = url or get_server_url()
+    # ``--url`` is a per-command HTTP override — promote it to the
+    # transport-selector context so ``open_client`` honors it.
+    if url:
+        ctx.ensure_object(dict)
+        ctx.obj["base_url_override"] = url
+        ctx.obj["transport_hint"] = "http"
     try:
-        with DocServeClient(base_url=resolved_url) as client:
+        with open_client(ctx) as client:
             health = client.health()
             indexing = client.status()
 

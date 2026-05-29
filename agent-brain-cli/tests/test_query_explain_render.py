@@ -60,7 +60,7 @@ def _patch_client(response: QueryResponse):
     mock_client.__exit__ = MagicMock(return_value=False)
     mock_client.query = MagicMock(return_value=response)
     return patch(
-        "agent_brain_cli.commands.query.DocServeClient",
+        "agent_brain_cli.commands.query.open_client",
         return_value=mock_client,
     )
 

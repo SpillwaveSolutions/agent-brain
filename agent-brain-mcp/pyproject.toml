@@ -1,0 +1,78 @@
+[tool.poetry]
+name = "agent-brain-mcp"
+version = "10.0.7"
+description = "Agent Brain MCP - Model Context Protocol server exposing Agent Brain as MCP tools, resources, and prompts"
+authors = ["Spillwave Solutions"]
+readme = "README.md"
+license = "MIT"
+homepage = "https://github.com/SpillwaveSolutions/agent-brain"
+repository = "https://github.com/SpillwaveSolutions/agent-brain"
+documentation = "https://github.com/SpillwaveSolutions/agent-brain/wiki"
+keywords = ["agent-brain", "mcp", "model-context-protocol", "rag", "claude", "claude-desktop"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+packages = [{include = "agent_brain_mcp"}]
+
+[tool.poetry.scripts]
+agent-brain-mcp = "agent_brain_mcp.cli:main"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+mcp = "^1.12.0"
+httpx = "^0.28.0"
+pydantic = "^2.10.0"
+click = "^8.1.0"
+# Path-installed for local dev (plan §13 + need Phase 2 ConfigStatus model).
+# Release process swaps both to PyPI pins before publishing.
+agent-brain-rag = {path = "../agent-brain-server", develop = true}
+agent-brain-uds = {path = "../agent-brain-uds", develop = true}
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.0"
+pytest-asyncio = "^0.24.0"
+pytest-cov = "^6.0.0"
+black = "^24.10.0"
+ruff = "^0.8.0"
+mypy = "^1.13.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+
+# The MCP SDK uses untyped decorators (server.list_tools(), etc.); we
+# can't fix that upstream and strict mypy flags every usage. Disable
+# the noisy codes for the one file that actually wires the SDK.
+[[tool.mypy.overrides]]
+module = "agent_brain_mcp.server"
+disable_error_code = ["misc", "no-untyped-call", "untyped-decorator"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "e2e: end-to-end test requiring a real agent-brain-serve subprocess and the official MCP Python SDK as client (slow; opt-in via `task mcp:e2e`)",
+]
+# Default test runs exclude the e2e suite to keep `task mcp:test` fast.
+addopts = "-m 'not e2e'"

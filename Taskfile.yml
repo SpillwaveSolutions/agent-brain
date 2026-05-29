@@ -17,6 +17,8 @@ dotenv:
 vars:
   SERVER_DIR: agent-brain-server
   CLI_DIR: agent-brain-cli
+  UDS_DIR: agent-brain-uds
+  MCP_DIR: agent-brain-mcp
 
 includes:
   server:
@@ -25,6 +27,12 @@ includes:
   cli:
     taskfile: ./agent-brain-cli/Taskfile.yml
     dir: ./agent-brain-cli
+  uds:
+    taskfile: ./agent-brain-uds/Taskfile.yml
+    dir: ./agent-brain-uds
+  mcp:
+    taskfile: ./agent-brain-mcp/Taskfile.yml
+    dir: ./agent-brain-mcp
 
 tasks:
   default:
@@ -168,6 +176,18 @@ tasks:
     cmds:
       - task: lint
       - task: typecheck
+
+  check:layering:
+    desc: Enforce import-linter layering contracts across all packages (.importlinter)
+    cmds:
+      # Install import-linter on demand to avoid a dedicated root-level lockfile.
+      # Matches the pattern used by lint:yaml above.
+      - python3 -c "import importlinter" 2>/dev/null || pip install --quiet import-linter
+      # Each package owns its sources under its own dir; we need every src dir on
+      # sys.path so import-linter can resolve all four root_packages from one run.
+      - |
+        PYTHONPATH="agent-brain-server:agent-brain-uds:agent-brain-mcp:agent-brain-cli" \
+        lint-imports --config .importlinter
 
   # ===================
   # Pre-Push Workflow

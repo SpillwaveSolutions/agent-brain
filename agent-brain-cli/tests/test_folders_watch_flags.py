@@ -34,9 +34,7 @@ class TestFoldersAddWatchFlags:
         tmp_path: object,
     ) -> None:
         """--watch auto passes watch_mode='auto' to client.index()."""
-        with patch(
-            "agent_brain_cli.commands.folders.DocServeClient"
-        ) as mock_client_cls:
+        with patch("agent_brain_cli.commands.folders.open_client") as mock_client_cls:
             mock_client = MagicMock()
             mock_client.__enter__ = MagicMock(return_value=mock_client)
             mock_client.__exit__ = MagicMock(return_value=False)
@@ -60,9 +58,7 @@ class TestFoldersAddWatchFlags:
         tmp_path: object,
     ) -> None:
         """--watch off passes watch_mode='off' to client.index()."""
-        with patch(
-            "agent_brain_cli.commands.folders.DocServeClient"
-        ) as mock_client_cls:
+        with patch("agent_brain_cli.commands.folders.open_client") as mock_client_cls:
             mock_client = MagicMock()
             mock_client.__enter__ = MagicMock(return_value=mock_client)
             mock_client.__exit__ = MagicMock(return_value=False)
@@ -85,9 +81,7 @@ class TestFoldersAddWatchFlags:
         tmp_path: object,
     ) -> None:
         """--debounce passes watch_debounce_seconds to client.index()."""
-        with patch(
-            "agent_brain_cli.commands.folders.DocServeClient"
-        ) as mock_client_cls:
+        with patch("agent_brain_cli.commands.folders.open_client") as mock_client_cls:
             mock_client = MagicMock()
             mock_client.__enter__ = MagicMock(return_value=mock_client)
             mock_client.__exit__ = MagicMock(return_value=False)
@@ -118,9 +112,7 @@ class TestFoldersAddWatchFlags:
         tmp_path: object,
     ) -> None:
         """Without --watch, watch_mode is None."""
-        with patch(
-            "agent_brain_cli.commands.folders.DocServeClient"
-        ) as mock_client_cls:
+        with patch("agent_brain_cli.commands.folders.open_client") as mock_client_cls:
             mock_client = MagicMock()
             mock_client.__enter__ = MagicMock(return_value=mock_client)
             mock_client.__exit__ = MagicMock(return_value=False)
@@ -158,9 +150,7 @@ class TestFoldersListWatchColumns:
             ),
         ]
 
-        with patch(
-            "agent_brain_cli.commands.folders.DocServeClient"
-        ) as mock_client_cls:
+        with patch("agent_brain_cli.commands.folders.open_client") as mock_client_cls:
             mock_client = MagicMock()
             mock_client.__enter__ = MagicMock(return_value=mock_client)
             mock_client.__exit__ = MagicMock(return_value=False)
@@ -184,9 +174,7 @@ class TestFoldersListWatchColumns:
             ),
         ]
 
-        with patch(
-            "agent_brain_cli.commands.folders.DocServeClient"
-        ) as mock_client_cls:
+        with patch("agent_brain_cli.commands.folders.open_client") as mock_client_cls:
             mock_client = MagicMock()
             mock_client.__enter__ = MagicMock(return_value=mock_client)
             mock_client.__exit__ = MagicMock(return_value=False)
