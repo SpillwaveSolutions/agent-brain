@@ -8,7 +8,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, Field
@@ -412,3 +412,75 @@ def get_server_url(config: AgentBrainConfig | None = None) -> str:
         config = load_config()
 
     return config.server.url
+
+
+def resolve_transport(
+    *,
+    transport_hint: str | None = None,
+    base_url_override: str | None = None,
+    socket_path_override: Path | None = None,
+    config: AgentBrainConfig | None = None,
+) -> tuple[Literal["http", "uds"], str]:
+    """Resolve the active transport and its connection target.
+
+    Sibling to :func:`get_server_url` — shares the same precedence chain
+    for HTTP, layers UDS detection on top. See plan §4.4 and §12.3 #6.
+
+    Precedence:
+      1. ``transport_hint`` argument (from CLI ``--transport`` flag)
+      2. ``AGENT_BRAIN_TRANSPORT`` environment variable
+      3. ``"auto"`` (try UDS first, fall back to HTTP)
+
+    For ``"uds"``: uses ``socket_path_override`` → ``AGENT_BRAIN_UDS_PATH``
+    env → ``agent_brain_uds.resolve_socket_path``. Validates with
+    :func:`agent_brain_uds.validate_socket` and raises on failure (so
+    an explicit ``--transport uds`` without a valid socket exits loudly,
+    per plan §12.3 #7).
+
+    For ``"http"``: uses ``base_url_override`` → :func:`get_server_url`.
+
+    For ``"auto"``: tries UDS; on any validation failure, falls back to
+    HTTP transparently.
+
+    Returns:
+        A ``(transport, target)`` tuple where ``transport`` is
+        ``"http"`` or ``"uds"`` and ``target`` is the URL or socket path
+        (as a string).
+    """
+    chosen = (
+        transport_hint or os.environ.get("AGENT_BRAIN_TRANSPORT") or "auto"
+    ).lower()
+
+    def _resolve_uds_target() -> str:
+        from agent_brain_uds import resolve_socket_path, validate_socket
+
+        if socket_path_override is not None:
+            path = Path(socket_path_override)
+        elif env_path := os.environ.get("AGENT_BRAIN_UDS_PATH"):
+            path = Path(env_path)
+        else:
+            path = resolve_socket_path(None)
+        validate_socket(path)
+        return str(path)
+
+    def _resolve_http_target() -> str:
+        if base_url_override:
+            return base_url_override
+        return get_server_url(config)
+
+    if chosen == "uds":
+        return ("uds", _resolve_uds_target())
+    if chosen == "http":
+        return ("http", _resolve_http_target())
+
+    # "auto" — try UDS, fall back to HTTP on any validation failure.
+    try:
+        from agent_brain_uds import AgentBrainUdsError
+
+        try:
+            return ("uds", _resolve_uds_target())
+        except (AgentBrainUdsError, OSError, FileNotFoundError):
+            return ("http", _resolve_http_target())
+    except ImportError:
+        # agent_brain_uds not installed — HTTP is the only option.
+        return ("http", _resolve_http_target())

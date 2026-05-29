@@ -9,7 +9,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from ..client import ConnectionError, DocServeClient, ServerError
-from ..config import get_server_url
+from ..client.transport import open_client
 from ..diagnostics import doctor_hint_message
 
 console = Console()
@@ -285,7 +285,9 @@ def _watch_jobs(client: DocServeClient, limit: int) -> None:
     help="Agent Brain server URL (default: from config or http://127.0.0.1:8000)",
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+@click.pass_context
 def jobs_command(
+    ctx: click.Context,
     job_id: str | None,
     watch: bool,
     cancel: bool,
@@ -305,7 +307,10 @@ def jobs_command(
       agent-brain jobs JOB_ID       # Show job details
       agent-brain jobs JOB_ID --cancel  # Cancel a job
     """
-    resolved_url = url or get_server_url()
+    if url:
+        ctx.ensure_object(dict)
+        ctx.obj["base_url_override"] = url
+        ctx.obj["transport_hint"] = "http"
 
     # Validate options
     if cancel and not job_id:
@@ -318,7 +323,7 @@ def jobs_command(
         raise click.UsageError("--watch cannot be used with --json")
 
     try:
-        with DocServeClient(base_url=resolved_url) as client:
+        with open_client(ctx) as client:
             if cancel and job_id:
                 _cancel_job(client, job_id, json_output)
             elif watch:

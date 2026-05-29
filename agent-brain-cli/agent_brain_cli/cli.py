@@ -30,7 +30,41 @@ from .commands import (
 
 @click.group()
 @click.version_option(version=__version__, prog_name="agent-brain")
-def cli() -> None:
+@click.option(
+    "--transport",
+    "transport",
+    type=click.Choice(["auto", "http", "uds"], case_sensitive=False),
+    default=None,
+    help=(
+        "Transport to use: auto (default — UDS if available, HTTP "
+        "otherwise), http, or uds. Honors AGENT_BRAIN_TRANSPORT env."
+    ),
+)
+@click.option(
+    "--socket-path",
+    type=click.Path(),
+    default=None,
+    help="Override UDS socket path (only used with --transport=uds|auto).",
+)
+@click.option(
+    "--base-url",
+    default=None,
+    help="Override server base URL (only used with --transport=http|auto).",
+)
+@click.option(
+    "--debug-transport",
+    is_flag=True,
+    default=False,
+    help="Log the resolved transport (http or uds) and target to stderr.",
+)
+@click.pass_context
+def cli(
+    ctx: click.Context,
+    transport: str | None,
+    socket_path: str | None,
+    base_url: str | None,
+    debug_transport: bool,
+) -> None:
     """Agent Brain CLI - Manage and query the Agent Brain RAG server.
 
     A command-line interface for interacting with the Agent Brain document
@@ -81,9 +115,15 @@ def cli() -> None:
 
     \b
     Environment Variables:
-      AGENT_BRAIN_URL  Server URL (default: http://127.0.0.1:8000)
+      AGENT_BRAIN_URL        Server URL (default: http://127.0.0.1:8000)
+      AGENT_BRAIN_TRANSPORT  Transport hint: auto, http, or uds
+      AGENT_BRAIN_UDS_PATH   Override UDS socket path
     """
-    pass
+    ctx.ensure_object(dict)
+    ctx.obj["transport_hint"] = transport
+    ctx.obj["base_url_override"] = base_url
+    ctx.obj["socket_path_override"] = socket_path
+    ctx.obj["debug_transport"] = debug_transport
 
 
 # Register project management commands

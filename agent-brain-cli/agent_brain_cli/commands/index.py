@@ -5,8 +5,8 @@ from pathlib import Path
 import click
 from rich.console import Console
 
-from ..client import ConnectionError, DocServeClient, ServerError
-from ..config import get_server_url
+from ..client import ConnectionError, ServerError
+from ..client.transport import open_client
 from ..diagnostics import doctor_hint_message
 
 console = Console()
@@ -85,7 +85,9 @@ console = Console()
     help="Allow indexing paths outside the project directory",
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+@click.pass_context
 def index_command(
+    ctx: click.Context,
     folder_path: str,
     url: str | None,
     chunk_size: int,
@@ -106,8 +108,10 @@ def index_command(
 
     FOLDER_PATH: Path to the folder containing documents to index.
     """
-    # Get URL from config if not specified
-    resolved_url = url or get_server_url()
+    if url:
+        ctx.ensure_object(dict)
+        ctx.obj["base_url_override"] = url
+        ctx.obj["transport_hint"] = "http"
 
     # Resolve to absolute path
     folder = Path(folder_path).resolve()
@@ -131,7 +135,7 @@ def index_command(
     )
 
     try:
-        with DocServeClient(base_url=resolved_url) as client:
+        with open_client(ctx) as client:
             response = client.index(
                 folder_path=str(folder),
                 chunk_size=chunk_size,

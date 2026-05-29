@@ -5,8 +5,8 @@ from pathlib import Path
 import click
 from rich.console import Console
 
-from ..client import ConnectionError, DocServeClient, ServerError
-from ..config import get_server_url
+from ..client import ConnectionError, ServerError
+from ..client.transport import open_client
 
 console = Console()
 
@@ -104,7 +104,9 @@ console = Console()
     help="Allow indexing paths outside the project directory",
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+@click.pass_context
 def inject_command(
+    ctx: click.Context,
     folder_path: str,
     injector_script: str | None,
     folder_metadata: str | None,
@@ -152,8 +154,10 @@ def inject_command(
             )
         raise SystemExit(2)
 
-    # Get URL from config if not specified
-    resolved_url = url or get_server_url()
+    if url:
+        ctx.ensure_object(dict)
+        ctx.obj["base_url_override"] = url
+        ctx.obj["transport_hint"] = "http"
 
     # Resolve to absolute paths
     folder = Path(folder_path).resolve()
@@ -181,7 +185,7 @@ def inject_command(
     )
 
     try:
-        with DocServeClient(base_url=resolved_url) as client:
+        with open_client(ctx) as client:
             response = client.index(
                 folder_path=str(folder),
                 chunk_size=chunk_size,

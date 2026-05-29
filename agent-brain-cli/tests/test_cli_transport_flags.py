@@ -80,7 +80,9 @@ class TestCliTransportFlagRejectsInvalidChoice:
 
     def test_unknown_transport_value_rejected(self, clean_env: None) -> None:
         runner = CliRunner()
-        result = runner.invoke(cli, ["--transport", "tcp42", "--help"])
+        # NOTE: --help short-circuits option validation in Click, so we
+        # need a real subcommand for the choice validator to run.
+        result = runner.invoke(cli, ["--transport", "tcp42", "status"])
         # Click prints usage + non-zero exit for invalid choice.
         assert result.exit_code != 0
         assert "tcp42" in result.output or "invalid" in result.output.lower()

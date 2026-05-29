@@ -4,8 +4,8 @@ import click
 from rich.console import Console
 from rich.prompt import Confirm
 
-from ..client import ConnectionError, DocServeClient, ServerError
-from ..config import get_server_url
+from ..client import ConnectionError, ServerError
+from ..client.transport import open_client
 from ..diagnostics import doctor_hint_message
 
 console = Console()
@@ -25,13 +25,18 @@ console = Console()
     help="Skip confirmation prompt",
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
-def reset_command(url: str | None, yes: bool, json_output: bool) -> None:
+@click.pass_context
+def reset_command(
+    ctx: click.Context, url: str | None, yes: bool, json_output: bool
+) -> None:
     """Reset the index by deleting all indexed documents.
 
     WARNING: This permanently removes all indexed content.
     """
-    # Get URL from config if not specified
-    resolved_url = url or get_server_url()
+    if url:
+        ctx.ensure_object(dict)
+        ctx.obj["base_url_override"] = url
+        ctx.obj["transport_hint"] = "http"
 
     # Confirm unless --yes flag provided
     if not yes and not json_output:
@@ -43,7 +48,7 @@ def reset_command(url: str | None, yes: bool, json_output: bool) -> None:
             return
 
     try:
-        with DocServeClient(base_url=resolved_url) as client:
+        with open_client(ctx) as client:
             response = client.reset()
 
             if json_output:

@@ -6,17 +6,12 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from ..client import ConnectionError, DocServeClient, ServerError
+from ..client import ConnectionError, ServerError
 from ..client.api_client import ResultExplanation
-from ..config import get_server_url
+from ..client.transport import open_client
 from ..diagnostics import doctor_hint_message
 
 console = Console()
-
-
-def _get_default_url() -> str:
-    """Get default server URL from config."""
-    return get_server_url()
 
 
 def _render_explanation(explanation: ResultExplanation) -> None:
@@ -130,7 +125,9 @@ def _render_explanation(explanation: ResultExplanation) -> None:
     "--file-paths",
     help="Comma-separated file path patterns to filter by (wildcards supported)",
 )
+@click.pass_context
 def query_command(
+    ctx: click.Context,
     query_text: str,
     url: str | None,
     top_k: int,
@@ -146,8 +143,10 @@ def query_command(
     file_paths: str | None,
 ) -> None:
     """Search indexed documents with natural language or keyword query."""
-    # Get URL from config if not specified
-    resolved_url = url or _get_default_url()
+    if url:
+        ctx.ensure_object(dict)
+        ctx.obj["base_url_override"] = url
+        ctx.obj["transport_hint"] = "http"
 
     # Parse comma-separated lists
     source_types_list = (
@@ -161,7 +160,7 @@ def query_command(
     )
 
     try:
-        with DocServeClient(base_url=resolved_url) as client:
+        with open_client(ctx) as client:
             response = client.query(
                 query_text=query_text,
                 top_k=top_k,

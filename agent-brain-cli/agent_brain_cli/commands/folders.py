@@ -7,8 +7,8 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from ..client import ConnectionError, DocServeClient, ServerError
-from ..config import get_server_url
+from ..client import ConnectionError, ServerError
+from ..client.transport import open_client
 
 console = Console()
 
@@ -34,7 +34,8 @@ def folders_group() -> None:
     help="Agent Brain server URL (default: from config or http://127.0.0.1:8000)",
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
-def list_folders_cmd(url: str | None, json_output: bool) -> None:
+@click.pass_context
+def list_folders_cmd(ctx: click.Context, url: str | None, json_output: bool) -> None:
     """List all indexed folders with chunk counts and last indexed time.
 
     \b
@@ -42,10 +43,13 @@ def list_folders_cmd(url: str | None, json_output: bool) -> None:
       agent-brain folders list
       agent-brain folders list --json
     """
-    resolved_url = url or get_server_url()
+    if url:
+        ctx.ensure_object(dict)
+        ctx.obj["base_url_override"] = url
+        ctx.obj["transport_hint"] = "http"
 
     try:
-        with DocServeClient(base_url=resolved_url) as client:
+        with open_client(ctx) as client:
             folders = client.list_folders()
 
             if json_output:
@@ -139,7 +143,9 @@ def list_folders_cmd(url: str | None, json_output: bool) -> None:
     help="Debounce interval in seconds for file watching (default: 30)",
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+@click.pass_context
 def add_folder_cmd(
+    ctx: click.Context,
     folder_path: str,
     url: str | None,
     include_code: bool,
@@ -157,11 +163,14 @@ def add_folder_cmd(
       agent-brain folders add ./src --include-code
       agent-brain folders add ./src --watch auto --debounce 10
     """
-    resolved_url = url or get_server_url()
+    if url:
+        ctx.ensure_object(dict)
+        ctx.obj["base_url_override"] = url
+        ctx.obj["transport_hint"] = "http"
     folder = Path(folder_path).resolve()
 
     try:
-        with DocServeClient(base_url=resolved_url) as client:
+        with open_client(ctx) as client:
             response = client.index(
                 folder_path=str(folder),
                 include_code=include_code,
@@ -218,7 +227,9 @@ def add_folder_cmd(
     help="Skip confirmation prompt",
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+@click.pass_context
 def remove_folder_cmd(
+    ctx: click.Context,
     folder_path: str,
     url: str | None,
     yes: bool,
@@ -234,7 +245,10 @@ def remove_folder_cmd(
       agent-brain folders remove ./docs --yes
       agent-brain folders remove /absolute/path/to/docs
     """
-    resolved_url = url or get_server_url()
+    if url:
+        ctx.ensure_object(dict)
+        ctx.obj["base_url_override"] = url
+        ctx.obj["transport_hint"] = "http"
     resolved_path = str(Path(folder_path).resolve())
 
     if not yes:
@@ -244,7 +258,7 @@ def remove_folder_cmd(
         )
 
     try:
-        with DocServeClient(base_url=resolved_url) as client:
+        with open_client(ctx) as client:
             result = client.delete_folder(folder_path=resolved_path)
 
             chunks_deleted = result.get("chunks_deleted", 0)

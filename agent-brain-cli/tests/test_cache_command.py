@@ -69,7 +69,7 @@ class TestCacheGroupHelp:
 class TestCacheStatusCommand:
     """Tests for 'cache status' subcommand."""
 
-    @patch("agent_brain_cli.commands.cache.DocServeClient")
+    @patch("agent_brain_cli.commands.cache.open_client")
     def test_cache_status_default_output(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -81,7 +81,7 @@ class TestCacheStatusCommand:
         assert "250" in result.output  # entry_count
         assert "75" in result.output  # hit_rate 75%
 
-    @patch("agent_brain_cli.commands.cache.DocServeClient")
+    @patch("agent_brain_cli.commands.cache.open_client")
     def test_cache_status_json_output(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -104,7 +104,7 @@ class TestCacheStatusCommand:
         assert parsed["hit_rate"] == 0.8
         assert parsed["hits"] == 800
 
-    @patch("agent_brain_cli.commands.cache.DocServeClient")
+    @patch("agent_brain_cli.commands.cache.open_client")
     def test_cache_status_connection_error(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -121,7 +121,7 @@ class TestCacheStatusCommand:
         assert result.exit_code == 1
         assert "Connection Error" in result.output
 
-    @patch("agent_brain_cli.commands.cache.DocServeClient")
+    @patch("agent_brain_cli.commands.cache.open_client")
     def test_cache_status_json_connection_error(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -141,7 +141,7 @@ class TestCacheStatusCommand:
 class TestCacheClearCommand:
     """Tests for 'cache clear' subcommand."""
 
-    @patch("agent_brain_cli.commands.cache.DocServeClient")
+    @patch("agent_brain_cli.commands.cache.open_client")
     def test_cache_clear_with_yes_flag(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -152,7 +152,7 @@ class TestCacheClearCommand:
         assert "250" in result.output  # count cleared
         assert "3.0" in result.output  # MB freed
 
-    @patch("agent_brain_cli.commands.cache.DocServeClient")
+    @patch("agent_brain_cli.commands.cache.open_client")
     def test_cache_clear_requires_confirmation(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -165,7 +165,7 @@ class TestCacheClearCommand:
         assert "250" in result.output  # entry count in prompt
         assert "Aborted" in result.output
 
-    @patch("agent_brain_cli.commands.cache.DocServeClient")
+    @patch("agent_brain_cli.commands.cache.open_client")
     def test_cache_clear_prompt_defaults_to_no(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -178,7 +178,7 @@ class TestCacheClearCommand:
         # Verify the prompt renders [y/n] (Rich Confirm with default=False)
         assert "y/n" in result.output.lower()
 
-    @patch("agent_brain_cli.commands.cache.DocServeClient")
+    @patch("agent_brain_cli.commands.cache.open_client")
     def test_cache_clear_confirm_yes(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -188,7 +188,7 @@ class TestCacheClearCommand:
         assert result.exit_code == 0
         assert "Cleared" in result.output
 
-    @patch("agent_brain_cli.commands.cache.DocServeClient")
+    @patch("agent_brain_cli.commands.cache.open_client")
     def test_cache_clear_connection_error(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -203,7 +203,7 @@ class TestCacheClearCommand:
         assert result.exit_code == 1
         assert "Connection Error" in result.output
 
-    @patch("agent_brain_cli.commands.cache.DocServeClient")
+    @patch("agent_brain_cli.commands.cache.open_client")
     def test_cache_clear_server_error(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
