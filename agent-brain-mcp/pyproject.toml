@@ -20,10 +20,19 @@ classifiers = [
 ]
 packages = [{include = "agent_brain_mcp"}]
 
+[tool.poetry.scripts]
+agent-brain-mcp = "agent_brain_mcp.cli:main"
+
 [tool.poetry.dependencies]
 python = "^3.10"
-# Phase 0 scaffold: deps land in Phase 4 implementation.
-# Planned: mcp>=1.0, agent-brain-uds>=10.1.0, agent-brain-rag>=10.1.0.
+mcp = "^1.12.0"
+httpx = "^0.28.0"
+pydantic = "^2.10.0"
+click = "^8.1.0"
+# Path-installed for local dev (plan §13 + need Phase 2 ConfigStatus model).
+# Release process swaps both to PyPI pins before publishing.
+agent-brain-rag = {path = "../agent-brain-server", develop = true}
+agent-brain-uds = {path = "../agent-brain-uds", develop = true}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"
@@ -51,6 +60,13 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "C4"]
 python_version = "3.10"
 strict = true
 ignore_missing_imports = true
+
+# The MCP SDK uses untyped decorators (server.list_tools(), etc.); we
+# can't fix that upstream and strict mypy flags every usage. Disable
+# the noisy codes for the one file that actually wires the SDK.
+[[tool.mypy.overrides]]
+module = "agent_brain_mcp.server"
+disable_error_code = ["misc", "no-untyped-call", "untyped-decorator"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
