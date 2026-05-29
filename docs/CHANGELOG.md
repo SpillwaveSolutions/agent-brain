@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [10.1.2] - 2026-05-29
+
+### Fixed
+
+- **PyPI publish completes for all four packages after pending publishers were registered.** v10.1.0 and v10.1.1 each failed at the new-package publish step because the projects had not been pre-registered for Trusted Publisher OIDC on PyPI. `agent-brain-mcp` additionally hit PyPI's typosquatting filter (similar to existing `agentbrain-mcp` 0.2.0) and was renamed to **`agent-brain-ag-mcp`** as its PyPI distribution name. The MCP `agent-brain-mcp` CLI command and Python import path stay unchanged — only the `pip install` string differs (`pip install agent-brain-ag-mcp` now). No functional changes vs the 10.1.1 design.
+
+---
+
 ## [10.1.1] - 2026-05-29
 
 ### Fixed
