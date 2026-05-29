@@ -63,9 +63,7 @@ def short_state_dir() -> Generator[Path, None, None]:
 class TestDualBindIntegration:
     """One process, two transports, shared lifespan."""
 
-    def test_dual_bind_responds_on_both_transports(
-        self, short_state_dir: Path
-    ) -> None:
+    def test_dual_bind_responds_on_both_transports(self, short_state_dir: Path) -> None:
         """HTTP /health/ and UDS /health/ must both return healthy
         simultaneously after serve_dual() starts."""
         socket_path = short_state_dir / "agent-brain.sock"
@@ -90,9 +88,9 @@ class TestDualBindIntegration:
         thread = threading.Thread(target=_run, daemon=True)
         thread.start()
         try:
-            assert _wait_for(socket_path.exists, timeout=5.0), (
-                f"UDS socket not created at {socket_path}"
-            )
+            assert _wait_for(
+                socket_path.exists, timeout=5.0
+            ), f"UDS socket not created at {socket_path}"
             os.chmod(socket_path, 0o600)
 
             # HTTP probe
@@ -101,9 +99,9 @@ class TestDualBindIntegration:
             ), "HTTP /health/ never responded healthy"
 
             # UDS probe
-            assert _probe_uds_healthy(socket_path), (
-                "UDS /health/ did not respond healthy"
-            )
+            assert _probe_uds_healthy(
+                socket_path
+            ), "UDS /health/ did not respond healthy"
         finally:
             for key in ("server_tcp", "server_uds"):
                 srv = server_holders.get(key)
@@ -152,7 +150,9 @@ class TestDualBindIntegration:
 def _probe_http_healthy(host: str, port: int) -> bool:
     try:
         response = httpx.get(f"http://{host}:{port}/health/", timeout=3.0)
-        return response.status_code == 200 and response.json().get("status") == "healthy"
+        return (
+            response.status_code == 200 and response.json().get("status") == "healthy"
+        )
     except Exception:  # noqa: BLE001 — probe; surface as False
         return False
 

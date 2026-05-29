@@ -12,7 +12,6 @@ Maps to plan §12.3 acceptance #3 (supporting) and Phase 3 acceptance #7
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -66,11 +65,12 @@ class TestUdsFlag:
     ) -> None:
         """``--uds`` results in AGENT_BRAIN_UDS=1 in the spawned env."""
         popen_calls: list[dict[str, str]] = []
-        with patch(
-            "agent_brain_cli.commands.start.subprocess.Popen",
-            side_effect=_popen_env_capture(popen_calls),
-        ), patch(
-            "agent_brain_cli.commands.start.check_health", return_value=True
+        with (
+            patch(
+                "agent_brain_cli.commands.start.subprocess.Popen",
+                side_effect=_popen_env_capture(popen_calls),
+            ),
+            patch("agent_brain_cli.commands.start.check_health", return_value=True),
         ):
             result = runner.invoke(
                 start_command,
@@ -99,11 +99,12 @@ class TestUdsOnlyFlag:
     ) -> None:
         """``--uds-only`` sets both AGENT_BRAIN_UDS=1 and AGENT_BRAIN_UDS_ONLY=1."""
         popen_calls: list[dict[str, str]] = []
-        with patch(
-            "agent_brain_cli.commands.start.subprocess.Popen",
-            side_effect=_popen_env_capture(popen_calls),
-        ), patch(
-            "agent_brain_cli.commands.start.check_health", return_value=True
+        with (
+            patch(
+                "agent_brain_cli.commands.start.subprocess.Popen",
+                side_effect=_popen_env_capture(popen_calls),
+            ),
+            patch("agent_brain_cli.commands.start.check_health", return_value=True),
         ):
             result = runner.invoke(
                 start_command,
@@ -123,11 +124,12 @@ class TestDefaultBehaviorUnchanged:
         self, runner: CliRunner, initialized_project: Path
     ) -> None:
         popen_calls: list[dict[str, str]] = []
-        with patch(
-            "agent_brain_cli.commands.start.subprocess.Popen",
-            side_effect=_popen_env_capture(popen_calls),
-        ), patch(
-            "agent_brain_cli.commands.start.check_health", return_value=True
+        with (
+            patch(
+                "agent_brain_cli.commands.start.subprocess.Popen",
+                side_effect=_popen_env_capture(popen_calls),
+            ),
+            patch("agent_brain_cli.commands.start.check_health", return_value=True),
         ):
             result = runner.invoke(
                 start_command,
@@ -150,11 +152,12 @@ class TestRuntimeSocketPath:
     ) -> None:
         """Server start with --uds populates runtime.json::socket_path."""
         popen_calls: list[dict[str, str]] = []
-        with patch(
-            "agent_brain_cli.commands.start.subprocess.Popen",
-            side_effect=_popen_env_capture(popen_calls),
-        ), patch(
-            "agent_brain_cli.commands.start.check_health", return_value=True
+        with (
+            patch(
+                "agent_brain_cli.commands.start.subprocess.Popen",
+                side_effect=_popen_env_capture(popen_calls),
+            ),
+            patch("agent_brain_cli.commands.start.check_health", return_value=True),
         ):
             result = runner.invoke(
                 start_command,
@@ -175,11 +178,12 @@ class TestJsonOutputIncludesSocketPath:
     def test_json_output_includes_socket_path(
         self, runner: CliRunner, initialized_project: Path
     ) -> None:
-        with patch(
-            "agent_brain_cli.commands.start.subprocess.Popen",
-            side_effect=_popen_env_capture([]),
-        ), patch(
-            "agent_brain_cli.commands.start.check_health", return_value=True
+        with (
+            patch(
+                "agent_brain_cli.commands.start.subprocess.Popen",
+                side_effect=_popen_env_capture([]),
+            ),
+            patch("agent_brain_cli.commands.start.check_health", return_value=True),
         ):
             result = runner.invoke(
                 start_command,

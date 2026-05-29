@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -13,7 +13,12 @@ from agent_brain_server.config.provider_config import (
     validate_provider_config,
 )
 from agent_brain_server.models import HealthStatus, IndexingStatus
-from agent_brain_server.models.health import ProviderHealth, ProvidersStatus
+from agent_brain_server.models.health import (
+    ConfigStatus,
+    ProviderHealth,
+    ProvidersStatus,
+    StoresStatus,
+)
 from agent_brain_server.providers.factory import ProviderRegistry
 from agent_brain_server.storage import get_effective_backend_type
 
@@ -343,6 +348,46 @@ async def providers_status(request: Request) -> ProvidersStatus:
         validation_errors=error_messages,
         providers=providers,
         timestamp=datetime.now(timezone.utc),
+    )
+
+
+@router.get(
+    "/config",
+    response_model=ConfigStatus,
+    summary="Configuration Snapshot",
+    description=(
+        "Returns the server's configuration shape (storage backend, enabled "
+        "stores, providers, watcher state). Feeds the MCP ``corpus://config`` "
+        "resource. This is configuration, not runtime stats — see /health/status."
+    ),
+)
+async def health_config(request: Request) -> ConfigStatus:
+    """Snapshot of what's configured (not what's running)."""
+    indexing_service = getattr(request.app.state, "indexing_service", None)
+    graph_enabled = False
+    watcher_running = False
+    if indexing_service is not None:
+        if hasattr(indexing_service, "is_graph_enabled"):
+            graph_enabled = bool(indexing_service.is_graph_enabled())
+        watcher_running = bool(getattr(indexing_service, "watcher_running", False))
+
+    embedding_model = getattr(
+        request.app.state, "embedding_model", "text-embedding-3-large"
+    )
+    reranker_enabled = bool(getattr(request.app.state, "reranker_enabled", False))
+    rerank_model = getattr(request.app.state, "rerank_model", None)
+    graph_extractor = getattr(request.app.state, "graph_extractor", None)
+
+    return ConfigStatus(
+        storage_backend=cast(
+            Literal["chroma", "postgres"], get_effective_backend_type()
+        ),
+        stores=StoresStatus(vector=True, bm25=True, graph=graph_enabled),
+        reranker_enabled=reranker_enabled,
+        embedding_model=embedding_model,
+        rerank_model=rerank_model,
+        graph_extractor=graph_extractor,
+        watcher_running=watcher_running,
     )
 
 

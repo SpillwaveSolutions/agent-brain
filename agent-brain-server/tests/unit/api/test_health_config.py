@@ -13,7 +13,6 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -68,9 +67,7 @@ class TestHealthConfigEndpoint:
         "agent_brain_server.api.routers.health.get_effective_backend_type",
         return_value="chroma",
     )
-    def test_body_matches_documented_keys(
-        self, _mock_backend: MagicMock
-    ) -> None:
+    def test_body_matches_documented_keys(self, _mock_backend: MagicMock) -> None:
         app = _create_app()
         client = TestClient(app)
         response = client.get("/health/config")
@@ -91,9 +88,7 @@ class TestHealthConfigEndpoint:
         "agent_brain_server.api.routers.health.get_effective_backend_type",
         return_value="chroma",
     )
-    def test_default_storage_backend_is_chroma(
-        self, _mock_backend: MagicMock
-    ) -> None:
+    def test_default_storage_backend_is_chroma(self, _mock_backend: MagicMock) -> None:
         app = _create_app()
         client = TestClient(app)
         response = client.get("/health/config")
@@ -151,9 +146,7 @@ class TestHealthConfigEndpoint:
         return_value="chroma",
     )
     def test_reranker_fields_round_trip(self, _mock_backend: MagicMock) -> None:
-        app = _create_app(
-            reranker_enabled=True, rerank_model="bge-reranker-v2-m3"
-        )
+        app = _create_app(reranker_enabled=True, rerank_model="bge-reranker-v2-m3")
         client = TestClient(app)
         data = client.get("/health/config").json()
         assert data["reranker_enabled"] is True

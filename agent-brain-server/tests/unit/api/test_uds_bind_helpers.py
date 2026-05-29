@@ -22,7 +22,9 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from agent_brain_server.api.uds_bind import serve_uds_only
+from agent_brain_server.api.uds_bind import (
+    serve_uds_only,  # noqa: F401 — collection-time smoke that the symbol exists
+)
 
 
 def _stub_app() -> FastAPI:
@@ -85,9 +87,9 @@ class TestServeUdsOnly:
         thread = threading.Thread(target=_run, daemon=True)
         thread.start()
         try:
-            assert _wait_for(socket_path.exists, timeout=5.0), (
-                f"socket not created at {socket_path}"
-            )
+            assert _wait_for(
+                socket_path.exists, timeout=5.0
+            ), f"socket not created at {socket_path}"
             os.chmod(socket_path, 0o600)
 
             transport = httpx.HTTPTransport(uds=str(socket_path))
@@ -142,6 +144,4 @@ class TestServeUdsOnly:
         from agent_brain_server.api import uds_bind as bind_mod
 
         with pytest.raises((FileNotFoundError, OSError)):
-            asyncio.run(
-                bind_mod.serve_uds_only(app, socket_path=socket_path)
-            )
+            asyncio.run(bind_mod.serve_uds_only(app, socket_path=socket_path))

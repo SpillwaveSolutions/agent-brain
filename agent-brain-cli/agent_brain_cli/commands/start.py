@@ -25,6 +25,7 @@ STATE_DIR_NAME = ".agent-brain"
 LOCK_FILE = "agent-brain.lock"
 PID_FILE = "agent-brain.pid"
 RUNTIME_FILE = "runtime.json"
+SOCKET_FILE_NAME = "agent-brain.sock"
 
 
 def read_config(state_dir: Path) -> dict[str, Any]:
@@ -174,6 +175,16 @@ def update_registry(project_root: Path, state_dir: Path) -> None:
     is_flag=True,
     help="Enable strict mode: fail on critical provider configuration errors",
 )
+@click.option(
+    "--uds",
+    is_flag=True,
+    help="Also bind a Unix Domain Socket alongside the HTTP listener.",
+)
+@click.option(
+    "--uds-only",
+    is_flag=True,
+    help="Bind only the Unix Domain Socket (no TCP listener). Implies --uds.",
+)
 def start_command(
     path: str | None,
     host: str | None,
@@ -182,6 +193,8 @@ def start_command(
     timeout: int,
     json_output: bool,
     strict: bool,
+    uds: bool,
+    uds_only: bool,
 ) -> None:
     """Start an Agent Brain server for this project.
 
@@ -317,12 +330,22 @@ def start_command(
             str(bind_port),
         ]
 
+        # --uds-only implies --uds (plan §7)
+        enable_uds = uds or uds_only
+        socket_path = str(state_dir / SOCKET_FILE_NAME) if enable_uds else None
+
         # Set environment variables for server
         env = os.environ.copy()
         env["AGENT_BRAIN_PROJECT_ROOT"] = str(project_root)
         env["AGENT_BRAIN_STATE_DIR"] = str(state_dir)
         if strict:
             env["AGENT_BRAIN_STRICT_MODE"] = "true"
+        if enable_uds:
+            env["AGENT_BRAIN_UDS"] = "1"
+            assert socket_path is not None  # for mypy
+            env["AGENT_BRAIN_UDS_PATH"] = socket_path
+        if uds_only:
+            env["AGENT_BRAIN_UDS_ONLY"] = "1"
 
         if foreground:
             # Write runtime state even in foreground mode so CLI can discover the URL
@@ -340,6 +363,7 @@ def start_command(
                 "pid": os.getpid(),  # Current PID (will be replaced by exec)
                 "started_at": datetime.now(timezone.utc).isoformat(),
                 "foreground": True,  # Mark as foreground for cleanup detection
+                "socket_path": socket_path,
             }
             write_runtime(state_dir, runtime_state)
 
@@ -391,6 +415,7 @@ def start_command(
                 "port": bind_port,
                 "pid": process.pid,
                 "started_at": datetime.now(timezone.utc).isoformat(),
+                "socket_path": socket_path,
             }
             write_runtime(state_dir, runtime_state)
 
@@ -419,6 +444,7 @@ def start_command(
                                 "pid": process.pid,
                                 "project_root": str(project_root),
                                 "log_file": str(stdout_log),
+                                "socket_path": socket_path,
                             },
                             indent=2,
                         )

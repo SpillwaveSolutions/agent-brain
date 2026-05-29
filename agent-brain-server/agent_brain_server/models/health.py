@@ -189,6 +189,40 @@ class ProviderHealth(BaseModel):
     )
 
 
+class StoresStatus(BaseModel):
+    """Which retrieval stores are enabled for this server instance.
+
+    Feeds the MCP ``corpus://config`` resource (plan §6.5).
+    """
+
+    vector: bool = Field(description="Vector store (always True in v1)")
+    bm25: bool = Field(description="BM25 keyword store (always True in v1)")
+    graph: bool = Field(description="Graph index — depends on backend + extractor")
+
+    model_config = {"extra": "forbid"}
+
+
+class ConfigStatus(BaseModel):
+    """Server *configuration* snapshot, not runtime stats.
+
+    Backs ``GET /health/config`` (plan §4.3) and the MCP ``corpus://config``
+    resource (plan §6.5). Values come from existing settings, the storage
+    factory, and the indexing service — no new persisted state.
+    """
+
+    storage_backend: Literal["chroma", "postgres"] = Field(
+        description="Active storage backend selected by AGENT_BRAIN_STORAGE_BACKEND"
+    )
+    stores: StoresStatus = Field(description="Per-store enable flags")
+    reranker_enabled: bool = Field(description="Whether reranking runs after retrieval")
+    embedding_model: str = Field(description="Active embedding model name")
+    rerank_model: str | None = Field(description="Active reranker model, or None")
+    graph_extractor: str | None = Field(
+        description="GRAPH_LANGEXTRACT_PROVIDER value, or None when graph is off"
+    )
+    watcher_running: bool = Field(description="Whether the file watcher is running")
+
+
 class ProvidersStatus(BaseModel):
     """Status of all configured providers."""
 
