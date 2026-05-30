@@ -1020,9 +1020,7 @@ The dual-bind path runs two `uvicorn.Server` instances on the shared asyncio loo
 
 ## Using Agent Brain via MCP
 
-Agent Brain ships an MCP (Model Context Protocol) server — `agent-brain-mcp` — that exposes the indexed corpus as **7 tools, 5 read-only resources, and 6 prompts** over stdio. LLM clients that speak MCP (Claude Desktop, Claude Code's MCP support, Cline, Continue.dev, Cursor, Goose) can call Agent Brain directly without shelling out to the CLI.
-
-### Claude Desktop / Code config
+Agent Brain ships an MCP (Model Context Protocol) server — `agent-brain-mcp` — that exposes the indexed corpus as **7 tools, 5 read-only resources, and 6 prompts** over stdio. Any MCP-aware host (Claude Desktop, Cursor, Windsurf, Claude Agent SDK, LangChain DeepAgents, …) can call Agent Brain directly without shelling out to the CLI.
 
 ```json
 {
@@ -1036,76 +1034,9 @@ Agent Brain ships an MCP (Model Context Protocol) server — `agent-brain-mcp` �
 }
 ```
 
-`--backend auto` tries UDS first and falls back to HTTP. Set `--backend uds` or `--backend http` to force one. Override the backend URL with `--backend-url http://127.0.0.1:9100` or `AGENT_BRAIN_MCP_BACKEND_URL`.
+For per-host configuration (Claude Desktop, Cursor / Windsurf, Claude Agent SDK, LangChain DeepAgents), the full tool/resource/prompt reference with schemas, end-to-end worked examples, error-mapping table, troubleshooting, and the v2–v4 roadmap, see **[MCP User Guide](./MCP_USER_GUIDE.md)**.
 
-The MCP server runs a one-time version-compat check at startup: it calls `GET /health/` and refuses to start when the backend reports a `version` below the pinned floor (`MIN_BACKEND_VERSION` in `agent_brain_mcp/server.py`). This prevents the MCP wire from drifting from the server it talks to.
-
-### The 7 tools
-
-| Tool | What it does |
-|---|---|
-| `search_documents` | All 5 retrieval modes (`semantic`, `bm25`, `hybrid`, `graph`, `multi`) via `mode` param. Returns ranked chunks with paths and scores. |
-| `query_count` | Total documents + total chunks currently indexed. |
-| `index_folder` | Queue a folder for indexing. Returns `{job_id, status}`. Honors `include_code`, `chunk_size`, `chunk_overlap`, `force`, `allow_external`. |
-| `get_job` | Poll a specific indexing job. |
-| `list_jobs` | List queue with cursor pagination (opaque base64 offset). |
-| `cancel_job` | Cancel a job. Requires `confirm: true` in input as a destructive-op gate (JSON-Schema-enforced). |
-| `server_health` | Server health, version, mode. |
-
-Each response includes both a `content` block (human-readable summary) and a `structuredContent` payload with declared `outputSchema` — so models that consume MCP structured output get typed data, not just text.
-
-### The 5 resources (read-only)
-
-| URI | Mirrors | What the model sees |
-|---|---|---|
-| `corpus://config` | `GET /health/config` | Storage backend, vector/BM25/graph enable flags, embedding + rerank model names, graph extractor, watcher state |
-| `corpus://status` | `GET /health/status` | `total_chunks`, `total_documents`, indexing in progress, current job, queue depth, cache hit rates |
-| `corpus://health` | `GET /health/` | Status, version, mode, instance_id, project_id |
-| `corpus://providers` | `GET /health/providers` | Active embedding/summarization/reranker provider, model name, healthy/degraded/unavailable |
-| `corpus://folders` | `GET /index/folders/` | Indexed folders with chunk counts, last-indexed timestamps, watch mode |
-
-`resources.subscribe` is **not** advertised in v1 — clients fetch with `resources/read` on demand. Subscriptions land in v2 (see Roadmap in CHANGELOG `[10.1.0]`).
-
-### The 6 prompts
-
-| Prompt | Arguments | What it does |
-|---|---|---|
-| `find-callers` | `symbol` (required), `language` (optional) | Graph-mode search for callers of `symbol`, returns ranked source paths. |
-| `find-implementation` | `feature` (required) | Two-step: BM25 for exact match, then graph walk to tests + related code. |
-| `explain-architecture` | `folder` (required), `depth` (default 2) | Multi-mode search restricted to `folder`, pulls READMEs + entrypoints + graph at depth. |
-| `compare-search-modes` | `query` (required) | Runs same query under BM25/hybrid/multi and shows the three result sets side by side. |
-| `onboard-to-codebase` | `area` (optional) | Reads config + folders resources, runs search for top entrypoints in `area`, produces a "where to start" briefing. |
-| `audit-indexed-folders` | (none) | Reads `corpus://folders`, identifies stale (>7 days) and unwatched folders, suggests `index_folder` calls. |
-
-### Error handling
-
-HTTP backend errors are mapped to MCP JSON-RPC error codes per a fixed table — every error carries `data.httpStatus` and `data.cause`:
-
-| HTTP | MCP code | Notes |
-|---|---|---|
-| 400 / 404 / 422 | `-32602 InvalidParams` | Pydantic validation detail echoed |
-| 409 | `-32000 InvalidRequest` | Conflict (custom code) |
-| 500 | `-32603 InternalError` | |
-| 502 | `-32001 BackendUnavailable` | UDS gone / HTTP unreachable (custom) |
-| 503 | `-32002 ServiceIndexing` | Indexing-in-progress (custom) |
-| 504 | `-32003 BackendTimeout` | Wrapped httpx timeout (custom) |
-
-Transport-level errors (connect refused, read timeout) map to the same custom codes (`-32001`, `-32003`) so MCP clients can distinguish "backend down" from "backend rejected my request".
-
-### Cancellation
-
-MCP `notifications/cancelled` propagates: every tool/resource handler runs in `asyncio.to_thread` so the asyncio event loop stays responsive while a sync `httpx` call is in flight. Cancelling a tool call returns control to the MCP client within ~1 second; the underlying OS-level request may still complete in the background (Python can't portably kill threads), but the MCP-side handler unblocks cleanly. v1 has no long-running tools (no `wait_for_job` — that's v2), so this is a fast-path guarantee.
-
-### What's not in v1
-
-- Resource **subscriptions** (`resources/subscribe`) — v2
-- Streamable HTTP MCP transport — v2 (stdio only in v1)
-- `chunk://<id>` and `graph-entity://<type>/<id>` resource schemes — v2 (need new server endpoints)
-- 9 deferred tools: `explain_result`, `add_documents`, `inject_documents`, `wait_for_job`, `list_folders`, `remove_folder`, `cache_status`, `clear_cache`, `list_file_types` — v2
-- CLI-via-MCP (`agent-brain --transport mcp`) and framework adapter matrix — v3
-- OAuth 2.1 for remote Agent Brain — v4
-
-See `docs/roadmaps/mcp/` for the per-version roadmap bodies.
+For the slash-command companion that runs inside Claude Code / OpenCode / Gemini CLI / Codex, see **[Plugin Guide](./PLUGIN_GUIDE.md)**.
 
 ---
 
