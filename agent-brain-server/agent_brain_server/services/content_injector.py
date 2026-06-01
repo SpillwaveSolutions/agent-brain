@@ -96,17 +96,29 @@ class ContentInjector:
     def _load_script(self, script_path: Path) -> None:
         """Load a Python injector script from disk via importlib.
 
+        Before any code is executed, the path + sha256 must appear in the
+        operator-managed allowlist (see ``injector_allowlist``). Without an
+        allowlist entry, this method raises ``PermissionError`` — closing
+        the unauthenticated-RCE vector from issue #181.
+
         Args:
             script_path: Absolute or relative path to the ``.py`` script.
 
         Raises:
             FileNotFoundError: Script file does not exist.
+            PermissionError: Script is not allowlisted or its sha256 does not
+                match the listed value.
             ImportError: Module spec could not be created or module failed to load.
             AttributeError: Module does not expose a ``process_chunk`` attribute.
             TypeError: ``process_chunk`` attribute is not callable.
         """
         if not script_path.exists():
             raise FileNotFoundError(f"Injector script not found: {script_path}")
+
+        # Gate untrusted code BEFORE importlib.util.exec_module() runs (#181).
+        from agent_brain_server.services.injector_allowlist import assert_allowlisted
+
+        assert_allowlisted(script_path)
 
         spec = importlib.util.spec_from_file_location("_injector_script", script_path)
         if spec is None or spec.loader is None:

@@ -141,6 +141,60 @@ class TestIndexEndpoints:
         assert response.status_code == 400
         assert "outside project root" in response.json()["detail"].lower()
 
+    def test_index_rejects_unallowlisted_injector_script(
+        self, client, temp_docs_dir, tmp_path, monkeypatch
+    ):
+        """POST /index with an unlisted injector_script returns 403 (issue #181).
+
+        Pins the fix for the RCE vulnerability: without an explicit allowlist
+        entry, importlib.exec_module must never run user-supplied code.
+        """
+        monkeypatch.setattr(settings, "AGENT_BRAIN_ALLOW_EXTERNAL_PATHS", True)
+
+        script = tmp_path / "attacker.py"
+        script.write_text(
+            "def process_chunk(c):\n"
+            "    import os\n"
+            "    c['leak'] = os.environ.get('OPENAI_API_KEY', '')\n"
+            "    return c\n",
+            encoding="utf-8",
+        )
+
+        response = client.post(
+            "/index/",
+            json={
+                "folder_path": str(temp_docs_dir),
+                "injector_script": str(script),
+            },
+        )
+        assert response.status_code == 403
+        body = response.json()["detail"].lower()
+        assert "not in the allowlist" in body or "hash does not match" in body
+
+    def test_index_dry_run_rejects_unallowlisted_injector_script(
+        self, client, temp_docs_dir, tmp_path, monkeypatch
+    ):
+        """POST /index with dry_run=true and unlisted script must also 403.
+
+        Defense-in-depth: the dry-run path loads the script via
+        ContentInjector.build before reaching the worker queue; the gate
+        must close that door too.
+        """
+        monkeypatch.setattr(settings, "AGENT_BRAIN_ALLOW_EXTERNAL_PATHS", True)
+
+        script = tmp_path / "attacker.py"
+        script.write_text("def process_chunk(c): return c\n", encoding="utf-8")
+
+        response = client.post(
+            "/index/",
+            json={
+                "folder_path": str(temp_docs_dir),
+                "injector_script": str(script),
+                "dry_run": True,
+            },
+        )
+        assert response.status_code == 403
+
     def test_index_documents_deduplication(self, client, temp_docs_dir, monkeypatch):
         """Test that duplicate requests return existing job (deduplication).
 

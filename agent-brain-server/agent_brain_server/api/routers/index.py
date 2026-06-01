@@ -65,6 +65,12 @@ async def _handle_dry_run(
                 script_path=request_body.injector_script,
                 metadata_path=request_body.folder_metadata_file,
             )
+        except PermissionError as exc:
+            # Issue #181: injector allowlist denied this script.
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=str(exc),
+            ) from exc
         except Exception as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -300,6 +306,18 @@ async def index_documents(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Injector script must be a .py file",
             )
+        # Issue #181: reject unallowlisted scripts before they reach the queue
+        # or the dry-run sample loader. Defense-in-depth gate also lives in
+        # ContentInjector._load_script for any future callers.
+        from agent_brain_server.services.injector_allowlist import assert_allowlisted
+
+        try:
+            assert_allowlisted(script_path)
+        except PermissionError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=str(exc),
+            ) from exc
 
     # Validate folder metadata file path if provided (INJECT-04)
     if request_body.folder_metadata_file is not None:

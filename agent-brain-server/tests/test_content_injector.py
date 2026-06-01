@@ -1,4 +1,9 @@
-"""Unit tests for ContentInjector service (INJECT-01 through INJECT-07)."""
+"""Unit tests for ContentInjector service (INJECT-01 through INJECT-07).
+
+The injector-allowlist gate (issue #181) is exercised by
+``test_injector_allowlist.py``. This file tests chunk-processing behavior,
+so the autouse fixture below disables the gate to keep these tests focused.
+"""
 
 from __future__ import annotations
 
@@ -11,6 +16,21 @@ import pytest
 
 from agent_brain_server.indexing.chunking import ChunkMetadata, TextChunk
 from agent_brain_server.services.content_injector import ContentInjector
+
+
+@pytest.fixture(autouse=True)
+def _bypass_allowlist(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Disable the injector allowlist for ContentInjector unit tests.
+
+    The allowlist's own tests live in ``test_injector_allowlist.py``; here
+    we want to focus on chunk processing without ceremonially hashing every
+    temp script. ContentInjector._load_script imports assert_allowlisted
+    lazily, so monkeypatching the source module is enough.
+    """
+    from agent_brain_server.services import injector_allowlist
+
+    monkeypatch.setattr(injector_allowlist, "assert_allowlisted", lambda _p: None)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -93,6 +113,25 @@ def test_load_script_non_callable_process_chunk(tmp_path: Path) -> None:
     """TypeError raised when process_chunk attribute is not callable."""
     script = _write_script(tmp_path, "process_chunk = 42\n")
     with pytest.raises(TypeError, match="callable"):
+        ContentInjector(script_path=script)
+
+
+def test_load_script_rejected_when_not_allowlisted(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Smoke-test: the allowlist gate is wired into _load_script (issue #181).
+
+    Overrides the autouse bypass and checks that the real allowlist gate
+    runs before importlib touches the file.
+    """
+    from agent_brain_server.services import injector_allowlist
+
+    def _deny(_p: Path) -> None:
+        raise PermissionError("not in the allowlist")
+
+    monkeypatch.setattr(injector_allowlist, "assert_allowlisted", _deny)
+    script = _write_script(tmp_path, "def process_chunk(c): return c\n")
+    with pytest.raises(PermissionError, match="not in the allowlist"):
         ContentInjector(script_path=script)
 
 
