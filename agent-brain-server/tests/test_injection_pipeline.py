@@ -16,6 +16,20 @@ from agent_brain_server.models.index import IndexRequest
 from agent_brain_server.models.job import JobRecord, JobStatus
 from agent_brain_server.services.content_injector import ContentInjector
 
+
+@pytest.fixture(autouse=True)
+def _bypass_injector_allowlist(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bypass the injector allowlist for pipeline tests (issue #181).
+
+    These tests exercise pipeline wiring rather than the trust gate itself;
+    the gate is covered by ``tests/test_injector_allowlist.py`` and
+    ``tests/integration/test_api.py``.
+    """
+    from agent_brain_server.services import injector_allowlist
+
+    monkeypatch.setattr(injector_allowlist, "assert_allowlisted", lambda _p: None)
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

@@ -505,6 +505,28 @@ Presets can be combined with commas: `--include-type python,docs`. The `code` pr
 
 Content injection enriches chunk metadata during indexing using custom Python scripts or static JSON metadata files. Injectors run after chunking but before embedding generation (step 2.5 in the pipeline), so enriched metadata is stored alongside vectors in the index.
 
+> **Security advisory (issue #181).** Injector scripts are executed in the server process with the server's credentials (filesystem, network, and any provider API keys present in its environment). To prevent an unauthenticated caller from running arbitrary code, **every script must be explicitly allowlisted** in `.agent-brain/config.yaml` (project) or `~/.config/agent-brain/config.yaml` (global) by its path **and** its sha256 hash. Scripts not in the allowlist are rejected with HTTP 403 before any code is loaded. Missing or empty config = no scripts may run (fail-closed).
+
+### Allowlisting a Script
+
+Compute the script's sha256 and add it to your project config:
+
+```bash
+$ sha256sum ./enrich.py
+a1b2c3d4e5f6...  ./enrich.py
+```
+
+```yaml
+# .agent-brain/config.yaml
+injector_scripts:
+  - path: ./enrich.py                       # resolved relative to this config file
+    sha256: a1b2c3d4e5f6...                 # 64-char hex
+  - path: /opt/agent-brain/transforms/x.py  # absolute paths are also accepted
+    sha256: 7e8f9a0b...
+```
+
+Project-local entries take precedence over global ones for the same path. When you change a script, regenerate its hash and update the entry — the gate is content-bound, so a swapped file with a stale hash is rejected.
+
 ### Script Injection
 
 Provide a Python script that exports a `process_chunk` function:

@@ -265,4 +265,15 @@ def inject_command(
                     "\n[dim]A conflict occurred. "
                     "Check 'agent-brain jobs' for queue status.[/]"
                 )
+            elif e.status_code == 403:
+                # Injector allowlist rejected the script (issue #181).
+                console.print(
+                    "\n[dim]Injector scripts must be allowlisted in "
+                    "[bold].agent-brain/config.yaml[/] before they can run on "
+                    "the server. Add an entry under [bold]injector_scripts:[/] "
+                    "with the script's path and the sha256 of its contents "
+                    "(run [bold]sha256sum <script>[/] to get the hash). "
+                    "See docs/USER_GUIDE.md 'Content Injection' for the full "
+                    "schema.[/]"
+                )
         raise SystemExit(1) from e
