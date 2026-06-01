@@ -370,7 +370,6 @@ class DocServeClient:
         include_types: list[str] | None = None,
         generate_summaries: bool = False,
         force: bool = False,
-        allow_external: bool = False,
         injector_script: str | None = None,
         folder_metadata_file: str | None = None,
         dry_run: bool = False,
@@ -393,7 +392,6 @@ class DocServeClient:
             include_types: File type preset names (e.g., ["python", "docs"]).
             generate_summaries: Generate LLM summaries for code chunks.
             force: Bypass deduplication and force a new job.
-            allow_external: Allow paths outside the project directory.
             injector_script: Path to Python script exporting process_chunk().
             folder_metadata_file: Path to JSON file with static metadata.
             dry_run: Validate injector against sample chunks without indexing.
@@ -433,7 +431,7 @@ class DocServeClient:
             "POST",
             "/index/",
             json=body,
-            params={"force": force, "allow_external": allow_external},
+            params={"force": force},
         )
 
         return IndexResponse(

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from agent_brain_server import __version__
+from agent_brain_server.config import settings
 
 
 @dataclass
@@ -61,9 +62,16 @@ class TestHealthEndpoints:
 class TestIndexEndpoints:
     """Tests for indexing endpoints."""
 
-    def test_index_documents_success(self, client, temp_docs_dir, mock_vector_store):
+    def test_index_documents_success(
+        self, client, temp_docs_dir, mock_vector_store, monkeypatch
+    ):
         """Test successful document indexing request."""
         mock_vector_store.is_initialized = True
+        # temp_docs_dir lives outside the resolved project root, so the
+        # server-side path-containment setting must be True for this test.
+        # The previous per-request `allow_external` query parameter was
+        # removed in issue #180; containment is now operator-controlled.
+        monkeypatch.setattr(settings, "AGENT_BRAIN_ALLOW_EXTERNAL_PATHS", True)
 
         with patch(
             "agent_brain_server.services.indexing_service.IndexingService.start_indexing",
@@ -71,7 +79,7 @@ class TestIndexEndpoints:
             return_value="job_test123",
         ):
             response = client.post(
-                "/index/?allow_external=true",
+                "/index/",
                 json={
                     "folder_path": str(temp_docs_dir),
                     "chunk_size": 512,
@@ -95,15 +103,55 @@ class TestIndexEndpoints:
         assert response.status_code == 400
         assert "not found" in response.json()["detail"].lower()
 
-    def test_index_documents_deduplication(self, client, temp_docs_dir):
+    def test_index_rejects_external_path_when_setting_false(
+        self, client, temp_docs_dir, monkeypatch
+    ):
+        """External paths return 400 when AGENT_BRAIN_ALLOW_EXTERNAL_PATHS is False.
+
+        Pins the issue #180 fix: the per-request ``allow_external`` query
+        parameter is gone, and the only way to opt in to external paths is
+        the server-side setting.
+        """
+        monkeypatch.setattr(settings, "AGENT_BRAIN_ALLOW_EXTERNAL_PATHS", False)
+
+        response = client.post(
+            "/index/",
+            json={"folder_path": str(temp_docs_dir)},
+        )
+        # temp_docs_dir lives outside the resolved project root, so this
+        # must be rejected when the operator has not opted in.
+        assert response.status_code == 400
+        assert "outside project root" in response.json()["detail"].lower()
+
+    def test_index_ignores_legacy_allow_external_query_param(
+        self, client, temp_docs_dir, monkeypatch
+    ):
+        """The removed query parameter must not re-enable external paths.
+
+        Defense-in-depth: even if a caller still sends ``?allow_external=true``,
+        FastAPI now ignores the unknown query param and the server-side
+        setting (False here) governs the decision. Rejection is expected.
+        """
+        monkeypatch.setattr(settings, "AGENT_BRAIN_ALLOW_EXTERNAL_PATHS", False)
+
+        response = client.post(
+            "/index/?allow_external=true",
+            json={"folder_path": str(temp_docs_dir)},
+        )
+        assert response.status_code == 400
+        assert "outside project root" in response.json()["detail"].lower()
+
+    def test_index_documents_deduplication(self, client, temp_docs_dir, monkeypatch):
         """Test that duplicate requests return existing job (deduplication).
 
         Note: With the queue-based system, concurrent requests are handled via
         deduplication, not 409 conflicts. The same path returns the same job.
         """
+        monkeypatch.setattr(settings, "AGENT_BRAIN_ALLOW_EXTERNAL_PATHS", True)
+
         # First request - creates new job
         response1 = client.post(
-            "/index/?allow_external=true",
+            "/index/",
             json={"folder_path": str(temp_docs_dir)},
         )
         assert response1.status_code == 202
@@ -111,7 +159,7 @@ class TestIndexEndpoints:
 
         # Second request - should return same job via deduplication
         response2 = client.post(
-            "/index/?allow_external=true",
+            "/index/",
             json={"folder_path": str(temp_docs_dir)},
         )
         assert response2.status_code == 202
@@ -120,9 +168,12 @@ class TestIndexEndpoints:
         # Both requests should get the same job ID
         assert job_id_1 == job_id_2
 
-    def test_add_documents_endpoint(self, client, temp_docs_dir, mock_vector_store):
+    def test_add_documents_endpoint(
+        self, client, temp_docs_dir, mock_vector_store, monkeypatch
+    ):
         """Test adding documents to existing index."""
         mock_vector_store.is_initialized = True
+        monkeypatch.setattr(settings, "AGENT_BRAIN_ALLOW_EXTERNAL_PATHS", True)
 
         with patch(
             "agent_brain_server.services.indexing_service.IndexingService.start_indexing",
@@ -138,7 +189,7 @@ class TestIndexEndpoints:
                 mock_get_service.return_value = mock_service
 
                 response = client.post(
-                    "/index/add?allow_external=true",
+                    "/index/add",
                     json={"folder_path": str(temp_docs_dir)},
                 )
 

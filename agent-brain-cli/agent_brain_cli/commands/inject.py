@@ -98,11 +98,6 @@ console = Console()
     is_flag=True,
     help="Force re-indexing even if embedding provider has changed",
 )
-@click.option(
-    "--allow-external",
-    is_flag=True,
-    help="Allow indexing paths outside the project directory",
-)
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
 @click.pass_context
 def inject_command(
@@ -123,7 +118,6 @@ def inject_command(
     exclude_patterns: str | None,
     generate_summaries: bool,
     force: bool,
-    allow_external: bool,
     json_output: bool,
 ) -> None:
     """Index documents from a folder with content injection.
@@ -199,7 +193,6 @@ def inject_command(
                 exclude_patterns=exclude_patterns_list,
                 generate_summaries=generate_summaries,
                 force=force,
-                allow_external=allow_external,
                 injector_script=resolved_script,
                 folder_metadata_file=resolved_metadata,
                 dry_run=dry_run,

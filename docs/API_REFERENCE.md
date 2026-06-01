@@ -390,8 +390,13 @@ Enqueue a job to index documents from a folder. Returns immediately with a job I
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `force` | boolean | `false` | Bypass deduplication and force a new job |
-| `allow_external` | boolean | `false` | Allow paths outside the project directory |
 | `rebuild_graph` | boolean | `false` | Rebuild only the graph index without re-indexing documents (requires `ENABLE_GRAPH_INDEX=true`) |
+
+> **Path containment**: paths outside the resolved project root are rejected
+> with HTTP 400 unless the operator has set the server-side environment
+> variable `AGENT_BRAIN_ALLOW_EXTERNAL_PATHS=true`. The previous
+> per-request `allow_external` query parameter was removed in issue #180
+> because it let any HTTP caller bypass containment.
 
 **Request Body**:
 
@@ -453,7 +458,7 @@ Enqueue a job to index documents from a folder. Returns immediately with a job I
 
 | Code | Description |
 |------|-------------|
-| `400` | Invalid folder path, path outside project (without `allow_external`), invalid injector script, invalid include_types preset, or `rebuild_graph=true` with GraphRAG not enabled |
+| `400` | Invalid folder path, path outside project root (when `AGENT_BRAIN_ALLOW_EXTERNAL_PATHS=false`), invalid injector script, invalid include_types preset, or `rebuild_graph=true` with GraphRAG not enabled |
 | `429` | Queue is full (backpressure) |
 
 ---
@@ -467,7 +472,9 @@ Enqueue a job to add documents from another folder to the existing index. Same r
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `force` | boolean | `false` | Bypass deduplication and force a new job |
-| `allow_external` | boolean | `false` | Allow paths outside the project directory |
+
+> Path containment rules match `POST /index`. See that endpoint for the
+> `AGENT_BRAIN_ALLOW_EXTERNAL_PATHS` setting.
 
 **Response** `202 Accepted`:
 
@@ -483,7 +490,7 @@ Enqueue a job to add documents from another folder to the existing index. Same r
 
 | Code | Description |
 |------|-------------|
-| `400` | Invalid folder path, path outside project (without `allow_external`), or invalid include_types preset |
+| `400` | Invalid folder path, path outside project root (when `AGENT_BRAIN_ALLOW_EXTERNAL_PATHS=false`), or invalid include_types preset |
 | `429` | Queue is full (backpressure) |
 
 ---
