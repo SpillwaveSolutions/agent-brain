@@ -1,83 +1,104 @@
-# Requirements: Agent Brain
+# Requirements: Agent Brain — v10.2 MCP v2
 
-**Defined:** 2026-03-31
+**Defined:** 2026-06-02
 **Core Value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
+**Source design:** `docs/plans/2026-05-28-mcp-uds-transport-design.md` §11, §15.1
+**Scope doc:** `docs/roadmaps/mcp/v2-subscriptions-and-resources.md`
+**Umbrella issue:** [#186](https://github.com/SpillwaveSolutions/agent-brain/issues/186)
 
 ## v1 Requirements
 
-Requirements for v9.6.0 Runtime Support Parity & Backlog Cleanup. Each maps to roadmap phases.
+Requirements for v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion. Each maps to a roadmap phase.
 
-### Test Isolation
+### Resource Subscriptions (SUB)
 
-- [ ] **ISO-01**: Developer can run runtime parity integration tests that install Agent Brain only inside repo-owned project fixtures and temporary paths, never user-global runtime config directories
-- [ ] **ISO-02**: Developer can verify the generated project-local install tree for each runtime before headless CLI execution begins
+- [ ] **SUB-01**: Client can call `resources/subscribe` on a `job://<id>` resource and receive `notifications/resources/updated` events at 1s cadence while the job is active
+- [ ] **SUB-02**: Client can subscribe to `corpus://status` and receive update notifications at 30s cadence
+- [ ] **SUB-03**: Client can subscribe to `corpus://folders` and receive watcher-driven update notifications when indexed folders change
+- [ ] **SUB-04**: Server emits `notifications/resources/updated` messages conforming to the current MCP spec, including resource URI and revision metadata
+- [ ] **SUB-05**: Server tracks per-client subscriptions and cleans up subscriptions on client disconnect
 
-### Codex Runtime
+### Deferred URI Schemes (URI)
 
-- [ ] **CODEX-01**: Developer can install Agent Brain into an isolated project directory for Codex and verify `.codex/skills/agent-brain/` plus `AGENTS.md` were generated in that project
-- [ ] **CODEX-02**: Developer can invoke Codex headlessly from the isolated project and receive JSON status showing an installed Agent Brain skill or setup flow executed successfully
+- [ ] **URI-01**: Client can read `chunk://<chunk_id>` resources via MCP `resources/read` (requires new `GET /query/chunk/{id}` server endpoint with O(1) lookup)
+- [ ] **URI-02**: Client can read `graph-entity://<type>/<id>` resources via MCP `resources/read` (requires new `GET /graph/entity/{type}/{id}` server endpoint)
+- [ ] **URI-03**: Client can read `job://<job_id>` resources via MCP `resources/read` (uses existing `GET /index/jobs/{id}` endpoint)
+- [ ] **URI-04**: Client can read `file://<abs-path>` resources gated by indexed roots and MCP `roots/list` sandboxing
+- [ ] **URI-05**: Server responds to MCP `resources/templates/list` with templates for `chunk://`, `graph-entity://`, `job://`, and `file://` schemes
 
-### OpenCode Runtime
+### Streamable HTTP Transport (HTTP)
 
-- [ ] **OPEN-01**: Developer can install Agent Brain into an isolated project directory for OpenCode and verify `.opencode/plugins/agent-brain/` plus project-local `opencode.json` permission entries were generated
-- [ ] **OPEN-02**: Developer can invoke OpenCode headlessly from the isolated project and receive JSON status showing an installed Agent Brain skill or setup flow executed successfully
+- [ ] **HTTP-01**: Operator can run `agent-brain-mcp --transport http` to start the MCP server over Streamable HTTP
+- [ ] **HTTP-02**: Streamable HTTP transport binds loopback only (127.0.0.1); v2 ships no MCP authentication (auth is reserved for v4)
+- [ ] **HTTP-03**: Stdio transport continues to work alongside HTTP; transport selection is controlled by the `--transport` flag with no silent fallback
 
-### Gemini Runtime
+### Tool Completion (TOOL)
 
-- [ ] **GCLI-01**: Developer can install Agent Brain into an isolated project directory for Gemini CLI and verify `.gemini/plugins/agent-brain/` was generated in that project
-- [ ] **GCLI-02**: Developer can invoke Gemini headlessly from the isolated project and receive JSON status showing an installed Agent Brain skill or setup flow executed successfully
+- [ ] **TOOL-01**: Client can call `explain_result` and receive provenance and scoring breakdown for a query result
+- [ ] **TOOL-02**: Client can call `add_documents` with a path list to start an indexing job and receive the job id
+- [ ] **TOOL-03**: Client can call `inject_documents` with an enrichment-script path and a folder path to start an injection-aware indexing job
+- [ ] **TOOL-04**: Client can call `wait_for_job` to block until job completion; while the job runs, `wait_for_job` emits `notifications/progress` at least every 2s
+- [ ] **TOOL-05**: Client can call `list_folders` and receive the list of indexed folders with chunk counts and last-indexed metadata
+- [ ] **TOOL-06**: Client can call `remove_folder` with a folder path to remove all indexed chunks for that folder
+- [ ] **TOOL-07**: Client can call `cache_status` and receive embedding-cache statistics
+- [ ] **TOOL-08**: Client can call `clear_cache` to clear the embedding cache
+- [ ] **TOOL-09**: Client can call `list_file_types` and receive available file-type presets
 
-### Runtime Hygiene
+### Validation & Quality (VAL)
 
-- [ ] **PARITY-01**: Runtime parity tests report unavailable CLIs, install verification failures, and malformed JSON as explicit per-runtime failures instead of silently skipping
-- [ ] **PARITY-02**: Runtime-related pending todos and planning artifacts accurately reflect shipped Codex, OpenCode, and Gemini support with completed work removed from pending state
+- [ ] **VAL-01**: All 16 MCP tools (7 from v1 + 9 from v2) covered by parameterized contract tests verified against the official MCP SDK
+- [ ] **VAL-02**: Resource subscriptions tested end-to-end against the official MCP SDK, including subscribe / unsubscribe / disconnect cleanup
+- [ ] **VAL-03**: Streamable HTTP transport tested via the official MCP SDK HTTP client
+- [ ] **VAL-04**: New MCP packages folded into root `task before-push` and `task pr-qa-gate` (closes DR-5 from v1 design)
+- [ ] **VAL-05**: Own v2 design doc filed at `docs/plans/YYYY-MM-DD-mcp-v2-subscriptions.md`
 
-## v2 Requirements
+## v2 Requirements (Deferred to v10.3 / MCP v3)
 
-Deferred to future release.
+### CLI-via-MCP (CLI-MCP)
 
-### CI Expansion
+- **CLIMCP-01**: `agent-brain` CLI can speak MCP over its `McpHttpBackend` against a remote Agent Brain instance
+- **CLIMCP-02**: Framework adapters in scope: OpenAI Agents SDK, LangChain, LlamaIndex, Pydantic AI, Mastra, Vercel AI SDK, Autogen
 
-- **CI-01**: Runtime parity suite runs in CI with Codex, OpenCode, and Gemini CLIs provisioned automatically
-- **CI-02**: Disposable-home global-install smoke tests exist for supported runtimes without touching a developer's real home directory
+### Remote Auth (deferred to v4)
 
-### Runtime Expansion
-
-- **CLAUDE-01**: Claude runtime installation and headless invocation join the same parity matrix used for Codex, OpenCode, and Gemini
+- **OAUTH-01**: OAuth 2.1 Protected Resource Metadata
+- **OAUTH-02**: OAuth 2.1 Dynamic Client Registration
+- **OAUTH-03**: OAuth 2.1 Resource Indicators
+- **OAUTH-04**: Optional DPoP support
 
 ## Out of Scope
 
-Explicitly excluded. Documented to prevent scope creep.
+Explicitly excluded from v10.2. Documented to prevent scope creep.
 
 | Feature | Reason |
 |---------|--------|
-| Real global installs to `~/.codex`, `~/.config/opencode`, or `~/.config/gemini` during tests | User explicitly wants parity tests to protect the existing local environment |
-| Interactive/manual runtime sessions | Milestone focuses on deterministic headless execution with machine-verifiable JSON status |
-| New runtime adapters beyond Codex, OpenCode, and Gemini | The goal is parity for the currently targeted code-agent runtimes, not adapter expansion |
-| New Gemini provider features unrelated to runtime parity | Current milestone scope is installation/execution parity, not provider capability expansion |
+| MCP CLI-via-MCP and framework matrix | Deferred to v3 (#187); requires v2's HTTP transport to land first |
+| OAuth 2.1 for remote MCP instances | Deferred to v4 (#188); requires v3's `McpHttpBackend` |
+| MCP sampling / completion (LLM-in-the-server) | Advanced pattern not needed for tool/resource/subscription completeness |
+| MCP plugin auto-registration | Requires manifest design; deferred to a follow-up milestone |
+| MCP authentication on Streamable HTTP transport | v2 is loopback-only by design; auth ships in v4 with OAuth 2.1 |
+| Multi-instance / remote MCP federation | Out of scope for v2; tracked separately as #157 |
+| Bearer-token API key auth on FastAPI endpoints (#179) | Separate workstream from MCP; tracked under its own PR by Jeremy |
+| Reviving v9.6.0 phases 47–49 (Codex/OpenCode/Gemini parity) | Deferred — re-evaluate during v3 framework matrix work |
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
+Which phases cover which requirements. Updated during roadmap creation (populated by `gsd-roadmapper`).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ISO-01 | Phase 46 | Pending |
-| ISO-02 | Phase 46 | Pending |
-| PARITY-01 | Phase 46 | Pending |
-| CODEX-01 | Phase 47 | Pending |
-| CODEX-02 | Phase 47 | Pending |
-| OPEN-01 | Phase 48 | Pending |
-| OPEN-02 | Phase 48 | Pending |
-| GCLI-01 | Phase 49 | Pending |
-| GCLI-02 | Phase 49 | Pending |
-| PARITY-02 | Phase 49 | Pending |
+| SUB-01..05 | TBD | Pending |
+| URI-01..05 | TBD | Pending |
+| HTTP-01..03 | TBD | Pending |
+| TOOL-01..09 | TBD | Pending |
+| VAL-01..05 | TBD | Pending |
 
 **Coverage:**
-- v1 requirements: 10 total
-- Mapped to phases: 10
-- Unmapped: 0 ✓
+- v1 requirements: 27 total
+- Mapped to phases: 0 (pending roadmap)
+- Unmapped: 27 ⚠️ (will become 0 after roadmap)
 
 ---
-*Requirements defined: 2026-03-31*
-*Last updated: 2026-03-31 after initial definition for v9.6.0*
+*Requirements defined: 2026-06-02*
+*Last updated: 2026-06-02 after v10.2 milestone start*
+*Previous milestone requirements (v9.6.0) archived at `.planning/milestones/v9.6.0-REQUIREMENTS.md`*
