@@ -83,22 +83,51 @@ Explicitly excluded from v10.2. Documented to prevent scope creep.
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation (populated by `gsd-roadmapper`).
+Phase mapping for v10.2. Phase numbering continues sequentially from v9.6.0 (last phase: 49 deferred). v10.0.x and v10.1.x patch trains were not formally phase-numbered.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SUB-01..05 | TBD | Pending |
-| URI-01..05 | TBD | Pending |
-| HTTP-01..03 | TBD | Pending |
-| TOOL-01..09 | TBD | Pending |
-| VAL-01..05 | TBD | Pending |
+| SUB-01 | Phase 52 | Pending |
+| SUB-02 | Phase 52 | Pending |
+| SUB-03 | Phase 52 | Pending |
+| SUB-04 | Phase 52 | Pending |
+| SUB-05 | Phase 52 | Pending |
+| URI-01 | Phase 51 | Pending |
+| URI-02 | Phase 51 | Pending |
+| URI-03 | Phase 51 | Pending |
+| URI-04 | Phase 51 | Pending |
+| URI-05 | Phase 51 | Pending |
+| HTTP-01 | Phase 53 | Pending |
+| HTTP-02 | Phase 53 | Pending |
+| HTTP-03 | Phase 53 | Pending |
+| TOOL-01 | Phase 54 | Pending |
+| TOOL-02 | Phase 54 | Pending |
+| TOOL-03 | Phase 54 | Pending |
+| TOOL-04 | Phase 54 | Pending |
+| TOOL-05 | Phase 54 | Pending |
+| TOOL-06 | Phase 54 | Pending |
+| TOOL-07 | Phase 54 | Pending |
+| TOOL-08 | Phase 54 | Pending |
+| TOOL-09 | Phase 54 | Pending |
+| VAL-01 | Phase 55 | Pending |
+| VAL-02 | Phase 55 | Pending |
+| VAL-03 | Phase 55 | Pending |
+| VAL-04 | Phase 55 | Pending |
+| VAL-05 | Phase 50 | Pending |
+
+**Notes on phase assignment:**
+- **Phase 50 (server-side endpoint prep)** has no requirement IDs directly assigned for endpoint work — the new endpoints (`GET /query/chunk/{id}`, `GET /graph/entity/{type}/{id}`) and the `roots/list` sandbox design are *prerequisites* for URI-01, URI-02, and URI-04 (which land in Phase 51). VAL-05 (file v2 design doc) is the one named requirement assigned to Phase 50 so the doc lands before MCP-layer implementation.
+- **Phase 53 (Streamable HTTP transport)** is independent of Phase 52 (Resource subscriptions) and can be executed in parallel.
+- **Phase 54 (TOOL-04 `wait_for_job` with progress notifications)** depends on the notification infrastructure built in Phase 52; the other 8 tools in Phase 54 do not have that dependency but ship together for cohesion.
+- **Phase 55** must be last — VAL-04 (`task before-push` integration) requires all packages to be in scope.
 
 **Coverage:**
 - v1 requirements: 27 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 27 ⚠️ (will become 0 after roadmap)
+- Mapped to phases: 27 ✓
+- Unmapped: 0 ✓
+- Double-mapped: 0 ✓
 
 ---
 *Requirements defined: 2026-06-02*
-*Last updated: 2026-06-02 after v10.2 milestone start*
+*Last updated: 2026-06-02 — traceability populated by gsd-roadmapper (Phases 50-55)*
 *Previous milestone requirements (v9.6.0) archived at `.planning/milestones/v9.6.0-REQUIREMENTS.md`*

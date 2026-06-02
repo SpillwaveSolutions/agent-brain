@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v10.2
 milestone_name: MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
-current_phase: null
-status: defining_requirements
-stopped_at: "Milestone v10.2 started; defining requirements from #186 scope doc"
+current_phase: 50
+status: ready_for_phase_50
+stopped_at: "Roadmap created for v10.2 (Phases 50-55); ready to plan Phase 50"
 last_updated: "2026-06-02T00:00:00Z"
 progress:
-  total_phases: 0
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,15 +17,15 @@ progress:
 
 **Last Updated:** 2026-06-02
 **Current Milestone:** v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
-**Status:** Defining requirements
-**Current Phase:** Not started (defining requirements)
+**Status:** Ready for Phase 50
+**Current Phase:** 50 — Server endpoint prep + v2 design doc
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-06-02 — Milestone v10.2 started
+Phase: 50 — Server endpoint prep + v2 design doc
+Plan: — (not yet planned; next action: `/gsd:plan-phase 50`)
+Status: Ready to plan
+Last activity: 2026-06-02 — Roadmap created with 6 phases (50-55); 27/27 requirements mapped
 
 ## Project Reference
 
@@ -51,8 +51,21 @@ v9.6.0 Runtime Parity:       [██▌       ]  25% (1/4 phases — parked, def
 v10.0.0–v10.0.6 Patch Train: [██████████] 100% (shipped 2026-05-25 → 2026-05-27)
 v10.1.0 MCP v1:              [██████████] 100% (shipped 2026-05-30; UDS + 7-tool stdio MCP + CLI dual transport)
 v10.1.2 MCP package rename:  [██████████] 100% (shipped 2026-06-01; agent-brain-mcp PyPI distribution + standalone user guide)
-v10.2 MCP v2:                [          ]   0% (DEFINING REQUIREMENTS)
+v10.2 MCP v2:                [          ]   0% (ROADMAP COMPLETE — Phase 50 ready to plan)
 ```
+
+## v10.2 Phase Progress
+
+| Phase | Status | Requirements | Plans |
+|-------|--------|--------------|-------|
+| 50. Server endpoint prep + v2 design doc | Not started | VAL-05 (+ prereq for URI-01/02/04) | 0/0 |
+| 51. URI schemes + templates | Not started | URI-01, URI-02, URI-03, URI-04, URI-05 | 0/0 |
+| 52. Resource subscriptions | Not started | SUB-01, SUB-02, SUB-03, SUB-04, SUB-05 | 0/0 |
+| 53. Streamable HTTP transport | Not started | HTTP-01, HTTP-02, HTTP-03 | 0/0 |
+| 54. 9 remaining MCP tools | Not started | TOOL-01..TOOL-09 | 0/0 |
+| 55. Validation, contract tests & QA gate | Not started | VAL-01, VAL-02, VAL-03, VAL-04 | 0/0 |
+
+**Coverage:** 27/27 v1 requirements mapped to phases (no orphans, no duplicates)
 
 ## Accumulated Context
 
@@ -60,8 +73,8 @@ v10.2 MCP v2:                [          ]   0% (DEFINING REQUIREMENTS)
 
 - **MCP v1 in production:** `agent-brain-mcp` is published to PyPI. Stdio transport, 7 tools, 5 read-only resources, 6 prompts. UDS transport (`agent-brain-uds`) is also live. CLI supports `--transport {auto,uds,http}`.
 - **Source design exists:** `docs/plans/2026-05-28-mcp-uds-transport-design.md` is the master design for v1/v2/v3/v4. v2 work is scoped in `docs/roadmaps/mcp/v2-subscriptions-and-resources.md` and tracked by umbrella issue #186.
-- **Phase order is hard-blocking:** v3 needs v2's HTTP transport; v4 needs v3's `McpHttpBackend`. Anything that wants OAuth (#179 server auth design comment thread) waits on v3.
-- **Prerequisites already met:** v1 has shipped one full release cycle (10.1.0 → 10.1.2). Server-side new endpoints (`GET /query/chunk/{id}`, `GET /graph/entity/{type}/{id}`) need to be added — they are NOT yet built.
+- **Phase order is hard-blocking:** Phase 50 must precede Phase 51 (URI-01/02/04 need server endpoints); Phase 51 must precede Phase 52 (SUB-01 needs `job://` addressable); Phase 52 must precede Phase 54 (TOOL-04 `wait_for_job` needs notification infrastructure); Phase 55 must be last (folds packages into root QA gate). Phase 53 (HTTP transport) is independent of Phase 52 and can run in parallel.
+- **Prerequisites for downstream milestones:** v3 (#187) depends on v2's HTTP transport (Phase 53). v4 (#188) depends on v3's `McpHttpBackend`.
 
 ### Decisions from Prior Milestones (still load-bearing)
 
@@ -70,6 +83,7 @@ v10.2 MCP v2:                [          ]   0% (DEFINING REQUIREMENTS)
 - [v10.1.0]: MCP v1 shipped — `agent-brain-mcp` package, UDS transport, 7-tool stdio server, CLI dual transport
 - [v10.1.2]: PyPI package renamed to `agent-brain-mcp`; standalone MCP user guide added (commits `1e34818`, `cf7a364`)
 - **Decision (2026-06-01):** Pivot away from MCP-is-out-of-scope stance recorded in PROJECT.md v9.6.0 era. MCP is now the active investment direction; that out-of-scope line has been removed.
+- **Decision (2026-06-02):** v2 design doc (VAL-05) lands in Phase 50, *before* MCP-layer implementation, so reviewers can challenge the subscription/transport approach before code lands.
 
 ### Blockers/Concerns
 
@@ -81,7 +95,7 @@ v10.2 MCP v2:                [          ]   0% (DEFINING REQUIREMENTS)
 
 - **#186** — MCP v2 umbrella (this milestone)
 - **#189** — MCP roadmap meta (parent tracker)
-- **#187** — MCP v3 (next milestone candidate; blocked on v2 HTTP transport)
+- **#187** — MCP v3 (next milestone candidate; blocked on v2 HTTP transport = Phase 53)
 - **#188** — MCP v4 OAuth (blocked on v3 `McpHttpBackend`)
 - **#167** — original MCP server design issue (v1 implementation tracker; v1 has shipped, can be closed if not already)
 
@@ -92,9 +106,9 @@ Feature backlog (#152, #154, #155, #156, #157, #158, #160, #162, #163, #164) and
 ## Session Continuity
 
 **Last Session:** 2026-06-02
-**Stopped At:** v10.2 milestone started; requirements being defined
-**Resume File:** None (no active phase)
-**Next Action:** Define REQUIREMENTS.md from `docs/roadmaps/mcp/v2-subscriptions-and-resources.md`, then spawn gsd-roadmapper for phase decomposition.
+**Stopped At:** Roadmap created for v10.2 (Phases 50-55); ready to plan Phase 50
+**Resume File:** None (no active phase plan yet)
+**Next Action:** `/gsd:plan-phase 50` — decompose Phase 50 into plans (v2 design doc + `GET /query/chunk/{id}` + `GET /graph/entity/{type}/{id}` + `roots/list` sandbox design)
 
 ---
-*State updated: 2026-06-02 — synced with v10.1.2 release reality + v10.2 milestone start*
+*State updated: 2026-06-02 — roadmap created, Phase 50 ready for planning*

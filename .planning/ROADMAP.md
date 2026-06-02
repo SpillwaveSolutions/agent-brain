@@ -1,7 +1,12 @@
-# Agent Brain Roadmap
+# Agent Brain Roadmap — v10.2 MCP v2
 
 **Created:** 2026-02-07
+**Last updated:** 2026-06-02 — v10.2 MCP v2 milestone (Phases 50-55) replaces parked v9.6.0
 **Core Value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
+**Active milestone:** v10.2 — MCP v2 (Subscriptions, HTTP Transport, & Tool Completion)
+**Source design:** `docs/plans/2026-05-28-mcp-uds-transport-design.md` §11, §15.1
+**Scope doc:** `docs/roadmaps/mcp/v2-subscriptions-and-resources.md`
+**Umbrella issue:** [#186](https://github.com/SpillwaveSolutions/agent-brain/issues/186)
 
 ## Milestones
 
@@ -12,234 +17,116 @@
 - ✅ **v8.0 Performance & Developer Experience** — Phases 15-25 (shipped 2026-03-15)
 - ✅ **v9.0 Multi-Runtime Support** — Multi-runtime converter system (shipped 2026-03-16)
 - ✅ **v9.1.0 Generic Skills-Based Runtime Portability** — Phases 26-28 (shipped 2026-03-16)
-- ✅ **v9.4.0 Documentation Accuracy Audit & Reliability Closure** — Phases 29-33 + gap closure phases 36-40 (shipped 2026-03-20)
+- ✅ **v9.4.0 Documentation Accuracy Audit & Reliability Closure** — Phases 29-33, 36-40 (shipped 2026-03-20)
 - ✅ **v9.3.0 LangExtract + Config Spec** — Phases 34-35 (shipped 2026-03-22)
 - ✅ **v9.5.0 Config Validation & Language Support** — Phases 41-45 (shipped 2026-03-31)
-- 🚧 **v9.6.0 Runtime Support Parity & Backlog Cleanup** — Phases 46-49 (in progress)
+- ⏸ **v9.6.0 Runtime Support Parity & Backlog Cleanup** — Phases 46-49 (parked; deferred to post-MCP. Archived: [v9.6.0-ROADMAP.md](milestones/v9.6.0-ROADMAP.md))
+- ✅ **v10.0.x Patch Train** — bugfixes (shipped 2026-05-25 → 2026-05-27)
+- ✅ **v10.1.0 MCP v1** — UDS transport + 7-tool stdio MCP + CLI dual transport (shipped 2026-05-30)
+- ✅ **v10.1.2 MCP package rename + standalone user guide** — `agent-brain-mcp` PyPI distribution (shipped 2026-06-01)
+- 🚧 **v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion** — Phases 50-55 (active)
 
 ## Phases
 
-<details>
-<summary>✅ v3.0 Advanced RAG (Phases 1-4) — SHIPPED 2026-02-10</summary>
+- [ ] **Phase 50: Server endpoint prep + v2 design doc** — File v2 design doc, add `GET /query/chunk/{id}` + `GET /graph/entity/{type}/{id}` endpoints, settle `roots/list` sandbox design
+- [ ] **Phase 51: URI schemes + templates** — Implement `chunk://`, `graph-entity://`, `job://`, `file://` resources + `resources/templates/list`
+- [ ] **Phase 52: Resource subscriptions** — `resources/subscribe` + per-resource polling cadence + `notifications/resources/updated` + disconnect cleanup
+- [ ] **Phase 53: Streamable HTTP transport** — `--transport http` on `agent-brain-mcp` with loopback bind and explicit transport selection
+- [ ] **Phase 54: 9 remaining MCP tools** — `explain_result`, `add_documents`, `inject_documents`, `wait_for_job` (with progress), `list_folders`, `remove_folder`, `cache_status`, `clear_cache`, `list_file_types`
+- [ ] **Phase 55: Validation, contract tests & QA gate integration** — 16-tool parameterized SDK contract tests, subscription E2E test, HTTP transport SDK test, root `task before-push` integration
 
-**Full details:** [v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
-
-</details>
-
-<details>
-<summary>✅ v6.0 PostgreSQL Backend (Phases 5-10) — SHIPPED 2026-02-13</summary>
-
-**Full details:** [v6.0.4-ROADMAP.md](milestones/v6.0.4-ROADMAP.md)
-
-</details>
-
-<details>
-<summary>✅ v6.0.4 Plugin & Install Fixes (Phase 11) — SHIPPED 2026-02-22</summary>
-
-**Full details:** [v6.0.4-ROADMAP.md](milestones/v6.0.4-ROADMAP.md)
-
-</details>
-
-<details>
-<summary>✅ v7.0 Index Management & Content Pipeline (Phases 12-14) — SHIPPED 2026-03-05</summary>
-
-**Full details:** [v7.0-ROADMAP.md](milestones/v7.0-ROADMAP.md)
-
-</details>
-
-<details>
-<summary>✅ v8.0 Performance & Developer Experience (Phases 15-25) — SHIPPED 2026-03-15</summary>
-
-**Full details:** [v8.0-ROADMAP.md](milestones/v8.0-ROADMAP.md)
-
-</details>
-
-<details>
-<summary>✅ v9.0 Multi-Runtime Support — SHIPPED 2026-03-16</summary>
-
-Multi-runtime converter system with Claude, OpenCode, and Gemini support.
-
-</details>
-
----
-
-<details>
-<summary>✅ v9.1.0 Generic Skills-Based Runtime Portability (Phases 26-28) — SHIPPED 2026-03-16</summary>
-
-**Milestone Goal:** Add installer-based runtime transformation that converts Claude plugin format into skill-directory installations for Codex and any skill-based runtime.
-
-### Phase 26: Generic Skill-Runtime Converter + Parser Extensions
-
-**Goal:** Add `SkillRuntimeConverter` and extend parser/types to handle templates and scripts.
-
-**Requirements:** SKILL-01 through SKILL-07, COMPAT-01, COMPAT-02, COMPAT-03
-
-**Success Criteria:**
-1. `agent-brain install-agent --agent skill-runtime --dir /tmp/test` produces skill dirs for all commands/agents/skills
-2. Each SKILL.md has valid YAML frontmatter
-3. Templates in assets/, scripts in scripts/
-4. `--dry-run` lists planned files without writing
-5. Existing converters unaffected (all existing tests pass)
-
-**Plans:** 2 plans
-
-Plans:
-- [x] 26-01-PLAN.md — Types, parser extensions, SkillRuntimeConverter core
-- [x] 26-02-PLAN.md — CLI integration, tests, dry-run support
-
----
-
-### Phase 27: Codex Named Adapter + AGENTS.md Generation
-
-**Goal:** Add `codex` as a named runtime preset built on the skill-runtime converter.
-
-**Requirements:** CODEX-01 through CODEX-04
-
-**Success Criteria:**
-1. `agent-brain install-agent --agent codex` creates `.codex/skills/agent-brain/`
-2. `AGENTS.md` generated at project root with Agent Brain section
-3. Running twice doesn't duplicate the section
-4. `--dry-run` shows both skill files and AGENTS.md
-
-**Plans:** 1 plan
-
-Plans:
-- [x] 27-01-PLAN.md — CodexConverter, AGENTS.md generation, CLI integration, tests
-
----
-
-### Phase 28: Documentation, Testing & Plan Archival
-
-**Goal:** Comprehensive tests, docs, plan archival, version bump.
-
-**Requirements:** DOC-01 through DOC-03, COMPAT-01, COMPAT-02
-
-**Success Criteria:**
-1. `task before-push` passes
-2. `task pr-qa-gate` passes
-3. All 5 converters tested against real plugin directory
-4. Plan archived in docs/plans/
-
-**Plans:** 1 plan
-
-Plans:
-- [x] 28-01-PLAN.md — Integration tests, user guide, CLAUDE.md updates
-
-</details>
-
----
-
-<details>
-<summary>✅ v9.4.0 Documentation Accuracy Audit & Reliability Closure (Phases 29-33, 36-40) — SHIPPED 2026-03-20</summary>
-
-**Full details:** [v9.4.0-ROADMAP.md](milestones/v9.4.0-ROADMAP.md)
-
-</details>
-
----
-
-<details>
-<summary>✅ v9.3.0 LangExtract + Config Spec (Phases 34-35) — SHIPPED 2026-03-22</summary>
-
-**Full details:** [v9.3.0-ROADMAP.md](milestones/v9.3.0-ROADMAP.md)
-
-</details>
-
----
-
-<details>
-<summary>✅ v9.5.0 Config Validation & Language Support (Phases 41-45) — SHIPPED 2026-03-31</summary>
-
-**Full details:** [v9.5.0-ROADMAP.md](milestones/v9.5.0-ROADMAP.md)
-
-</details>
-
----
-
-## v9.6.0 Runtime Support Parity & Backlog Cleanup (Phases 46-49)
-
-**Milestone Goal:** Guarantee project-local, headless, JSON-verifiable end-to-end install parity for Codex, OpenCode, and Gemini without mutating the operator's global runtime environment.
-
-### Phases
-
-- [ ] **Phase 46: Project-Local Runtime Install Harness** — Shared integration folders, install verification, and failure reporting for runtime parity tests
-- [ ] **Phase 47: Codex Runtime E2E Parity** — Project-local install plus headless Codex execution for installed Agent Brain skills
-- [ ] **Phase 48: OpenCode Runtime E2E Parity** — Project-local install plus headless OpenCode execution for installed Agent Brain skills
-- [ ] **Phase 49: Gemini Runtime E2E Parity & Backlog Cleanup** — Project-local install plus headless Gemini execution, then reconcile stale runtime planning artifacts
-
-### Progress
+## Progress
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 46. Project-Local Runtime Install Harness | 0/2 | Not started | - |
-| 47. Codex Runtime E2E Parity | 0/2 | Not started | - |
-| 48. OpenCode Runtime E2E Parity | 0/2 | Not started | - |
-| 49. Gemini Runtime E2E Parity & Backlog Cleanup | 0/2 | Not started | - |
+| 50. Server endpoint prep + v2 design doc | 0/0 | Not started | - |
+| 51. URI schemes + templates | 0/0 | Not started | - |
+| 52. Resource subscriptions | 0/0 | Not started | - |
+| 53. Streamable HTTP transport | 0/0 | Not started | - |
+| 54. 9 remaining MCP tools | 0/0 | Not started | - |
+| 55. Validation, contract tests & QA gate | 0/0 | Not started | - |
 
 ## Phase Details
 
-### Phase 46: Project-Local Runtime Install Harness
-**Goal**: Runtime parity tests have repo-owned integration projects, shared install verification, and explicit failure modes before any external CLI is invoked
-**Depends on**: Nothing (first phase of milestone)
-**Requirements**: ISO-01, ISO-02, PARITY-01
+### Phase 50: Server endpoint prep + v2 design doc
+**Goal**: Server-side prerequisites for v2 are in place — new lookup endpoints exist, the sandbox design for `roots/list`-gated `file://` reads is decided, and the v2 design doc is filed before any MCP-layer code lands
+**Depends on**: Nothing (first phase of milestone; v10.1.2 already shipped)
+**Requirements**: VAL-05
+**Prerequisites for**: URI-01 (needs `GET /query/chunk/{id}`), URI-02 (needs `GET /graph/entity/{type}/{id}`), URI-04 (needs `roots/list` sandbox design)
 **Success Criteria** (what must be TRUE):
-  1. Repo-owned integration project directories exist for runtime parity tests and are the only install targets used by the new suite
-  2. Shared helpers verify expected install artifacts exist before runtime CLI execution begins
-  3. Missing CLIs, malformed JSON, or accidental global install paths fail with explicit runtime-specific messages
-**Plans**: 2 plans
-
-Plans:
-- [ ] 46-01-PLAN.md — Integration project fixtures + project-local install target plumbing
-- [ ] 46-02-PLAN.md — Shared install verification + JSON status/error-reporting helpers
+  1. `docs/plans/2026-06-XX-mcp-v2-subscriptions.md` design doc is filed and approved before MCP-layer phases begin
+  2. `GET /query/chunk/{id}` returns a single chunk record with O(1) lookup behavior verifiable via curl against a running `agent-brain-serve` instance
+  3. `GET /graph/entity/{type}/{id}` returns the requested entity payload (or 404) verifiable via curl against a corpus with GraphRAG enabled
+  4. `roots/list` sandbox design is decided and documented — clients can enumerate which absolute paths are addressable via `file://` and which are denied
+**Plans**: TBD
 
 ---
 
-### Phase 47: Codex Runtime E2E Parity
-**Goal**: Codex can install Agent Brain into an isolated project and execute an installed skill headlessly with JSON-verifiable status
-**Depends on**: Phase 46
-**Requirements**: CODEX-01, CODEX-02
+### Phase 51: URI schemes + templates
+**Goal**: All four deferred URI schemes are addressable via MCP `resources/read`, and `resources/templates/list` advertises them so model clients can discover them programmatically
+**Depends on**: Phase 50 (URI-01/02/04 require the new server endpoints + sandbox design)
+**Requirements**: URI-01, URI-02, URI-03, URI-04, URI-05
 **Success Criteria** (what must be TRUE):
-  1. `agent-brain install-agent --agent codex --project --path <integration-dir>` writes `.codex/skills/agent-brain/` and `AGENTS.md` inside the integration project
-  2. A headless Codex run from the integration project can invoke an installed Agent Brain skill or setup flow
-  3. The Codex test records a JSON status payload that distinguishes install failure, execution failure, and success
-**Plans**: 2 plans
-
-Plans:
-- [ ] 47-01-PLAN.md — Codex project-local install verification
-- [ ] 47-02-PLAN.md — Codex headless execution + JSON status assertions
+  1. An MCP client can call `resources/read` with `chunk://<chunk_id>` and receive the chunk's content + metadata as JSON
+  2. An MCP client can call `resources/read` with `graph-entity://<type>/<id>` and receive the entity payload
+  3. An MCP client can call `resources/read` with `job://<job_id>` and receive current job state (preparing the URI for subscription in Phase 52)
+  4. An MCP client can call `resources/read` with `file://<abs-path>` and either receive file contents (when the path is inside indexed roots) or a `roots/list`-sandbox denial error
+  5. An MCP client calling `resources/templates/list` receives templates for all four schemes (`chunk://`, `graph-entity://`, `job://`, `file://`)
+**Plans**: TBD
 
 ---
 
-### Phase 48: OpenCode Runtime E2E Parity
-**Goal**: OpenCode can install Agent Brain into an isolated project and execute an installed skill headlessly with JSON-verifiable status
-**Depends on**: Phase 46
-**Requirements**: OPEN-01, OPEN-02
+### Phase 52: Resource subscriptions
+**Goal**: MCP clients can subscribe to live resources and receive spec-compliant update notifications, with proper per-client subscription tracking and cleanup on disconnect
+**Depends on**: Phase 51 (SUB-01 requires `job://<id>` to be addressable first)
+**Requirements**: SUB-01, SUB-02, SUB-03, SUB-04, SUB-05
 **Success Criteria** (what must be TRUE):
-  1. `agent-brain install-agent --agent opencode --project --path <integration-dir>` writes `.opencode/plugins/agent-brain/` and project-local `opencode.json` entries inside the integration project
-  2. A headless OpenCode run from the integration project can invoke an installed Agent Brain skill or setup flow
-  3. The OpenCode test records a JSON status payload and verifies no user-global OpenCode config paths were mutated
-**Plans**: 2 plans
-
-Plans:
-- [ ] 48-01-PLAN.md — OpenCode project-local install verification
-- [ ] 48-02-PLAN.md — OpenCode headless execution + JSON status assertions
+  1. An MCP client can `resources/subscribe` to `job://<id>` for an active indexing job and receive `notifications/resources/updated` events at approximately 1s cadence until the job terminates
+  2. An MCP client can `resources/subscribe` to `corpus://status` and receive update notifications at approximately 30s cadence
+  3. An MCP client can `resources/subscribe` to `corpus://folders` and receive update notifications driven by the file watcher when indexed folders change
+  4. Every `notifications/resources/updated` payload conforms to the current MCP spec (resource URI + revision metadata present and well-formed)
+  5. When an MCP client disconnects, its subscriptions are released; the server holds no leaked polling tasks for that client
+**Plans**: TBD
 
 ---
 
-### Phase 49: Gemini Runtime E2E Parity & Backlog Cleanup
-**Goal**: Gemini can install Agent Brain into an isolated project and execute an installed skill headlessly with JSON-verifiable status, then runtime planning artifacts are reconciled with shipped support
-**Depends on**: Phase 46, Phase 47, Phase 48
-**Requirements**: GCLI-01, GCLI-02, PARITY-02
+### Phase 53: Streamable HTTP transport
+**Goal**: Operators can run `agent-brain-mcp` over Streamable HTTP alongside stdio, with explicit transport selection and loopback-only bind (auth deferred to v4)
+**Depends on**: Phase 50 (design doc); independent of Phase 52 — can execute in parallel
+**Requirements**: HTTP-01, HTTP-02, HTTP-03
 **Success Criteria** (what must be TRUE):
-  1. `agent-brain install-agent --agent gemini --project --path <integration-dir>` writes `.gemini/plugins/agent-brain/` inside the integration project and verifies the expected generated files before execution
-  2. A headless Gemini run from the integration project can invoke an installed Agent Brain skill or setup flow and emit JSON status
-  3. Runtime-related pending todos and planning docs are reconciled with shipped Codex, OpenCode, and Gemini support so no completed work remains pending
-**Plans**: 2 plans
+  1. `agent-brain-mcp --transport http` starts an MCP server reachable by the official MCP SDK HTTP client; stdio mode continues to work unchanged when `--transport http` is not passed
+  2. The Streamable HTTP server binds to `127.0.0.1` only — a connection attempt from a non-loopback address is rejected at the network layer
+  3. `--transport` selection is explicit — passing an invalid or unavailable transport produces a clear startup error with no silent fallback to a different transport
+**Plans**: TBD
 
-Plans:
-- [ ] 49-01-PLAN.md — Gemini project-local install verification + headless execution
-- [ ] 49-02-PLAN.md — Runtime backlog cleanup + parity documentation updates
+---
+
+### Phase 54: 9 remaining MCP tools
+**Goal**: The MCP server exposes all 16 tools from the original design — clients can drive the full indexing/folder/cache/file-type lifecycle and observe long-running jobs via progress notifications
+**Depends on**: Phase 52 (TOOL-04 `wait_for_job` requires the notification infrastructure from subscriptions)
+**Requirements**: TOOL-01, TOOL-02, TOOL-03, TOOL-04, TOOL-05, TOOL-06, TOOL-07, TOOL-08, TOOL-09
+**Success Criteria** (what must be TRUE):
+  1. An MCP client can call `explain_result` for a query result id and receive provenance (source paths) and scoring breakdown (vector/BM25/rerank components)
+  2. An MCP client can call `add_documents` with a path list and receive a `{job_id, status}` response that resolves through the existing job queue
+  3. An MCP client can call `inject_documents` with an enrichment-script path and a folder path and receive a `{job_id, status}` response
+  4. An MCP client can call `wait_for_job` for an active job and receive `notifications/progress` events at least every 2s until the job terminates, then a final completion result
+  5. An MCP client can call `list_folders`, `remove_folder`, `cache_status`, `clear_cache`, and `list_file_types` and receive payloads consistent with the existing CLI/HTTP behavior for each operation
+**Plans**: TBD
+
+---
+
+### Phase 55: Validation, contract tests & QA gate integration
+**Goal**: v2 is end-to-end verified against the official MCP SDK, and the new MCP packages join the root quality gates so future regressions are caught locally before push
+**Depends on**: Phases 50-54 (must be last — validates everything the prior phases shipped; closes out DR-5 by folding MCP packages into root `task before-push`)
+**Requirements**: VAL-01, VAL-02, VAL-03, VAL-04
+**Success Criteria** (what must be TRUE):
+  1. A parameterized contract test suite runs all 16 MCP tools (7 from v1 + 9 from v2) against the official MCP SDK client and asserts each tool's input/output schema and behavior
+  2. An end-to-end subscription test against the official MCP SDK verifies subscribe → receive updates → unsubscribe and verifies that client disconnect releases subscriptions server-side (SUB-05)
+  3. A Streamable HTTP transport test exercises the MCP server via the official MCP SDK HTTP client and confirms the full initialize / tools / resources flow works
+  4. `task before-push` and `task pr-qa-gate` from the repo root include the new MCP packages and exit 0 on a clean working tree (closes DR-5 from the v1 plan)
+**Plans**: TBD
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-03-31 — v9.6.0 initialized*
+*Last updated: 2026-06-02 — v10.2 MCP v2 milestone roadmapped (Phases 50-55); v9.6.0 archived to milestones/v9.6.0-ROADMAP.md*
