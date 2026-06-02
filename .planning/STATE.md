@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v10.2
 milestone_name: MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
 current_phase: 50 — Server endpoint prep + v2 design doc
-status: Ready for Phase 50
-stopped_at: Phase 50 context gathered
-last_updated: "2026-06-02T20:39:03.386Z"
-last_activity: 2026-06-02 — Roadmap created with 6 phases (50-55); 27/27 requirements mapped
+status: Ready to execute Phase 50
+stopped_at: All 6 phases planned via parallel workflow; 24 plans across CONTEXT.md + PLAN.md files; ready to execute
+last_updated: "2026-06-02T21:30:00Z"
+last_activity: 2026-06-02 — Parallel-fanout workflow planned all 6 phases (50-55); 24 plans, 27/27 requirements mapped
 progress:
   total_phases: 6
   completed_phases: 0
-  total_plans: 0
+  total_plans: 24
   completed_plans: 0
 ---
 
@@ -18,15 +18,15 @@ progress:
 
 **Last Updated:** 2026-06-02
 **Current Milestone:** v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
-**Status:** Ready for Phase 50
-**Current Phase:** 50 — Server endpoint prep + v2 design doc
+**Status:** All phases planned — ready to execute Phase 50
+**Current Phase:** 50 — Server endpoint prep + v2 design doc (4 plans)
 
 ## Current Position
 
 Phase: 50 — Server endpoint prep + v2 design doc
-Plan: — (not yet planned; next action: `/gsd:plan-phase 50`)
-Status: Ready to plan
-Last activity: 2026-06-02 — Roadmap created with 6 phases (50-55); 27/27 requirements mapped
+Plan: 4 plans drafted; not yet executed (next action: `/gsd:execute-phase 50`)
+Status: Ready to execute
+Last activity: 2026-06-02 — Parallel-fanout workflow planned all 6 phases (24 total plans). 27/27 requirements mapped, ready_to_execute: true confirmed by workflow summarizer.
 
 ## Project Reference
 
@@ -52,21 +52,36 @@ v9.6.0 Runtime Parity:       [██▌       ]  25% (1/4 phases — parked, def
 v10.0.0–v10.0.6 Patch Train: [██████████] 100% (shipped 2026-05-25 → 2026-05-27)
 v10.1.0 MCP v1:              [██████████] 100% (shipped 2026-05-30; UDS + 7-tool stdio MCP + CLI dual transport)
 v10.1.2 MCP package rename:  [██████████] 100% (shipped 2026-06-01; agent-brain-mcp PyPI distribution + standalone user guide)
-v10.2 MCP v2:                [          ]   0% (ROADMAP COMPLETE — Phase 50 ready to plan)
+v10.2 MCP v2:                [          ]   0% (ALL PHASES PLANNED — Phase 50 ready to execute)
 ```
 
 ## v10.2 Phase Progress
 
 | Phase | Status | Requirements | Plans |
 |-------|--------|--------------|-------|
-| 50. Server endpoint prep + v2 design doc | Not started | VAL-05 (+ prereq for URI-01/02/04) | 0/0 |
-| 51. URI schemes + templates | Not started | URI-01, URI-02, URI-03, URI-04, URI-05 | 0/0 |
-| 52. Resource subscriptions | Not started | SUB-01, SUB-02, SUB-03, SUB-04, SUB-05 | 0/0 |
-| 53. Streamable HTTP transport | Not started | HTTP-01, HTTP-02, HTTP-03 | 0/0 |
-| 54. 9 remaining MCP tools | Not started | TOOL-01..TOOL-09 | 0/0 |
-| 55. Validation, contract tests & QA gate | Not started | VAL-01, VAL-02, VAL-03, VAL-04 | 0/0 |
+| 50. Server endpoint prep + v2 design doc | Planned, not started | VAL-05 (+ prereq for URI-01/02/04) | 0/4 |
+| 51. URI schemes + templates | Planned, not started | URI-01, URI-02, URI-03, URI-04, URI-05 | 0/4 |
+| 52. Resource subscriptions | Planned, not started | SUB-01, SUB-02, SUB-03, SUB-04, SUB-05 | 0/4 |
+| 53. Streamable HTTP transport | Planned, not started | HTTP-01, HTTP-02, HTTP-03 | 0/3 |
+| 54. 9 remaining MCP tools | Planned, not started | TOOL-01..TOOL-09 | 0/4 |
+| 55. Validation, contract tests & QA gate | Planned, not started | VAL-01, VAL-02, VAL-03, VAL-04 | 0/5 |
 
 **Coverage:** 27/27 v1 requirements mapped to phases (no orphans, no duplicates)
+**Total plans:** 24 (Phase 50: 4 · Phase 51: 4 · Phase 52: 4 · Phase 53: 3 · Phase 54: 4 · Phase 55: 5)
+
+## v10.2 Cross-Phase Risk Register (from workflow summarizer)
+
+Surface-level risks the planner agents identified across phases that need cross-phase attention during execution:
+
+- **#178 Kuzu SIGSEGV carry-forward**: Phase 50 Plan 03 (multi-backend graph endpoint), Phase 51 Plan 02 (graph-entity:// returns 503 when Kuzu corrupts), Phase 55 Plan 03 (subscription e2e tolerates 503). Operator workaround: `graphrag.store_type: simple`.
+- **#179 Bearer-token API auth mid-flight**: Phase 50 Plan 01 design doc surfaces composition explicitly; Phase 51 endpoints inherit middleware; Phase 53 USER_GUIDE two-axis diagram mitigates backend-vs-listen-axis confusion.
+- **MCP SDK API drift**: Phase 51 Plan 04 (ResourceTemplate decorator), Phase 52 Plan 02 (ServerSession.send_resource_updated), Phase 53 Plan 01 (StreamableHTTPSessionManager existence), Phase 55 Plan 04 (streamablehttp_client) all bind to pinned SDK version. Phase 50 design doc pins 2026-03-26 spec; Phase 55 Plan 05 audits pyproject.toml still pins SDK version (D-03).
+- **MIN_BACKEND_VERSION = 10.2.0** (Phase 51 Plan 04): forces release-train ordering — agent-brain-server 10.2.0 ships BEFORE agent-brain-mcp 10.2.0.
+- **Phase 50 → Phase 51 surface contract**: Phase 51 Plan 03 imports Phase 50's `file_sandbox` helpers verbatim; signature drift would block file:// (mitigation: Phase 51 Plan 03 starts with import-verification step).
+- **Phase 52 → Phase 54 contract**: Phase 54 Plan 04 (wait_for_job) reuses Phase 52 Plan 01's `SubscriptionManager.start_polling()` primitive — Plan 01 documents this as a public API guarantee.
+- **+60-90s local pre-push cost** from Phase 55 Plan 05 folding MCP/UDS into root before-push — documented in CHANGELOG and v2 design doc.
+
+Full cross-phase risk register: 17 items in the workflow summarizer output (saved alongside the workflow transcript).
 
 ## Accumulated Context
 
@@ -106,10 +121,20 @@ Feature backlog (#152, #154, #155, #156, #157, #158, #160, #162, #163, #164) and
 
 ## Session Continuity
 
-**Last Session:** 2026-06-02T20:39:03.384Z
-**Stopped At:** Phase 50 context gathered
-**Resume File:** .planning/phases/50-server-endpoint-prep-v2-design-doc/50-CONTEXT.md
-**Next Action:** `/gsd:plan-phase 50` — decompose Phase 50 into plans (v2 design doc + `GET /query/chunk/{id}` + `GET /graph/entity/{type}/{id}` + `roots/list` sandbox design)
+**Last Session:** 2026-06-02T21:30:00Z
+**Stopped At:** All 6 phases planned via parallel workflow `wf_cded3eeb-c6e` (24 plans across phases 50-55)
+**Resume File:** `.planning/phases/50-server-endpoint-prep-v2-design-doc/50-PLAN.md`
+**Next Action:** `/gsd:execute-phase 50` — execute Phase 50's 4 plans (v2 design doc, chunk-by-id endpoint, graph-entity endpoint, file_sandbox module)
+
+## Recommended Execution Order
+
+Per workflow summarizer (verified ready_to_execute: true):
+1. **Phase 50** — Foundation (design doc + 2 endpoints + sandbox helpers). MUST land first.
+2. **Phase 51** — URI schemes (depends on Phase 50 endpoints + file_sandbox)
+3. **Phase 52** — Subscriptions (depends on Phase 51's job:// URI registration)
+4. **Phase 53** — Streamable HTTP transport (independent of Phase 52; can run in parallel with 51-52)
+5. **Phase 54** — 9 remaining tools (depends on Phase 52's ProgressNotifier for wait_for_job; should land after Phase 53 so new tools surface on both transports)
+6. **Phase 55** — Validation + QA gate (validates Phases 50-54; must be last; verification-only, no new production code)
 
 ---
-*State updated: 2026-06-02 — roadmap created, Phase 50 ready for planning*
+*State updated: 2026-06-02 — all 6 phases planned, ready to execute Phase 50*
