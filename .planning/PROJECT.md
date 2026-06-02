@@ -101,28 +101,37 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ### Active
 
- - [ ] Project-local runtime parity installs for Codex, OpenCode, and Gemini
- - [ ] Headless JSON-verifiable CLI execution after install for each runtime
- - [ ] Runtime backlog cleanup so pending todos match shipped support
+ - [ ] MCP v2 resource subscriptions (`resources/subscribe` + `notifications/resources/updated`)
+ - [ ] MCP v2 deferred URI schemes (`chunk://`, `graph-entity://`, `job://`, `file://`)
+ - [ ] MCP v2 Streamable HTTP transport (alongside stdio, loopback only)
+ - [ ] MCP v2 9 remaining tools (explain_result, add_documents, inject_documents, wait_for_job, list_folders, remove_folder, cache_status, clear_cache, list_file_types)
+ - [ ] MCP v2 progress notifications on long-running jobs (`wait_for_job` every ≤2s)
 
-## Current Milestone: v9.6.0 Runtime Support Parity & Backlog Cleanup
+## Current Milestone: v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
 
-**Goal:** Prove that Codex, OpenCode, and Gemini can all install and execute Agent Brain inside isolated project directories without touching the operator's global runtime state.
+**Goal:** Promote the MCP server from the minimal v1 surface (7 tools, stdio only, no subscriptions) to a subscription-aware, Streamable-HTTP-capable, 16-tool-complete MCP server suitable for IDE integrations and framework adapters.
 
 **Target features:**
-- Repo-owned integration folders for project-local runtime installs
-- Install verification before any runtime CLI execution begins
-- Headless Codex, OpenCode, and Gemini prompts that return JSON status
-- Shared runtime parity reporting for install, execution, and failure cases
-- Cleanup of stale runtime-related pending todos and planning artifacts
+- Resource subscriptions with per-resource polling cadence and `notifications/resources/updated` per MCP spec
+- Two deferred resource schemes requiring new server endpoints: `chunk://` (needs `GET /query/chunk/{id}`) and `graph-entity://` (needs `GET /graph/entity/{type}/{id}`)
+- Two further URI schemes (`job://`, `file://`) gated by subscriptions and sandbox design
+- Streamable HTTP MCP transport alongside stdio (loopback only, no auth yet — auth is v4)
+- All 9 deferred tools from the original 16-tool design, with `wait_for_job` emitting `notifications/progress` at least every 2s
+- Parameterized contract tests covering all 16 tools against the official MCP SDK
+
+**Reference:** umbrella issue [#186](https://github.com/SpillwaveSolutions/agent-brain/issues/186) | source design `docs/plans/2026-05-28-mcp-uds-transport-design.md` §11, §15.1 | scope doc `docs/roadmaps/mcp/v2-subscriptions-and-resources.md`
 
 ## Next Milestone Goals
 
-- TBD after v9.6.0 ships
+- TBD after v10.2 ships. Roadmap meta-issue [#189](https://github.com/SpillwaveSolutions/agent-brain/issues/189) sequences v3 (CLI-via-MCP + framework matrix, #187) then v4 (OAuth 2.1 for remote, #188). v3 depends on v2's HTTP transport; v4 depends on v3's `McpHttpBackend`.
 
 ### Out of Scope
 
-- **MCP Server**: User prefers Skill + CLI model over MCP — too heavyweight, context-hungry
+- **MCP CLI-via-MCP and framework adapter matrix**: Deferred to v3 (#187) — depends on v2's HTTP transport landing first
+- **OAuth 2.1 for remote MCP**: Deferred to v4 (#188) — depends on v3's `McpHttpBackend`
+- **MCP sampling / completion**: Out of scope for v2 (advanced LLM-in-the-server pattern; not required for tool/resource/subscription completeness)
+- **MCP plugin auto-registration**: Out of scope for v2 (deferred to a follow-up; requires manifest design)
+- **Runtime parity revival for Codex / OpenCode / Gemini (v9.6.0 phases 47–49)**: Deferred — re-evaluate once MCP v3 framework matrix work begins; converter-level + CLI-level tests already cover install behavior structurally
 - **Web UI**: CLI-first philosophy — agents are primary consumers
 - **Multi-tenancy**: Local-first philosophy — one instance per project
 - **AlloyDB-specific features**: Standard PostgreSQL + pgvector for maximum portability
@@ -227,4 +236,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-31 after v9.6.0 milestone start*
+*Last updated: 2026-06-02 after v10.2 milestone start (catch-up: v9.6.0 parked → v10.0.x patch train shipped → v10.1.0 MCP v1 shipped → v10.1.2 current → v10.2 MCP v2 active)*
