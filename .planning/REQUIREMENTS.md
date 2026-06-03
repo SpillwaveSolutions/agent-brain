@@ -34,15 +34,15 @@ Requirements for v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completi
 
 ### Tool Completion (TOOL)
 
-- [ ] **TOOL-01**: Client can call `explain_result` and receive provenance and scoring breakdown for a query result
+- [x] **TOOL-01**: Client can call `explain_result` and receive provenance and scoring breakdown for a query result
 - [ ] **TOOL-02**: Client can call `add_documents` with a path list to start an indexing job and receive the job id
 - [ ] **TOOL-03**: Client can call `inject_documents` with an enrichment-script path and a folder path to start an injection-aware indexing job
 - [ ] **TOOL-04**: Client can call `wait_for_job` to block until job completion; while the job runs, `wait_for_job` emits `notifications/progress` at least every 2s
-- [ ] **TOOL-05**: Client can call `list_folders` and receive the list of indexed folders with chunk counts and last-indexed metadata
+- [x] **TOOL-05**: Client can call `list_folders` and receive the list of indexed folders with chunk counts and last-indexed metadata
 - [ ] **TOOL-06**: Client can call `remove_folder` with a folder path to remove all indexed chunks for that folder
-- [ ] **TOOL-07**: Client can call `cache_status` and receive embedding-cache statistics
+- [x] **TOOL-07**: Client can call `cache_status` and receive embedding-cache statistics
 - [ ] **TOOL-08**: Client can call `clear_cache` to clear the embedding cache
-- [ ] **TOOL-09**: Client can call `list_file_types` and receive available file-type presets
+- [x] **TOOL-09**: Client can call `list_file_types` and receive available file-type presets
 
 ### Validation & Quality (VAL)
 
@@ -100,15 +100,15 @@ Phase mapping for v10.2. Phase numbering continues sequentially from v9.6.0 (las
 | HTTP-01 | Phase 53 | Complete |
 | HTTP-02 | Phase 53 | Complete |
 | HTTP-03 | Phase 53 | Complete |
-| TOOL-01 | Phase 54 | Pending |
+| TOOL-01 | Phase 54 | Complete |
 | TOOL-02 | Phase 54 | Pending |
 | TOOL-03 | Phase 54 | Pending |
 | TOOL-04 | Phase 54 | Pending |
-| TOOL-05 | Phase 54 | Pending |
+| TOOL-05 | Phase 54 | Complete |
 | TOOL-06 | Phase 54 | Pending |
-| TOOL-07 | Phase 54 | Pending |
+| TOOL-07 | Phase 54 | Complete |
 | TOOL-08 | Phase 54 | Pending |
-| TOOL-09 | Phase 54 | Pending |
+| TOOL-09 | Phase 54 | Complete |
 | VAL-01 | Phase 55 | Pending |
 | VAL-02 | Phase 55 | Pending |
 | VAL-03 | Phase 55 | Pending |
