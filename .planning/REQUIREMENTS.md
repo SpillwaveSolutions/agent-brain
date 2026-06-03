@@ -50,7 +50,7 @@ Requirements for v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completi
 - [ ] **VAL-02**: Resource subscriptions tested end-to-end against the official MCP SDK, including subscribe / unsubscribe / disconnect cleanup
 - [ ] **VAL-03**: Streamable HTTP transport tested via the official MCP SDK HTTP client
 - [ ] **VAL-04**: New MCP packages folded into root `task before-push` and `task pr-qa-gate` (closes DR-5 from v1 design)
-- [ ] **VAL-05**: Own v2 design doc filed at `docs/plans/YYYY-MM-DD-mcp-v2-subscriptions.md`
+- [x] **VAL-05**: Own v2 design doc filed at `docs/plans/2026-06-02-mcp-v2-subscriptions.md` — **Complete in Phase 50** (commit `a94d9d5`)
 
 ## v2 Requirements (Deferred to v10.3 / MCP v3)
 
@@ -113,7 +113,7 @@ Phase mapping for v10.2. Phase numbering continues sequentially from v9.6.0 (las
 | VAL-02 | Phase 55 | Pending |
 | VAL-03 | Phase 55 | Pending |
 | VAL-04 | Phase 55 | Pending |
-| VAL-05 | Phase 50 | Pending |
+| VAL-05 | Phase 50 | ✓ Complete (2026-06-03) |
 
 **Notes on phase assignment:**
 - **Phase 50 (server-side endpoint prep)** has no requirement IDs directly assigned for endpoint work — the new endpoints (`GET /query/chunk/{id}`, `GET /graph/entity/{type}/{id}`) and the `roots/list` sandbox design are *prerequisites* for URI-01, URI-02, and URI-04 (which land in Phase 51). VAL-05 (file v2 design doc) is the one named requirement assigned to Phase 50 so the doc lands before MCP-layer implementation.

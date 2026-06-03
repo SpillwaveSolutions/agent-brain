@@ -2,38 +2,36 @@
 gsd_state_version: 1.0
 milestone: v10.2
 milestone_name: MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
-current_phase: 50 — Server endpoint prep + v2 design doc
-status: Ready to execute Phase 50
-stopped_at: All 6 phases planned via parallel workflow; 24 plans across CONTEXT.md + PLAN.md files; ready to execute
-last_updated: "2026-06-02T21:30:00Z"
-last_activity: 2026-06-02 — Parallel-fanout workflow planned all 6 phases (50-55); 24 plans, 27/27 requirements mapped
+current_phase: 51
+status: ready_for_phase_51
+stopped_at: Phase 50 complete (4/4 plans, VERIFICATION passed); ready to execute Phase 51 (URI schemes + templates)
+last_updated: "2026-06-03T02:10:00Z"
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 24
-  completed_plans: 0
+  completed_plans: 4
 ---
 
 # Agent Brain — Project State
 
-**Last Updated:** 2026-06-02
+**Last Updated:** 2026-06-03
 **Current Milestone:** v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
-**Status:** All phases planned — ready to execute Phase 50
-**Current Phase:** 50 — Server endpoint prep + v2 design doc (4 plans)
+**Status:** Phase 50 complete; ready to execute Phase 51
+**Current Phase:** 51 — URI schemes + templates
 
 ## Current Position
 
-Phase: 50 — Server endpoint prep + v2 design doc
-Plan: 4 plans drafted; not yet executed (next action: `/gsd:execute-phase 50`)
-Status: Ready to execute
-Last activity: 2026-06-02 — Parallel-fanout workflow planned all 6 phases (24 total plans). 27/27 requirements mapped, ready_to_execute: true confirmed by workflow summarizer.
+Phase: 51 — URI schemes + templates (ready to execute; 4 plans drafted)
+Plan: 0 of 4 (not yet started)
+Previous: Phase 50 complete — VERIFICATION passed all 4 success criteria; VAL-05 closed; 4/4 plans shipped
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-02)
+See: .planning/PROJECT.md (updated 2026-06-03)
 
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** MCP v2 — promote the MCP server from minimal v1 surface (7 tools, stdio, no subscriptions) to subscription-aware, Streamable-HTTP-capable, 16-tool-complete server
+**Current focus:** Phase 51 — Implement chunk://, graph-entity://, job://, file:// URI schemes + resources/templates/list against the locked contracts in docs/plans/2026-06-02-mcp-v2-subscriptions.md
 
 ## Milestone Summary
 
@@ -52,14 +50,14 @@ v9.6.0 Runtime Parity:       [██▌       ]  25% (1/4 phases — parked, def
 v10.0.0–v10.0.6 Patch Train: [██████████] 100% (shipped 2026-05-25 → 2026-05-27)
 v10.1.0 MCP v1:              [██████████] 100% (shipped 2026-05-30; UDS + 7-tool stdio MCP + CLI dual transport)
 v10.1.2 MCP package rename:  [██████████] 100% (shipped 2026-06-01; agent-brain-mcp PyPI distribution + standalone user guide)
-v10.2 MCP v2:                [          ]   0% (ALL PHASES PLANNED — Phase 50 ready to execute)
+v10.2 MCP v2:                [█▌        ]  17% (Phase 50 complete — 4/24 plans · VERIFICATION passed)
 ```
 
 ## v10.2 Phase Progress
 
 | Phase | Status | Requirements | Plans |
 |-------|--------|--------------|-------|
-| 50. Server endpoint prep + v2 design doc | Planned, not started | VAL-05 (+ prereq for URI-01/02/04) | 0/4 |
+| 50. Server endpoint prep + v2 design doc | ✓ Complete (2026-06-03) | VAL-05 ✓ | 4/4 |
 | 51. URI schemes + templates | Planned, not started | URI-01, URI-02, URI-03, URI-04, URI-05 | 0/4 |
 | 52. Resource subscriptions | Planned, not started | SUB-01, SUB-02, SUB-03, SUB-04, SUB-05 | 0/4 |
 | 53. Streamable HTTP transport | Planned, not started | HTTP-01, HTTP-02, HTTP-03 | 0/3 |
@@ -67,7 +65,8 @@ v10.2 MCP v2:                [          ]   0% (ALL PHASES PLANNED — Phase 50 
 | 55. Validation, contract tests & QA gate | Planned, not started | VAL-01, VAL-02, VAL-03, VAL-04 | 0/5 |
 
 **Coverage:** 27/27 v1 requirements mapped to phases (no orphans, no duplicates)
-**Total plans:** 24 (Phase 50: 4 · Phase 51: 4 · Phase 52: 4 · Phase 53: 3 · Phase 54: 4 · Phase 55: 5)
+**Total plans:** 24 (Phase 50: 4 ✓ · Phase 51: 4 · Phase 52: 4 · Phase 53: 3 · Phase 54: 4 · Phase 55: 5)
+**Phase 50 shipped:** v2 design doc (486 lines) · `GET /query/chunk/{chunk_id}` (ChromaDB + Postgres) · `GET /graph/entity/{type}/{id}` (Kuzu + Simple, #178 503 fallback) · `agent_brain_server/security/file_sandbox.py` (4 deny reasons, 10 MiB cap) — full suite green: 1269 passed, 0 regressions, Black/Ruff/mypy strict all clean
 
 ## v10.2 Cross-Phase Risk Register (from workflow summarizer)
 
@@ -129,6 +128,7 @@ Feature backlog (#152, #154, #155, #156, #157, #158, #160, #162, #163, #164) and
 ## Recommended Execution Order
 
 Per workflow summarizer (verified ready_to_execute: true):
+
 1. **Phase 50** — Foundation (design doc + 2 endpoints + sandbox helpers). MUST land first.
 2. **Phase 51** — URI schemes (depends on Phase 50 endpoints + file_sandbox)
 3. **Phase 52** — Subscriptions (depends on Phase 51's job:// URI registration)

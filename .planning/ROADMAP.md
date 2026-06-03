@@ -28,7 +28,7 @@
 
 ## Phases
 
-- [ ] **Phase 50: Server endpoint prep + v2 design doc** — File v2 design doc, add `GET /query/chunk/{id}` + `GET /graph/entity/{type}/{id}` endpoints, settle `roots/list` sandbox design
+- [x] **Phase 50: Server endpoint prep + v2 design doc** — File v2 design doc, add `GET /query/chunk/{id}` + `GET /graph/entity/{type}/{id}` endpoints, settle `roots/list` sandbox design (completed 2026-06-03)
 - [ ] **Phase 51: URI schemes + templates** — Implement `chunk://`, `graph-entity://`, `job://`, `file://` resources + `resources/templates/list`
 - [ ] **Phase 52: Resource subscriptions** — `resources/subscribe` + per-resource polling cadence + `notifications/resources/updated` + disconnect cleanup
 - [ ] **Phase 53: Streamable HTTP transport** — `--transport http` on `agent-brain-mcp` with loopback bind and explicit transport selection
@@ -39,7 +39,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 50. Server endpoint prep + v2 design doc | 0/0 | Not started | - |
+| 50. Server endpoint prep + v2 design doc | 0/0 | Complete    | 2026-06-03 |
 | 51. URI schemes + templates | 0/0 | Not started | - |
 | 52. Resource subscriptions | 0/0 | Not started | - |
 | 53. Streamable HTTP transport | 0/0 | Not started | - |

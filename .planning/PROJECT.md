@@ -98,6 +98,10 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 - ✓ **INJECT-01..08**: Content injection pipeline — custom scripts and folder-level JSON metadata — v7.0
 - ✓ **EVICT-01..10**: Manifest tracking and chunk eviction — incremental indexing with stale chunk removal — v7.0
 - ✓ **XCUT-01..06**: Cross-cutting quality (dual-backend, atomic writes, --help, OpenAPI, >70% coverage, before-push) — v7.0
+- ✓ **VAL-05**: v2 design doc filed at `docs/plans/2026-06-02-mcp-v2-subscriptions.md` — v10.2 (Phase 50)
+- ✓ **(prereq for URI-01)**: `GET /query/chunk/{chunk_id}` endpoint with O(1) lookup, ChromaDB + Postgres impls — v10.2 (Phase 50)
+- ✓ **(prereq for URI-02)**: `GET /graph/entity/{type}/{id}` endpoint with Kuzu + Simple impls, `#178` SIGSEGV 503 fallback — v10.2 (Phase 50)
+- ✓ **(prereq for URI-04)**: `agent_brain_server/security/file_sandbox.py` — hard whitelist policy with 4 deny reasons, 10 MiB cap — v10.2 (Phase 50)
 
 ### Active
 
@@ -236,4 +240,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-02 after v10.2 milestone start (catch-up: v9.6.0 parked → v10.0.x patch train shipped → v10.1.0 MCP v1 shipped → v10.1.2 current → v10.2 MCP v2 active)*
+*Last updated: 2026-06-03 after Phase 50 completion — VAL-05 + 3 endpoint prereqs validated; advancing to Phase 51 (URI schemes + templates)*
