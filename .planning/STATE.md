@@ -4,13 +4,13 @@ milestone: v10.2
 milestone_name: MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
 current_phase: 52
 status: executing
-stopped_at: Plan 52-01 complete — SubscriptionManager core + canonical_hash + SubscribableUriRejected greenfield subpackage. 2 commits 6e354da (impl), a01f0b5 (39 tests + cancellation-timing fix). task before-push exit 0 — 416 tests passed across the monorepo, 180 MCP tests passing (39 new), 3 layering contracts kept. Public API LOCKED for Plans 02/03/04 + Phase 54 TOOL-04 (wait_for_job) reuse. SUB-04 + SUB-05 covered.
-last_updated: "2026-06-03T14:38:10Z"
+stopped_at: Plan 52-02 complete — MCP wire integration shipped. @server.subscribe_resource() + @server.unsubscribe_resource() handlers wired through Plan 01's SubscriptionManager; capability flipped via get_capabilities wrapper (MCP SDK 1.12.x hardcodes False with no opt-in knob); policies.py stub landed for Plan 03. 2 commits bde8d47 (feat) + 4716f7a (test). task before-push exit 0 — 416 monorepo tests, 211 MCP tests (+26 new), 3 layering contracts kept. SUB-01 + SUB-02 covered; SUB-03 infrastructurally landed (on_change closure wired; actual cadence policies ship in Plan 03).
+last_updated: "2026-06-03T14:59:00Z"
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 24
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Agent Brain — Project State
@@ -23,7 +23,7 @@ progress:
 ## Current Position
 
 Phase: 52 (resource-subscriptions) — EXECUTING
-Plan: 1 of 4 ✓ complete; 2 of 4 next
+Plan: 2 of 4 ✓ complete; 3 of 4 next
 
 ## Project Reference
 
@@ -49,7 +49,7 @@ v9.6.0 Runtime Parity:       [██▌       ]  25% (1/4 phases — parked, def
 v10.0.0–v10.0.6 Patch Train: [██████████] 100% (shipped 2026-05-25 → 2026-05-27)
 v10.1.0 MCP v1:              [██████████] 100% (shipped 2026-05-30; UDS + 7-tool stdio MCP + CLI dual transport)
 v10.1.2 MCP package rename:  [██████████] 100% (shipped 2026-06-01; agent-brain-mcp PyPI distribution + standalone user guide)
-v10.2 MCP v2:                [███▊      ]  38% (Phases 50–51 complete + Phase 52 in flight — 9/24 plans)
+v10.2 MCP v2:                [████▏     ]  42% (Phases 50–51 complete + Phase 52 in flight — 10/24 plans)
 ```
 
 ## v10.2 Phase Progress
@@ -58,7 +58,7 @@ v10.2 MCP v2:                [███▊      ]  38% (Phases 50–51 complete 
 |-------|--------|--------------|-------|
 | 50. Server endpoint prep + v2 design doc | ✓ Complete (2026-06-03) | VAL-05 ✓ | 4/4 |
 | 51. URI schemes + templates | ✓ Complete (2026-06-03) | URI-01 ✓ · URI-02 ✓ · URI-03 ✓ · URI-04 ✓ · URI-05 ✓ | 4/4 |
-| 52. Resource subscriptions | Executing (1/4 plans done) | SUB-01, SUB-02, SUB-03, **SUB-04 ✓**, **SUB-05 ✓** | 1/4 |
+| 52. Resource subscriptions | Executing (2/4 plans done) | **SUB-01 ✓**, **SUB-02 ✓**, SUB-03 (infra ✓; policies in Plan 03), **SUB-04 ✓**, **SUB-05 ✓** | 2/4 |
 | 53. Streamable HTTP transport | Planned, not started | HTTP-01, HTTP-02, HTTP-03 | 0/3 |
 | 54. 9 remaining MCP tools | Planned, not started | TOOL-01..TOOL-09 | 0/4 |
 | 55. Validation, contract tests & QA gate | Planned, not started | VAL-01, VAL-02, VAL-03, VAL-04 | 0/5 |
@@ -115,6 +115,13 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 - **Decision (2026-06-03, Plan 52-01):** Synchronous registry pop in `unsubscribe / cleanup_session / cleanup_all`. The plan's original spec relied on the polling-task `try/finally` block to clean the registry, but when a task is cancelled BEFORE its coroutine starts running (the load-bearing subscribe-then-unsubscribe race), asyncio skips the body entirely — finally never runs. Fixed by making the primary cleanup synchronous; the finally remains as defense-in-depth for the case where the loop crashes mid-iteration, with an identity check (`current is asyncio.current_task()`) to avoid evicting a re-subscribed task that took the same slot. Pinned by `test_subscribe_then_immediate_unsubscribe_cancels_before_first_poll`.
 - **Decision (2026-06-03, Plan 52-01):** `DEFAULT_DROP_KEYS` is a `frozenset` (immutable, hashable) containing `{timestamp, updated_at, elapsed_ms, polled_at, now}` — the CONTEXT-mandated 5-key allowlist for volatile fields that `canonical_hash` strips at every nesting depth. Recursive strip means uvicorn's deep-embedded request timestamps inside `corpus://status` payloads do NOT cause spurious `notifications/resources/updated` every 30s. Pinned by `test_deeply_nested_timestamp_dropped` and 4 sibling tests.
 - **Decision (2026-06-03, Plan 52-01):** Fetcher exception inside the polling loop is logged via `logger.exception` and the loop proceeds to the next interval. A transient HTTP 5xx from `agent-brain-server` MUST NOT tear down a long-running subscription. Pinned by `test_loop_survives_fetcher_exception_and_keeps_polling`.
+- **Decision (2026-06-03, Plan 52-02):** MCP SDK 1.12.x hardcodes `resources.subscribe=False` at `mcp/server/lowlevel/server.py:211` with no opt-in knob on `NotificationOptions` and no derivation from `_subscribe_resource_handler` presence. Phase 52 flips the capability via a `_patched_get_capabilities` wrapper installed inside `build_server()`. Documented inline with a line-number reference; future SDK upgrades can drop the wrapper if/when the capability becomes flag-driven. Pinned by `test_capabilities_advertise_subscriptions` + `test_e2e_initialize_advertises_subscribe_capability`.
+- **Decision (2026-06-03, Plan 52-02):** Subscribable allowlist enforced via TWO-step gate: (1) `_is_known_uri` checks `RESOURCE_REGISTRY` + `PARAMETERIZED_SCHEMES` → produces `SubscribableUriRejected(reason="unknown_uri")` for misses; (2) `resolve_policy` looks up `SUBSCRIPTION_POLICIES` (exact-then-scheme) → produces `SubscribableUriRejected(reason="not_subscribable")` for known-but-non-subscribable URIs (`corpus://config`, `chunk://`, `graph-entity://`, `file://`). Order matters — clients distinguish "we don't know that scheme" from "we know it but you can't subscribe."
+- **Decision (2026-06-03, Plan 52-02):** Duplicate subscribe is pre-checked at the wire handler via `manager.is_subscribed()`. Without this, `manager.start_polling`'s `RuntimeError("Already subscribed")` would surface as a generic internal error. Pre-check produces `SubscribableUriRejected(reason="duplicate_subscribe")` with the proper `-32602` code; Phase 52 CONTEXT decision A picks strict rejection so the polling-task lifecycle stays deterministic.
+- **Decision (2026-06-03, Plan 52-02):** Manager ownership uses `server._subscription_manager` private-attr workaround for Plan 02; Plan 04 refactors `build_server()` to return `(server, manager)` so `run_stdio`'s `finally` block can call `manager.cleanup_all()` cleanly. Pinned by `test_build_server_attaches_subscription_manager` so future readers see the contract.
+- **Decision (2026-06-03, Plan 52-02):** `policies.py` registry key shape is either exact URI (`corpus://status`) OR scheme prefix ending in `://` (`job://`). `resolve_policy` tries exact first, then scheme-prefix — exact-URI entries always win over scheme entries. Pinned by `test_exact_uri_policy_wins_over_scheme`. Critical for Plan 03 where `corpus://status` (exact) and a future per-scheme `corpus://` entry must not collide.
+- **Decision (2026-06-03, Plan 52-02):** `SubscriptionPolicy` is a `runtime_checkable` `Protocol` (not an ABC). Plan 03's concrete policies will be plain dataclasses that happen to satisfy the Protocol; structural typing keeps test stubs lightweight (no inheritance required for `monkeypatch.setitem` fixtures). Stub policies installed via `monkeypatch.setitem(SUBSCRIPTION_POLICIES, ...)` are ADDITIVE so Plan 03's real policies can coexist with test stubs without breakage.
+- **Decision (2026-06-03, Plan 52-02):** Test pattern: integration tests INLINE the `async with create_connected_server_and_client_session` block rather than wrapping it in a `pytest_asyncio.fixture` — fixture-wrapped harness trips anyio's `RuntimeError: Attempted to exit cancel scope in a different task than it was entered in` because the fixture's enter/exit cross task boundaries. Documented inline in `TestSubscribeHandlerDispatch` so future contributors don't fall into the same trap.
 
 ### Blockers/Concerns
 
@@ -136,10 +143,10 @@ Feature backlog (#152, #154, #155, #156, #157, #158, #160, #162, #163, #164) and
 
 ## Session Continuity
 
-**Last Session:** 2026-06-03T14:38:10Z
-**Stopped At:** Plan 52-01 complete — SubscriptionManager core + canonical_hash + SubscribableUriRejected greenfield subpackage at `agent_brain_mcp/subscriptions/`. 2 commits: `6e354da` (feat: payloads + errors + manager + __init__) and `a01f0b5` (test: 39 unit tests + manager cancellation-timing fix). `task before-push` exit 0 — 416 tests passed across the monorepo, 180 MCP tests passing (39 new), 3 layering contracts kept, 88% MCP coverage. Public API (`start_polling()` signature, `canonical_hash`, `DEFAULT_DROP_KEYS`, `SubscribableUriRejected`) is **LOCKED** — Plans 02/03/04 + Phase 54 TOOL-04 (`wait_for_job`) all import these symbols verbatim. SUB-04 (payload shape foundations) + SUB-05 (per-session registry) covered.
-**Resume File:** `.planning/phases/52-resource-subscriptions/plans/02-*.md` (Plan 02 unblocked — subscribe handlers wiring)
-**Next Action:** Execute Plan 52-02 — wire `@server.subscribe_resource()` + `@server.unsubscribe_resource()` decorators in `agent_brain_mcp/server.py` against the singleton `SubscriptionManager` from Plan 01. Flip `NotificationOptions(resources_changed=True)` at line 344 and invert the `test_capabilities_have_no_subscriptions` test. Validate the subscribable-URI allowlist via `SubscribableUriRejected` for `chunk://`, `graph-entity://`, `file://`.
+**Last Session:** 2026-06-03T14:59:00Z
+**Stopped At:** Plan 52-02 complete — MCP wire integration shipped. `@server.subscribe_resource()` + `@server.unsubscribe_resource()` handlers wired through Plan 01's `SubscriptionManager`; `resources.subscribe` capability flipped from SDK-hardcoded False to True via a `_patched_get_capabilities` wrapper inside `build_server()`; `agent_brain_mcp/subscriptions/policies.py` stub landed (`SubscriptionPolicy` Protocol + empty `SUBSCRIPTION_POLICIES` registry + `resolve_policy()` exact-then-scheme helper) so Plan 03 can fill the registry without touching wiring code. 2 atomic commits: `bde8d47` (feat: server.py + policies.py + subscriptions/__init__.py) and `4716f7a` (test: +26 tests across `test_subscribe_handler.py` NEW, `test_initialize.py`, `test_e2e_resources.py`). `task before-push` exit 0 — 416 monorepo tests passed, 211 MCP tests (was 180; +26 new + 5 e2e), 3 layering contracts kept, 80% coverage. SUB-01 + SUB-02 covered; SUB-03 infrastructurally landed (`on_change` closure calls `session.send_resource_updated` but no real cadence fires until Plan 03's per-URI policies). Plans 03 + 04 unblocked.
+**Resume File:** `.planning/phases/52-resource-subscriptions/plans/03-*.md` (Plan 03 unblocked — per-URI policies for job:// + corpus://status + corpus://folders)
+**Next Action:** Execute Plan 52-03 — populate `SUBSCRIPTION_POLICIES` in `agent_brain_mcp/subscriptions/policies.py` with three concrete `SubscriptionPolicy` dataclasses: `JobPolicy` (1s polling against `GET /index/jobs/{id}`, auto-cancel on terminal state), `CorpusStatusPolicy` (30s polling against `GET /health/status`, diff-suppressed via canonical_hash), `CorpusFoldersPolicy` (5s active / 60s safety polling against `GET /index/folders/`). Plan 03 does NOT touch `server.py` or `subscriptions/__init__.py` — the wiring is locked. Stub-policy monkeypatch pattern in `tests/test_subscribe_handler.py` will keep working additively once Plan 03's real entries land.
 
 ## Recommended Execution Order
 
@@ -153,4 +160,4 @@ Per workflow summarizer (verified ready_to_execute: true):
 6. **Phase 55** — Validation + QA gate (validates Phases 50-54; must be last; verification-only, no new production code)
 
 ---
-*State updated: 2026-06-03 — Plan 52-01 shipped (greenfield `agent_brain_mcp/subscriptions/` subpackage with SubscriptionManager + canonical_hash + SubscribableUriRejected; 39 unit tests + 88% MCP coverage); Phase 52 in flight 1/4 plans; SUB-04 + SUB-05 closed; public API LOCKED for Plans 02/03/04 + Phase 54 TOOL-04 reuse; 9/24 plans complete across the v10.2 milestone; Plan 52-02 (subscribe-handler wiring) is unblocked*
+*State updated: 2026-06-03 — Plan 52-02 shipped (MCP wire integration: subscribe/unsubscribe handlers + capability flip + policies.py stub; +26 tests across MCP package; 211 MCP tests passing; 416 monorepo tests passing); Phase 52 in flight 2/4 plans; SUB-01 + SUB-02 closed (SUB-03 infrastructurally landed, per-URI cadences in Plan 03); 10/24 plans complete across the v10.2 milestone; Plans 52-03 (per-URI policies) + 52-04 (disconnect cleanup hook) are both unblocked and can run in parallel*
