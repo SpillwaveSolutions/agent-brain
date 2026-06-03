@@ -207,22 +207,277 @@ class TestReadResourceFallThrough:
         assert "Unknown resource" in ei.value.error.message
 
 
+# --- chunk:// end-to-end (Plan 51-02, URI-01) -----------------------------
+
+
+class TestReadResourceChunkUri:
+    """End-to-end ``resources/read`` for ``chunk://<chunk_id>``."""
+
+    @pytest.mark.asyncio
+    async def test_read_chunk_uri_success(
+        self, fake_httpx_client: httpx.Client
+    ) -> None:
+        # Mirrors the ChunkRecord body from GET /query/chunk/{id}. The
+        # MCP wrapper round-trips the full shape unchanged.
+        server = build_server(fake_httpx_client)
+        body = await _read(server, "chunk://chunk_001")
+        data = json.loads(body)
+        assert data["chunk_id"] == "chunk_001"
+        assert data["parent_doc_id"] == "/tmp/test/file.py"
+        assert data["source"] == "/tmp/test/file.py"
+        assert "def hello()" in data["content"]
+        assert data["summary"] == "Greets the world."
+        assert data["language"] == "python"
+        # Decision C: embedding is intentionally absent
+        assert "embedding" not in data
+
+    @pytest.mark.asyncio
+    async def test_read_chunk_uri_missing_id(
+        self, fake_httpx_client: httpx.Client
+    ) -> None:
+        server = build_server(fake_httpx_client)
+        with pytest.raises(McpError) as ei:
+            await _read(server, "chunk://")
+        assert ei.value.error.code == INVALID_PARAMS
+        assert ei.value.error.data == {
+            "uri": "chunk://",
+            "reason": "missing_chunk_id",
+        }
+
+    @pytest.mark.asyncio
+    async def test_read_chunk_uri_404_refines_error_data(
+        self,
+        mock_client_factory: Callable[..., httpx.Client],
+    ) -> None:
+        # Decision D: 404 → INVALID_PARAMS with data refined to include
+        # scheme, chunk_id, httpStatus, cause so MCP clients can route.
+        client = mock_client_factory(
+            responses={
+                ("GET", "/query/chunk/nonexistent"): {
+                    "detail": {
+                        "error": "chunk_not_found",
+                        "chunk_id": "nonexistent",
+                    }
+                },
+            },
+            status_overrides={
+                ("GET", "/query/chunk/nonexistent"): 404,
+            },
+        )
+        server = build_server(client)
+        with pytest.raises(McpError) as ei:
+            await _read(server, "chunk://nonexistent")
+        err = ei.value.error
+        assert err.code == INVALID_PARAMS
+        assert isinstance(err.data, dict)
+        assert err.data["scheme"] == "chunk"
+        assert err.data["chunk_id"] == "nonexistent"
+        assert err.data["httpStatus"] == 404
+        assert "cause" in err.data
+
+
+# --- graph-entity:// end-to-end (Plan 51-02, URI-02) ----------------------
+
+
+class TestReadResourceGraphEntityUri:
+    """End-to-end ``resources/read`` for ``graph-entity://<type>/<id>``."""
+
+    @pytest.mark.asyncio
+    async def test_read_graph_entity_uri_success(
+        self, fake_httpx_client: httpx.Client
+    ) -> None:
+        # Mirrors GraphEntityRecord wire shape: entity + 1-hop neighbors.
+        server = build_server(fake_httpx_client)
+        body = await _read(server, "graph-entity://Function/foo")
+        data = json.loads(body)
+        assert data["entity"]["type"] == "Function"
+        assert data["entity"]["id"] == "foo"
+        assert data["entity"]["properties"]["module"] == "demo"
+        # Both directions present even when empty.
+        assert "incoming" in data["neighbors"]
+        assert "outgoing" in data["neighbors"]
+        assert len(data["neighbors"]["incoming"]) == 1
+        assert data["neighbors"]["incoming"][0]["predicate"] == "calls"
+        assert len(data["neighbors"]["outgoing"]) == 1
+        assert data["neighbors"]["outgoing"][0]["type"] == "Class"
+
+    @pytest.mark.asyncio
+    async def test_read_graph_entity_uri_missing_type(
+        self, fake_httpx_client: httpx.Client
+    ) -> None:
+        # graph-entity:// → missing both type and id, but the type check
+        # fires first per the parser's order.
+        server = build_server(fake_httpx_client)
+        with pytest.raises(McpError) as ei:
+            await _read(server, "graph-entity://")
+        assert ei.value.error.code == INVALID_PARAMS
+        assert ei.value.error.data == {
+            "uri": "graph-entity://",
+            "reason": "missing_type",
+        }
+
+    @pytest.mark.asyncio
+    async def test_read_graph_entity_uri_missing_id(
+        self, fake_httpx_client: httpx.Client
+    ) -> None:
+        # graph-entity://Function → server.py strips one trailing slash
+        # for normalization, then the parser sees no id segment.
+        server = build_server(fake_httpx_client)
+        with pytest.raises(McpError) as ei:
+            await _read(server, "graph-entity://Function")
+        assert ei.value.error.code == INVALID_PARAMS
+        assert ei.value.error.data == {
+            "uri": "graph-entity://Function",
+            "reason": "missing_id",
+        }
+
+    @pytest.mark.asyncio
+    async def test_read_graph_entity_uri_trailing_slash_missing_id(
+        self, fake_httpx_client: httpx.Client
+    ) -> None:
+        # graph-entity://Function/ — server.py strips the single trailing
+        # slash → "graph-entity://Function" → missing_id surfaces.
+        server = build_server(fake_httpx_client)
+        with pytest.raises(McpError) as ei:
+            await _read(server, "graph-entity://Function/")
+        assert ei.value.error.code == INVALID_PARAMS
+        assert ei.value.error.data["reason"] == "missing_id"
+
+    @pytest.mark.asyncio
+    async def test_read_graph_entity_uri_id_with_embedded_slash(
+        self, fake_httpx_client: httpx.Client
+    ) -> None:
+        # Phase 50 decision B: entity ids may contain "/". The parser
+        # treats everything after the type segment as the full id.
+        server = build_server(fake_httpx_client)
+        body = await _read(server, "graph-entity://Function/AuthService/login")
+        data = json.loads(body)
+        assert data["entity"]["id"] == "AuthService/login"
+
+    @pytest.mark.asyncio
+    async def test_read_graph_entity_uri_404_refines_error_data(
+        self,
+        mock_client_factory: Callable[..., httpx.Client],
+    ) -> None:
+        # Decision D: 404 → INVALID_PARAMS with scheme/entity_type/
+        # entity_id/httpStatus/cause for client routing.
+        client = mock_client_factory(
+            responses={
+                ("GET", "/graph/entity/Function/missing"): {
+                    "detail": {
+                        "error": "entity_not_found",
+                        "type": "Function",
+                        "id": "missing",
+                    }
+                },
+            },
+            status_overrides={
+                ("GET", "/graph/entity/Function/missing"): 404,
+            },
+        )
+        server = build_server(client)
+        with pytest.raises(McpError) as ei:
+            await _read(server, "graph-entity://Function/missing")
+        err = ei.value.error
+        assert err.code == INVALID_PARAMS
+        assert isinstance(err.data, dict)
+        assert err.data["scheme"] == "graph-entity"
+        assert err.data["entity_type"] == "Function"
+        assert err.data["entity_id"] == "missing"
+        assert err.data["httpStatus"] == 404
+        assert "cause" in err.data
+
+    @pytest.mark.asyncio
+    async def test_read_graph_entity_uri_503_graphrag_disabled(
+        self,
+        mock_client_factory: Callable[..., httpx.Client],
+    ) -> None:
+        # Phase 50 decision B / Phase 51 CONTEXT decision D: 503 from
+        # the server's "graphrag_disabled" path surfaces as
+        # SERVICE_INDEXING, refined with scheme + entity ids + a
+        # ``reason`` slug extracted from the detail body.
+        from agent_brain_mcp.errors import SERVICE_INDEXING
+
+        client = mock_client_factory(
+            responses={
+                ("GET", "/graph/entity/Function/foo"): {
+                    "detail": {
+                        "error": "graphrag_disabled",
+                        "hint": (
+                            "set graphrag.enabled = true in config to "
+                            "enable graph-entity addressing"
+                        ),
+                    }
+                },
+            },
+            status_overrides={
+                ("GET", "/graph/entity/Function/foo"): 503,
+            },
+        )
+        server = build_server(client)
+        with pytest.raises(McpError) as ei:
+            await _read(server, "graph-entity://Function/foo")
+        err = ei.value.error
+        assert err.code == SERVICE_INDEXING
+        assert isinstance(err.data, dict)
+        assert err.data["scheme"] == "graph-entity"
+        assert err.data["entity_type"] == "Function"
+        assert err.data["entity_id"] == "foo"
+        assert err.data["reason"] == "graphrag_disabled"
+        assert err.data["httpStatus"] == 503
+
+    @pytest.mark.asyncio
+    async def test_read_graph_entity_uri_503_kuzu_unavailable(
+        self,
+        mock_client_factory: Callable[..., httpx.Client],
+    ) -> None:
+        # Phase 50 Plan 03 #178 SIGSEGV fallback: when Kuzu corrupts
+        # the server returns 503 with detail.error == "kuzu_unavailable".
+        # MCP must surface SERVICE_INDEXING with reason=kuzu_unavailable
+        # so operators can route on it (distinct from "graphrag is off").
+        from agent_brain_mcp.errors import SERVICE_INDEXING
+
+        client = mock_client_factory(
+            responses={
+                ("GET", "/graph/entity/Function/foo"): {
+                    "detail": {
+                        "error": "kuzu_unavailable",
+                        "hint": (
+                            "Kuzu graph store raised during lookup "
+                            "(issue #178). Set graphrag.store_type="
+                            "simple in config until the Kuzu fix lands."
+                        ),
+                    }
+                },
+            },
+            status_overrides={
+                ("GET", "/graph/entity/Function/foo"): 503,
+            },
+        )
+        server = build_server(client)
+        with pytest.raises(McpError) as ei:
+            await _read(server, "graph-entity://Function/foo")
+        err = ei.value.error
+        assert err.code == SERVICE_INDEXING
+        assert isinstance(err.data, dict)
+        assert err.data["reason"] == "kuzu_unavailable"
+
+
 # --- placeholder schemes raise NotImplementedError ------------------------
 
 
 class TestPlaceholderHandlers:
-    """Plans 51-02 and 51-03 will replace these placeholders. Until
-    they ship, attempting to read those schemes raises
+    """Plan 51-03 will replace the remaining ``file://`` placeholder.
+    Until it ships, attempting to read that scheme raises
     ``NotImplementedError`` — not ``McpError``. This is intentional:
     callers should not be able to silently get an empty/None response
-    for an unwired handler."""
+    for an unwired handler. Plans 51-01 and 51-02 have already swapped
+    out their placeholders, so only ``file://`` remains here."""
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "uri",
         [
-            "chunk://chunk_001",
-            "graph-entity://Function/foo",
             "file:///tmp/foo.py",
         ],
     )
@@ -232,6 +487,66 @@ class TestPlaceholderHandlers:
         server = build_server(fake_httpx_client)
         with pytest.raises(NotImplementedError):
             await _read(server, uri)
+
+
+# --- parse_uri unit tests for chunk + graph-entity (Plan 51-02) -----------
+
+
+class TestParseUriChunkAndGraphEntity:
+    """Pure ``parse_uri`` behavior for the Plan 51-02 schemes."""
+
+    @pytest.mark.parametrize(
+        "uri,expected_id",
+        [
+            ("chunk://chunk_001", "chunk_001"),
+            ("chunk://chunk_001/", "chunk_001"),  # trailing slash collapses
+            ("chunk:chunk_001", "chunk_001"),  # RFC-correct no-slashes form
+        ],
+    )
+    def test_chunk_uri_extracts_id(self, uri: str, expected_id: str) -> None:
+        parsed = parse_uri(uri)
+        assert parsed is not None
+        assert parsed.scheme == "chunk"
+        assert parsed.chunk_id == expected_id
+
+    def test_chunk_uri_missing_id_raises_invalid_params(self) -> None:
+        with pytest.raises(McpError) as ei:
+            parse_uri("chunk://")
+        assert ei.value.error.code == INVALID_PARAMS
+        assert ei.value.error.data == {
+            "uri": "chunk://",
+            "reason": "missing_chunk_id",
+        }
+
+    def test_graph_entity_uri_extracts_type_and_id(self) -> None:
+        parsed = parse_uri("graph-entity://Function/foo")
+        assert parsed is not None
+        assert parsed.scheme == "graph-entity"
+        assert parsed.entity_type == "Function"
+        assert parsed.entity_id == "foo"
+
+    def test_graph_entity_uri_allows_id_with_slashes(self) -> None:
+        # Phase 50 decision B — hierarchical ids stay intact.
+        parsed = parse_uri("graph-entity://Function/AuthService/login")
+        assert parsed is not None
+        assert parsed.entity_type == "Function"
+        assert parsed.entity_id == "AuthService/login"
+
+    def test_graph_entity_uri_missing_type(self) -> None:
+        with pytest.raises(McpError) as ei:
+            parse_uri("graph-entity://")
+        assert ei.value.error.data == {
+            "uri": "graph-entity://",
+            "reason": "missing_type",
+        }
+
+    def test_graph_entity_uri_missing_id(self) -> None:
+        with pytest.raises(McpError) as ei:
+            parse_uri("graph-entity://Function")
+        assert ei.value.error.data == {
+            "uri": "graph-entity://Function",
+            "reason": "missing_id",
+        }
 
 
 # --- ParsedURI dataclass invariants ---------------------------------------

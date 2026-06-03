@@ -104,6 +104,57 @@ _DEFAULT_RESPONSES: dict[tuple[str, str], dict[str, Any]] = {
             }
         ]
     },
+    # Phase 51 Plan 02 (URI-01) chunk:// fixtures. Body mirrors the
+    # ChunkRecord wire shape from Phase 50 Plan 02. Embedding is
+    # intentionally absent per Phase 50 decision C.
+    ("GET", "/query/chunk/chunk_001"): {
+        "chunk_id": "chunk_001",
+        "parent_doc_id": "/tmp/test/file.py",
+        "source": "/tmp/test/file.py",
+        "content": "def hello():\n    return 'world'\n",
+        "summary": "Greets the world.",
+        "folder_id": "/tmp/test",
+        "token_count": 12,
+        "language": "python",
+    },
+    # Phase 51 Plan 02 (URI-02) graph-entity:// fixtures. Body mirrors
+    # GraphEntityRecord wire shape from Phase 50 Plan 03 — entity node
+    # plus 1-hop incoming/outgoing neighbors.
+    ("GET", "/graph/entity/Function/foo"): {
+        "entity": {
+            "type": "Function",
+            "id": "foo",
+            "properties": {"module": "demo", "language": "python"},
+        },
+        "neighbors": {
+            "incoming": [
+                {
+                    "type": "Function",
+                    "id": "caller",
+                    "predicate": "calls",
+                    "properties": {"source_chunk_id": "chunk_010"},
+                }
+            ],
+            "outgoing": [
+                {
+                    "type": "Class",
+                    "id": "Helper",
+                    "predicate": "uses",
+                    "properties": {},
+                }
+            ],
+        },
+    },
+    # Entity id with embedded "/" — Phase 50 decision B allows
+    # hierarchical ids. Used by the slash-in-id test case.
+    ("GET", "/graph/entity/Function/AuthService/login"): {
+        "entity": {
+            "type": "Function",
+            "id": "AuthService/login",
+            "properties": {},
+        },
+        "neighbors": {"incoming": [], "outgoing": []},
+    },
 }
 
 
