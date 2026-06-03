@@ -82,10 +82,10 @@ tasks:
       - poetry run pytest {{.TEST_DIR}} --cov={{.SRC_DIR}} --cov-report=term-missing --cov-report=html
 
   contract:
-    desc: Validate MCP tool/resource/prompt schemas against the pinned MCP spec (Phase 4+)
+    desc: SDK-driven contract tests (stdio + HTTP transports, Phase 55 VAL-01/02/03)
     deps: [install]
     cmds:
-      - echo "MCP contract validation lands in Phase 4."
+      - poetry run pytest {{.TEST_DIR}}/contract -v -m contract
 
   e2e:
     desc: End-to-end suite — spawns agent-brain-serve + agent-brain-mcp (slow, Phase 4+)
