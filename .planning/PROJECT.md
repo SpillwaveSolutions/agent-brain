@@ -102,11 +102,15 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 - ✓ **(prereq for URI-01)**: `GET /query/chunk/{chunk_id}` endpoint with O(1) lookup, ChromaDB + Postgres impls — v10.2 (Phase 50)
 - ✓ **(prereq for URI-02)**: `GET /graph/entity/{type}/{id}` endpoint with Kuzu + Simple impls, `#178` SIGSEGV 503 fallback — v10.2 (Phase 50)
 - ✓ **(prereq for URI-04)**: `agent_brain_server/security/file_sandbox.py` — hard whitelist policy with 4 deny reasons, 10 MiB cap — v10.2 (Phase 50)
+- ✓ **URI-01**: `chunk://<chunk_id>` resource readable via MCP `resources/read` — v10.2 (Phase 51, Plan 02)
+- ✓ **URI-02**: `graph-entity://<type>/<id>` resource readable via MCP `resources/read`; 503 `kuzu_unavailable` fallback wired — v10.2 (Phase 51, Plan 02)
+- ✓ **URI-03**: `job://<job_id>` resource readable via MCP `resources/read` (foundational dispatcher) — v10.2 (Phase 51, Plan 01)
+- ✓ **URI-04**: `file://<abs-path>` resource readable, gated by Phase 50 sandbox helpers (shared, not forked) — v10.2 (Phase 51, Plan 03)
+- ✓ **URI-05**: `resources/templates/list` advertises all 4 URI templates as RFC 6570 strings; `MIN_BACKEND_VERSION` bumped to `10.2.0` — v10.2 (Phase 51, Plan 04)
 
 ### Active
 
  - [ ] MCP v2 resource subscriptions (`resources/subscribe` + `notifications/resources/updated`)
- - [ ] MCP v2 deferred URI schemes (`chunk://`, `graph-entity://`, `job://`, `file://`)
  - [ ] MCP v2 Streamable HTTP transport (alongside stdio, loopback only)
  - [ ] MCP v2 9 remaining tools (explain_result, add_documents, inject_documents, wait_for_job, list_folders, remove_folder, cache_status, clear_cache, list_file_types)
  - [ ] MCP v2 progress notifications on long-running jobs (`wait_for_job` every ≤2s)
@@ -240,4 +244,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-03 after Phase 50 completion — VAL-05 + 3 endpoint prereqs validated; advancing to Phase 51 (URI schemes + templates)*
+*Last updated: 2026-06-03 after Phase 51 completion — URI-01..05 validated (4 URI schemes addressable, `resources/templates/list` advertised, version floor 10.2.0); advancing to Phase 52 (resource subscriptions)*
