@@ -112,10 +112,12 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 - ✓ **SUB-03**: `corpus://folders` subscription with configurable 5s active cadence (`mcp_subscription_folders_active_interval_s` setting) — v10.2 (Phase 52, Plan 03)
 - ✓ **SUB-04**: `notifications/resources/updated` payload conforms to 2025-03-26 MCP spec; URI-only shape today, `_meta.revision` (64-char hex SHA-256) future-pinned in tests — v10.2 (Phase 52, Plan 04)
 - ✓ **SUB-05**: Per-session subscription tracking via `(id(session), uri)` key; cleanup via `run_stdio` try/finally + `cleanup_all()` on EOF; deterministic counter-based e2e test (not psutil) — v10.2 (Phase 52, Plan 04)
+- ✓ **HTTP-01**: `agent-brain-mcp --transport http` starts a Streamable HTTP listener via `StreamableHTTPSessionManager` + uvicorn; SDK round-trip drives `streamablehttp_client` and asserts v1 surface symmetry (7 tools / 5 resources / 6 prompts) — v10.2 (Phase 53, Plans 01-03)
+- ✓ **HTTP-02**: Loopback-only enforcement {127.0.0.1, localhost, ::1} at CLI entry + in-process; startup banner literal `(loopback only, no auth — do NOT expose this port)`; explicit `security_settings=loopback_transport_security()` because `StreamableHTTPSessionManager` doesn't auto-enable like `FastMCP`; psutil socket-bind verification — v10.2 (Phase 53, Plans 01-03)
+- ✓ **HTTP-03**: Explicit selection via `click.Choice`; no silent fallback; `PortInUseError(exit_code=2)` for EADDRINUSE; pre-flight `socket.bind` probe because uvicorn 0.32.x catches OSError as SystemExit(1); CLI hoist of validation precedes `main_async` to avoid BackendUnavailable masking — v10.2 (Phase 53, Plans 01-03)
 
 ### Active
 
- - [ ] MCP v2 Streamable HTTP transport (alongside stdio, loopback only)
  - [ ] MCP v2 9 remaining tools (explain_result, add_documents, inject_documents, wait_for_job, list_folders, remove_folder, cache_status, clear_cache, list_file_types)
  - [ ] MCP v2 progress notifications on long-running jobs (`wait_for_job` every ≤2s, reuses Phase 52 `start_polling`)
 
@@ -248,4 +250,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-03 after Phase 52 completion — SUB-01..05 validated (3 subscribable URIs with policy-defined cadences, MCP-spec-compliant notification shape, per-session tracking + disconnect cleanup, capability-flip wrapper around SDK 1.12.x); advancing to Phase 53 (Streamable HTTP transport)*
+*Last updated: 2026-06-03 after Phase 53 completion — HTTP-01..03 validated (Streamable HTTP listener loopback-only via SDK SessionManager + uvicorn, `_meta` carries both transport axes over the wire via `_MetaInjectingServerSession`, deterministic exit code 2 on port collision via pre-flight probe); advancing to Phase 54 (9 remaining MCP tools)*
