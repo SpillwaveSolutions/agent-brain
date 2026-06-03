@@ -123,6 +123,17 @@ class Settings(BaseSettings):
     # that raises ValueError on such tokens. Fixes issue #114.
     ALLOW_SPECIAL_TOKENS_IN_TEXT: bool = True
 
+    # MCP Sandbox Configuration (Phase 50 Plan 04 — Decision A)
+    # Per-file size cap for ``file://`` MCP resource reads enforced by
+    # ``agent_brain_server/security/file_sandbox.py``. Default 10 MiB
+    # (10 * 1024 * 1024 bytes) per CONTEXT decision A. Operators may
+    # raise or lower the cap via env var
+    # ``MCP_SANDBOX_MAX_READ_BYTES`` or YAML override; Phase 51 wires
+    # this value into the MCP resources/read handler. Source of truth
+    # for the policy lives in
+    # ``docs/plans/2026-06-02-mcp-v2-subscriptions.md`` §2.5.
+    MCP_SANDBOX_MAX_READ_BYTES: int = 10 * 1024 * 1024
+
     # Reranking Configuration (Feature 123)
     ENABLE_RERANKING: bool = False  # Off by default
     RERANKER_PROVIDER: str = "sentence-transformers"  # or "ollama"
