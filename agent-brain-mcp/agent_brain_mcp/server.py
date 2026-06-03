@@ -31,7 +31,12 @@ from . import __version__
 from .client import ApiClient
 from .errors import INVALID_PARAMS, raise_backend_unavailable
 from .prompts import PROMPT_REGISTRY
-from .resources import PARAMETERIZED_HANDLERS, RESOURCE_REGISTRY, parse_uri
+from .resources import (
+    PARAMETERIZED_HANDLERS,
+    RESOURCE_REGISTRY,
+    TEMPLATE_REGISTRY,
+    parse_uri,
+)
 from .schemas import json_schema
 from .tools import TOOL_REGISTRY
 
@@ -39,7 +44,21 @@ logger = logging.getLogger(__name__)
 
 SERVER_NAME = "agent-brain"
 # Lowest server /health/ ``version`` that this MCP build is compatible with.
-MIN_BACKEND_VERSION = "10.0.7"
+#
+# Phase 51 Plan 04 bumps this floor from "10.0.7" → "10.2.0". The new
+# floor pins the v2 server-side endpoints introduced in Phase 50 — namely
+# ``GET /query/chunk/{id}`` and ``GET /graph/entity/{type}/{id}`` — which
+# back the ``chunk://`` and ``graph-entity://`` URI schemes. Without
+# them, the parameterized URI handlers would fail with 404 against a
+# v1-era server, presenting a confusing error rather than a clear
+# "upgrade your server" message at startup.
+#
+# Release-train coupling: ``agent-brain-server 10.2.0`` MUST ship to
+# PyPI BEFORE ``agent-brain-mcp 10.2.0`` is published. Otherwise
+# operators upgrading their MCP package against an older server will
+# see this floor check refuse to start. Documented in the v2 design
+# doc and in CHANGELOG [10.2.0].
+MIN_BACKEND_VERSION = "10.2.0"
 
 
 def _parse_version(v: str) -> tuple[int, ...]:
@@ -143,6 +162,21 @@ def build_server(httpx_client: httpx.Client, *, transport: str = "http") -> Serv
             )
             for spec in RESOURCE_REGISTRY.values()
         ]
+
+    @server.list_resource_templates()
+    async def list_resource_templates() -> list[types.ResourceTemplate]:
+        # Phase 51 (URI-05): publish the 4 RFC 6570 templates for the
+        # parameterized URI schemes (chunk, graph-entity, job, file).
+        # Static corpus://* URIs stay in list_resources(); they are NOT
+        # retrofitted into templates because they are genuinely static
+        # (5 fixed URIs, no parameters) — CONTEXT decision A.
+        #
+        # The MCP SDK auto-detects ``resourceTemplates`` capability from
+        # handler presence in the spec revision pinned in pyproject.toml
+        # (mcp = ^1.12.0 → 2026-03-26 spec). No explicit capability flag
+        # bump is required in get_capabilities(); resources.subscribe
+        # stays False until Phase 52.
+        return list(TEMPLATE_REGISTRY)
 
     @server.read_resource()
     async def read_resource(uri: AnyUrl) -> list[ReadResourceContents]:

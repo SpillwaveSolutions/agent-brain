@@ -31,8 +31,15 @@ pydantic = "^2.10.0"
 click = "^8.1.0"
 # Path-installed for local dev (plan §13 + need Phase 2 ConfigStatus model).
 # Release process swaps both to PyPI pins before publishing.
-agent-brain-rag = "^10.1.0"
-agent-brain-uds = "^10.1.0"
+#
+# Phase 51 Plan 04: bumped from ^10.1.0 to ^10.2.0 in lockstep with the
+# MIN_BACKEND_VERSION runtime check (agent_brain_mcp/server.py). Phase
+# 50 lands the v2 server endpoints (GET /query/chunk/{id}, GET /graph/
+# entity/{type}/{id}) in agent-brain-server 10.2.0; the MCP package
+# now refuses to run against anything older both at install time (this
+# pin) and at startup (the version-floor check).
+agent-brain-rag = "^10.2.0"
+agent-brain-uds = "^10.2.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"
