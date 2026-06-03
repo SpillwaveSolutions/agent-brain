@@ -31,7 +31,7 @@ from . import __version__
 from .client import ApiClient
 from .errors import INVALID_PARAMS, raise_backend_unavailable
 from .prompts import PROMPT_REGISTRY
-from .resources import RESOURCE_REGISTRY
+from .resources import PARAMETERIZED_HANDLERS, RESOURCE_REGISTRY, parse_uri
 from .schemas import json_schema
 from .tools import TOOL_REGISTRY
 
@@ -147,6 +147,39 @@ def build_server(httpx_client: httpx.Client, *, transport: str = "http") -> Serv
     @server.read_resource()
     async def read_resource(uri: AnyUrl) -> list[ReadResourceContents]:
         uri_str = str(uri).rstrip("/")
+
+        # Phase 51 (URI-03): parameterized schemes dispatch first.
+        # parse_uri() returns None for any scheme outside the four-
+        # scheme allow-list (including corpus://), so we fall through
+        # to the static RESOURCE_REGISTRY below. Malformed parameterized
+        # URIs (recognized scheme, missing required segment) raise
+        # McpError(INVALID_PARAMS) inside parse_uri — let it propagate.
+        parsed = parse_uri(uri_str)
+        if parsed is not None:
+            handler = PARAMETERIZED_HANDLERS.get(parsed.scheme)
+            if handler is None:
+                # parse_uri only returns ParsedURI for registered
+                # schemes, so this is defensive against a future
+                # registry mismatch.
+                raise McpError(
+                    ErrorData(
+                        code=INVALID_PARAMS,
+                        message=f"Unknown resource: {uri}",
+                    )
+                )
+            api = ApiClient(httpx_client)
+            # Parameterized handlers are async; they do their own
+            # asyncio.to_thread() for the sync httpx call inside the
+            # handler body, so we await directly here.
+            content = await handler(api, parsed)
+            return [
+                ReadResourceContents(
+                    content=content,
+                    mime_type="application/json",
+                )
+            ]
+
+        # Static corpus:// resource path (unchanged from v1).
         spec = RESOURCE_REGISTRY.get(uri_str) or RESOURCE_REGISTRY.get(str(uri))
         if spec is None:
             raise McpError(
