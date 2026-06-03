@@ -40,6 +40,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from .errors import SubscriptionTerminated
 from .payloads import DEFAULT_DROP_KEYS, canonical_hash
 
 logger = logging.getLogger(__name__)
@@ -222,6 +223,36 @@ class SubscriptionManager:
                     payload = await fetcher()
                 except asyncio.CancelledError:
                     raise
+                except SubscriptionTerminated as terminated:
+                    # Plan 03 sentinel: the policy fetcher signalled
+                    # that the polled resource has reached a terminal
+                    # state (e.g., job://<id> with status=completed).
+                    # Emit one final on_change with the terminal
+                    # payload (if provided) so the subscriber sees
+                    # the end-state, then return cleanly. The finally
+                    # block below + Plan 01's synchronous-cleanup
+                    # paths both scrub the registry slot.
+                    final = terminated.final_payload
+                    if final is not None:
+                        try:
+                            await on_change(uri, final)
+                        except asyncio.CancelledError:
+                            raise
+                        except Exception:
+                            # A failing on_change on the terminal poke
+                            # must not stop us exiting — the loop is
+                            # ending either way. Log and proceed.
+                            logger.exception(
+                                "on_change failed during terminal "
+                                "emission for uri=%s",
+                                uri,
+                            )
+                    logger.info(
+                        "subscription terminated by policy " "session=%s uri=%s",
+                        self._truncate_session_id(session),
+                        uri,
+                    )
+                    return
                 except Exception:
                     # Don't let a transient fetcher failure tear down
                     # the polling loop. Log and back off one interval.

@@ -21,6 +21,15 @@ For UDS:
   - explicit ``socket_path`` arg →
   - ``AGENT_BRAIN_UDS_PATH`` env →
   - ``resolve_socket_path(state_dir)``
+
+Phase 52 (Plan 03) adds subscription-side settings — currently only the
+``corpus://folders`` active-poll cadence (CONTEXT decision E: client-side
+polling, no new server endpoint). The safety-poll cadence is parked
+behind a settings knob too even though Plan 03 does NOT consume it; it
+is reserved for a future v3 micro-plan if the 5s active cadence proves
+insufficient. Both knobs read env vars at import time — there is NO
+hot-reload (Phase 52 CONTEXT specifics: "read at MCP server startup, no
+hot-reload in v2").
 """
 
 from __future__ import annotations
@@ -39,10 +48,116 @@ from agent_brain_uds import (
 from agent_brain_uds import (
     make_client as make_uds_client,
 )
+from pydantic import BaseModel, Field, ValidationError
 
 DEFAULT_HTTP_BASE_URL = "http://127.0.0.1:8000"
 DEFAULT_TIMEOUT = 30.0
 STATE_DIR_NAME = ".agent-brain"
+
+
+# ---------------------------------------------------------------------------
+# Subscription settings (Phase 52 Plan 03)
+# ---------------------------------------------------------------------------
+
+
+class MCPSubscriptionSettings(BaseModel):
+    """Per-process MCP subscription tuning knobs.
+
+    Currently scopes the ``corpus://folders`` polling cadence. Phase 52
+    CONTEXT specifics §2 calls for these to be settings-driven so
+    operators can tune the active-vs-safety trade-off without touching
+    code. Both fields are floats with ``gt=0`` validation — non-positive
+    intervals would either starve the loop (0) or invert the asyncio
+    sleep contract (<0).
+
+    Attributes:
+        folders_active_interval_s: Seconds between successive polls of
+            ``GET /index/folders/`` while at least one subscriber is
+            active for ``corpus://folders``. Default 5.0s — Phase 52
+            CONTEXT decision B picks this as the trade-off between
+            responsiveness and HTTP round-trip cost.
+        folders_safety_interval_s: Reserved settings knob for a future
+            v3 "safety poll" cadence (CONTEXT decision E). Plan 03 does
+            NOT wire this through the polling loop — the active 5s
+            cadence already runs while subscribed, and there is no
+            no-subscribers branch in the v2 design. Documented here so
+            operators can pre-stage the value if v3 lands.
+    """
+
+    folders_active_interval_s: float = Field(
+        default=5.0,
+        gt=0,
+        description=(
+            "Active-subscriber polling cadence for corpus://folders, "
+            "seconds. CorpusFoldersPolicy injects this at module import "
+            "time (no hot-reload in v2)."
+        ),
+    )
+    folders_safety_interval_s: float = Field(
+        default=60.0,
+        gt=0,
+        description=(
+            "Safety-poll cadence, seconds. Reserved for v3 — Plan 03 "
+            "does not consume this. Documented so operators can pre-"
+            "stage the value."
+        ),
+    )
+
+
+def _load_subscription_settings() -> MCPSubscriptionSettings:
+    """Read MCP subscription settings from environment variables.
+
+    The two env vars consumed are:
+
+    * ``AGENT_BRAIN_MCP_SUBSCRIPTION_FOLDERS_ACTIVE_INTERVAL_S``
+    * ``AGENT_BRAIN_MCP_SUBSCRIPTION_FOLDERS_SAFETY_INTERVAL_S``
+
+    Both parse as ``float``. Pydantic validates ``gt=0`` and raises
+    :class:`pydantic.ValidationError` if the value is non-positive or
+    malformed. The caller (module-level :data:`mcp_subscription_settings`
+    in this module) catches it and re-raises as a clear ``RuntimeError``
+    with the offending env var name so startup failure is debuggable.
+
+    No env var set → Pydantic default is used (5.0 / 60.0).
+    """
+    raw: dict[str, float] = {}
+    active = os.environ.get("AGENT_BRAIN_MCP_SUBSCRIPTION_FOLDERS_ACTIVE_INTERVAL_S")
+    if active is not None:
+        try:
+            raw["folders_active_interval_s"] = float(active)
+        except ValueError as exc:
+            raise RuntimeError(
+                "AGENT_BRAIN_MCP_SUBSCRIPTION_FOLDERS_ACTIVE_INTERVAL_S "
+                f"must be a float, got {active!r}"
+            ) from exc
+    safety = os.environ.get("AGENT_BRAIN_MCP_SUBSCRIPTION_FOLDERS_SAFETY_INTERVAL_S")
+    if safety is not None:
+        try:
+            raw["folders_safety_interval_s"] = float(safety)
+        except ValueError as exc:
+            raise RuntimeError(
+                "AGENT_BRAIN_MCP_SUBSCRIPTION_FOLDERS_SAFETY_INTERVAL_S "
+                f"must be a float, got {safety!r}"
+            ) from exc
+    try:
+        return MCPSubscriptionSettings(**raw)
+    except ValidationError as exc:
+        # Re-raise with offending env var names included for operator
+        # debuggability — Pydantic's default message references field
+        # names, not env vars.
+        raise RuntimeError(
+            "Invalid MCP subscription settings (env vars "
+            "AGENT_BRAIN_MCP_SUBSCRIPTION_FOLDERS_ACTIVE_INTERVAL_S / "
+            "AGENT_BRAIN_MCP_SUBSCRIPTION_FOLDERS_SAFETY_INTERVAL_S): "
+            f"{exc}"
+        ) from exc
+
+
+# Module-level singleton read at import time. Plan 03's
+# :class:`CorpusFoldersPolicy` instantiates with this value at
+# subscriptions/policies.py module-load. No hot-reload — restart the
+# MCP server to pick up env-var changes (CONTEXT specifics §3).
+mcp_subscription_settings: MCPSubscriptionSettings = _load_subscription_settings()
 
 
 def _resolve_state_dir(state_dir: Path | None) -> Path | None:

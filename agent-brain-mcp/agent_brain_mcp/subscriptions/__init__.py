@@ -20,10 +20,15 @@ Public API (Plans 02/03/04 + Phase 54 TOOL-04 ``wait_for_job`` reuse):
 * :class:`SubscribableUriRejected` — MCP error raised by Plan 02's
   ``@server.subscribe_resource()`` handler when a URI is unknown
   or outside the subscribable allowlist.
+* :class:`SubscriptionTerminated` — control-flow sentinel a Plan 03
+  policy fetcher raises to signal the polling loop should exit
+  cleanly (e.g., ``job://<id>`` reached a terminal status).
 * :class:`SubscriptionPolicy` — Protocol for per-URI cadence + fetcher
-  factory (Plan 03 will land concrete implementations).
-* :data:`SUBSCRIPTION_POLICIES` — registry of per-URI policies, empty
-  in Plan 02; Plan 03 populates.
+  factory (Plan 03 lands concrete implementations).
+* :data:`SUBSCRIPTION_POLICIES` — registry of per-URI policies.
+  Plan 02 lands the empty registry; Plan 03 populates with
+  :class:`JobPolicy`, :class:`CorpusStatusPolicy`,
+  :class:`CorpusFoldersPolicy` at module import time.
 * :func:`resolve_policy` — exact-then-scheme lookup helper.
 
 The MCP wire integration in :mod:`agent_brain_mcp.server` consumes these
@@ -31,11 +36,14 @@ symbols; this package owns the data structures and dispatch helpers but
 does NOT import the MCP SDK directly outside of :mod:`.errors`.
 """
 
-from .errors import SubscribableUriRejected
+from .errors import SubscribableUriRejected, SubscriptionTerminated
 from .manager import Fetcher, OnChange, SubscriptionManager
 from .payloads import DEFAULT_DROP_KEYS, canonical_hash
 from .policies import (
     SUBSCRIPTION_POLICIES,
+    CorpusFoldersPolicy,
+    CorpusStatusPolicy,
+    JobPolicy,
     PolicyFetcherFactory,
     SubscriptionPolicy,
     resolve_policy,
@@ -43,13 +51,17 @@ from .policies import (
 
 __all__ = [
     "DEFAULT_DROP_KEYS",
+    "CorpusFoldersPolicy",
+    "CorpusStatusPolicy",
     "Fetcher",
+    "JobPolicy",
     "OnChange",
     "PolicyFetcherFactory",
     "SUBSCRIPTION_POLICIES",
     "SubscribableUriRejected",
     "SubscriptionManager",
     "SubscriptionPolicy",
+    "SubscriptionTerminated",
     "canonical_hash",
     "resolve_policy",
 ]
