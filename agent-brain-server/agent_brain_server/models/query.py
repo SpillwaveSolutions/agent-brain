@@ -342,8 +342,7 @@ class ChunkRecord(BaseModel):
                     "source": "/home/user/project/docs/auth.md",
                     "content": "Authentication is configured via...",
                     "summary": (
-                        "Section explaining how authentication is "
-                        "configured."
+                        "Section explaining how authentication is " "configured."
                     ),
                     "folder_id": "/home/user/project/docs",
                     "token_count": 512,

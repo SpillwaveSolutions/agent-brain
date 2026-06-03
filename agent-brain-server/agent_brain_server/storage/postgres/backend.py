@@ -678,8 +678,7 @@ class PostgresBackend:
                 source = str(meta.get("source", ""))
                 parent_doc_id = str(meta.get("parent_doc_id") or source)
                 folder_id = str(
-                    meta.get("folder_id")
-                    or (os.path.dirname(source) if source else "")
+                    meta.get("folder_id") or (os.path.dirname(source) if source else "")
                 )
 
                 summary_val = meta.get("summary") or meta.get("section_summary")

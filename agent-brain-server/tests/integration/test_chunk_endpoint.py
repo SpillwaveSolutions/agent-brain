@@ -69,9 +69,7 @@ class TestChunkByIdEndpoint:
             sample_chunk_record.chunk_id
         )
 
-    def test_returns_404_with_structured_error(
-        self, app_with_mocks, client
-    ) -> None:
+    def test_returns_404_with_structured_error(self, app_with_mocks, client) -> None:
         """404 path: body carries error code + chunk_id (not 200-found-false)."""
         storage_mock = MagicMock(spec=["get_chunk_by_id"])
         storage_mock.get_chunk_by_id = AsyncMock(return_value=None)
@@ -88,9 +86,7 @@ class TestChunkByIdEndpoint:
             }
         }
 
-    def test_storage_error_surfaces_as_500(
-        self, app_with_mocks, client
-    ) -> None:
+    def test_storage_error_surfaces_as_500(self, app_with_mocks, client) -> None:
         """StorageError from the backend is wrapped as HTTP 500."""
         from agent_brain_server.storage.protocol import StorageError
 

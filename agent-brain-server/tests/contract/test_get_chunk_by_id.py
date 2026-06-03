@@ -140,9 +140,7 @@ class TestGetChunkByIdContract:
             embeddings=[BASE_EMBEDDING],
             documents=["export const x = 1;"],
             metadatas=[
-                _chunk_metadata(
-                    source=source, language="typescript", token_count=6
-                )
+                _chunk_metadata(source=source, language="typescript", token_count=6)
             ],
         )
 
@@ -168,9 +166,7 @@ class TestGetChunkByIdPerformance:
         documents = [f"content for chunk {i}" for i in range(corpus_size)]
         embeddings = [BASE_EMBEDDING for _ in range(corpus_size)]
         metadatas = [
-            _chunk_metadata(
-                source=f"/tmp/perf/file_{i:04d}.md", token_count=4
-            )
+            _chunk_metadata(source=f"/tmp/perf/file_{i:04d}.md", token_count=4)
             for i in range(corpus_size)
         ]
 
