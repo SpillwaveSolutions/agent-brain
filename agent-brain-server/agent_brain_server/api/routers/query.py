@@ -5,7 +5,7 @@ import logging
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
-from agent_brain_server.models import QueryRequest, QueryResponse
+from agent_brain_server.models import ChunkRecord, QueryRequest, QueryResponse
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +92,80 @@ async def query_documents(request_body: QueryRequest, request: Request) -> JSONR
     else:
         payload = response.model_dump()
     return JSONResponse(content=payload)
+
+
+@router.get(
+    "/chunk/{chunk_id}",
+    response_model=ChunkRecord,
+    summary="Get Chunk by ID",
+    description=(
+        "O(1) lookup of a single chunk by its primary-key chunk_id. "
+        "Returns the chunk's content plus full metadata per the v2 "
+        "design doc §2.3 (ChunkRecord shape). Embeddings are NOT "
+        "included — fetch them via POST /query/ if needed. Returns 404 "
+        "with a structured error body when the chunk does not exist."
+    ),
+    responses={
+        404: {
+            "description": "Chunk not found",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": {
+                            "error": "chunk_not_found",
+                            "chunk_id": "missing-id",
+                        }
+                    }
+                }
+            },
+        }
+    },
+)
+async def get_chunk_by_id(chunk_id: str, request: Request) -> ChunkRecord:
+    """Look up a single chunk by primary key.
+
+    Backs the future MCP ``chunk://<chunk_id>`` URI scheme (URI-01,
+    Phase 51). No authentication required (matches v1 stance; auth is
+    v4 work, separately tracked under #179).
+
+    Args:
+        chunk_id: The unique chunk identifier (primary key).
+        request: FastAPI request for accessing the storage backend on
+            ``app.state``.
+
+    Returns:
+        :class:`ChunkRecord` with the chunk's content and metadata. The
+        ``embedding`` field is intentionally absent from the response
+        payload per the v2 design doc.
+
+    Raises:
+        404: Structured ``{"error": "chunk_not_found", "chunk_id": "..."}``
+            when no chunk with the supplied ID exists.
+        500: When the underlying storage backend fails. The error
+            message is surfaced as ``detail``.
+    """
+    from agent_brain_server.storage.protocol import (
+        StorageBackendProtocol,
+        StorageError,
+    )
+
+    storage: StorageBackendProtocol = request.app.state.storage_backend
+
+    try:
+        record = await storage.get_chunk_by_id(chunk_id)
+    except StorageError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Chunk lookup failed: {e.message}",
+        ) from e
+
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "chunk_not_found", "chunk_id": chunk_id},
+        )
+
+    return record
 
 
 @router.get(
