@@ -39,7 +39,7 @@ async def _get_prompt(
 async def test_prompt_expands_to_messages(
     name: str, arguments: dict[str, str], fake_httpx_client: httpx.Client
 ) -> None:
-    server = build_server(fake_httpx_client)
+    server, _ = build_server(fake_httpx_client)
     result = await _get_prompt(server, name, arguments)
     assert result.description
     assert len(result.messages) >= 1
@@ -56,7 +56,7 @@ class TestPromptArgumentValidation:
     async def test_find_callers_missing_symbol_rejected(
         self, fake_httpx_client: httpx.Client
     ) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         with pytest.raises(McpError) as ei:
             await _get_prompt(server, "find-callers", {})
         assert ei.value.error.code == INVALID_PARAMS
@@ -66,7 +66,7 @@ class TestPromptArgumentValidation:
     async def test_unknown_prompt_rejected(
         self, fake_httpx_client: httpx.Client
     ) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         with pytest.raises(McpError) as ei:
             await _get_prompt(server, "not-a-real-prompt", {})
         assert ei.value.error.code == INVALID_PARAMS

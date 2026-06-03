@@ -43,7 +43,7 @@ async def test_tool_returns_content_and_structured(
     tool_name: str, arguments: dict, fake_httpx_client: httpx.Client
 ) -> None:
     """Every tool returns both ``content`` (text) and ``structuredContent``."""
-    server = build_server(fake_httpx_client)
+    server, _ = build_server(fake_httpx_client)
     handler = server.request_handlers[types.CallToolRequest]
     req = types.CallToolRequest(
         method="tools/call",
@@ -66,7 +66,7 @@ class TestCancelJobConfirmGuard:
     async def test_cancel_without_confirm_returns_invalid_params(
         self, fake_httpx_client: httpx.Client
     ) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         handler = server.request_handlers[types.CallToolRequest]
         req = types.CallToolRequest(
             method="tools/call",
@@ -88,7 +88,7 @@ class TestCancelJobConfirmGuard:
     async def test_cancel_with_confirm_false_rejected(
         self, fake_httpx_client: httpx.Client
     ) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         handler = server.request_handlers[types.CallToolRequest]
         req = types.CallToolRequest(
             method="tools/call",
@@ -109,7 +109,7 @@ class TestUnknownTool:
     async def test_unknown_tool_raises_invalid_params(
         self, fake_httpx_client: httpx.Client
     ) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         handler = server.request_handlers[types.CallToolRequest]
         req = types.CallToolRequest(
             method="tools/call",

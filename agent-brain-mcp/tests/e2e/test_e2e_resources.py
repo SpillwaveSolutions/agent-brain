@@ -118,8 +118,8 @@ async def main():
         transport=httpx.MockTransport(_handler),
         base_url="http://e2e",
     )
-    server = build_server(client)
-    await run_stdio(server)
+    server, manager = build_server(client)
+    await run_stdio(server, manager)
 
 
 if __name__ == "__main__":

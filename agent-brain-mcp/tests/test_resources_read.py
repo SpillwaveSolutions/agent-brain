@@ -27,7 +27,7 @@ async def _read(server, uri: str) -> str:
 class TestResourcesRead:
     @pytest.mark.asyncio
     async def test_corpus_config(self, fake_httpx_client: httpx.Client) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         body = await _read(server, "corpus://config")
         data = json.loads(body)
         assert data["storage_backend"] == "chroma"
@@ -35,7 +35,7 @@ class TestResourcesRead:
 
     @pytest.mark.asyncio
     async def test_corpus_status(self, fake_httpx_client: httpx.Client) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         body = await _read(server, "corpus://status")
         data = json.loads(body)
         assert data["total_documents"] == 42
@@ -43,7 +43,7 @@ class TestResourcesRead:
 
     @pytest.mark.asyncio
     async def test_corpus_health(self, fake_httpx_client: httpx.Client) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         body = await _read(server, "corpus://health")
         data = json.loads(body)
         assert data["status"] == "healthy"
@@ -51,14 +51,14 @@ class TestResourcesRead:
 
     @pytest.mark.asyncio
     async def test_corpus_providers(self, fake_httpx_client: httpx.Client) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         body = await _read(server, "corpus://providers")
         data = json.loads(body)
         assert "providers" in data
 
     @pytest.mark.asyncio
     async def test_corpus_folders(self, fake_httpx_client: httpx.Client) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         body = await _read(server, "corpus://folders")
         data = json.loads(body)
         assert "folders" in data

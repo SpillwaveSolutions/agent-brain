@@ -7,12 +7,16 @@ Capabilities advertised:
   prompts.listChanged   = False
 
 Phase 52 wires the ``resources/subscribe`` + ``resources/unsubscribe``
-handlers and a per-session :class:`SubscriptionManager` instance attached
-to the server as a private attribute (``server._subscription_manager``).
-Plan 04 will refactor :func:`build_server` to return a tuple
+handlers and a per-session :class:`SubscriptionManager` instance.
+
+Plan 04 refactor — :func:`build_server` now returns a tuple
 ``(server, manager)`` so :func:`run_stdio` can call
-``manager.cleanup_all()`` on session disconnect without reaching into
-the private attribute.
+``manager.cleanup_all()`` on session disconnect explicitly, without
+poking the ``server._subscription_manager`` private attr that Plan 02
+used as a short-term workaround. The private attr is preserved for
+backwards compatibility (Plan 02 pinned it via
+``test_build_server_attaches_subscription_manager``) but Plan 04+
+consumers should unpack the tuple.
 
 No sampling / elicitation / logging / completions in v2.
 """
@@ -161,7 +165,9 @@ def _is_known_uri(uri_str: str) -> bool:
     return scheme in PARAMETERIZED_SCHEMES
 
 
-def build_server(httpx_client: httpx.Client, *, transport: str = "http") -> Server:
+def build_server(
+    httpx_client: httpx.Client, *, transport: str = "http"
+) -> tuple[Server, SubscriptionManager]:
     """Construct and configure the low-level MCP ``Server`` instance.
 
     Phase 52 owns subscription wiring:
@@ -177,17 +183,21 @@ def build_server(httpx_client: httpx.Client, *, transport: str = "http") -> Serv
       with no opt-in flag on :class:`NotificationOptions`; a wrapper is
       the surgical fix until upstream exposes a knob.
 
-    Manager ownership: the manager is attached as the private attribute
-    ``server._subscription_manager``. Plan 04 will refactor this to a
-    tuple return so ``run_stdio`` can call ``manager.cleanup_all()`` on
-    disconnect without poking the private attr. Documented as a known
-    short-term shape — see Plan 02 docstring + Plan 04 plan.
+    Returns:
+        ``(server, subscription_manager)`` — Plan 04 tuple shape. The
+        :class:`SubscriptionManager` is also still attached as
+        ``server._subscription_manager`` for backwards compatibility
+        with Plan 02's pin (``test_build_server_attaches_subscription_manager``);
+        new callers should prefer unpacking the tuple over poking the
+        private attr.
     """
     server: Server = Server(SERVER_NAME, version=__version__)
 
-    # Phase 52 (Plan 02): one SubscriptionManager per server. Stored as a
-    # private attr so Plan 04's run_stdio cleanup hook can reach it
-    # without changing build_server's return type mid-milestone.
+    # Phase 52 (Plan 02 → Plan 04): one SubscriptionManager per server.
+    # Plan 04 returns it as the second tuple element so ``run_stdio``
+    # can wire ``cleanup_all()`` into its ``finally`` block. The private
+    # attribute is retained because Plan 02 pinned it via
+    # ``test_build_server_attaches_subscription_manager``.
     subscription_manager = SubscriptionManager()
     server._subscription_manager = subscription_manager  # type: ignore[attr-defined]
 
@@ -512,7 +522,7 @@ def build_server(httpx_client: httpx.Client, *, transport: str = "http") -> Serv
     server.get_capabilities = _patched_get_capabilities  # type: ignore[method-assign]
 
     server._agent_brain_transport = transport  # type: ignore[attr-defined]
-    return server
+    return server, subscription_manager
 
 
 def _summarize(tool_name: str, structured: dict[str, Any]) -> str:
@@ -550,37 +560,59 @@ def _summarize(tool_name: str, structured: dict[str, Any]) -> str:
     return f"{tool_name} → ok"
 
 
-async def run_stdio(server: Server) -> None:
+async def run_stdio(server: Server, subscription_manager: SubscriptionManager) -> None:
     """Run the MCP server over stdio until the client disconnects.
 
     Phase 52: the ``capabilities`` blob now advertises
     ``resources.subscribe: true`` (flipped by the wrapper in
-    :func:`build_server`). Plan 04 will add a ``try/finally`` here to
-    call ``server._subscription_manager.cleanup_all()`` on EOF so no
-    polling task survives a client disconnect.
+    :func:`build_server`).
+
+    Plan 04 disconnect-cleanup contract: the inner ``server.run`` call
+    is wrapped in ``try / finally`` so a stdio EOF (the MCP client
+    closing the pipe) or an exception triggers
+    :meth:`SubscriptionManager.cleanup_all` on the way out. That
+    guarantees no polling task survives a client disconnect — Phase 52
+    CONTEXT decision D, layer 1 ("MCP SDK layer cleanup hook"). The
+    HTTP transport analog will land alongside Phase 53; the per-task
+    guard in :meth:`SubscriptionManager._poll_loop` (Plan 01 / Plan 04
+    explicit ``CancelledError`` clause) is the layer-2 defense-in-depth.
     """
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream,
-            write_stream,
-            InitializationOptions(
-                server_name=SERVER_NAME,
-                server_version=__version__,
-                capabilities=server.get_capabilities(
-                    notification_options=NotificationOptions(
-                        prompts_changed=False,
-                        resources_changed=False,
-                        tools_changed=False,
+        try:
+            await server.run(
+                read_stream,
+                write_stream,
+                InitializationOptions(
+                    server_name=SERVER_NAME,
+                    server_version=__version__,
+                    capabilities=server.get_capabilities(
+                        notification_options=NotificationOptions(
+                            prompts_changed=False,
+                            resources_changed=False,
+                            tools_changed=False,
+                        ),
+                        experimental_capabilities={},
                     ),
-                    experimental_capabilities={},
+                    instructions=(
+                        "Agent Brain MCP v2 — 7 tools, 5 resources, "
+                        "6 prompts, stdio. Resources support "
+                        "subscribe/unsubscribe; per-URI policies are "
+                        "wired for job://, corpus://status, corpus://folders."
+                    ),
                 ),
-                instructions=(
-                    "Agent Brain MCP v2 — 7 tools, 5 resources, 6 prompts, "
-                    "stdio. Resources support subscribe/unsubscribe; "
-                    "per-URI policies land in a follow-up plan."
-                ),
-            ),
-        )
+            )
+        finally:
+            # Plan 04 disconnect-cleanup. Calls cleanup_all() on EVERY
+            # exit path — graceful EOF, client crash, mid-loop
+            # exception. ``cleanup_all`` is idempotent (empty registry
+            # returns 0) so re-entrancy is safe.
+            cleaned = subscription_manager.cleanup_all()
+            if cleaned:
+                logger.info(
+                    "subscription cleanup: cancelled %d polling task(s) on "
+                    "session close",
+                    cleaned,
+                )
 
 
 async def main_async(
@@ -615,8 +647,8 @@ async def main_async(
         httpx_client.close()
         raise
 
-    server = build_server(httpx_client, transport=transport)
+    server, subscription_manager = build_server(httpx_client, transport=transport)
     try:
-        await run_stdio(server)
+        await run_stdio(server, subscription_manager)
     finally:
         httpx_client.close()

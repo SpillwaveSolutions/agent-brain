@@ -28,7 +28,7 @@ class TestToolsList:
     async def test_list_tools_handler_returns_seven(
         self, fake_httpx_client: httpx.Client
     ) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         # The decorator stores the handler in server.request_handlers.
         import mcp.types as types
 
@@ -45,7 +45,7 @@ class TestToolsList:
     ) -> None:
         import mcp.types as types
 
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         handler = server.request_handlers[types.ListToolsRequest]
         result = await handler(types.ListToolsRequest(method="tools/list"))
         for tool in result.root.tools:
@@ -58,7 +58,7 @@ class TestToolsList:
     ) -> None:
         import mcp.types as types
 
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         handler = server.request_handlers[types.ListToolsRequest]
         result = await handler(types.ListToolsRequest(method="tools/list"))
         for tool in result.root.tools:
@@ -71,7 +71,7 @@ class TestToolsList:
     ) -> None:
         import mcp.types as types
 
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         handler = server.request_handlers[types.ListToolsRequest]
         result = await handler(types.ListToolsRequest(method="tools/list"))
         cancel = next(t for t in result.root.tools if t.name == "cancel_job")
@@ -84,7 +84,7 @@ class TestToolsList:
     ) -> None:
         import mcp.types as types
 
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         handler = server.request_handlers[types.ListToolsRequest]
         result = await handler(types.ListToolsRequest(method="tools/list"))
         search = next(t for t in result.root.tools if t.name == "search_documents")

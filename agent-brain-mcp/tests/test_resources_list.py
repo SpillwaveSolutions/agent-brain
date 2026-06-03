@@ -27,7 +27,7 @@ class TestResourcesList:
     async def test_list_resources_returns_five(
         self, fake_httpx_client: httpx.Client
     ) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         handler = server.request_handlers[types.ListResourcesRequest]
         result = await handler(types.ListResourcesRequest(method="resources/list"))
         resources = result.root.resources
@@ -42,7 +42,7 @@ class TestResourcesList:
     async def test_each_resource_has_json_mime(
         self, fake_httpx_client: httpx.Client
     ) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         handler = server.request_handlers[types.ListResourcesRequest]
         result = await handler(types.ListResourcesRequest(method="resources/list"))
         for r in result.root.resources:

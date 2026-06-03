@@ -59,7 +59,7 @@ async def test_slow_handler_does_not_block_event_loop() -> None:
     """
     client = httpx.Client(transport=_slow_transport(5.0), base_url="http://e2e")
     try:
-        server = build_server(client)
+        server, _ = build_server(client)
         handler = server.request_handlers[types.CallToolRequest]
 
         start = asyncio.get_event_loop().time()
@@ -85,7 +85,7 @@ async def test_concurrent_tool_calls_overlap_not_serialize() -> None:
     """
     client = httpx.Client(transport=_slow_transport(0.5), base_url="http://e2e")
     try:
-        server = build_server(client)
+        server, _ = build_server(client)
         handler = server.request_handlers[types.CallToolRequest]
 
         start = asyncio.get_event_loop().time()

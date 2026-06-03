@@ -135,7 +135,7 @@ class TestReadResourceFileUri:
         self, tmp_path_with_indexed_root: FileSandboxScenario
     ) -> None:
         client = make_file_sandbox_httpx_client(tmp_path_with_indexed_root)
-        server = build_server(client)
+        server, _ = build_server(client)
         uri = _path_to_uri(tmp_path_with_indexed_root.allowed_text)
 
         contents = await _read(server, uri)
@@ -153,7 +153,7 @@ class TestReadResourceFileUri:
         self, tmp_path_with_indexed_root: FileSandboxScenario
     ) -> None:
         client = make_file_sandbox_httpx_client(tmp_path_with_indexed_root)
-        server = build_server(client)
+        server, _ = build_server(client)
         uri = _path_to_uri(tmp_path_with_indexed_root.allowed_binary)
 
         contents = await _read(server, uri)
@@ -172,7 +172,7 @@ class TestReadResourceFileUri:
         self, tmp_path_with_indexed_root: FileSandboxScenario
     ) -> None:
         client = make_file_sandbox_httpx_client(tmp_path_with_indexed_root)
-        server = build_server(client)
+        server, _ = build_server(client)
         uri = _path_to_uri(tmp_path_with_indexed_root.denied_file)
 
         with pytest.raises(McpError) as ei:
@@ -192,7 +192,7 @@ class TestReadResourceFileUri:
         # OUTSIDE every root. Phase 50: literal path is a symlink, so
         # the most-specific deny reason is ``symlink_escape``.
         client = make_file_sandbox_httpx_client(tmp_path_with_indexed_root)
-        server = build_server(client)
+        server, _ = build_server(client)
         # IMPORTANT: do NOT canonicalize the URI ourselves — the
         # handler does that. We want the wire URI to reference the
         # literal symlink so is_path_allowed sees it as a symlink.
@@ -213,7 +213,7 @@ class TestReadResourceFileUri:
         # `.env` inside ``denied/`` — outside every root AND
         # dot-prefixed. Most-specific reason: ``hidden_file``.
         client = make_file_sandbox_httpx_client(tmp_path_with_indexed_root)
-        server = build_server(client)
+        server, _ = build_server(client)
         uri = _path_to_uri(tmp_path_with_indexed_root.outside_hidden)
 
         with pytest.raises(McpError) as ei:
@@ -230,7 +230,7 @@ class TestReadResourceFileUri:
         # Phase 50 explicit rule: dot-files INSIDE an indexed root
         # are allowed (root policy wins). Read should SUCCEED.
         client = make_file_sandbox_httpx_client(tmp_path_with_indexed_root)
-        server = build_server(client)
+        server, _ = build_server(client)
         uri = _path_to_uri(tmp_path_with_indexed_root.hidden_file)
 
         contents = await _read(server, uri)
@@ -248,7 +248,7 @@ class TestReadResourceFileUri:
         # ``big.txt`` is DEFAULT_MAX_READ_BYTES + 1 — strict greater-
         # than triggers ``size_limit``.
         client = make_file_sandbox_httpx_client(tmp_path_with_indexed_root)
-        server = build_server(client)
+        server, _ = build_server(client)
         uri = _path_to_uri(tmp_path_with_indexed_root.big_text)
 
         with pytest.raises(McpError) as ei:
@@ -266,7 +266,7 @@ class TestReadResourceFileUri:
         # file in the denied sibling dir. Canonicalization collapses
         # the ``..`` and the resolved path falls outside every root.
         client = make_file_sandbox_httpx_client(tmp_path_with_indexed_root)
-        server = build_server(client)
+        server, _ = build_server(client)
         uri = f"file://{tmp_path_with_indexed_root.traversal_attempt}"
 
         with pytest.raises(McpError) as ei:
@@ -299,7 +299,7 @@ class TestReadResourceFileUri:
         # — there ``parse_uri("file://")`` is called directly, no
         # AnyUrl normalization.
         client = make_file_sandbox_httpx_client(tmp_path_with_indexed_root)
-        server = build_server(client)
+        server, _ = build_server(client)
 
         with pytest.raises(McpError) as ei:
             await _read(server, "file://")
@@ -314,7 +314,7 @@ class TestReadResourceFileUri:
         self, tmp_path_with_indexed_root: FileSandboxScenario
     ) -> None:
         client = make_file_sandbox_httpx_client(tmp_path_with_indexed_root)
-        server = build_server(client)
+        server, _ = build_server(client)
 
         with pytest.raises(McpError) as ei:
             await _read(server, "file://relative/path")
@@ -336,7 +336,7 @@ class TestReadResourceFileUri:
             tmp_path_with_indexed_root,
             folders_call_counter=counter,
         )
-        server = build_server(client)
+        server, _ = build_server(client)
         uri = _path_to_uri(tmp_path_with_indexed_root.allowed_text)
 
         await _read(server, uri)

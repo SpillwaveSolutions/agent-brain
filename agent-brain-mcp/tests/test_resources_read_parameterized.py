@@ -94,7 +94,7 @@ class TestReadResourceJobUri:
 
     @pytest.mark.asyncio
     async def test_read_job_uri_success(self, fake_httpx_client: httpx.Client) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         body = await _read(server, "job://job_abc")
         data = json.loads(body)
         # Mirrors the JobDetailResponse from GET /index/jobs/<id>
@@ -108,7 +108,7 @@ class TestReadResourceJobUri:
     ) -> None:
         # Decision F: read shape mirrors GET /index/jobs/<id> verbatim,
         # zero transformation. Asserts the full body round-trips.
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         body = await _read(server, "job://job_51_full")
         data = json.loads(body)
         assert data["job_id"] == "job_51_full"
@@ -120,7 +120,7 @@ class TestReadResourceJobUri:
     async def test_read_job_uri_missing_id(
         self, fake_httpx_client: httpx.Client
     ) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         with pytest.raises(McpError) as ei:
             await _read(server, "job://")
         assert ei.value.error.code == INVALID_PARAMS
@@ -144,7 +144,7 @@ class TestReadResourceJobUri:
                 ("GET", "/index/jobs/nonexistent-uuid"): 404,
             },
         )
-        server = build_server(client)
+        server, _ = build_server(client)
         with pytest.raises(McpError) as ei:
             await _read(server, "job://nonexistent-uuid")
         err = ei.value.error
@@ -162,7 +162,7 @@ class TestReadResourceJobUri:
         # job://job_abc/ should behave identically to job://job_abc.
         # The server strips the trailing slash from the URI before
         # parsing (read_resource: ``uri_str = str(uri).rstrip('/')``).
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         body = await _read(server, "job://job_abc/")
         data = json.loads(body)
         assert data["job_id"] == "job_abc"
@@ -181,7 +181,7 @@ class TestReadResourceFallThrough:
     ) -> None:
         # All 5 corpus:// resources continue to read correctly after
         # the dispatcher insertion.
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         for uri in (
             "corpus://config",
             "corpus://status",
@@ -200,7 +200,7 @@ class TestReadResourceFallThrough:
         # mystery:// is not in PARAMETERIZED_SCHEMES, so parse_uri()
         # returns None, dispatch falls through to RESOURCE_REGISTRY,
         # which has no entry — final fallback raises 'Unknown resource'.
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         with pytest.raises(McpError) as ei:
             await _read(server, "mystery://abc")
         assert ei.value.error.code == INVALID_PARAMS
@@ -219,7 +219,7 @@ class TestReadResourceChunkUri:
     ) -> None:
         # Mirrors the ChunkRecord body from GET /query/chunk/{id}. The
         # MCP wrapper round-trips the full shape unchanged.
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         body = await _read(server, "chunk://chunk_001")
         data = json.loads(body)
         assert data["chunk_id"] == "chunk_001"
@@ -235,7 +235,7 @@ class TestReadResourceChunkUri:
     async def test_read_chunk_uri_missing_id(
         self, fake_httpx_client: httpx.Client
     ) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         with pytest.raises(McpError) as ei:
             await _read(server, "chunk://")
         assert ei.value.error.code == INVALID_PARAMS
@@ -264,7 +264,7 @@ class TestReadResourceChunkUri:
                 ("GET", "/query/chunk/nonexistent"): 404,
             },
         )
-        server = build_server(client)
+        server, _ = build_server(client)
         with pytest.raises(McpError) as ei:
             await _read(server, "chunk://nonexistent")
         err = ei.value.error
@@ -287,7 +287,7 @@ class TestReadResourceGraphEntityUri:
         self, fake_httpx_client: httpx.Client
     ) -> None:
         # Mirrors GraphEntityRecord wire shape: entity + 1-hop neighbors.
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         body = await _read(server, "graph-entity://Function/foo")
         data = json.loads(body)
         assert data["entity"]["type"] == "Function"
@@ -307,7 +307,7 @@ class TestReadResourceGraphEntityUri:
     ) -> None:
         # graph-entity:// → missing both type and id, but the type check
         # fires first per the parser's order.
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         with pytest.raises(McpError) as ei:
             await _read(server, "graph-entity://")
         assert ei.value.error.code == INVALID_PARAMS
@@ -322,7 +322,7 @@ class TestReadResourceGraphEntityUri:
     ) -> None:
         # graph-entity://Function → server.py strips one trailing slash
         # for normalization, then the parser sees no id segment.
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         with pytest.raises(McpError) as ei:
             await _read(server, "graph-entity://Function")
         assert ei.value.error.code == INVALID_PARAMS
@@ -337,7 +337,7 @@ class TestReadResourceGraphEntityUri:
     ) -> None:
         # graph-entity://Function/ — server.py strips the single trailing
         # slash → "graph-entity://Function" → missing_id surfaces.
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         with pytest.raises(McpError) as ei:
             await _read(server, "graph-entity://Function/")
         assert ei.value.error.code == INVALID_PARAMS
@@ -349,7 +349,7 @@ class TestReadResourceGraphEntityUri:
     ) -> None:
         # Phase 50 decision B: entity ids may contain "/". The parser
         # treats everything after the type segment as the full id.
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         body = await _read(server, "graph-entity://Function/AuthService/login")
         data = json.loads(body)
         assert data["entity"]["id"] == "AuthService/login"
@@ -375,7 +375,7 @@ class TestReadResourceGraphEntityUri:
                 ("GET", "/graph/entity/Function/missing"): 404,
             },
         )
-        server = build_server(client)
+        server, _ = build_server(client)
         with pytest.raises(McpError) as ei:
             await _read(server, "graph-entity://Function/missing")
         err = ei.value.error
@@ -414,7 +414,7 @@ class TestReadResourceGraphEntityUri:
                 ("GET", "/graph/entity/Function/foo"): 503,
             },
         )
-        server = build_server(client)
+        server, _ = build_server(client)
         with pytest.raises(McpError) as ei:
             await _read(server, "graph-entity://Function/foo")
         err = ei.value.error
@@ -454,7 +454,7 @@ class TestReadResourceGraphEntityUri:
                 ("GET", "/graph/entity/Function/foo"): 503,
             },
         )
-        server = build_server(client)
+        server, _ = build_server(client)
         with pytest.raises(McpError) as ei:
             await _read(server, "graph-entity://Function/foo")
         err = ei.value.error

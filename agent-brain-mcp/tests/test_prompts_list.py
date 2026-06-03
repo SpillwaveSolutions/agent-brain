@@ -28,7 +28,7 @@ class TestPromptsList:
     async def test_list_prompts_returns_six(
         self, fake_httpx_client: httpx.Client
     ) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         handler = server.request_handlers[types.ListPromptsRequest]
         result = await handler(types.ListPromptsRequest(method="prompts/list"))
         prompts = result.root.prompts
@@ -39,7 +39,7 @@ class TestPromptsList:
     async def test_each_prompt_advertises_arguments(
         self, fake_httpx_client: httpx.Client
     ) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         handler = server.request_handlers[types.ListPromptsRequest]
         result = await handler(types.ListPromptsRequest(method="prompts/list"))
         for p in result.root.prompts:

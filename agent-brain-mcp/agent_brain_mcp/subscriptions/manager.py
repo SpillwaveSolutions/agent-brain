@@ -222,6 +222,19 @@ class SubscriptionManager:
                 try:
                     payload = await fetcher()
                 except asyncio.CancelledError:
+                    # Plan 04 defense-in-depth: an explicit catch with a
+                    # DEBUG log makes Plan 04's leaked-task assertion
+                    # test diagnosable in CI without ratcheting the
+                    # logger to DEBUG for every test. We MUST re-raise
+                    # so cancellation semantics propagate (the finally
+                    # block scrubs the registry slot; the manager's
+                    # primary synchronous cleanup paths already popped
+                    # the slot before sending the cancel).
+                    logger.debug(
+                        "poll_loop cancelled session=%s uri=%s",
+                        self._truncate_session_id(session),
+                        uri,
+                    )
                     raise
                 except SubscriptionTerminated as terminated:
                     # Plan 03 sentinel: the policy fetcher signalled

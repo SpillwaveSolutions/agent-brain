@@ -149,7 +149,7 @@ class TestSubscribeHandlerDispatch:
     async def test_subscribe_unknown_uri_rejected(
         self, fake_httpx_client: httpx.Client
     ) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         async with create_connected_server_and_client_session(
             server, raise_exceptions=True
         ) as client:
@@ -167,7 +167,7 @@ class TestSubscribeHandlerDispatch:
         no policy is registered for it. Plan 02's registry is empty
         until Plan 03 lands; this test pins the *not_subscribable*
         branch independent of Plan 03's specific policy set."""
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         async with create_connected_server_and_client_session(
             server, raise_exceptions=True
         ) as client:
@@ -185,7 +185,7 @@ class TestSubscribeHandlerDispatch:
         subscribable per CONTEXT decision G (content-addressed, no
         time-varying signal). Even after Plan 03 lands, ``chunk://``
         will not have a policy."""
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         async with create_connected_server_and_client_session(
             server, raise_exceptions=True
         ) as client:
@@ -215,7 +215,7 @@ class TestSubscribeHandlerDispatch:
         stub: SubscriptionPolicy = _StubPolicy("corpus://status")
         monkeypatch.setitem(SUBSCRIPTION_POLICIES, "corpus://status", stub)
 
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         async with create_connected_server_and_client_session(
             server, raise_exceptions=True
         ) as client:
@@ -243,7 +243,7 @@ class TestSubscribeHandlerDispatch:
         stub: SubscriptionPolicy = _StubPolicy("corpus://status")
         monkeypatch.setitem(SUBSCRIPTION_POLICIES, "corpus://status", stub)
 
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         async with create_connected_server_and_client_session(
             server, raise_exceptions=True
         ) as client:
@@ -266,7 +266,7 @@ class TestSubscribeHandlerDispatch:
         stub: SubscriptionPolicy = _StubPolicy("corpus://status")
         monkeypatch.setitem(SUBSCRIPTION_POLICIES, "corpus://status", stub)
 
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         async with create_connected_server_and_client_session(
             server, raise_exceptions=True
         ) as client:
@@ -293,7 +293,7 @@ class TestSubscribeHandlerDispatch:
         stub: SubscriptionPolicy = _StubPolicy("corpus://status")
         monkeypatch.setitem(SUBSCRIPTION_POLICIES, "corpus://status", stub)
 
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         async with create_connected_server_and_client_session(
             server, raise_exceptions=True
         ) as client:
@@ -308,7 +308,7 @@ class TestSubscribeHandlerDispatch:
         is a no-op ack per MCP spec. The handler must NOT reject —
         even if the URI is genuinely unknown, the spec lets clients
         send unsubscribe defensively after a disconnect."""
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         async with create_connected_server_and_client_session(
             server, raise_exceptions=True
         ) as client:
@@ -331,7 +331,7 @@ class TestSubscribePolicyScheme:
         stub: SubscriptionPolicy = _StubPolicy("job://")
         monkeypatch.setitem(SUBSCRIPTION_POLICIES, "job://", stub)
 
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         async with create_connected_server_and_client_session(
             server, raise_exceptions=True
         ) as client:
@@ -391,7 +391,7 @@ class TestSubscribeWithMockedSession:
         stub: SubscriptionPolicy = _StubPolicy("corpus://status")
         monkeypatch.setitem(SUBSCRIPTION_POLICIES, "corpus://status", stub)
 
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         # The handler reads ``session`` from the request context AND calls
         # ``session.send_resource_updated(...)`` from the polling loop's
         # on_change closure. AsyncMock satisfies both — its

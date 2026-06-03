@@ -24,30 +24,38 @@ class TestServerConstruction:
     def test_build_server_returns_named_server(
         self, fake_httpx_client: httpx.Client
     ) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         assert server.name == SERVER_NAME
 
     def test_build_server_records_version(
         self, fake_httpx_client: httpx.Client
     ) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         assert server.version == __version__
 
     def test_build_server_attaches_subscription_manager(
         self, fake_httpx_client: httpx.Client
     ) -> None:
-        """Plan 02 private-attr workaround: ``server._subscription_manager``
-        must be a :class:`SubscriptionManager`. Plan 04 will refactor
-        ``build_server`` to a tuple return so ``run_stdio`` can wire the
-        cleanup hook without poking the private attr; until then, this
-        regression pin lets future readers see the contract explicitly.
+        """Plan 04 tuple shape: ``build_server`` returns
+        ``(server, manager)``; the same :class:`SubscriptionManager`
+        instance is ALSO attached as ``server._subscription_manager``
+        for backwards compatibility with Plan 02's pin (callers that
+        haven't been migrated to the tuple shape yet still see the
+        private attr). Plan 04+ consumers should prefer unpacking.
         """
         from agent_brain_mcp.subscriptions import SubscriptionManager
 
-        server = build_server(fake_httpx_client)
-        manager = getattr(server, "_subscription_manager", None)
+        result = build_server(fake_httpx_client)
+        # Plan 04 contract — tuple unpacking.
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+        server, manager = result
         assert isinstance(manager, SubscriptionManager)
         assert manager.active_count() == 0
+
+        # Plan 02 backwards-compat — private attr is the SAME object.
+        private_attr = getattr(server, "_subscription_manager", None)
+        assert private_attr is manager
 
 
 class TestCapabilityAdvertisement:
@@ -65,7 +73,7 @@ class TestCapabilityAdvertisement:
     ) -> None:
         from mcp.server.lowlevel import NotificationOptions
 
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         caps = server.get_capabilities(
             notification_options=NotificationOptions(
                 prompts_changed=False,
@@ -99,7 +107,7 @@ class TestCapabilityAdvertisement:
         """
         from mcp.server.lowlevel import NotificationOptions
 
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         caps = server.get_capabilities(
             notification_options=NotificationOptions(
                 prompts_changed=False,

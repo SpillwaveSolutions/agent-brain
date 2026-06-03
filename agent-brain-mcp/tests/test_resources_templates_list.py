@@ -109,7 +109,7 @@ class TestListResourceTemplatesHandler:
     async def test_handler_returns_four_templates(
         self, fake_httpx_client: httpx.Client
     ) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         handler = server.request_handlers[types.ListResourceTemplatesRequest]
         result = await handler(
             types.ListResourceTemplatesRequest(method="resources/templates/list")
@@ -121,7 +121,7 @@ class TestListResourceTemplatesHandler:
     async def test_handler_returns_expected_uri_templates(
         self, fake_httpx_client: httpx.Client
     ) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         handler = server.request_handlers[types.ListResourceTemplatesRequest]
         result = await handler(
             types.ListResourceTemplatesRequest(method="resources/templates/list")
@@ -133,7 +133,7 @@ class TestListResourceTemplatesHandler:
     async def test_handler_returns_correct_mimetypes(
         self, fake_httpx_client: httpx.Client
     ) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         handler = server.request_handlers[types.ListResourceTemplatesRequest]
         result = await handler(
             types.ListResourceTemplatesRequest(method="resources/templates/list")
@@ -161,7 +161,7 @@ class TestResourcesListUnchanged:
     async def test_list_resources_still_returns_five_corpus_uris(
         self, fake_httpx_client: httpx.Client
     ) -> None:
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         handler = server.request_handlers[types.ListResourcesRequest]
         result = await handler(types.ListResourcesRequest(method="resources/list"))
         resources = result.root.resources
@@ -183,7 +183,7 @@ class TestResourcesListUnchanged:
         job://, file://) MUST NOT appear in resources/list — they have
         no concrete static URIs to advertise. Discovery flows through
         resources/templates/list instead (CONTEXT decision A)."""
-        server = build_server(fake_httpx_client)
+        server, _ = build_server(fake_httpx_client)
         handler = server.request_handlers[types.ListResourcesRequest]
         result = await handler(types.ListResourcesRequest(method="resources/list"))
         schemes = {str(r.uri).split(":", 1)[0] for r in result.root.resources}
