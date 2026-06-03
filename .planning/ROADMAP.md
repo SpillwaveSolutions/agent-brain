@@ -30,7 +30,7 @@
 
 - [x] **Phase 50: Server endpoint prep + v2 design doc** — File v2 design doc, add `GET /query/chunk/{id}` + `GET /graph/entity/{type}/{id}` endpoints, settle `roots/list` sandbox design (completed 2026-06-03)
 - [x] **Phase 51: URI schemes + templates** — Implement `chunk://`, `graph-entity://`, `job://`, `file://` resources + `resources/templates/list` (completed 2026-06-03)
-- [ ] **Phase 52: Resource subscriptions** — `resources/subscribe` + per-resource polling cadence + `notifications/resources/updated` + disconnect cleanup
+- [x] **Phase 52: Resource subscriptions** — `resources/subscribe` + per-resource polling cadence + `notifications/resources/updated` + disconnect cleanup (completed 2026-06-03)
 - [ ] **Phase 53: Streamable HTTP transport** — `--transport http` on `agent-brain-mcp` with loopback bind and explicit transport selection
 - [ ] **Phase 54: 9 remaining MCP tools** — `explain_result`, `add_documents`, `inject_documents`, `wait_for_job` (with progress), `list_folders`, `remove_folder`, `cache_status`, `clear_cache`, `list_file_types`
 - [ ] **Phase 55: Validation, contract tests & QA gate integration** — 16-tool parameterized SDK contract tests, subscription E2E test, HTTP transport SDK test, root `task before-push` integration
@@ -41,7 +41,7 @@
 |-------|----------------|--------|-----------|
 | 50. Server endpoint prep + v2 design doc | 0/0 | Complete    | 2026-06-03 |
 | 51. URI schemes + templates | 4/4 | Complete    | 2026-06-03 |
-| 52. Resource subscriptions | 4/4 | Awaiting verifier | - |
+| 52. Resource subscriptions | 4/4 | Complete    | 2026-06-03 |
 | 53. Streamable HTTP transport | 0/0 | Not started | - |
 | 54. 9 remaining MCP tools | 0/0 | Not started | - |
 | 55. Validation, contract tests & QA gate | 0/0 | Not started | - |
