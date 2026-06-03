@@ -48,7 +48,7 @@ Requirements for v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completi
 
 - [x] **VAL-01**: All 16 MCP tools (7 from v1 + 9 from v2) covered by parameterized contract tests verified against the official MCP SDK
 - [x] **VAL-02**: Resource subscriptions tested end-to-end against the official MCP SDK, including subscribe / unsubscribe / disconnect cleanup — shipped 2026-06-03 in Plan 55-03 (`tests/contract/test_subscription_lifecycle.py` — 3 parameterized happy-path tests over job://, corpus://status, corpus://folders + 1 disconnect-cleanup test using raw `subprocess.Popen` for the EOF code path; stderr-scrape verification per CONTEXT D-06 fallback; follow-up #194 filed for `/mcp/subscriptions/__debug` endpoint in v10.3+)
-- [ ] **VAL-03**: Streamable HTTP transport tested via the official MCP SDK HTTP client
+- [x] **VAL-03**: Streamable HTTP transport tested via the official MCP SDK HTTP client — shipped 2026-06-03 in Plan 55-04 (`tests/contract/test_http_transport_contract.py` — 5 SDK-driven contract tests via `mcp.client.streamable_http.streamablehttp_client`: initialize / tools/list==16 / tools/call(server_health) / resources/list⊇{5 v1 corpus URIs} / resources/read(corpus://config) + 1 mount-path sanity pin = 6 tests proving transport-equivalence with Plan 02's stdio surface; new `mcp_http_session` factory in `tests/contract/conftest.py` cascade-reuses Phase 53 Plan 03's `mcp_http_subprocess` + `fake_http_server_module` fixtures from `tests/conftest.py` — no duplicate HTTP harness; defensive `*_` unpack on yield tuple absorbs additive SDK signature evolution; loopback-rejection / `--transport`-rejection negative paths stay in Phase 53 per CONTEXT D-10)
 - [ ] **VAL-04**: New MCP packages folded into root `task before-push` and `task pr-qa-gate` (closes DR-5 from v1 design)
 - [x] **VAL-05**: Own v2 design doc filed at `docs/plans/2026-06-02-mcp-v2-subscriptions.md` — **Complete in Phase 50** (commit `a94d9d5`)
 
@@ -111,7 +111,7 @@ Phase mapping for v10.2. Phase numbering continues sequentially from v9.6.0 (las
 | TOOL-09 | Phase 54 | Complete |
 | VAL-01 | Phase 55 | Complete |
 | VAL-02 | Phase 55 | Complete (2026-06-03, Plan 55-03) |
-| VAL-03 | Phase 55 | Pending |
+| VAL-03 | Phase 55 | Complete (2026-06-03, Plan 55-04) |
 | VAL-04 | Phase 55 | Pending |
 | VAL-05 | Phase 50 | ✓ Complete (2026-06-03) |
 
