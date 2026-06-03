@@ -19,6 +19,7 @@ Complete reference for `agent-brain-mcp` — the Model Context Protocol server t
   - [Claude Agent SDK (Python)](#claude-agent-sdk-python)
   - [LangChain DeepAgents (and other LangGraph agents)](#langchain-deepagents-and-other-langgraph-agents)
   - [Other agent frameworks (preview)](#other-agent-frameworks-preview)
+- [MCP transport axes (v10.2+)](#mcp-transport-axes-v102)
 - [CLI flags and environment variables](#cli-flags-and-environment-variables)
 - [Tool reference (7 tools)](#tool-reference-7-tools)
 - [Resource reference (5 resources)](#resource-reference-5-resources)
@@ -240,9 +241,61 @@ First-party adapters for OpenAI Agents SDK, LlamaIndex, Pydantic AI, Mastra, Ver
 
 ---
 
+## MCP transport axes (v10.2+)
+
+Agent Brain's MCP integration has **two orthogonal transport axes**. Conflating them is the most common operator mistake — and it matters because authentication is scoped to one axis only.
+
+```
+┌─────────────┐  listen transport   ┌──────────────────┐  backend transport  ┌────────────────────┐
+│ MCP client  │ ──────────────────▶ │ agent-brain-mcp  │ ──────────────────▶ │ agent-brain-serve  │
+│ (Claude     │  --transport        │ (MCP server)     │  --backend          │ (FastAPI / UDS)    │
+│  Desktop,   │  {stdio, http}      │                  │  {auto, uds, http}  │                    │
+│  SDK, IDE)  │                     │                  │                     │                    │
+└─────────────┘                     └──────────────────┘                     └────────────────────┘
+       ▲                                                                                ▲
+       │                                                                                │
+       │           OAUTH-01 / MCP v4                                #179 (Bearer-token,
+       │           (deferred — no auth in v10.2)                    backend-axis only)
+       │                                                                                │
+       └──────────────────────────── deliberately distinct axes ────────────────────────┘
+```
+
+The two axes are independent:
+
+- **`--transport` (listen axis)** — how MCP clients reach `agent-brain-mcp`. Either an OS pipe (`stdio`) or a Streamable HTTP listener (`http`).
+- **`--backend` (backend axis)** — how `agent-brain-mcp` reaches `agent-brain-serve`. Either a Unix domain socket (`uds`) or a localhost HTTP client (`http`), with `auto` trying UDS first.
+
+### Authentication
+
+**Neither axis ships authentication in v10.2 (MCP v2):**
+
+- The MCP HTTP listen transport binds **loopback only** (`127.0.0.1`, `localhost`, `::1`) and is **unauthenticated**. Authentication on the listen axis is reserved for MCP v4 (OAuth 2.1, tracked as [OAUTH-01 / #188](https://github.com/SpillwaveSolutions/agent-brain/issues/188)). The CLI rejects non-loopback hosts at startup with no `--allow-public-bind` escape hatch.
+- The optional **Bearer-token middleware on `agent-brain-serve`** (issue [#179](https://github.com/SpillwaveSolutions/agent-brain/issues/179)) is a **backend-axis** concern. When it lands, `agent-brain-mcp`'s backend httpx client passes the token through, but the MCP listen transport itself remains unauthenticated until v4.
+
+In short: #179 ≠ OAUTH-01. They protect different axes.
+
+### Local trust model
+
+`127.0.0.1` binding alone does **not** protect against malicious local processes — any process running as the same user can reach the MCP HTTP port and drive tools (including `cancel_job`, which is annotated `destructiveHint: true`). Do **not** run `agent-brain-mcp --transport http` on a shared / multi-user host without external sandboxing.
+
+### Picking a listen transport
+
+| Situation                                              | Use this listen transport |
+| ------------------------------------------------------ | ------------------------- |
+| Claude Desktop / Claude Code / generic MCP CLI clients | `stdio` (default)         |
+| IDE plugins or framework adapters that prefer HTTP/SSE | `http`                    |
+| CI smoke tests driving the official MCP Python SDK     | `http`                    |
+| Anything exposed beyond `127.0.0.1`                    | **not supported in v10.2** — wait for MCP v4 / OAUTH-01 |
+
+The backend axis is unchanged from v10.1 — `--backend auto` keeps working in both cases.
+
+---
+
 ## CLI flags and environment variables
 
-`agent-brain-mcp` only takes three flags. Everything else is configured through the backend.
+`agent-brain-mcp` exposes six flags split across the two transport axes.
+
+### Backend axis (unchanged from v10.1)
 
 | Flag | Env var | Default | Description |
 |---|---|---|---|
@@ -250,13 +303,29 @@ First-party adapters for OpenAI Agents SDK, LlamaIndex, Pydantic AI, Mastra, Ver
 | `--backend-url <url>` | `AGENT_BRAIN_MCP_BACKEND_URL` then `AGENT_BRAIN_URL` | `http://127.0.0.1:8000` | Explicit HTTP base URL. Only consulted when transport resolves to HTTP. |
 | `--state-dir <path>` | `AGENT_BRAIN_STATE_DIR` | `$CWD/.agent-brain` if it exists | Locates the UDS socket and `runtime.json` for the running backend. |
 
-**Resolution precedence** (top wins):
+### Listen axis (new in v10.2)
+
+| Flag | Env var | Default | Description |
+|---|---|---|---|
+| `--transport {stdio,http}` | *(reserved: `AGENT_BRAIN_MCP_TRANSPORT` is NOT honored in v10.2 — see Phase 53 D-02)* | `stdio` | Listen transport. `stdio` keeps existing Claude Desktop / Code configs working; `http` mounts a Streamable HTTP listener at `/mcp` plus `/healthz`. |
+| `--host <ip-or-name>` | — | `127.0.0.1` | Bind host for `--transport http`. Only `127.0.0.1`, `localhost`, and `::1` are accepted (loopback whitelist). Ignored when `--transport stdio`. |
+| `--port <int>` | — | `8765` | TCP port for `--transport http`. Ignored when `--transport stdio`. |
+
+### Resolution precedence
+
+**Backend axis** (top wins):
 
 - Transport: `--backend` → `AGENT_BRAIN_MCP_BACKEND` → `"auto"`.
 - HTTP URL: `--backend-url` → `AGENT_BRAIN_MCP_BACKEND_URL` → `AGENT_BRAIN_URL` → `<state-dir>/runtime.json::base_url` → `http://127.0.0.1:8000`.
 - UDS path: `AGENT_BRAIN_UDS_PATH` → `<state-dir>/runtime.json::socket_path` → backend's conventional path under `<state-dir>/`.
 
-**Tip:** when running multiple Agent Brain projects from the same workstation, give each MCP entry its own `AGENT_BRAIN_STATE_DIR` and use a distinct host label (`agent-brain-app`, `agent-brain-docs`, …) so the model can address them separately.
+**Listen axis:**
+
+- `--transport` is the only knob. `AGENT_BRAIN_MCP_TRANSPORT` is reserved-but-not-honored in v10.2 — explicit opt-in only.
+- `--host` is rejected at startup if not in `{127.0.0.1, localhost, ::1}`.
+- `--port` collisions exit with code **2** (distinct from the default exit code 1 used for validation errors), so shell pipelines can route on `$?` without parsing stderr.
+
+**Tip:** when running multiple Agent Brain projects from the same workstation, give each MCP entry its own `AGENT_BRAIN_STATE_DIR` and use a distinct host label (`agent-brain-app`, `agent-brain-docs`, …) so the model can address them separately. If you also need parallel HTTP listeners, give each one a distinct `--port`.
 
 ---
 
