@@ -146,9 +146,7 @@ def parse_uri(uri: str) -> ParsedURI | None:
             raise _invalid_uri(uri, "missing_type")
         if not entity_id:
             raise _invalid_uri(uri, "missing_id")
-        return ParsedURI(
-            scheme=scheme, entity_type=entity_type, entity_id=entity_id
-        )
+        return ParsedURI(scheme=scheme, entity_type=entity_type, entity_id=entity_id)
 
     if scheme == "file":
         # ``file://<abs-path>`` — urlsplit puts the host portion in

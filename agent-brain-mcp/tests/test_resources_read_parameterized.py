@@ -93,9 +93,7 @@ class TestReadResourceJobUri:
     """End-to-end ``resources/read`` for ``job://<job_id>``."""
 
     @pytest.mark.asyncio
-    async def test_read_job_uri_success(
-        self, fake_httpx_client: httpx.Client
-    ) -> None:
+    async def test_read_job_uri_success(self, fake_httpx_client: httpx.Client) -> None:
         server = build_server(fake_httpx_client)
         body = await _read(server, "job://job_abc")
         data = json.loads(body)
