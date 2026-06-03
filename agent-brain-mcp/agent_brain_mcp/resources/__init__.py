@@ -1,10 +1,28 @@
-"""Resource registry — 5 read-only ``corpus://`` URIs (plan §6.5).
+"""Resource registry — static ``corpus://*`` URIs + parameterized schemes.
 
-Each entry maps a URI to a (name, description, handler) triple. The
-handler takes an :class:`agent_brain_mcp.client.ApiClient` and returns
-a JSON-serializable dict.
+The ``corpus`` module owns the 5 read-only static resources (plan §6.5).
+The ``parameterized`` module owns the 4 parameterized schemes added in
+Phase 51 (``chunk://``, ``graph-entity://``, ``job://``, ``file://``).
+
+Both registries are surfaced here so :mod:`agent_brain_mcp.server` only
+imports from this package, not from the per-scheme submodules.
 """
 
 from .corpus import RESOURCE_REGISTRY, ResourceSpec
+from .parameterized import (
+    PARAMETERIZED_HANDLERS,
+    PARAMETERIZED_SCHEMES,
+    ParameterizedHandler,
+    ParsedURI,
+    parse_uri,
+)
 
-__all__ = ["RESOURCE_REGISTRY", "ResourceSpec"]
+__all__ = [
+    "PARAMETERIZED_HANDLERS",
+    "PARAMETERIZED_SCHEMES",
+    "ParameterizedHandler",
+    "ParsedURI",
+    "RESOURCE_REGISTRY",
+    "ResourceSpec",
+    "parse_uri",
+]
