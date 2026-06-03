@@ -26,6 +26,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import warnings
 from collections.abc import Iterable
 from typing import Any
 
@@ -166,7 +167,11 @@ def _is_known_uri(uri_str: str) -> bool:
 
 
 def build_server(
-    httpx_client: httpx.Client, *, transport: str = "http"
+    httpx_client: httpx.Client,
+    *,
+    backend_transport: str = "http",
+    listen_transport: str = "stdio",
+    transport: str | None = None,
 ) -> tuple[Server, SubscriptionManager]:
     """Construct and configure the low-level MCP ``Server`` instance.
 
@@ -183,6 +188,26 @@ def build_server(
       with no opt-in flag on :class:`NotificationOptions`; a wrapper is
       the surgical fix until upstream exposes a knob.
 
+    Args:
+        httpx_client: Pre-configured backend httpx client (the
+            **backend** axis — how the MCP server talks to
+            ``agent-brain-serve``).
+        backend_transport: Label for the backend httpx transport
+            (``"http"`` / ``"uds"`` / ``"auto"`` resolved). Surfaced as
+            ``server._agent_brain_backend_transport`` for client
+            debugging via the MCP ``_meta`` channel (Phase 55 will wire
+            the over-the-wire surfacing — for now the attribute is the
+            in-process contract).
+        listen_transport: Label for the listen-side transport that the
+            MCP client uses to reach this server (``"stdio"`` /
+            ``"http"``). The two axes are orthogonal (Phase 53 D-01).
+            Surfaced as ``server._agent_brain_listen_transport``.
+        transport: **Deprecated** Phase 52 kwarg, retained as a
+            backwards-compatible alias for ``backend_transport``. Passing
+            ``transport=`` emits :class:`DeprecationWarning`; the value
+            is routed to ``backend_transport`` so downstream behavior is
+            unchanged. Slated for removal in Phase 55.
+
     Returns:
         ``(server, subscription_manager)`` — Plan 04 tuple shape. The
         :class:`SubscriptionManager` is also still attached as
@@ -191,6 +216,21 @@ def build_server(
         new callers should prefer unpacking the tuple over poking the
         private attr.
     """
+    # Phase 53 Plan 01: backwards-compat alias. Phase 52 callers passed
+    # ``transport=`` to label the BACKEND httpx transport on the Server
+    # instance; Phase 53 splits this into two orthogonal axes
+    # (backend_transport + listen_transport), so the old kwarg becomes
+    # ambiguous. Route legacy callers to backend_transport with a
+    # DeprecationWarning so the test suite can pin the migration path
+    # without a coordinated rename across all build_server() call sites.
+    if transport is not None:
+        warnings.warn(
+            "build_server(transport=) is deprecated; use backend_transport=",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        backend_transport = transport
+
     server: Server = Server(SERVER_NAME, version=__version__)
 
     # Phase 52 (Plan 02 → Plan 04): one SubscriptionManager per server.
@@ -521,7 +561,18 @@ def build_server(
 
     server.get_capabilities = _patched_get_capabilities  # type: ignore[method-assign]
 
-    server._agent_brain_transport = transport  # type: ignore[attr-defined]
+    # Phase 53 Plan 01: surface BOTH axis labels for client debugging.
+    # ``_agent_brain_backend_transport`` labels how this MCP server
+    # talks to ``agent-brain-serve`` (backend httpx); the new
+    # ``_agent_brain_listen_transport`` labels how the MCP client
+    # reaches this server (stdio vs Streamable HTTP). The legacy
+    # ``_agent_brain_transport`` attribute is retained as a backwards-
+    # compat shim mirroring ``backend_transport`` — slated for removal
+    # in Phase 55. Plan 03 will wire these into the MCP initialize
+    # ``serverInfo._meta`` blob; for now they're in-process only.
+    server._agent_brain_backend_transport = backend_transport  # type: ignore[attr-defined]
+    server._agent_brain_listen_transport = listen_transport  # type: ignore[attr-defined]
+    server._agent_brain_transport = backend_transport  # type: ignore[attr-defined]
     return server, subscription_manager
 
 
@@ -615,19 +666,85 @@ async def run_stdio(server: Server, subscription_manager: SubscriptionManager) -
                 )
 
 
+async def run_http(
+    server: Server,
+    subscription_manager: SubscriptionManager,
+    *,
+    host: str,
+    port: int,
+) -> None:
+    """Run the MCP server over Streamable HTTP. Implemented in Phase 53 Plan 02.
+
+    Plan 01 ships the dispatcher + flag surface only. Plan 02 swaps this
+    stub for an in-process uvicorn server wrapping the SDK's
+    :class:`StreamableHTTPSessionManager` mounted at ``/mcp``, with
+    loopback enforcement on ``host`` (D-08) and a ``/healthz`` probe
+    (D-07). The ``subscription_manager`` argument mirrors
+    :func:`run_stdio`'s signature so Plan 02's HTTP-side cleanup hook
+    (Phase 52 CONTEXT decision D, layer 1 — the SDK-level disconnect
+    cleanup that runs on every session teardown) can call
+    :meth:`SubscriptionManager.cleanup_all` symmetrically across both
+    transports.
+
+    Args:
+        server: The configured low-level MCP :class:`Server` from
+            :func:`build_server`.
+        subscription_manager: The :class:`SubscriptionManager` paired
+            with ``server`` (also second element of the
+            ``build_server`` tuple). Carried through for the Plan 02
+            cleanup hook.
+        host: Loopback host (``127.0.0.1`` / ``localhost`` / ``::1``).
+            Validation happens in Plan 02; Plan 01's stub raises before
+            inspection.
+        port: TCP port to bind. Validated by Click's
+            ``IntRange(1, 65535)`` at the CLI layer.
+
+    Raises:
+        NotImplementedError: Always — Plan 01 ships the stub only.
+    """
+    raise NotImplementedError("HTTP transport implemented in Plan 02")
+
+
 async def main_async(
     *,
     backend: str | None = None,
     backend_url: str | None = None,
     state_dir: str | None = None,
+    transport: str = "stdio",
+    host: str = "127.0.0.1",
+    port: int = 8765,
 ) -> None:
-    """Entry point for the ``agent-brain-mcp`` CLI command."""
+    """Entry point for the ``agent-brain-mcp`` CLI command.
+
+    Phase 53 Plan 01 adds the listen-transport dispatcher. The default
+    (``transport="stdio"``) preserves the v1/Phase 52 behavior verbatim.
+    ``transport="http"`` reaches the Plan 02 stub
+    (:func:`run_http`) which raises :class:`NotImplementedError`.
+
+    Args:
+        backend: Backend httpx transport label (``"auto"`` / ``"uds"`` /
+            ``"http"``) — controls how this MCP server reaches
+            ``agent-brain-serve``. Orthogonal to ``transport`` per
+            Phase 53 D-01.
+        backend_url: Explicit HTTP base URL for the backend (overrides
+            UDS auto-discovery).
+        state_dir: Override the Agent Brain state directory used to
+            locate UDS socket + runtime.json.
+        transport: Listen-side transport (``"stdio"`` / ``"http"``).
+            Click's :class:`click.Choice` rejects anything else at the
+            CLI layer; the defensive ``ValueError`` branch below catches
+            direct callers (e.g., tests) that bypass Click.
+        host: Host to bind for ``transport="http"``. Ignored by the
+            stdio path. Plan 02 enforces the loopback whitelist.
+        port: TCP port for ``transport="http"``. Ignored by the stdio
+            path.
+    """
     from pathlib import Path
 
     from .config import open_backend_client
 
     try:
-        transport, httpx_client = open_backend_client(
+        backend_transport, httpx_client = open_backend_client(
             backend=backend,  # type: ignore[arg-type]
             backend_url=backend_url,
             state_dir=Path(state_dir).expanduser() if state_dir else None,
@@ -647,8 +764,23 @@ async def main_async(
         httpx_client.close()
         raise
 
-    server, subscription_manager = build_server(httpx_client, transport=transport)
+    server, subscription_manager = build_server(
+        httpx_client,
+        backend_transport=backend_transport,
+        listen_transport=transport,
+    )
     try:
-        await run_stdio(server, subscription_manager)
+        # Phase 53 Plan 01: dispatch on the listen-side transport.
+        # No silent fallback (HTTP-03): unrecognized values raise; an
+        # HTTP failure does NOT downgrade to stdio (and vice versa).
+        if transport == "stdio":
+            await run_stdio(server, subscription_manager)
+        elif transport == "http":
+            await run_http(server, subscription_manager, host=host, port=port)
+        else:
+            # Click's Choice already rejects invalid values; this guard
+            # is for direct callers (tests, embeddings) that bypass the
+            # CLI wrapper.
+            raise ValueError(f"Unknown transport: {transport!r}")
     finally:
         httpx_client.close()

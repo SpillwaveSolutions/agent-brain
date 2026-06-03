@@ -36,17 +36,51 @@ from .server import main_async
         "socket + runtime.json. Honors AGENT_BRAIN_STATE_DIR env."
     ),
 )
+@click.option(
+    "--transport",
+    type=click.Choice(["stdio", "http"], case_sensitive=False),
+    default="stdio",
+    show_default=True,
+    help=(
+        "Listen transport. Auth deferred to v4 — http binds loopback only. "
+        "AGENT_BRAIN_MCP_TRANSPORT env is reserved but NOT honored in v2 "
+        "(Phase 53 D-02)."
+    ),
+)
+@click.option(
+    "--host",
+    type=str,
+    default="127.0.0.1",
+    show_default=True,
+    help=(
+        "Loopback host for --transport http. Only 127.0.0.1 / localhost / ::1 "
+        "accepted (validated at startup in Plan 02)."
+    ),
+)
+@click.option(
+    "--port",
+    type=click.IntRange(1, 65535),
+    default=8765,
+    show_default=True,
+    help="TCP port for --transport http.",
+)
 def main(
     backend: str | None,
     backend_url: str | None,
     state_dir: str | None,
+    transport: str,
+    host: str,
+    port: int,
 ) -> None:
-    """Run the Agent Brain MCP server over stdio."""
+    """Run the Agent Brain MCP server over stdio or Streamable HTTP."""
     asyncio.run(
         main_async(
             backend=backend,
             backend_url=backend_url,
             state_dir=state_dir,
+            transport=transport,
+            host=host,
+            port=port,
         )
     )
 
