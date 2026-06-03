@@ -40,7 +40,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 50. Server endpoint prep + v2 design doc | 0/0 | Complete    | 2026-06-03 |
-| 51. URI schemes + templates | 2/4 | In progress | - |
+| 51. URI schemes + templates | 3/4 | In progress | - |
 | 52. Resource subscriptions | 0/0 | Not started | - |
 | 53. Streamable HTTP transport | 0/0 | Not started | - |
 | 54. 9 remaining MCP tools | 0/0 | Not started | - |

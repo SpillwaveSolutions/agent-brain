@@ -4,13 +4,13 @@ milestone: v10.2
 milestone_name: MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
 current_phase: 51
 status: executing
-stopped_at: "Plan 51-02 complete (chunk:// + graph-entity:// shipped) — resume at Plan 51-03 (file://) or Plan 51-04 (templates/list); Plan 03 running in parallel"
-last_updated: "2026-06-03T05:37:34Z"
+stopped_at: "Plan 51-03 complete (file:// handler + Phase 50 sandbox re-export shim shipped; 17 new tests; 3 commits 8ea1460, f284568, 9093ed4; task before-push exit 0 — 416 passed)"
+last_updated: "2026-06-03T06:00:00Z"
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 24
-  completed_plans: 6
+  completed_plans: 7
 ---
 
 # Agent Brain — Project State
@@ -23,7 +23,7 @@ progress:
 ## Current Position
 
 Phase: 51 (uri-schemes-templates) — EXECUTING
-Plan: 3 of 4 (Plans 51-01 + 51-02 shipped 2026-06-03; Plan 51-03 file:// in parallel)
+Plan: 4 of 4 (Plans 51-01 + 51-02 + 51-03 shipped 2026-06-03; Plan 51-04 templates/list pending)
 
 ## Project Reference
 
@@ -49,7 +49,7 @@ v9.6.0 Runtime Parity:       [██▌       ]  25% (1/4 phases — parked, def
 v10.0.0–v10.0.6 Patch Train: [██████████] 100% (shipped 2026-05-25 → 2026-05-27)
 v10.1.0 MCP v1:              [██████████] 100% (shipped 2026-05-30; UDS + 7-tool stdio MCP + CLI dual transport)
 v10.1.2 MCP package rename:  [██████████] 100% (shipped 2026-06-01; agent-brain-mcp PyPI distribution + standalone user guide)
-v10.2 MCP v2:                [██▌       ]  25% (Phase 50 + Plans 51-01/02 complete — 6/24 plans)
+v10.2 MCP v2:                [██▉       ]  29% (Phase 50 + Plans 51-01/02/03 complete — 7/24 plans)
 ```
 
 ## v10.2 Phase Progress
@@ -57,7 +57,7 @@ v10.2 MCP v2:                [██▌       ]  25% (Phase 50 + Plans 51-01/02 
 | Phase | Status | Requirements | Plans |
 |-------|--------|--------------|-------|
 | 50. Server endpoint prep + v2 design doc | ✓ Complete (2026-06-03) | VAL-05 ✓ | 4/4 |
-| 51. URI schemes + templates | In progress (Plans 01+02 shipped 2026-06-03) | URI-01 ✓ · URI-02 ✓ · URI-03 ✓ · URI-04/05 pending | 2/4 |
+| 51. URI schemes + templates | In progress (Plans 01+02+03 shipped 2026-06-03) | URI-01 ✓ · URI-02 ✓ · URI-03 ✓ · URI-04 ✓ · URI-05 pending | 3/4 |
 | 52. Resource subscriptions | Planned, not started | SUB-01, SUB-02, SUB-03, SUB-04, SUB-05 | 0/4 |
 | 53. Streamable HTTP transport | Planned, not started | HTTP-01, HTTP-02, HTTP-03 | 0/3 |
 | 54. 9 remaining MCP tools | Planned, not started | TOOL-01..TOOL-09 | 0/4 |
@@ -101,6 +101,10 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 - **Decision (2026-06-03, Plan 51-01):** Parameterized URI dispatcher in `agent_brain_mcp/resources/parameterized.py` uses a *single* `ParsedURI` dataclass (all per-scheme fields optional, only the relevant ones populated) and a *closed* `PARAMETERIZED_SCHEMES` frozenset with NotImplementedError-raising placeholders for `chunk`/`graph-entity`/`file`. Plans 51-02 and 51-03 swap the placeholder values in `PARAMETERIZED_HANDLERS` without touching the dispatcher or the registry shape. Error-data shapes for malformed-URI (`{uri, reason}`) vs backend-404 (`{scheme, <id>, httpStatus, cause}`) are intentionally different — see module docstring.
 - **Decision (2026-06-03, Plan 51-02):** Per-scheme error refinement preserves the *original* `McpError.code` and only enriches `data`. For `graph-entity` 503 responses, the handler additionally extracts a `reason` slug (`graphrag_disabled` or `kuzu_unavailable`) from the Phase 50 server's detail body via a forgiving substring scan against a closed reason set — operators (and MCP clients) can route on `data.reason` without re-parsing `data.cause`. This handles the #178 Kuzu SIGSEGV fallback transparently across the MCP boundary.
 - **Decision (2026-06-03, Plan 51-02):** `graph-entity://` URI parser allows entity ids containing `/` (e.g., `graph-entity://Function/AuthService/login` → entity_id=`AuthService/login`). Phase 50 decision B explicitly permits hierarchical ids; the parser treats `raw_path.lstrip("/").rstrip("/")` as the FULL id including inner slashes. Phase 50's FastAPI path-style `{entity_id}` route honors this verbatim.
+- **Decision (2026-06-03, Plan 51-03):** SHARE-don't-fork sandbox helper. `agent_brain_mcp/security/__init__.py` is a pure re-export shim of Phase 50's `agent_brain_server/security/file_sandbox.py`. The shim's docstring forbids any logic. Forking would create silent policy drift between server-side and MCP-side `file://` reads — load-bearing security invariant from CONTEXT specifics #2.
+- **Decision (2026-06-03, Plan 51-03):** Dispatcher dual-return signature. The parameterized handler return type widened from `Awaitable[str]` to `Awaitable[str | ReadResourceContents]`. JSON-backed schemes (`job`, `chunk`, `graph-entity`) still return `str` (wrapped as `application/json`); `file://` returns `ReadResourceContents` directly so it can carry a per-file `mime_type` and optional `bytes` payload (auto-base64-encoded as `BlobResourceContents` by the MCP SDK at the wire boundary). Single `isinstance` check at the dispatch boundary; fully backward-compatible.
+- **Decision (2026-06-03, Plan 51-03):** `file://` URI accepts ONLY the canonical three-slash form (`file:///abs/path`). The two-slash form (`file://host/path`) is rejected with `reason: "missing_path"` because urlsplit reads `host` as the authority, which would otherwise be a relative-path-smuggling vector against the sandbox check.
+- **Decision (2026-06-03, Plan 51-03):** NO cache on `list_folders()`. Allowed roots refresh on every `file://` read (regression-pinned by `test_read_file_uri_roots_refresh_on_each_read`). Stale roots would silently widen the sandbox after operator folder mutations — CONTEXT decision E load-bearing.
 
 ### Blockers/Concerns
 
@@ -122,10 +126,10 @@ Feature backlog (#152, #154, #155, #156, #157, #158, #160, #162, #163, #164) and
 
 ## Session Continuity
 
-**Last Session:** 2026-06-03T05:37:34Z
-**Stopped At:** Plan 51-02 complete (chunk:// + graph-entity:// handlers shipped; 17 new tests — 3 chunk e2e + 8 graph-entity e2e + 6 parse_uri unit; 3 commits 63c5623, 5727709, e48edc6; Plan 51-03 file:// in parallel; mypy + pytest green on Plan 02 surface; ruff F401 and black diffs remaining belong to Plan 03's in-flight changes)
-**Resume File:** `.planning/phases/51-uri-schemes-templates/plans/03-file-uri-handler.md` (Plan 03 in flight) or `04-resources-templates-list.md` (after Plan 03)
-**Next Action:** `/gsd:execute-plan 51 04` (or wait for Plan 03 finish) — execute Plan 51-04 (resources/templates/list advertising all 4 schemes + MIN_BACKEND_VERSION bump to 10.2.0)
+**Last Session:** 2026-06-03T06:00:00Z
+**Stopped At:** Plan 51-03 complete (file:// handler + Phase 50 sandbox re-export shim shipped; 17 new tests covering all 4 Phase 50 deny reasons, AnyUrl normalization, traversal protection, and roots-refresh-on-each-read regression; 3 commits 8ea1460, f284568, 9093ed4; task before-push exit 0 — 416 tests passed across the full monorepo; Plan 02 ran in parallel and closed simultaneously, both plans' commits are in the main history)
+**Resume File:** `.planning/phases/51-uri-schemes-templates/plans/04-resources-templates-list-and-version-floor.md`
+**Next Action:** `/gsd:execute-plan 51 04` — execute Plan 51-04 (resources/templates/list advertising all 4 schemes + MIN_BACKEND_VERSION bump to 10.2.0)
 
 ## Recommended Execution Order
 
@@ -139,4 +143,4 @@ Per workflow summarizer (verified ready_to_execute: true):
 6. **Phase 55** — Validation + QA gate (validates Phases 50-54; must be last; verification-only, no new production code)
 
 ---
-*State updated: 2026-06-03 — Plans 51-01 + 51-02 shipped (URI dispatcher + job:// + chunk:// + graph-entity:// handlers); Phase 51 2/4 plans complete; URI-01, URI-02, URI-03 all closed; Plan 51-03 file:// in parallel*
+*State updated: 2026-06-03 — Plans 51-01 + 51-02 + 51-03 shipped (URI dispatcher + job:// + chunk:// + graph-entity:// + file:// handlers + Phase 50 sandbox re-export shim); Phase 51 3/4 plans complete; URI-01, URI-02, URI-03, URI-04 all closed; only URI-05 (resources/templates/list) remains*

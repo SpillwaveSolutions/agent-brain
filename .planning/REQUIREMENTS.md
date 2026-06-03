@@ -23,7 +23,7 @@ Requirements for v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completi
 - [x] **URI-01**: Client can read `chunk://<chunk_id>` resources via MCP `resources/read` (requires new `GET /query/chunk/{id}` server endpoint with O(1) lookup) — shipped 2026-06-03 in Plan 51-02
 - [x] **URI-02**: Client can read `graph-entity://<type>/<id>` resources via MCP `resources/read` (requires new `GET /graph/entity/{type}/{id}` server endpoint) — shipped 2026-06-03 in Plan 51-02
 - [x] **URI-03**: Client can read `job://<job_id>` resources via MCP `resources/read` (uses existing `GET /index/jobs/{id}` endpoint) — shipped 2026-06-03 in Plan 51-01
-- [ ] **URI-04**: Client can read `file://<abs-path>` resources gated by indexed roots and MCP `roots/list` sandboxing
+- [x] **URI-04**: Client can read `file://<abs-path>` resources gated by indexed roots and MCP `roots/list` sandboxing — shipped 2026-06-03 in Plan 51-03
 - [ ] **URI-05**: Server responds to MCP `resources/templates/list` with templates for `chunk://`, `graph-entity://`, `job://`, and `file://` schemes
 
 ### Streamable HTTP Transport (HTTP)
@@ -95,7 +95,7 @@ Phase mapping for v10.2. Phase numbering continues sequentially from v9.6.0 (las
 | URI-01 | Phase 51 | Complete (2026-06-03, Plan 51-02) |
 | URI-02 | Phase 51 | Complete (2026-06-03, Plan 51-02) |
 | URI-03 | Phase 51 | Complete (2026-06-03, Plan 51-01) |
-| URI-04 | Phase 51 | Pending |
+| URI-04 | Phase 51 | Complete (2026-06-03, Plan 51-03) |
 | URI-05 | Phase 51 | Pending |
 | HTTP-01 | Phase 53 | Pending |
 | HTTP-02 | Phase 53 | Pending |
