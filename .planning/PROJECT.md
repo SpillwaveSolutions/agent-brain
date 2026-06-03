@@ -124,10 +124,14 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 - ✓ **TOOL-07**: `cache_status` thin wrapper over `GET /index/cache/`; 503-uninitialized surfaces as McpError — v10.2 (Phase 54, Plan 02)
 - ✓ **TOOL-08**: `clear_cache` thin wrapper with `confirm: Literal[True]` Pydantic guard — v10.2 (Phase 54, Plans 01+03)
 - ✓ **TOOL-09**: `list_file_types` returns vendored `FILE_TYPE_PRESETS` (no HTTP roundtrip); module docstring cites CLI source + Phase 55 parity contract — v10.2 (Phase 54, Plans 01+02)
+- ✓ **VAL-01**: 16-tool parameterized contract suite (Layer 1 + Layer 2 share `_tool_matrix.py` SOT with import-time drift guard); 32 SDK assertions over stdio + 6 resource contract assertions — v10.2 (Phase 55, Plan 02)
+- ✓ **VAL-02**: Subscription lifecycle E2E (subscribe→notify→unsubscribe for all 3 URIs) + disconnect cleanup via stderr-scrape fallback (debug endpoint absent — issue #194 filed for v10.3+); 4 SDK-driven tests — v10.2 (Phase 55, Plan 03)
+- ✓ **VAL-03**: Streamable HTTP contract via `mcp.client.streamable_http.streamablehttp_client` (first repo usage); 6 SDK tests over the real `--transport http` subprocess + free-port allocation; reuses Phase 53's `fake_http_server_module` — v10.2 (Phase 55, Plan 04)
+- ✓ **VAL-04**: `agent-brain-mcp` and `agent-brain-uds` folded into root `task before-push` + `task pr-qa-gate` (closes DR-5 from v1 design §14 #5); +60-90s local pre-push cost (162s wall-clock); CHANGELOG `[10.2.0]` entry shipped — v10.2 (Phase 55, Plan 05)
 
 ### Active
 
-(no active items — milestone v10.2 has only Phase 55 remaining: validation + contract tests + QA gate)
+(milestone v10.2 SHIPPED 2026-06-03 — see Current Milestone section below)
 
 ## Current Milestone: v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
 
@@ -258,4 +262,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-03 after Phase 54 completion — TOOL-01..09 validated (TOOL_REGISTRY at exactly 16; all 9 new tools wrap existing FastAPI routes with no new server endpoints; first async handler + `emits_progress` dispatch branch; `_build_progress_notifier` no-ops cleanly when progressToken absent); advancing to Phase 55 (validation + contract tests + QA gate)*
+*Last updated: 2026-06-03 — MILESTONE v10.2 (MCP v2 — Subscriptions, HTTP Transport, & Tool Completion) SHIPPED. All 24/24 plans across 6/6 phases complete: VAL-01..04 validated end-to-end, DR-5 closed, root QA gate integration live. v10.2 is release-ready; `gsd:complete-milestone` consumes `.planning/phases/55-validation-and-qa-gate/VALIDATION.md` to ship. Next milestone: v10.3 candidates (#187 MCP v3 CLI-via-MCP + framework matrix; #188 MCP v4 OAuth) tracked in roadmap meta-issue #189.*
