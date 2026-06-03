@@ -37,7 +37,7 @@ Requirements for v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completi
 - [x] **TOOL-01**: Client can call `explain_result` and receive provenance and scoring breakdown for a query result
 - [x] **TOOL-02**: Client can call `add_documents` with a path list to start an indexing job and receive the job id — shipped 2026-06-03 in Plan 54-03 (`handle_add_documents` in `agent_brain_mcp/tools/index.py`; `openWorldHint: True`; body deliberately omits `allow_external` per issue #180)
 - [x] **TOOL-03**: Client can call `inject_documents` with an enrichment-script path and a folder path to start an injection-aware indexing job — shipped 2026-06-03 in Plan 54-03 (`handle_inject_documents` in new `agent_brain_mcp/tools/inject.py`; `openWorldHint: True`; path expansion via `Path(...).expanduser().resolve()` mirroring CLI; both-None pre-validation INVALID_PARAMS; #181 hash-allowlist 403 surfaces as INVALID_PARAMS)
-- [ ] **TOOL-04**: Client can call `wait_for_job` to block until job completion; while the job runs, `wait_for_job` emits `notifications/progress` at least every 2s
+- [x] **TOOL-04**: Client can call `wait_for_job` to block until job completion; while the job runs, `wait_for_job` emits `notifications/progress` at least every 2s — shipped 2026-06-03 in Plan 54-04 (`handle_wait_for_job` in new `agent_brain_mcp/tools/wait.py`; first async tool handler in the codebase; 1.0s default poll cadence under MCP-spec ≤2s; 6-element terminal-states superset absorbs server-version drift; `time.monotonic` timeout/elapsed; best-effort `cancel_job` cleanup on `asyncio.CancelledError`; `readOnlyHint: True`; `emits_progress: True` — the only such tool in v2; `ToolSpec.emits_progress` field + `server.call_tool` async dispatch branch + `_build_progress_notifier` closure factory introduced)
 - [x] **TOOL-05**: Client can call `list_folders` and receive the list of indexed folders with chunk counts and last-indexed metadata
 - [x] **TOOL-06**: Client can call `remove_folder` with a folder path to remove all indexed chunks for that folder — shipped 2026-06-03 in Plan 54-03 (`handle_remove_folder` in `agent_brain_mcp/tools/folders.py` extending Plan 02's module; `destructiveHint: True`; `confirm: Literal[True]` Pydantic guard; FOLD-07 409 surfaces as BACKEND_CONFLICT -32000)
 - [x] **TOOL-07**: Client can call `cache_status` and receive embedding-cache statistics
@@ -103,7 +103,7 @@ Phase mapping for v10.2. Phase numbering continues sequentially from v9.6.0 (las
 | TOOL-01 | Phase 54 | Complete |
 | TOOL-02 | Phase 54 | Complete (2026-06-03, Plan 54-03) |
 | TOOL-03 | Phase 54 | Complete (2026-06-03, Plan 54-03) |
-| TOOL-04 | Phase 54 | Pending |
+| TOOL-04 | Phase 54 | Complete (2026-06-03, Plan 54-04) |
 | TOOL-05 | Phase 54 | Complete |
 | TOOL-06 | Phase 54 | Complete (2026-06-03, Plan 54-03) |
 | TOOL-07 | Phase 54 | Complete |

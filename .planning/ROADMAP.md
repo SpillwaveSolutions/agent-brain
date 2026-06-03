@@ -112,11 +112,11 @@
   3. An MCP client can call `inject_documents` with an enrichment-script path and a folder path and receive a `{job_id, status}` response
   4. An MCP client can call `wait_for_job` for an active job and receive `notifications/progress` events at least every 2s until the job terminates, then a final completion result
   5. An MCP client can call `list_folders`, `remove_folder`, `cache_status`, `clear_cache`, and `list_file_types` and receive payloads consistent with the existing CLI/HTTP behavior for each operation
-**Plans**: 3/4 complete
+**Plans**: 4/4 complete
   - [x] **Plan 01** — Schemas + ApiClient + FILE_TYPE_PRESETS foundation (locks 18 Pydantic schemas, 5 ApiClient methods, vendored preset table). Shipped 2026-06-03.
   - [x] **Plan 02** — Read-only tool handlers (explain_result, list_folders, cache_status, list_file_types). TOOL-01/05/07/09 complete; TOOL_REGISTRY 7 -> 11; +15 fast-lane MCP tests (400 -> 415); 4 atomic commits (07ee21a / 720c27d / c27c9b2 / b310230) on main; all quality gates green. Shipped 2026-06-03.
   - [x] **Plan 03** — Mutating tool handlers (add_documents, inject_documents, remove_folder, clear_cache). TOOL-02/03/06/08 complete; TOOL_REGISTRY 11 -> 15; +18 fast-lane MCP tests (415 -> 433); 4 atomic commits (bd5cb02 / 0768ac6 / 095f5f2 / c6301b6) on main; all quality gates green. Shipped 2026-06-03.
-  - [ ] Plan 04 — wait_for_job async handler with notifications/progress
+  - [x] **Plan 04** — wait_for_job async handler with notifications/progress. TOOL-04 complete; TOOL_REGISTRY 15 -> 16 (final v2 count); first async tool handler in codebase; `ToolSpec.emits_progress` field + branched `server.call_tool` dispatch + `_build_progress_notifier` closure factory; inline poll loop (chose over reusing Phase 52 `start_polling` — both valid per objective); +18 tests (433 -> 451 fast-lane + 1 new e2e); 4 atomic commits (f95e0ce / e7d8fec / 4a2c1e0 / 7a691e7) on main; all quality gates green. Shipped 2026-06-03.
 
 ---
 
