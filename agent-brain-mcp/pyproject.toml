@@ -38,8 +38,8 @@ click = "^8.1.0"
 # entity/{type}/{id}) in agent-brain-server 10.2.0; the MCP package
 # now refuses to run against anything older both at install time (this
 # pin) and at startup (the version-floor check).
-agent-brain-rag = "^10.2.0"
-agent-brain-uds = "^10.2.0"
+agent-brain-rag = {path = "../agent-brain-server", develop = false}
+agent-brain-uds = {path = "../agent-brain-uds", develop = false}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"
@@ -48,6 +48,10 @@ pytest-cov = "^6.0.0"
 black = "^24.10.0"
 ruff = "^0.8.0"
 mypy = "^1.13.0"
+# Phase 53 Plan 03: test_http_loopback.py uses psutil.Process.net_connections
+# to inspect the bound socket interface of an agent-brain-mcp HTTP subprocess.
+# Dev-only — psutil is NOT a runtime dependency of agent-brain-mcp.
+psutil = "^6.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -80,6 +84,7 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 markers = [
     "e2e: end-to-end test requiring a real agent-brain-serve subprocess and the official MCP Python SDK as client (slow; opt-in via `task mcp:e2e`)",
+    "e2e_http: end-to-end test requiring an agent-brain-mcp subprocess in HTTP transport mode (slow; opt-in via `task mcp:smoke:http`)",
 ]
-# Default test runs exclude the e2e suite to keep `task mcp:test` fast.
-addopts = "-m 'not e2e'"
+# Default test runs exclude both e2e suites to keep `task mcp:test` fast.
+addopts = "-m 'not e2e and not e2e_http'"

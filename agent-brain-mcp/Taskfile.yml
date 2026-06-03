@@ -12,7 +12,13 @@ vars:
   TEST_DIR: tests
 
 env:
-  PYTHONPATH: './agent_brain_mcp:./tests'
+  # NB: do NOT add ``./agent_brain_mcp`` to PYTHONPATH — Phase 53 Plan 02
+  # introduced ``agent_brain_mcp/http.py`` which, when the parent dir is
+  # on PYTHONPATH, shadows the stdlib ``http`` package and breaks anything
+  # transitively importing ``http.client`` (e.g., urllib3 → requests →
+  # poetry's own console scripts). The poetry-installed package is
+  # reachable via the venv site-packages without any PYTHONPATH games.
+  PYTHONPATH: './tests'
 
 tasks:
   default:
@@ -86,6 +92,19 @@ tasks:
     deps: [install]
     cmds:
       - poetry run pytest {{.TEST_DIR}}/e2e -v -m e2e
+
+  mcp:smoke:http:
+    desc: Run the Streamable HTTP transport round-trip smoke (drives the official MCP SDK HTTP client)
+    deps: [install]
+    cmds:
+      - poetry run pytest {{.TEST_DIR}}/test_transport_selection.py {{.TEST_DIR}}/test_http_loopback.py {{.TEST_DIR}}/test_http_negative_paths.py -v -m e2e_http
+
+  mcp:smoke:all:
+    desc: Umbrella — fast unit suite + HTTP transport smoke. Stdio surface is covered by the fast lane.
+    deps: [install]
+    cmds:
+      - task: test
+      - task: mcp:smoke:http
 
   test:all:
     desc: Unit + integration + e2e

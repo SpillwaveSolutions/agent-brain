@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+import os
+import signal
 import socket
-from collections.abc import Callable
+import subprocess
+import sys
+import time
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -429,3 +435,244 @@ def free_loopback_port() -> int:
     port = int(s.getsockname()[1])
     s.close()
     return port
+
+
+# --- Phase 53 Plan 03 (SDK round-trip smoke) HTTP subprocess fixture -----
+
+
+# Fake MCP server script wired to a MockTransport httpx backend — mirrors the
+# stdio e2e harness at ``tests/test_e2e_stdio.py`` but boots ``run_http``
+# instead of ``run_stdio``. Bypasses ``main_async``'s version-compat check
+# (it would otherwise need a real ``agent-brain-serve`` to answer ``/health/``)
+# by calling ``build_server()`` + ``run_http()`` directly. The same
+# approach was used by Phase 52 for stdio e2e — proves the wire protocol
+# without standing up the full backend stack.
+_FAKE_HTTP_SERVER_SCRIPT = """
+import asyncio
+import os
+import sys
+
+import httpx
+
+from agent_brain_mcp.http import run_http
+from agent_brain_mcp.server import build_server
+
+_RESPONSES = {
+    ("GET", "/health/"): {
+        "status": "healthy", "version": "10.2.0",
+        "message": "ok", "mode": "project", "instance_id": "e2e-http",
+    },
+    ("GET", "/health/status"): {
+        "total_documents": 42, "total_chunks": 420,
+        "indexing_in_progress": False, "current_job_id": None,
+        "progress_percent": 0.0, "indexed_folders": [],
+    },
+    ("GET", "/health/config"): {
+        "storage_backend": "chroma",
+        "stores": {"vector": True, "bm25": True, "graph": False},
+        "reranker_enabled": False,
+        "embedding_model": "text-embedding-3-large",
+        "rerank_model": None, "graph_extractor": None,
+        "watcher_running": False,
+    },
+    ("GET", "/health/providers"): {
+        "config_source": None, "strict_mode": False,
+        "validation_errors": [], "providers": [],
+        "timestamp": "2026-06-03T00:00:00Z",
+    },
+    ("GET", "/query/count"): {"total_documents": 42, "total_chunks": 420},
+    ("GET", "/index/folders/"): {
+        "folders": [{"folder_path": "/tmp/x", "chunk_count": 1,
+                     "last_indexed": "2026-06-03", "watch_mode": "off",
+                     "watch_debounce_seconds": 30}],
+    },
+}
+
+
+def _handler(request):
+    key = (request.method, request.url.path)
+    body = _RESPONSES.get(key, {"detail": "not configured: " + str(key)})
+    return httpx.Response(200, json=body)
+
+
+async def main():
+    host = os.environ["AGENT_BRAIN_MCP_E2E_HOST"]
+    port = int(os.environ["AGENT_BRAIN_MCP_E2E_PORT"])
+    client = httpx.Client(
+        transport=httpx.MockTransport(_handler),
+        base_url="http://e2e",
+    )
+    # Phase 53: pass both axis labels so initialize._meta carries them.
+    server, manager = build_server(
+        client, backend_transport="http", listen_transport="http"
+    )
+    try:
+        await run_http(server, manager, host=host, port=port)
+    finally:
+        client.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+"""
+
+
+@pytest.fixture(scope="session")
+def fake_http_server_module(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Write the fake-server script to a tmp path; session-scoped for reuse."""
+    base = tmp_path_factory.mktemp("mcp-http-e2e")
+    script = base / "fake_mcp_http_server.py"
+    script.write_text(_FAKE_HTTP_SERVER_SCRIPT)
+    return script
+
+
+@contextmanager
+def _mcp_subprocess(
+    port: int,
+    fake_server_script: Path,
+    *,
+    host: str = "127.0.0.1",
+    extra_env: dict[str, str] | None = None,
+    readiness_timeout_s: float = 10.0,
+) -> Iterator[subprocess.Popen[bytes]]:
+    """Spawn the fake MCP HTTP server subprocess and wait for ``/healthz`` 200.
+
+    Phase 53 Plan 03's HTTP-01 round-trip needs to drive the official MCP
+    SDK's :func:`mcp.client.streamable_http.streamablehttp_client` against
+    a real listener — that means a real subprocess. The fake-server
+    script (:data:`_FAKE_HTTP_SERVER_SCRIPT`) wires
+    :func:`agent_brain_mcp.server.build_server` to a
+    :class:`httpx.MockTransport` backend and calls
+    :func:`agent_brain_mcp.http.run_http` directly, bypassing
+    ``main_async``'s version-compat check (which would otherwise need a
+    real ``agent-brain-serve`` reachable at startup). Same pattern as
+    Phase 52's stdio e2e harness at ``tests/test_e2e_stdio.py``.
+
+    Teardown is SIGINT → wait 3s → SIGKILL fallback. The 3-second SIGINT
+    grace window is enough for uvicorn's graceful shutdown to drain
+    in-flight requests AND for ``run_http``'s ``finally`` block to run
+    ``subscription_manager.cleanup_all()`` (Plan 02 contract).
+
+    Args:
+        port: TCP port the subprocess should bind. Caller supplies a
+            free port via the ``free_loopback_port`` fixture.
+        fake_server_script: Path to the fake-server Python script
+            (yielded by the ``fake_http_server_module`` fixture).
+        host: Bind host. Defaults to ``127.0.0.1`` (the only value
+            that round-trips through Plan 02's loopback validator AND
+            the official SDK client's DNS-rebinding-protection check).
+        extra_env: Optional environment overrides merged on top of
+            ``os.environ`` for the child.
+        readiness_timeout_s: How long to wait for ``/healthz`` to
+            answer with 200 before giving up. 10s is generous for a
+            cold uvicorn start; CI runners typically reach 200 in 1-2s.
+
+    Yields:
+        The :class:`subprocess.Popen` handle. The MCP server is
+        guaranteed to have answered ``/healthz`` with 200 before the
+        yield runs, so the SDK client can immediately ``initialize``.
+
+    Raises:
+        RuntimeError: if ``/healthz`` never returns 200 within
+            ``readiness_timeout_s`` OR the subprocess exits early. The
+            subprocess's stderr is captured in the error message so CI
+            logs show the bind failure or backend-version-floor
+            rejection directly.
+    """
+    project_root = Path(__file__).resolve().parent.parent
+    env = {
+        **os.environ,
+        "PYTHONPATH": str(project_root),
+        "AGENT_BRAIN_MCP_E2E_HOST": host,
+        "AGENT_BRAIN_MCP_E2E_PORT": str(port),
+        **(extra_env or {}),
+    }
+    cmd = [sys.executable, str(fake_server_script)]
+    proc = subprocess.Popen(
+        cmd,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=str(project_root),
+    )
+    try:
+        url = f"http://{host}:{port}/healthz"
+        deadline = time.time() + readiness_timeout_s
+        while time.time() < deadline:
+            # If the subprocess died before binding /healthz, no point
+            # waiting out the timeout — report the early death.
+            if proc.poll() is not None:
+                stderr = b""
+                if proc.stderr is not None:
+                    stderr = proc.stderr.read()
+                raise RuntimeError(
+                    f"MCP HTTP subprocess exited with code "
+                    f"{proc.returncode} before /healthz at {url} became "
+                    f"ready. stderr=\n{stderr.decode(errors='replace')}"
+                )
+            try:
+                r = httpx.get(url, timeout=0.5)
+                if r.status_code == 200:
+                    break
+            except httpx.HTTPError:
+                pass
+            time.sleep(0.1)
+        else:
+            stderr = b""
+            if proc.stderr is not None:
+                stderr = proc.stderr.read()
+            proc.terminate()
+            raise RuntimeError(
+                f"MCP HTTP listener did not become ready at {url} "
+                f"within {readiness_timeout_s}s. stderr=\n"
+                f"{stderr.decode(errors='replace')}"
+            )
+        yield proc
+    finally:
+        if proc.poll() is None:
+            # Graceful shutdown — gives ``run_http``'s finally block
+            # the 3s grace window to drain polling tasks via
+            # ``subscription_manager.cleanup_all()`` (Plan 02 contract).
+            proc.send_signal(signal.SIGINT)
+            try:
+                proc.wait(timeout=3.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+
+
+@pytest.fixture
+def mcp_http_subprocess(
+    free_loopback_port: int,
+    fake_http_server_module: Path,
+) -> Callable[..., Any]:
+    """Factory returning a context manager that runs an HTTP MCP subprocess.
+
+    Usage::
+
+        def test_http(mcp_http_subprocess, free_loopback_port):
+            with mcp_http_subprocess() as proc:
+                url = f"http://127.0.0.1:{free_loopback_port}/mcp"
+                # drive the SDK client against url ...
+
+    The factory binds ``free_loopback_port`` so a single test gets a
+    single (port, subprocess) pair.
+
+    Args (to the returned callable):
+        host: Bind host. Defaults to ``127.0.0.1``.
+        extra_env: Optional env-var overrides.
+    """
+
+    def _factory(
+        *,
+        host: str = "127.0.0.1",
+        extra_env: dict[str, str] | None = None,
+    ) -> Any:
+        return _mcp_subprocess(
+            free_loopback_port,
+            fake_http_server_module,
+            host=host,
+            extra_env=extra_env,
+        )
+
+    return _factory
