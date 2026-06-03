@@ -28,9 +28,9 @@ Requirements for v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completi
 
 ### Streamable HTTP Transport (HTTP)
 
-- [ ] **HTTP-01**: Operator can run `agent-brain-mcp --transport http` to start the MCP server over Streamable HTTP
-- [ ] **HTTP-02**: Streamable HTTP transport binds loopback only (127.0.0.1); v2 ships no MCP authentication (auth is reserved for v4)
-- [ ] **HTTP-03**: Stdio transport continues to work alongside HTTP; transport selection is controlled by the `--transport` flag with no silent fallback
+- [x] **HTTP-01**: Operator can run `agent-brain-mcp --transport http` to start the MCP server over Streamable HTTP
+- [x] **HTTP-02**: Streamable HTTP transport binds loopback only (127.0.0.1); v2 ships no MCP authentication (auth is reserved for v4)
+- [x] **HTTP-03**: Stdio transport continues to work alongside HTTP; transport selection is controlled by the `--transport` flag with no silent fallback
 
 ### Tool Completion (TOOL)
 
@@ -97,9 +97,9 @@ Phase mapping for v10.2. Phase numbering continues sequentially from v9.6.0 (las
 | URI-03 | Phase 51 | Complete (2026-06-03, Plan 51-01) |
 | URI-04 | Phase 51 | Complete (2026-06-03, Plan 51-03) |
 | URI-05 | Phase 51 | Complete (2026-06-03, Plan 51-04) |
-| HTTP-01 | Phase 53 | Pending |
-| HTTP-02 | Phase 53 | Pending |
-| HTTP-03 | Phase 53 | Pending |
+| HTTP-01 | Phase 53 | Complete |
+| HTTP-02 | Phase 53 | Complete |
+| HTTP-03 | Phase 53 | Complete |
 | TOOL-01 | Phase 54 | Pending |
 | TOOL-02 | Phase 54 | Pending |
 | TOOL-03 | Phase 54 | Pending |
