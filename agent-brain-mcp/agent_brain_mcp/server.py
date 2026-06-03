@@ -638,25 +638,49 @@ def _summarize(tool_name: str, structured: dict[str, Any]) -> str:
             f"(v{structured.get('version')})"
         )
     # ---------------------------------------------------------------------
-    # Phase 54 Plan 02 — 4 read-only tool summaries. Branch order is
-    # alphabetical (cache_status → explain_result → list_file_types →
-    # list_folders) so Plan 03's additions slot in cleanly.
+    # Phase 54 Plan 02/03 — 8 Phase 54 tool summaries (4 read-only from
+    # Plan 02 + 4 mutating from Plan 03). Branch order is alphabetical
+    # (add_documents → cache_status → clear_cache → explain_result →
+    # inject_documents → list_file_types → list_folders → remove_folder)
+    # so Plan 04's wait_for_job slots in cleanly.
     # ---------------------------------------------------------------------
+    if tool_name == "add_documents":
+        return (
+            f"add_documents → job {structured.get('job_id')} "
+            f"({structured.get('status')})"
+        )
     if tool_name == "cache_status":
         return (
             f"cache_status → {structured.get('hit_rate')}% hit rate "
             f"({structured.get('size_bytes')} bytes)"
         )
+    if tool_name == "clear_cache":
+        return (
+            f"clear_cache → cache cleared "
+            f"({structured.get('count')} entries, "
+            f"{structured.get('size_bytes')} bytes)"
+        )
     if tool_name == "explain_result":
         reason = str(structured.get("reason", ""))
         reason_fragment = reason[:80]
         return f"explain_result → {structured.get('chunk_id')}: {reason_fragment}"
+    if tool_name == "inject_documents":
+        job_id = str(structured.get("job_id", ""))
+        if job_id == "dry_run":
+            message = str(structured.get("message", "validation complete"))
+            return f"inject_documents → dry_run: {message[:80]}"
+        return f"inject_documents → job {job_id} ({structured.get('status')})"
     if tool_name == "list_file_types":
         return f"list_file_types → {structured.get('preset_count')} presets"
     if tool_name == "list_folders":
         folders = structured.get("folders") or []
         n = structured.get("total", len(folders))
         return f"list_folders → {n} folder(s) indexed"
+    if tool_name == "remove_folder":
+        return (
+            f"remove_folder → {structured.get('folder_path')}: "
+            f"{structured.get('chunks_deleted')} chunks removed"
+        )
     return f"{tool_name} → ok"
 
 

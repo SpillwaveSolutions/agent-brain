@@ -15,16 +15,22 @@ from typing import Any
 from pydantic import BaseModel
 
 from ..schemas import (
+    AddDocumentsInput,
+    AddDocumentsOutput,
     CacheStatusInput,
     CacheStatusOutput,
     CancelJobInput,
     CancelJobOutput,
+    ClearCacheInput,
+    ClearCacheOutput,
     ExplainResultInput,
     ExplainResultOutput,
     GetJobInput,
     GetJobOutput,
     IndexFolderInput,
     IndexFolderOutput,
+    InjectDocumentsInput,
+    InjectDocumentsOutput,
     ListFileTypesInput,
     ListFileTypesOutput,
     ListFoldersInput,
@@ -33,17 +39,20 @@ from ..schemas import (
     ListJobsOutput,
     QueryCountInput,
     QueryCountOutput,
+    RemoveFolderInput,
+    RemoveFolderOutput,
     SearchDocumentsInput,
     SearchDocumentsOutput,
     ServerHealthInput,
     ServerHealthOutput,
 )
 from . import file_types  # Phase 54 Plan 01; consumed by handlers in Plan 02+
-from .cache import handle_cache_status
+from .cache import handle_cache_status, handle_clear_cache
 from .explain import handle_explain_result
 from .file_types import handle_list_file_types
-from .folders import handle_list_folders
-from .index import handle_index_folder
+from .folders import handle_list_folders, handle_remove_folder
+from .index import handle_add_documents, handle_index_folder
+from .inject import handle_inject_documents
 from .jobs import handle_cancel_job, handle_get_job, handle_list_jobs
 from .meta import handle_query_count, handle_server_health
 from .search import handle_search_documents
@@ -206,6 +215,67 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         input_model=ListFileTypesInput,
         output_model=ListFileTypesOutput,
         annotations={"readOnlyHint": True},
+    ),
+    # ---------------------------------------------------------------------
+    # Phase 54 Plan 03 — 4 mutating tools (TOOL-02 / TOOL-03 / TOOL-06 /
+    # TOOL-08). ``add_documents`` and ``inject_documents`` are
+    # job-spawning index operations (``openWorldHint: True``);
+    # ``remove_folder`` and ``clear_cache`` are destructive
+    # (``destructiveHint: True``) and Pydantic-gated via
+    # ``confirm: Literal[True]``. Phase 54 CONTEXT decisions B + D + G.
+    # ---------------------------------------------------------------------
+    "add_documents": ToolSpec(
+        name="add_documents",
+        description=(
+            "Index a list of document paths into the existing corpus. Returns "
+            "a job_id the caller can poll with wait_for_job or get_job. "
+            "Server-side path containment is enforced by the "
+            "AGENT_BRAIN_ALLOW_EXTERNAL_PATHS setting (see issue #180 — there "
+            "is no client-side allow_external knob)."
+        ),
+        handler=handle_add_documents,
+        input_model=AddDocumentsInput,
+        output_model=AddDocumentsOutput,
+        annotations={"openWorldHint": True, "destructiveHint": False},
+    ),
+    "inject_documents": ToolSpec(
+        name="inject_documents",
+        description=(
+            "Index a folder with content injection (custom enrichment script "
+            "and/or folder-level metadata JSON). Returns a job_id the caller "
+            "can poll with wait_for_job or get_job. At least one of "
+            "injector_script or folder_metadata_file is required. Injector "
+            "scripts must be hash-allowlisted server-side (see issue #181). "
+            "Unallowlisted scripts will fail with INVALID_PARAMS. Set "
+            "dry_run=true to validate without enqueueing — returns "
+            "job_id='dry_run' with a validation report in message."
+        ),
+        handler=handle_inject_documents,
+        input_model=InjectDocumentsInput,
+        output_model=InjectDocumentsOutput,
+        annotations={"openWorldHint": True, "destructiveHint": False},
+    ),
+    "remove_folder": ToolSpec(
+        name="remove_folder",
+        description=(
+            "Remove all indexed chunks for a folder. Requires confirm=true. "
+            "Removing a folder while an indexing job is active for it will "
+            "fail with INVALID_PARAMS — cancel the job first."
+        ),
+        handler=handle_remove_folder,
+        input_model=RemoveFolderInput,
+        output_model=RemoveFolderOutput,
+        annotations={"destructiveHint": True},
+    ),
+    "clear_cache": ToolSpec(
+        name="clear_cache",
+        description=(
+            "Clear the embedding cache. Requires confirm=true. Cannot be undone."
+        ),
+        handler=handle_clear_cache,
+        input_model=ClearCacheInput,
+        output_model=ClearCacheOutput,
+        annotations={"destructiveHint": True},
     ),
 }
 
