@@ -719,7 +719,7 @@ def _summarize(tool_name: str, structured: dict[str, Any]) -> str:
 
 def _build_progress_notifier(
     server: Server,
-) -> "ProgressNotifier":
+) -> ProgressNotifier:
     """Build the ``notify`` closure injected into progress-emitting tools.
 
     Captures the current ``request_context`` once at handler-invocation
@@ -765,7 +765,12 @@ def _build_progress_notifier(
         return _noop
 
     progress_token = ctx.meta.progressToken if ctx.meta is not None else None
-    related_request_id = ctx.request_id
+    # ``request_id`` is ``RequestId = int | str`` in the MCP SDK but
+    # ``send_progress_notification(related_request_id=...)`` is typed
+    # narrowly as ``str | None``. Coerce defensively — at runtime the
+    # SDK is happy with either form.
+    raw_rid = ctx.request_id
+    related_request_id: str | None = str(raw_rid) if raw_rid is not None else None
     session = ctx.session
 
     if progress_token is None:

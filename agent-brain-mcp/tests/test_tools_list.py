@@ -74,9 +74,7 @@ class TestToolsList:
 
     def test_only_wait_for_job_emits_progress(self) -> None:
         """Pin the discrimination: 1 async progress-emitting tool, 15 sync."""
-        emits = {
-            name for name, spec in TOOL_REGISTRY.items() if spec.emits_progress
-        }
+        emits = {name for name, spec in TOOL_REGISTRY.items() if spec.emits_progress}
         assert emits == {"wait_for_job"}
 
     @pytest.mark.asyncio
