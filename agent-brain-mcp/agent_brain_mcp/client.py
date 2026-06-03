@@ -122,3 +122,32 @@ class ApiClient:
 
     def list_folders(self) -> dict[str, Any]:
         return self._get("/index/folders/")
+
+    def get_chunk(self, chunk_id: str) -> dict[str, Any]:
+        """GET /query/chunk/{chunk_id} — chunk content + metadata, no embedding.
+
+        Backs the MCP ``chunk://<chunk_id>`` URI scheme (URI-01, Phase 51).
+        The server-side response shape is :class:`ChunkRecord` (Phase 50
+        Plan 02). Error mapping is the existing pipeline: 404 →
+        ``INVALID_PARAMS`` via :func:`errors.raise_for_status`.
+        """
+        return self._get(f"/query/chunk/{chunk_id}")
+
+    def get_graph_entity(
+        self, entity_type: str, entity_id: str
+    ) -> dict[str, Any]:
+        """GET /graph/entity/{entity_type}/{entity_id} — entity + 1-hop neighbors.
+
+        Backs the MCP ``graph-entity://<type>/<id>`` URI scheme (URI-02,
+        Phase 51). The server-side response shape is
+        :class:`GraphEntityRecord` (Phase 50 Plan 03). Error mapping is
+        the existing pipeline: 404 → ``INVALID_PARAMS``, 503 →
+        ``SERVICE_INDEXING`` (covers both ``graphrag_disabled`` and the
+        ``kuzu_unavailable`` #178 fallback).
+
+        Entity ids may contain ``/`` characters (Phase 50 decision B —
+        the server's route uses a path-style ``{entity_id}`` segment).
+        Callers MUST not pre-encode the id; httpx URL-quotes it once
+        which is what the FastAPI route expects.
+        """
+        return self._get(f"/graph/entity/{entity_type}/{entity_id}")

@@ -1,19 +1,20 @@
-"""Parameterized URI schemes — Phase 51 (URI-03).
+"""Parameterized URI schemes — Phase 51 (URI-01 / URI-02 / URI-03).
 
 Sister module to :mod:`agent_brain_mcp.resources.corpus`. Where ``corpus``
 holds the 5 static ``corpus://*`` resources keyed by exact URI string,
 this module holds the *parameterized* schemes whose URIs carry per-read
 arguments and therefore can't live in a string-keyed registry:
 
-- ``chunk://<chunk_id>`` (Plan 51-02)
-- ``graph-entity://<type>/<id>`` (Plan 51-02)
-- ``job://<job_id>`` (Plan 51-01 — this plan)
-- ``file://<abs-path>`` (Plan 51-03)
+- ``chunk://<chunk_id>`` (Plan 51-02 — URI-01)
+- ``graph-entity://<type>/<id>`` (Plan 51-02 — URI-02)
+- ``job://<job_id>`` (Plan 51-01 — URI-03)
+- ``file://<abs-path>`` (Plan 51-03 — URI-04)
 
 Plan 51-01 lands the dispatcher infrastructure plus the ``job://``
-handler as the exemplar. The three other handler slots are reserved
-with ``NotImplementedError``-raising placeholders so Plans 02 and 03
-can swap them in without touching the dispatcher or the registry shape.
+handler as the exemplar. Plan 51-02 (this plan) swaps in real handlers
+for ``chunk://`` and ``graph-entity://``. Plan 51-03 swaps in
+``file://``. The dispatcher and registry shape stay untouched across
+all three plans.
 
 Error-payload contract (Phase 51 CONTEXT decision C/D):
 
@@ -22,11 +23,14 @@ Error-payload contract (Phase 51 CONTEXT decision C/D):
   ``data = {"uri": <input>, "reason": "missing_<segment>"}``
 - **Backend 404/422/etc** for a well-formed URI: the existing
   :func:`agent_brain_mcp.errors.raise_for_status` already raises
-  ``McpError(INVALID_PARAMS)`` with
-  ``data = {"httpStatus": 404, "cause": ...}``; we wrap that to add
-  the scheme-specific id (``data["scheme"]``, ``data["job_id"]``)
+  ``McpError(INVALID_PARAMS)`` (or ``SERVICE_INDEXING`` for 503) with
+  ``data = {"httpStatus": <n>, "cause": ...}``; we wrap that to add
+  the scheme-specific id (``data["scheme"]``, ``data["chunk_id"]``,
+  ``data["entity_type"]``, ``data["entity_id"]``, ``data["job_id"]``)
   so MCP clients can distinguish scheme-level failures from transport
-  failures.
+  failures. For ``graph-entity://`` we also attempt to extract a
+  ``reason`` value (``graphrag_disabled`` or ``kuzu_unavailable``) from
+  the Phase 50 503 detail body so operators can route on it.
 
 The two shapes are intentionally different — one signals "you gave us
 a URI we can't parse," the other signals "we parsed it but the backend
@@ -139,7 +143,13 @@ def parse_uri(uri: str) -> ParsedURI | None:
 
     if scheme == "graph-entity":
         # Expected form: graph-entity://<type>/<id>
-        # urlsplit puts <type> in netloc and "/<id>" in path.
+        # urlsplit puts <type> in netloc and "/<id>" in path. Entity ids
+        # may legally contain ``/`` (Phase 50 decision B — the server's
+        # FastAPI route uses a path-style ``{entity_id}`` segment that
+        # accepts embedded slashes). So we treat ``raw_path.lstrip("/")``
+        # as the FULL id, including any inner ``/`` segments. Only the
+        # trailing slash is stripped — that's the "empty id with
+        # trailing slash" case (``graph-entity://Function/``).
         entity_type = netloc
         entity_id = raw_path.lstrip("/").rstrip("/")
         if not entity_type:
@@ -207,15 +217,139 @@ async def _handle_job_uri(client: ApiClient, params: ParsedURI) -> str:
     return json.dumps(response, indent=2, default=str)
 
 
+async def _handle_chunk_uri(client: ApiClient, params: ParsedURI) -> str:
+    """Read ``chunk://<chunk_id>`` → JSON body of ``GET /query/chunk/<id>``.
+
+    Phase 50 Plan 02 ships the backing endpoint; its response is the
+    locked :class:`ChunkRecord` shape (content + metadata, no
+    embedding). Phase 51 (URI-01) pipes that shape through MCP unchanged.
+
+    HTTP errors flow through :func:`errors.raise_for_status` inside
+    :meth:`ApiClient.get_chunk`. 404 → ``INVALID_PARAMS`` per the
+    standard table. We catch the resulting :class:`McpError` and
+    re-raise with ``data["scheme"]`` and ``data["chunk_id"]`` populated
+    (Phase 51 CONTEXT decision D) so MCP clients can route on the
+    scheme as well as the underlying transport status.
+    """
+    assert params.chunk_id is not None  # parse_uri guarantees this
+    try:
+        response = await asyncio.to_thread(client.get_chunk, params.chunk_id)
+    except McpError as exc:
+        original = exc.error
+        refined_data: dict[str, object] = {
+            "scheme": "chunk",
+            "chunk_id": params.chunk_id,
+        }
+        if isinstance(original.data, dict):
+            refined_data.update(original.data)
+        raise McpError(
+            ErrorData(
+                code=original.code,
+                message=original.message,
+                data=refined_data,
+            )
+        ) from exc
+
+    return json.dumps(response, indent=2, default=str)
+
+
+# Phase 50 503 ``detail.error`` values we promote to ``data["reason"]``
+# on the way out so MCP clients (and ops dashboards) can tell whether
+# graph addressing is *turned off* (operator-configurable) vs the Kuzu
+# backend went bad mid-flight (#178; operator workaround is to switch
+# ``graphrag.store_type=simple``). See ``agent-brain-server/api/routers/
+# graph.py`` for the source of these strings.
+_GRAPH_ENTITY_503_REASONS: frozenset[str] = frozenset(
+    {"graphrag_disabled", "kuzu_unavailable"}
+)
+
+
+def _extract_graph_entity_reason(original_data: dict[str, object] | None) -> str | None:
+    """Pull the Phase 50 503 ``error`` slug out of ``raise_for_status`` data.
+
+    The server returns either a JSON-string detail (``{"detail": {"error":
+    "graphrag_disabled", ...}}``) or a plain string. ``raise_for_status``
+    in :mod:`agent_brain_mcp.errors` stores the string form (or
+    ``str(dict)``) in ``data["cause"]``. We do a forgiving substring scan
+    against the known reason set so a future formatting tweak on the
+    server side doesn't silently drop the routing hint.
+    """
+    if not isinstance(original_data, dict):
+        return None
+    cause = original_data.get("cause")
+    if not isinstance(cause, str):
+        return None
+    for reason in _GRAPH_ENTITY_503_REASONS:
+        if reason in cause:
+            return reason
+    return None
+
+
+async def _handle_graph_entity_uri(
+    client: ApiClient, params: ParsedURI
+) -> str:
+    """Read ``graph-entity://<type>/<id>`` → ``GET /graph/entity/<t>/<i>`` body.
+
+    Phase 50 Plan 03 ships the backing endpoint. Response is the locked
+    :class:`GraphEntityRecord` shape (target entity + 1-hop incoming
+    and outgoing neighbors). Phase 51 (URI-02) pipes it through MCP
+    unchanged.
+
+    HTTP errors flow through :func:`errors.raise_for_status` inside
+    :meth:`ApiClient.get_graph_entity`:
+
+    - 400 / 404 / 422 → ``INVALID_PARAMS`` — refined with ``data
+      ["scheme"]``, ``["entity_type"]``, ``["entity_id"]``.
+    - 503 → ``SERVICE_INDEXING`` — refined with the same fields PLUS a
+      ``data["reason"]`` slug (``graphrag_disabled`` or
+      ``kuzu_unavailable``) extracted from the Phase 50 503 detail
+      body so MCP clients can distinguish "graphrag is turned off" from
+      "Kuzu just crashed" without re-parsing the cause string.
+
+    The 503 ``data["reason"]`` propagation is the #178 SIGSEGV-mitigation
+    hand-off — Phase 50 Plan 03 documented the contract; this handler
+    honors it verbatim.
+    """
+    assert params.entity_type is not None  # parse_uri guarantees this
+    assert params.entity_id is not None
+    try:
+        response = await asyncio.to_thread(
+            client.get_graph_entity, params.entity_type, params.entity_id
+        )
+    except McpError as exc:
+        original = exc.error
+        refined_data: dict[str, object] = {
+            "scheme": "graph-entity",
+            "entity_type": params.entity_type,
+            "entity_id": params.entity_id,
+        }
+        original_data = original.data if isinstance(original.data, dict) else None
+        if original_data is not None:
+            refined_data.update(original_data)
+        reason = _extract_graph_entity_reason(original_data)
+        if reason is not None:
+            refined_data["reason"] = reason
+        raise McpError(
+            ErrorData(
+                code=original.code,
+                message=original.message,
+                data=refined_data,
+            )
+        ) from exc
+
+    return json.dumps(response, indent=2, default=str)
+
+
 async def _handle_not_implemented(client: ApiClient, params: ParsedURI) -> str:
     """Placeholder for schemes wired in later Plan 51 plans.
 
-    Plans 51-02 (chunk, graph-entity) and 51-03 (file) replace this
-    with real handlers by overwriting the matching entry in
-    :data:`PARAMETERIZED_HANDLERS`. Keeping a callable here (rather
-    than leaving the dict key absent) lets the dispatcher in
-    :mod:`server` stay scheme-agnostic and lets contract tests assert
-    "all four schemes are registered" before Plans 02/03 ship.
+    Plan 51-03 (file) replaces this with a real handler by overwriting
+    the matching entry in :data:`PARAMETERIZED_HANDLERS`. Plans 51-01
+    and 51-02 have already swapped their placeholders out. Keeping a
+    callable here (rather than leaving the dict key absent) lets the
+    dispatcher in :mod:`server` stay scheme-agnostic and lets contract
+    tests assert "all four schemes are registered" before Plan 03
+    ships.
     """
     raise NotImplementedError(
         f"Handler for scheme '{params.scheme}' is not implemented yet "
@@ -229,12 +363,12 @@ ParameterizedHandler = Callable[["ApiClient", ParsedURI], Awaitable[str]]
 
 PARAMETERIZED_HANDLERS: dict[str, ParameterizedHandler] = {
     "job": _handle_job_uri,
-    # Reserved slots — Plans 51-02 and 51-03 swap these placeholders
-    # in with real implementations. Do NOT remove these keys; the
-    # dispatcher in ``server.py`` keys off the registry, and contract
-    # tests assert the four parameterized schemes are all registered.
-    "chunk": _handle_not_implemented,
-    "graph-entity": _handle_not_implemented,
+    "chunk": _handle_chunk_uri,
+    "graph-entity": _handle_graph_entity_uri,
+    # Reserved slot — Plan 51-03 swaps this placeholder in with the
+    # real file:// handler. Do NOT remove this key; the dispatcher in
+    # ``server.py`` keys off the registry, and contract tests assert
+    # the four parameterized schemes are all registered.
     "file": _handle_not_implemented,
 }
 
