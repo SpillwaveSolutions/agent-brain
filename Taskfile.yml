@@ -194,11 +194,15 @@ tasks:
   # ===================
 
   before-push:
-    desc: Run all checks before pushing (format, lint, typecheck, yaml, test)
+    desc: Run all checks before pushing (format, lint, typecheck, yaml, test, MCP/UDS)
     cmds:
       # defer: runs at end of task even on failure (Taskfile 3.x).
       # The guard reverts any in-monorepo poetry.lock drift caused by
       # `poetry install` running transitively below. See issue #174.
+      # NOTE (v10.2 / Phase 55 / DR-5 closure): the MCP and UDS per-package
+      # before-push sub-tasks below also invoke `poetry install` transitively,
+      # so the lock guard wraps them too — drift from those installs is
+      # auto-detected and reverted.
       - defer: ./scripts/before_push_lock_guard.sh check
       - ./scripts/before_push_lock_guard.sh start
       - echo "--- Formatting code ---"
@@ -211,6 +215,10 @@ tasks:
       - task: typecheck
       - echo "--- Running tests with coverage ---"
       - task: test:cov
+      - echo "--- Running UDS package pre-push ---"
+      - task: uds:before-push
+      - echo "--- Running MCP package pre-push ---"
+      - task: mcp:before-push
       - echo "--- All checks passed - Ready to push ---"
 
   ci:
@@ -232,6 +240,8 @@ tasks:
       - task: typecheck
       - task: server:pr-qa-gate
       - task: cli:pr-qa-gate
+      - task: uds:pr-qa-gate
+      - task: mcp:pr-qa-gate
       - echo "--- PR QA Gate Passed ---"
 
   # ===================
