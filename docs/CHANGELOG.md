@@ -1,5 +1,5 @@
 ---
-last_validated: 2026-05-27
+last_validated: 2026-06-03
 ---
 
 # Changelog
@@ -13,11 +13,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+(nothing yet)
+
+---
+
+## [10.2.0] - 2026-06-03
+
 ### Security
 
 - **Injector scripts now require explicit hash-allowlisting** (`agent_brain_server/services/injector_allowlist.py`, `agent_brain_server/services/content_injector.py`, `agent_brain_server/api/routers/index.py`, `agent_brain_cli/commands/inject.py`, `docs/USER_GUIDE.md`). Previously, `POST /index` and `POST /index/dry-run` accepted any caller-supplied `.py` path and executed it via `importlib.util.exec_module` in the server process — an unauthenticated RCE that allowed credential exfiltration (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) and arbitrary code execution by anyone who could reach the HTTP boundary. The fix requires operators to declare trusted scripts in `.agent-brain/config.yaml` (project) and/or `~/.config/agent-brain/config.yaml` (global) with both their path and sha256 hash; any script not in the allowlist, or whose hash does not match the listed value, is rejected with HTTP 403 before any code is loaded. The default — no config or empty `injector_scripts:` — is fail-closed: every script is rejected. The gate is enforced at two layers (`api/routers/index.py` for synchronous 403 + `services/content_injector.ContentInjector._load_script` for defense-in-depth against any future internal caller) so the trust boundary lives where the dangerous operation lives, not at each HTTP entry point. Project-local allowlist entries take precedence over global entries for the same resolved path. Operators of any existing `agent-brain inject --script` workflow MUST add the script's path and sha256 to `injector_scripts:` before re-running; the CLI surfaces a clear 403 message pointing at the config schema. 11 adversarial unit tests in `tests/test_injector_allowlist.py` pin the fail-closed default, hash-mismatch rejection, malformed-entry handling, path resolution, and project↔global precedence. 2 integration tests in `tests/integration/test_api.py` confirm both `POST /index` and `POST /index` with `dry_run=true` return 403 for unlisted scripts. Closes #181.
 
 - **`allow_external` query parameter replaced by server-side setting** (`agent_brain_server/api/routers/index.py`, `agent_brain_server/config/settings.py`, `agent_brain_server/job_queue/job_service.py`, `agent_brain_cli/client/api_client.py`, `agent_brain_cli/commands/index.py`, `agent_brain_cli/commands/inject.py`, `scripts/query_benchmark.py`, `docs/API_REFERENCE.md`, `.env.example`). The previous `POST /index/?allow_external=true` query parameter let any HTTP caller bypass project-root path containment. Combined with the lack of endpoint authentication on the server, this enabled directory-traversal-style exfiltration: a caller could index `~/.ssh`, `~/.config/sops`, or any other sensitive path and read the contents back through `POST /query`. The parameter is now removed from both `POST /index` and `POST /index/add`; containment is controlled exclusively by the new `AGENT_BRAIN_ALLOW_EXTERNAL_PATHS` server-side environment variable (default `false`). Operators who relied on the per-request override must set the variable on the server process after reading the threat model in `.env.example`. The CLI's `--allow-external` flag was removed from `agent-brain index` and `agent-brain inject` to match. Internal callers such as `file_watcher_service` continue to pass `allow_external=True` directly to `JobQueueService.enqueue_job()`; only the HTTP boundary is locked down. Six new tests in `tests/unit/job_queue/test_job_service_path_validation.py` and `tests/integration/test_api.py` pin the four-quadrant containment matrix and the rejection-path contract. Closes #180.
+
+### Added
+
+- **MCP v2 — 16-tool surface complete** (closes [#186](https://github.com/SpillwaveSolutions/agent-brain/issues/186)). The 9 tools deferred from v10.1's v1 surface now ship — `agent-brain-mcp` exposes all 16 MCP tools originally scoped in `docs/plans/2026-05-28-mcp-uds-transport-design.md` §15.1. The new tools are: `explain_result` (provenance + scoring breakdown for a `chunk_id`), `add_documents` (incremental indexing without recreating the corpus), `inject_documents` (enrichment via a hash-allowlisted injector script per #181), `wait_for_job` (the first async MCP tool handler in the codebase — emits `notifications/progress` at least every 2s during long-running jobs), `list_folders`, `remove_folder`, `cache_status`, `clear_cache`, `list_file_types`. `cancel_job`-style destructive operations are gated as required `confirm: Literal[True]` schema fields (continued from v10.1's pattern). All 16 tools advertise both `inputSchema` and `outputSchema`, return `content[0]: TextContent` plus a `structuredContent` dict matching the declared shape, and produce structured MCP error codes (`-32602 InvalidParams`, `-32000 BackendConflict`, `-32001 BackendUnavailable`, etc.) with `data.httpStatus` + `data.cause`.
+
+- **Resource subscriptions** (`resources/subscribe` capability — VAL-02). Three subscribable URIs ship: `job://{job_id}` (1s cadence, terminates on terminal status), `corpus://status` (30s cadence, drops volatile timestamp keys via `DEFAULT_DROP_KEYS` so deeply-nested uvicorn request timestamps don't spam `notifications/resources/updated`), and `corpus://folders` (watcher-driven). Per-session `SubscriptionManager` cancels polling tasks on `unsubscribe`, `cleanup_session`, and `cleanup_all`; `run_stdio` and the new HTTP transport both fire `cleanup_all` on client disconnect (stdio EOF or HTTP TCP RST). The polling primitive is reused by `wait_for_job` for progress notifications. `MIN_BACKEND_VERSION` bumped to `10.2.0` (server-side endpoints `GET /query/chunk/{id}` and `GET /graph/entity/{type}/{id}` ship in this release; older `agent-brain-mcp` builds against an older server fail loudly at startup).
+
+- **Streamable HTTP transport for MCP** (`agent-brain-mcp --transport http`, loopback-only — VAL-03). New `agent_brain_mcp.http.run_http()` runs the official MCP SDK's `StreamableHTTPSessionManager` behind a uvicorn loopback bind with `validate_loopback_host` rejecting `--host 0.0.0.0` or any non-127.0.0.1/::1 address at startup (CVE-class drift-prevention — there is no auth on this transport in v10.2; OAuth lands in v4). Mount path is `/mcp` (`MCP_MOUNT_PATH` constant) plus a `/healthz` probe for readiness. `--transport {auto,stdio,http}` selector resolves with no silent fallback: explicit `--transport http` against a port conflict raises rather than degrading to stdio.
+
+- **Deferred URI schemes** (URI-01..05). `resources/templates/list` advertises four RFC 6570 templates — `chunk://{chunk_id}`, `graph-entity://{type}/{id}`, `job://{job_id}`, and `file://{+path}` (reserved expansion so `/` survives) — implemented via a single `agent_brain_mcp.resources.parameterized` dispatcher. The strings are a **forward-compatibility commitment**: once published in 10.2.0, MCP client libraries lock onto them and changes are breaking (pinned by `test_registry_uri_templates_match_expected_set`). The `file://` handler shares Phase 50's sandbox helper via a pure re-export shim at `agent_brain_mcp.security.__init__` — no policy fork.
+
+- **Parameterized contract tests against the official MCP SDK** (VAL-01). New `agent-brain-mcp/tests/contract/` directory with a single source-of-truth tool matrix (`_tool_matrix.py`) driving both Layer 1 (in-process, 16-row `tests/test_each_tool.py`) and Layer 2 (SDK over stdio, `test_tools_contract.py` — 32 assertions: 16 happy-path + 16 negative-arg). Layer 2 over HTTP (`test_http_transport_contract.py`, 6 assertions) proves transport-equivalence — the same 16-tool + 5-corpus-URI surface that stdio pins. Subscription lifecycle (`test_subscription_lifecycle.py`, 4 tests including the disconnect-cleanup EOF code path) exercises all three subscribable URIs end-to-end. Total contract suite: **49 tests in ~25s**; opted out of the fast-path by default (`-m contract` marker) so per-tool feedback stays sub-second. Inheritance pattern locked: a `mcp_stdio_session` callable + async-context-manager fixture dodges anyio's cross-task `CancelScope.__exit__` trap that bites async-generator fixtures wrapping `stdio_client` / `streamablehttp_client`.
+
+- **`GET /query/chunk/{chunk_id}` and `GET /graph/entity/{type}/{id}` server endpoints** (Phase 50). Backs the `chunk://` and `graph-entity://` URI schemes. Both endpoints return ChromaDB-backed and Kuzu/Simple-backed records respectively; the graph endpoint returns 503 with `reason="kuzu_unavailable"` (parseable slug) when Kuzu corruption is detected per #178 fallback.
+
+### Changed
+
+- **`agent-brain-mcp` and `agent-brain-uds` now run as part of root `task before-push` and `task pr-qa-gate`** — adds **approximately 60-90s to local pre-push time**, but catches MCP/UDS regressions before push instead of waiting for CI. The MCP package coverage floor stays at 80% (security-boundary code per v1 plan §9); UDS at 80% as well. Per-package `before-push` tasks added to each package's `Taskfile.yml` (`format:check → lint → typecheck → test:cov`). The existing `before_push_lock_guard.sh` (issue #174) wraps the new sub-tasks so any in-tree `poetry.lock` drift from MCP/UDS `poetry install` calls is auto-reverted. **Closes [DR-5](https://github.com/SpillwaveSolutions/agent-brain/blob/main/docs/plans/2026-05-28-mcp-uds-transport-design.md#L595)** from `docs/plans/2026-05-28-mcp-uds-transport-design.md` §14 #5 ("New packages don't join root `before-push` in v1 … Folds into root only after 10.1.0 ships green and one release cycle elapses (target: 10.2.0)"). v10.1 has shipped green; v10.2 ships the integration.
+
+- **`agent-brain-uds` smoke test version assertion loosened** from a hardcoded `__version__ == "10.0.7"` to a `MAJOR.MINOR.PATCH` regex. The hardcoded check was Phase 0 placeholder code and silently broke at v10.1.0 (because the per-package `task uds:before-push` wasn't yet wired into root, so CI never ran it). Caught by Plan 55-05's standalone `task uds:before-push` invocation.
+
+### Roadmap
+
+The v10.2 MCP v2 surface deliberately defers several capabilities to MCP v3 (#187) and MCP v4 (#188):
+
+- **MCP v3** — CLI-via-MCP (`agent-brain --transport mcp`), framework integration matrix (OpenAI Agents SDK, LangChain, LlamaIndex, Pydantic AI, Mastra, Vercel AI SDK, Autogen), `/mcp/subscriptions/__debug` observability endpoint ([#194](https://github.com/SpillwaveSolutions/agent-brain/issues/194) — currently log-scraped per Phase 55 Plan 03).
+- **MCP v4** — OAuth 2.1 for the HTTP transport (PRM, DCR, Resource Indicators, optional DPoP). v10.2's HTTP transport is loopback-only as a result.
+
+### Validation
+
+- VAL-01 (16-tool contract) → 32 SDK assertions over stdio + 6 over HTTP; Layer 1 in-process 16-row matrix shares one SOT.
+- VAL-02 (subscription E2E) → 4 SDK-driven tests; disconnect-cleanup via raw `subprocess.Popen` EOF path + stderr-log scrape per CONTEXT D-06; follow-up #194 filed.
+- VAL-03 (HTTP transport SDK test) → 5 SDK contract tests + 1 mount-path sanity pin via `mcp.client.streamable_http.streamablehttp_client`.
+- VAL-04 (root QA gate integration) → `task before-push` exit 0 in 160s; `task pr-qa-gate` exit 0 in 152s; `task check:layering` 3 contracts kept (164 files / 414 deps). Per-package coverage: agent-brain-mcp 91.83%, agent-brain-uds 99%. Phase 55 `VALIDATION.md` at `.planning/phases/55-validation-and-qa-gate/VALIDATION.md`.
 
 ---
 
