@@ -193,12 +193,8 @@ class TestInjectDocumentsInputConstraints:
 
     def test_chunk_size_bounds_mirror_indexrequest(self) -> None:
         # IndexRequest: ge=128, le=2048
-        InjectDocumentsInput(
-            folder_path="/x", injector_script="/i.py", chunk_size=128
-        )
-        InjectDocumentsInput(
-            folder_path="/x", injector_script="/i.py", chunk_size=2048
-        )
+        InjectDocumentsInput(folder_path="/x", injector_script="/i.py", chunk_size=128)
+        InjectDocumentsInput(folder_path="/x", injector_script="/i.py", chunk_size=2048)
         with pytest.raises(ValidationError):
             InjectDocumentsInput(
                 folder_path="/x", injector_script="/i.py", chunk_size=127
@@ -210,9 +206,7 @@ class TestInjectDocumentsInputConstraints:
 
     def test_chunk_overlap_bounds_mirror_indexrequest(self) -> None:
         # IndexRequest: ge=0, le=200
-        InjectDocumentsInput(
-            folder_path="/x", injector_script="/i.py", chunk_overlap=0
-        )
+        InjectDocumentsInput(folder_path="/x", injector_script="/i.py", chunk_overlap=0)
         InjectDocumentsInput(
             folder_path="/x", injector_script="/i.py", chunk_overlap=200
         )

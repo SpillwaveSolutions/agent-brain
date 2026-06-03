@@ -84,9 +84,7 @@ class TestAddDocuments:
         the body, the *route* the method targets is /index/add (which
         ignores allow_external server-side per #180). The method MUST NOT
         construct ?allow_external= in any path."""
-        client, captured = _make_capturing_client(
-            {"job_id": "j", "status": "queued"}
-        )
+        client, captured = _make_capturing_client({"job_id": "j", "status": "queued"})
         api = ApiClient(client)
         api.add_documents({"folder_path": "/x", "allow_external": True}, force=True)
         req = captured[0]
@@ -116,9 +114,7 @@ class TestInjectDocuments:
         assert json.loads(req.content) == body
 
     def test_force_true_sets_query_param(self) -> None:
-        client, captured = _make_capturing_client(
-            {"job_id": "j", "status": "queued"}
-        )
+        client, captured = _make_capturing_client({"job_id": "j", "status": "queued"})
         api = ApiClient(client)
         api.inject_documents(
             {"folder_path": "/x", "injector_script": "/i.py"},

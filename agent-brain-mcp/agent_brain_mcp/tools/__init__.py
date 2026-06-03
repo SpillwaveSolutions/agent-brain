@@ -30,7 +30,7 @@ from ..schemas import (
     ServerHealthInput,
     ServerHealthOutput,
 )
-from . import file_types  # noqa: F401 — Phase 54 Plan 01; loader for handlers in Plan 02+
+from . import file_types  # Phase 54 Plan 01; consumed by handlers in Plan 02+
 from .index import handle_index_folder
 from .jobs import handle_cancel_job, handle_get_job, handle_list_jobs
 from .meta import handle_query_count, handle_server_health
@@ -150,4 +150,4 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
     ),
 }
 
-__all__ = ["TOOL_REGISTRY", "ToolSpec", "ToolHandler"]
+__all__ = ["TOOL_REGISTRY", "ToolSpec", "ToolHandler", "file_types"]

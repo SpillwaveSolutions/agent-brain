@@ -309,14 +309,13 @@ class InjectDocumentsInput(BaseModel):
     )
 
     @model_validator(mode="after")
-    def _require_injector_or_metadata(self) -> "InjectDocumentsInput":
+    def _require_injector_or_metadata(self) -> InjectDocumentsInput:
         """At least one of ``injector_script`` or ``folder_metadata_file`` MUST
         be provided. Matches CLI ``inject`` command semantics (CONTEXT D).
         """
         if self.injector_script is None and self.folder_metadata_file is None:
             raise ValueError(
-                "At least one of injector_script or folder_metadata_file "
-                "is required"
+                "At least one of injector_script or folder_metadata_file is required"
             )
         return self
 

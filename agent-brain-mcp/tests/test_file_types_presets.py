@@ -16,17 +16,19 @@ from agent_brain_mcp.tools.file_types import FILE_TYPE_PRESETS
 def test_presets_table_is_non_empty_dict_of_lists() -> None:
     """The vendored table is a dict[str, list[str]] — basic shape gate."""
     assert isinstance(FILE_TYPE_PRESETS, dict)
-    assert len(FILE_TYPE_PRESETS) >= 11, (
-        "CLI ships ≥11 presets (CLAUDE.md). MCP must vendor every one of them."
-    )
+    assert (
+        len(FILE_TYPE_PRESETS) >= 11
+    ), "CLI ships ≥11 presets (CLAUDE.md). MCP must vendor every one of them."
     for name, patterns in FILE_TYPE_PRESETS.items():
-        assert isinstance(name, str) and name, f"preset name must be non-empty string: {name!r}"
+        assert (
+            isinstance(name, str) and name
+        ), f"preset name must be non-empty string: {name!r}"
         assert isinstance(patterns, list), f"{name!r} value must be a list"
         assert patterns, f"{name!r} must have at least one pattern"
         for pattern in patterns:
-            assert isinstance(pattern, str) and pattern, (
-                f"{name!r} pattern must be non-empty string: {pattern!r}"
-            )
+            assert (
+                isinstance(pattern, str) and pattern
+            ), f"{name!r} pattern must be non-empty string: {pattern!r}"
 
 
 def test_known_presets_present() -> None:
