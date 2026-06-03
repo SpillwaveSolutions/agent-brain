@@ -53,6 +53,7 @@ from agent_brain_server.storage_paths import resolve_state_dir, resolve_storage_
 from .routers import (
     cache_router,
     folders_router,
+    graph_router,
     health_router,
     index_router,
     jobs_router,
@@ -698,6 +699,7 @@ app.include_router(cache_router, prefix="/index/cache", tags=["Cache"])
 app.include_router(folders_router, prefix="/index/folders", tags=["Folders"])
 app.include_router(jobs_router, prefix="/index/jobs", tags=["Jobs"])
 app.include_router(query_router, prefix="/query", tags=["Querying"])
+app.include_router(graph_router, prefix="/graph", tags=["Graph"])
 
 
 @app.get("/", include_in_schema=False)
