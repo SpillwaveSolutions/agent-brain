@@ -47,7 +47,7 @@ Requirements for v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completi
 ### Validation & Quality (VAL)
 
 - [x] **VAL-01**: All 16 MCP tools (7 from v1 + 9 from v2) covered by parameterized contract tests verified against the official MCP SDK
-- [ ] **VAL-02**: Resource subscriptions tested end-to-end against the official MCP SDK, including subscribe / unsubscribe / disconnect cleanup
+- [x] **VAL-02**: Resource subscriptions tested end-to-end against the official MCP SDK, including subscribe / unsubscribe / disconnect cleanup — shipped 2026-06-03 in Plan 55-03 (`tests/contract/test_subscription_lifecycle.py` — 3 parameterized happy-path tests over job://, corpus://status, corpus://folders + 1 disconnect-cleanup test using raw `subprocess.Popen` for the EOF code path; stderr-scrape verification per CONTEXT D-06 fallback; follow-up #194 filed for `/mcp/subscriptions/__debug` endpoint in v10.3+)
 - [ ] **VAL-03**: Streamable HTTP transport tested via the official MCP SDK HTTP client
 - [ ] **VAL-04**: New MCP packages folded into root `task before-push` and `task pr-qa-gate` (closes DR-5 from v1 design)
 - [x] **VAL-05**: Own v2 design doc filed at `docs/plans/2026-06-02-mcp-v2-subscriptions.md` — **Complete in Phase 50** (commit `a94d9d5`)
@@ -110,7 +110,7 @@ Phase mapping for v10.2. Phase numbering continues sequentially from v9.6.0 (las
 | TOOL-08 | Phase 54 | Complete (2026-06-03, Plan 54-03) |
 | TOOL-09 | Phase 54 | Complete |
 | VAL-01 | Phase 55 | Complete |
-| VAL-02 | Phase 55 | Pending |
+| VAL-02 | Phase 55 | Complete (2026-06-03, Plan 55-03) |
 | VAL-03 | Phase 55 | Pending |
 | VAL-04 | Phase 55 | Pending |
 | VAL-05 | Phase 50 | ✓ Complete (2026-06-03) |

@@ -44,7 +44,7 @@
 | 52. Resource subscriptions | 4/4 | Complete    | 2026-06-03 |
 | 53. Streamable HTTP transport | 3/3 | Complete    | 2026-06-03 |
 | 54. 9 remaining MCP tools | 0/1 | Complete    | 2026-06-03 |
-| 55. Validation, contract tests & QA gate | 2/5 | Executing  | -          |
+| 55. Validation, contract tests & QA gate | 3/5 | Executing  | -          |
 
 ## Phase Details
 
@@ -129,8 +129,13 @@
   2. An end-to-end subscription test against the official MCP SDK verifies subscribe → receive updates → unsubscribe and verifies that client disconnect releases subscriptions server-side (SUB-05)
   3. A Streamable HTTP transport test exercises the MCP server via the official MCP SDK HTTP client and confirms the full initialize / tools / resources flow works
   4. `task before-push` and `task pr-qa-gate` from the repo root include the new MCP packages and exit 0 on a clean working tree (closes DR-5 from the v1 plan)
-**Plans**: TBD
+**Plans**:
+  - [x] **Plan 01** — Contract test scaffolding (`mcp_stdio_session` factory + autouse D-17 orphan scan + bundled fake-server script + 8 v2 endpoint stubs in `_DEFAULT_RESPONSES` + `contract` pytest marker + `task contract` wiring). 3 atomic commits (f0b5966 / fb24ab9 / 2e92dcc) on main; all quality gates green. Shipped 2026-06-03.
+  - [x] **Plan 02** — 16-tool parameterized contract tests (VAL-01). `_tool_matrix.py` SOT shared by Layer 1 (in-process) and Layer 2 (SDK) with import-time drift guard; 32 SDK tool contract assertions (16 happy + 16 negative) + 6 resources contract assertions (4 templates lock + 5 v1 corpus list + 4 per-scheme read round-trips). Layer 1 expanded from 7 to 16 tools. 4 atomic commits (86999e0 / c3b6f1f / 4a6b51c / 3e07334) on main; all quality gates green. Shipped 2026-06-03.
+  - [x] **Plan 03** — Subscription lifecycle E2E (VAL-02). 3 parameterized happy-path tests (job://, corpus://status, corpus://folders) + 1 disconnect-cleanup test using raw `subprocess.Popen` for the EOF code path; cadence override via bundled fast-cadence script (monkeypatches `SUBSCRIPTION_POLICIES[*].interval_s` from env vars before `build_server`); stderr-scrape verification for Phase 52's `"subscription cleanup: cancelled"` log line (CONTEXT D-06 fallback — Phase 52 ships no debug endpoint); follow-up GitHub issue #194 filed proposing `/mcp/subscriptions/__debug` for v10.3+. 2 atomic commits (0c156fd / 0c3c9ec) on main; contract suite 39 → 43 tests (+4.32s); all quality gates green. Shipped 2026-06-03.
+  - [ ] **Plan 04** — Streamable HTTP transport contract tests (VAL-03)
+  - [ ] **Plan 05** — Root QA gate integration (VAL-04, closes DR-5)
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-06-02 — v10.2 MCP v2 milestone roadmapped (Phases 50-55); v9.6.0 archived to milestones/v9.6.0-ROADMAP.md*
+*Last updated: 2026-06-03 — Plan 55-03 complete (subscription lifecycle E2E shipped, VAL-02 closed)*
