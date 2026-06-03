@@ -3,35 +3,34 @@ gsd_state_version: 1.0
 milestone: v10.2
 milestone_name: MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
 current_phase: 52
-status: planning
-stopped_at: Plan 51-04 complete — resources/templates/list advertising 4 RFC 6570 templates + MIN_BACKEND_VERSION bump to 10.2.0 + pyproject pin lockstep + e2e SDK test covering all 4 schemes. 5 commits df61962, 4bfdcb4, 76bb797, 870d763, e137191. task before-push exit 0 — 416 tests passed across the full monorepo; 141 MCP tests passing; 3 layering contracts kept. Phase 51 closes — URI-01 through URI-05 all complete.
-last_updated: "2026-06-03T06:17:15.828Z"
+status: executing
+stopped_at: Plan 52-01 complete — SubscriptionManager core + canonical_hash + SubscribableUriRejected greenfield subpackage. 2 commits 6e354da (impl), a01f0b5 (39 tests + cancellation-timing fix). task before-push exit 0 — 416 tests passed across the monorepo, 180 MCP tests passing (39 new), 3 layering contracts kept. Public API LOCKED for Plans 02/03/04 + Phase 54 TOOL-04 (wait_for_job) reuse. SUB-04 + SUB-05 covered.
+last_updated: "2026-06-03T14:38:10Z"
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 24
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Agent Brain — Project State
 
 **Last Updated:** 2026-06-03
 **Current Milestone:** v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
-**Status:** Ready to plan
+**Status:** Executing Phase 52
 **Current Phase:** 52
 
 ## Current Position
 
-Phase: 51 (uri-schemes-templates) — COMPLETE (all 4 plans shipped 2026-06-03)
-Plan: 4 of 4 done (Plans 51-01, 51-02, 51-03, 51-04 all closed; URI-01 through URI-05 all complete)
-Next Phase: 52 (resource-subscriptions) — ready to begin
+Phase: 52 (resource-subscriptions) — EXECUTING
+Plan: 1 of 4 ✓ complete; 2 of 4 next
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-06-03)
 
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Phase 51 — uri-schemes-templates
+**Current focus:** Phase 52 — resource-subscriptions
 
 ## Milestone Summary
 
@@ -50,7 +49,7 @@ v9.6.0 Runtime Parity:       [██▌       ]  25% (1/4 phases — parked, def
 v10.0.0–v10.0.6 Patch Train: [██████████] 100% (shipped 2026-05-25 → 2026-05-27)
 v10.1.0 MCP v1:              [██████████] 100% (shipped 2026-05-30; UDS + 7-tool stdio MCP + CLI dual transport)
 v10.1.2 MCP package rename:  [██████████] 100% (shipped 2026-06-01; agent-brain-mcp PyPI distribution + standalone user guide)
-v10.2 MCP v2:                [███▎      ]  33% (Phase 50 complete + Phase 51 complete — 8/24 plans)
+v10.2 MCP v2:                [███▊      ]  38% (Phases 50–51 complete + Phase 52 in flight — 9/24 plans)
 ```
 
 ## v10.2 Phase Progress
@@ -59,7 +58,7 @@ v10.2 MCP v2:                [███▎      ]  33% (Phase 50 complete + Phas
 |-------|--------|--------------|-------|
 | 50. Server endpoint prep + v2 design doc | ✓ Complete (2026-06-03) | VAL-05 ✓ | 4/4 |
 | 51. URI schemes + templates | ✓ Complete (2026-06-03) | URI-01 ✓ · URI-02 ✓ · URI-03 ✓ · URI-04 ✓ · URI-05 ✓ | 4/4 |
-| 52. Resource subscriptions | Planned, not started | SUB-01, SUB-02, SUB-03, SUB-04, SUB-05 | 0/4 |
+| 52. Resource subscriptions | Executing (1/4 plans done) | SUB-01, SUB-02, SUB-03, **SUB-04 ✓**, **SUB-05 ✓** | 1/4 |
 | 53. Streamable HTTP transport | Planned, not started | HTTP-01, HTTP-02, HTTP-03 | 0/3 |
 | 54. 9 remaining MCP tools | Planned, not started | TOOL-01..TOOL-09 | 0/4 |
 | 55. Validation, contract tests & QA gate | Planned, not started | VAL-01, VAL-02, VAL-03, VAL-04 | 0/5 |
@@ -112,6 +111,10 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 - **Decision (2026-06-03, Plan 51-03):** Dispatcher dual-return signature. The parameterized handler return type widened from `Awaitable[str]` to `Awaitable[str | ReadResourceContents]`. JSON-backed schemes (`job`, `chunk`, `graph-entity`) still return `str` (wrapped as `application/json`); `file://` returns `ReadResourceContents` directly so it can carry a per-file `mime_type` and optional `bytes` payload (auto-base64-encoded as `BlobResourceContents` by the MCP SDK at the wire boundary). Single `isinstance` check at the dispatch boundary; fully backward-compatible.
 - **Decision (2026-06-03, Plan 51-03):** `file://` URI accepts ONLY the canonical three-slash form (`file:///abs/path`). The two-slash form (`file://host/path`) is rejected with `reason: "missing_path"` because urlsplit reads `host` as the authority, which would otherwise be a relative-path-smuggling vector against the sandbox check.
 - **Decision (2026-06-03, Plan 51-03):** NO cache on `list_folders()`. Allowed roots refresh on every `file://` read (regression-pinned by `test_read_file_uri_roots_refresh_on_each_read`). Stale roots would silently widen the sandbox after operator folder mutations — CONTEXT decision E load-bearing.
+- **Decision (2026-06-03, Plan 52-01):** `SubscriptionManager` public API is LOCKED on first commit. The `start_polling(session, uri, interval_s, fetcher, on_change, drop_keys=None)` signature, plus `unsubscribe / cleanup_session / cleanup_all / is_subscribed / active_count`, plus `canonical_hash` + `DEFAULT_DROP_KEYS` + `SubscribableUriRejected`, are imported verbatim by Plans 02/03/04 AND by Phase 54 Plan 04 (`wait_for_job` progress notifications reuse the polling primitive). The Phase 54 reuse contract is cited in every module-level docstring under `agent_brain_mcp/subscriptions/`.
+- **Decision (2026-06-03, Plan 52-01):** Synchronous registry pop in `unsubscribe / cleanup_session / cleanup_all`. The plan's original spec relied on the polling-task `try/finally` block to clean the registry, but when a task is cancelled BEFORE its coroutine starts running (the load-bearing subscribe-then-unsubscribe race), asyncio skips the body entirely — finally never runs. Fixed by making the primary cleanup synchronous; the finally remains as defense-in-depth for the case where the loop crashes mid-iteration, with an identity check (`current is asyncio.current_task()`) to avoid evicting a re-subscribed task that took the same slot. Pinned by `test_subscribe_then_immediate_unsubscribe_cancels_before_first_poll`.
+- **Decision (2026-06-03, Plan 52-01):** `DEFAULT_DROP_KEYS` is a `frozenset` (immutable, hashable) containing `{timestamp, updated_at, elapsed_ms, polled_at, now}` — the CONTEXT-mandated 5-key allowlist for volatile fields that `canonical_hash` strips at every nesting depth. Recursive strip means uvicorn's deep-embedded request timestamps inside `corpus://status` payloads do NOT cause spurious `notifications/resources/updated` every 30s. Pinned by `test_deeply_nested_timestamp_dropped` and 4 sibling tests.
+- **Decision (2026-06-03, Plan 52-01):** Fetcher exception inside the polling loop is logged via `logger.exception` and the loop proceeds to the next interval. A transient HTTP 5xx from `agent-brain-server` MUST NOT tear down a long-running subscription. Pinned by `test_loop_survives_fetcher_exception_and_keeps_polling`.
 
 ### Blockers/Concerns
 
@@ -133,10 +136,10 @@ Feature backlog (#152, #154, #155, #156, #157, #158, #160, #162, #163, #164) and
 
 ## Session Continuity
 
-**Last Session:** 2026-06-03T06:07:00Z
-**Stopped At:** Plan 51-04 complete — resources/templates/list advertising 4 RFC 6570 templates + MIN_BACKEND_VERSION bump to 10.2.0 + pyproject pin lockstep + e2e SDK test covering all 4 schemes. 5 commits df61962, 4bfdcb4, 76bb797, 870d763, e137191. task before-push exit 0 — 416 tests passed across the full monorepo; 141 MCP tests passing; 3 layering contracts kept. Phase 51 closes — URI-01 through URI-05 all complete.
-**Resume File:** _(Phase 51 closed; awaiting Phase 52 kick-off)_
-**Next Action:** `/gsd:execute-phase 52` — begin Phase 52 (Resource subscriptions; SUB-01 through SUB-05). Phase 52 will flip `resources.subscribe` capability to True and add `SubscriptionManager.start_polling()` infrastructure for `job://`, `corpus://status`, and `corpus://folders`. Phase 53 (Streamable HTTP transport) can run in parallel.
+**Last Session:** 2026-06-03T14:38:10Z
+**Stopped At:** Plan 52-01 complete — SubscriptionManager core + canonical_hash + SubscribableUriRejected greenfield subpackage at `agent_brain_mcp/subscriptions/`. 2 commits: `6e354da` (feat: payloads + errors + manager + __init__) and `a01f0b5` (test: 39 unit tests + manager cancellation-timing fix). `task before-push` exit 0 — 416 tests passed across the monorepo, 180 MCP tests passing (39 new), 3 layering contracts kept, 88% MCP coverage. Public API (`start_polling()` signature, `canonical_hash`, `DEFAULT_DROP_KEYS`, `SubscribableUriRejected`) is **LOCKED** — Plans 02/03/04 + Phase 54 TOOL-04 (`wait_for_job`) all import these symbols verbatim. SUB-04 (payload shape foundations) + SUB-05 (per-session registry) covered.
+**Resume File:** `.planning/phases/52-resource-subscriptions/plans/02-*.md` (Plan 02 unblocked — subscribe handlers wiring)
+**Next Action:** Execute Plan 52-02 — wire `@server.subscribe_resource()` + `@server.unsubscribe_resource()` decorators in `agent_brain_mcp/server.py` against the singleton `SubscriptionManager` from Plan 01. Flip `NotificationOptions(resources_changed=True)` at line 344 and invert the `test_capabilities_have_no_subscriptions` test. Validate the subscribable-URI allowlist via `SubscribableUriRejected` for `chunk://`, `graph-entity://`, `file://`.
 
 ## Recommended Execution Order
 
@@ -150,4 +153,4 @@ Per workflow summarizer (verified ready_to_execute: true):
 6. **Phase 55** — Validation + QA gate (validates Phases 50-54; must be last; verification-only, no new production code)
 
 ---
-*State updated: 2026-06-03 — Plan 51-04 shipped (resources/templates/list + MIN_BACKEND_VERSION 10.2.0 floor + pyproject pin lockstep + e2e SDK test); Phase 51 COMPLETE 4/4 plans; URI-01 through URI-05 all closed; 50 net new tests added across the four plans of Phase 51; 8/24 plans complete across the v10.2 milestone; ready to begin Phase 52 (resource subscriptions)*
+*State updated: 2026-06-03 — Plan 52-01 shipped (greenfield `agent_brain_mcp/subscriptions/` subpackage with SubscriptionManager + canonical_hash + SubscribableUriRejected; 39 unit tests + 88% MCP coverage); Phase 52 in flight 1/4 plans; SUB-04 + SUB-05 closed; public API LOCKED for Plans 02/03/04 + Phase 54 TOOL-04 reuse; 9/24 plans complete across the v10.2 milestone; Plan 52-02 (subscribe-handler wiring) is unblocked*
