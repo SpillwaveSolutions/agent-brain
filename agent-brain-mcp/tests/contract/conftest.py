@@ -63,9 +63,10 @@ import os
 import signal
 import subprocess
 import sys
-from collections.abc import AsyncIterator, Callable, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 import pytest
 from mcp import ClientSession
@@ -145,6 +146,120 @@ def contract_fake_server_module(
     return script
 
 
+# ----------------------------------------------------------------------
+# Fast-cadence subscription script (Plan 03)
+# ----------------------------------------------------------------------
+#
+# Phase 52's ``CorpusStatusPolicy`` ships a 30s cadence which is too slow
+# for a contract suite that targets <30s total runtime. Plan 03 needs the
+# subscriptions tests to verify the SUBSCRIBE → NOTIFY → UNSUBSCRIBE
+# round-trip at every URI shape in seconds, not minutes.
+#
+# This script is a thin wrapper around the bundled fake-server pattern:
+# it monkeypatches the three concrete policy ``interval_s`` attributes
+# BEFORE ``build_server`` runs, then runs run_stdio against the same
+# httpx.MockTransport backend. The cadence overrides are read from env
+# vars so each Plan 03 test can dial the cadence to its assertion window.
+#
+# Defaults — chosen by Plan 03's risk analysis (CONTEXT D-07 cadence×1.5
+# tolerance + CI runner jitter budget):
+#   AGENT_BRAIN_MCP_CADENCE_JOB_S      → JobPolicy.interval_s         (default 0.5s)
+#   AGENT_BRAIN_MCP_CADENCE_STATUS_S   → CorpusStatusPolicy.interval_s (default 0.5s)
+#   AGENT_BRAIN_MCP_CADENCE_FOLDERS_S  → CorpusFoldersPolicy.interval_s (default 0.5s)
+#
+# Note: Phase 52's ``CorpusFoldersPolicy.interval_s`` is normally injected
+# from ``mcp_subscription_settings.folders_active_interval_s`` at module
+# import. The monkeypatch in this script happens AFTER the policies
+# module imports (and thus after the registry instantiation), so we
+# update the registry's policy instance directly.
+_FAST_CADENCE_SUBSCRIPTION_SCRIPT = """
+import asyncio
+import json
+import os
+
+import httpx
+
+from agent_brain_mcp.server import build_server, run_stdio
+from agent_brain_mcp.subscriptions.policies import SUBSCRIPTION_POLICIES
+
+
+def _load_responses() -> dict:
+    raw = os.environ.get("AGENT_BRAIN_MCP_CONTRACT_RESPONSES_JSON", "{}")
+    table = json.loads(raw)
+    return {tuple(k.split(" ", 1)): v for k, v in table.items()}
+
+
+_RESPONSES = _load_responses()
+
+
+def _handler(request):
+    key = (request.method, request.url.path)
+    body = _RESPONSES.get(key, {"detail": "not configured: " + str(key)})
+    return httpx.Response(200, json=body)
+
+
+def _cadence(env_name: str, default: float) -> float:
+    raw = os.environ.get(env_name)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+# Plan 03 cadence override — must run BEFORE build_server reads the
+# registry. SUBSCRIPTION_POLICIES holds the *instances* the wire
+# handler dispatches against, so mutating the dataclass field on each
+# instance is sufficient (no need to swap the registry entries).
+SUBSCRIPTION_POLICIES["job://"].interval_s = _cadence(
+    "AGENT_BRAIN_MCP_CADENCE_JOB_S", 0.5
+)
+SUBSCRIPTION_POLICIES["corpus://status"].interval_s = _cadence(
+    "AGENT_BRAIN_MCP_CADENCE_STATUS_S", 0.5
+)
+SUBSCRIPTION_POLICIES["corpus://folders"].interval_s = _cadence(
+    "AGENT_BRAIN_MCP_CADENCE_FOLDERS_S", 0.5
+)
+
+
+async def main():
+    client = httpx.Client(
+        transport=httpx.MockTransport(_handler),
+        base_url="http://contract-test",
+    )
+    server, manager = build_server(client)
+    try:
+        await run_stdio(server, manager)
+    finally:
+        client.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+"""
+
+
+@pytest.fixture(scope="session")
+def fast_cadence_subscription_module(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Path:
+    """Write the fast-cadence subscription script once per test session.
+
+    Plan 03 subscription lifecycle tests use this script via
+    ``mcp_stdio_session(custom_script=fast_cadence_subscription_module)``
+    to compress Phase 52's 30s ``corpus://status`` cadence into the
+    contract suite's sub-second budget. The script name
+    (``fake_subscription_server.py``) is intentionally distinct from the
+    default ``fake_contract_server.py`` so the orphan-scan pgrep pattern
+    catches BOTH variants — see :func:`_scan_for_orphans`.
+    """
+    base = tmp_path_factory.mktemp("mcp-contract-sub")
+    script = base / "fake_subscription_server.py"
+    script.write_text(_FAST_CADENCE_SUBSCRIPTION_SCRIPT)
+    return script
+
+
 def _build_responses_env(
     response_overrides: dict[tuple[str, str], dict] | None = None,
 ) -> str:
@@ -168,15 +283,25 @@ def _build_responses_env(
 
 
 def _scan_for_orphans() -> list[str]:
-    """Return PIDs of any surviving ``fake_contract_server.py`` subprocesses.
+    """Return PIDs of any surviving contract-test subprocesses.
 
     Uses ``pgrep -f`` to match against the full command line. The
     pattern is script-name-scoped so it does NOT match the parent
     ``pytest`` process or unrelated tests' subprocesses. Empty list
     when no orphans survived teardown.
+
+    Plan 03 adds ``fake_subscription_server.py`` for the fast-cadence
+    subscription lifecycle tests; the regex alternation catches both
+    script names so subscription-lifecycle orphans surface in the same
+    autouse scan that catches default contract-test orphans.
     """
     result = subprocess.run(
-        ["pgrep", "-f", "fake_contract_server.py"],
+        # ``pgrep -f`` accepts an extended regex; the alternation
+        # matches either bundled script name. Both names end in
+        # ``_server.py`` but we anchor on the distinctive prefix to
+        # avoid matching unrelated *_server.py scripts in the same
+        # python process tree.
+        ["pgrep", "-f", "fake_(contract|subscription)_server.py"],
         capture_output=True,
         text=True,
         check=False,
@@ -223,9 +348,16 @@ def mcp_stdio_session(
       ``wait_for_job`` contract tests).
     * ``custom_script``: optional :class:`Path` to a custom fake-server
       script. Defaults to the bundled
-      ``_DEFAULT_CONTRACT_SERVER_SCRIPT``.
+      ``_DEFAULT_CONTRACT_SERVER_SCRIPT``. Plan 03 passes the
+      ``fast_cadence_subscription_module`` fixture path here.
     * ``extra_env``: optional environment overrides merged on top of
       ``os.environ`` + ``PYTHONPATH`` + the responses-JSON env var.
+    * ``message_handler``: optional SDK ``MessageHandlerFnT`` callback
+      forwarded into :class:`ClientSession`. Plan 03 subscription
+      lifecycle tests pass a collector that filters
+      :class:`mcp.types.ResourceUpdatedNotification` off the SDK's
+      incoming-message stream. ``None`` (default) uses the SDK's
+      ``_default_message_handler`` — no behavior change for Plans 02/04.
 
     The callable shape avoids anyio's "exit cancel scope in a different
     task" trap that bites async-generator fixtures wrapping
@@ -239,6 +371,7 @@ def mcp_stdio_session(
         response_overrides: dict[tuple[str, str], dict] | None = None,
         custom_script: Path | None = None,
         extra_env: dict[str, str] | None = None,
+        message_handler: Callable[[Any], Awaitable[None]] | None = None,
     ) -> AsyncIterator[ClientSession]:
         env = {
             **os.environ,
@@ -256,10 +389,101 @@ def mcp_stdio_session(
             env=env,
         )
         async with stdio_client(params) as (read, write):
-            async with ClientSession(read, write) as session:
+            # Forward ``message_handler`` to the SDK's ``ClientSession``
+            # so Plan 03 subscription tests can capture
+            # ``notifications/resources/updated`` without poking SDK
+            # internals. The kwarg type ``MessageHandlerFnT`` (SDK
+            # internal) accepts ``RequestResponder | ServerNotification
+            # | Exception`` — Plan 03's callback filters on
+            # ``ServerNotification`` and unwraps ``.root``.
+            session_kwargs: dict[str, Any] = {}
+            if message_handler is not None:
+                session_kwargs["message_handler"] = message_handler
+            async with ClientSession(read, write, **session_kwargs) as session:
                 yield session
 
     return _open
+
+
+@pytest.fixture
+def mcp_stdio_subprocess_handle(
+    fast_cadence_subscription_module: Path,
+) -> Callable[..., AbstractAsyncContextManager[subprocess.Popen[bytes]]]:
+    """Factory yielding a raw :class:`subprocess.Popen` handle for a
+    fake-backed MCP server subprocess.
+
+    Plan 03's disconnect-cleanup test needs to forcibly close stdin
+    WITHOUT going through ``ClientSession.__aexit__()`` — the whole
+    point of the test is to verify Phase 52's ``run_stdio`` ``finally``
+    block cancels the polling task on a raw EOF, not on a graceful
+    unsubscribe. Going through the SDK's ``stdio_client`` would call
+    its own SIGTERM teardown which masks the disconnect-cleanup
+    scenario.
+
+    The yielded ``Popen`` has ``stdin``, ``stdout``, ``stderr`` all set
+    to ``PIPE`` so the test can:
+
+    * write framed JSON-RPC requests to ``stdin`` (initialize +
+      subscribe);
+    * close ``stdin`` to trigger the run_stdio EOF path;
+    * scrape ``stderr`` for the Phase 52 disconnect-cleanup log line
+      (``"subscription cleanup: cancelled N polling task(s) on session
+      close"``) — the verification mechanism used when no debug
+      endpoint exists (CONTEXT D-06 fallback).
+
+    Optional kwargs:
+
+    * ``custom_script``: defaults to ``fast_cadence_subscription_module``.
+    * ``response_overrides``: same shape as ``mcp_stdio_session``.
+    * ``extra_env``: same shape as ``mcp_stdio_session``.
+
+    Teardown contract: SIGTERM on context exit; if the subprocess does
+    not exit within 5s, SIGKILL. The autouse orphan-scan catches any
+    surviving subprocess.
+    """
+    project_root = Path(__file__).resolve().parent.parent.parent
+
+    @asynccontextmanager
+    async def _spawn(
+        *,
+        custom_script: Path | None = None,
+        response_overrides: dict[tuple[str, str], dict] | None = None,
+        extra_env: dict[str, str] | None = None,
+    ) -> AsyncIterator[subprocess.Popen[bytes]]:
+        env = {
+            **os.environ,
+            "PYTHONPATH": str(project_root),
+            "AGENT_BRAIN_MCP_CONTRACT_RESPONSES_JSON": _build_responses_env(
+                response_overrides
+            ),
+            **(extra_env or {}),
+        }
+        script = custom_script or fast_cadence_subscription_module
+        proc = subprocess.Popen(
+            [sys.executable, str(script)],
+            cwd=str(project_root),
+            env=env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        try:
+            yield proc
+        finally:
+            # Defensive teardown: SIGTERM → 5s wait → SIGKILL. The test
+            # may have already closed stdin (causing run_stdio's
+            # finally to fire and the subprocess to exit cleanly); in
+            # that case ``proc.terminate()`` is a no-op on an already-
+            # dead process.
+            if proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=5.0)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait(timeout=2.0)
+
+    return _spawn
 
 
 @pytest.fixture(autouse=True)
@@ -272,14 +496,18 @@ def _contract_orphan_scan_after_each_test() -> Iterator[None]:
     the subprocess (e.g., signal-handling regression, anyio task-group
     bug), the orphan would otherwise leak into the next test's
     environment and mask the regression.
+
+    Plan 03 extension: the regex now matches BOTH bundled scripts
+    (``fake_contract_server.py`` and ``fake_subscription_server.py``)
+    so subscription-lifecycle orphans surface in the same pass.
     """
     yield
     orphans = _scan_for_orphans()
     if orphans:
         _kill_orphans(orphans)
         raise RuntimeError(
-            "Orphan fake_contract_server.py subprocesses survived "
-            f"contract test teardown: {orphans}. SDK stdio_client should "
-            "have SIGTERM'd them — investigate the subprocess's signal "
-            "handling or the SDK version pin."
+            "Orphan fake_(contract|subscription)_server.py subprocesses "
+            f"survived contract test teardown: {orphans}. SDK stdio_client "
+            "and/or the Plan 03 disconnect-cleanup teardown should have "
+            "SIGTERM'd them — investigate signal handling or the SDK pin."
         )
