@@ -2,39 +2,37 @@
 
 [[package]]
 name = "agent-brain-rag"
-version = "10.0.7"
+version = "10.1.2"
 description = "Agent Brain RAG - Intelligent document indexing and semantic search server that gives AI agents long-term memory"
 optional = false
-python-versions = "<4.0,>=3.10"
+python-versions = "^3.10"
 groups = ["main"]
-files = [
-    {file = "agent_brain_rag-10.0.7-py3-none-any.whl", hash = "sha256:476ce38c020487b4baeb8c4f0c761e29728de71a238541ae02492d3d6018aff0"},
-    {file = "agent_brain_rag-10.0.7.tar.gz", hash = "sha256:3c6973d5f20817c2a0ac193d3a8804bc107fa69ea078c86e390586c4ce146cb6"},
-]
+files = []
+develop = false
 
 [package.dependencies]
-anthropic = ">=0.40.0,<0.41.0"
+anthropic = "^0.40.0"
 cachetools = ">=5.3"
-chromadb = ">=0.5.0,<0.6.0"
-click = ">=8.1.0,<9.0.0"
-fastapi = ">=0.115.0,<0.116.0"
-google-genai = ">=1.0.0,<2.0.0"
-llama-index-core = ">=0.14.0,<0.15.0"
-llama-index-embeddings-openai = ">=0.5.0,<0.6.0"
-llama-index-llms-openai = ">=0.6.12,<0.7.0"
-llama-index-readers-file = ">=0.5.0,<0.6.0"
-llama-index-retrievers-bm25 = ">=0.6.0,<0.7.0"
-openai = ">=1.57.0,<2.0.0"
-pathspec = ">=0.12.0,<0.13.0"
-pydantic = ">=2.10.0,<3.0.0"
-pydantic-settings = ">=2.6.0,<3.0.0"
-python-dotenv = ">=1.0.0,<2.0.0"
-pyyaml = ">=6.0.0,<7.0.0"
-rank-bm25 = ">=0.2.2,<0.3.0"
-sentence-transformers = ">=3.4.0,<4.0.0"
-tiktoken = ">=0.8.0,<0.9.0"
-tree-sitter-language-pack = ">=0.7.3,<0.8.0"
-uvicorn = {version = ">=0.32.0,<0.33.0", extras = ["standard"]}
+chromadb = "^0.5.0"
+click = "^8.1.0"
+fastapi = "^0.115.0"
+google-genai = "^1.0.0"
+llama-index-core = "^0.14.0"
+llama-index-embeddings-openai = "^0.5.0"
+llama-index-llms-openai = "^0.6.12"
+llama-index-readers-file = "^0.5.0"
+llama-index-retrievers-bm25 = "^0.6.0"
+openai = "^1.57.0"
+pathspec = "^0.12.0"
+pydantic = "^2.10.0"
+pydantic-settings = "^2.6.0"
+python-dotenv = "^1.0.0"
+pyyaml = "^6.0.0"
+rank-bm25 = "^0.2.2"
+sentence-transformers = "^3.4.0"
+tiktoken = "^0.8.0"
+tree-sitter-language-pack = "^0.7.3"
+uvicorn = {version = "^0.32.0", extras = ["standard"]}
 
 [package.extras]
 cohere = ["cohere (>=5.21.0,<6.0)"]
@@ -43,15 +41,19 @@ graphrag-all = ["langextract (>=1.0.0,<2.0.0)", "llama-index-graph-stores-kuzu (
 graphrag-kuzu = ["llama-index-graph-stores-kuzu (>=0.9.0,<0.10.0)"]
 postgres = ["asyncpg (>=0.29.0,<0.30.0)", "sqlalchemy[asyncio] (>=2.0.0,<3.0.0)"]
 
+[package.source]
+type = "directory"
+url = "../agent-brain-server"
+
 [[package]]
 name = "agent-brain-uds"
-version = "10.0.7"
+version = "10.1.2"
 description = "Agent Brain UDS - Unix-domain-socket transport for Agent Brain (socket path resolution, permission validation, httpx UDS client factory)"
 optional = false
 python-versions = "^3.10"
 groups = ["main"]
 files = []
-develop = true
+develop = false
 
 [package.dependencies]
 httpx = "^0.28.0"
@@ -7251,4 +7253,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "8f3fffa8bc3a1264c347d9ebfc173bd2f760ffe6e4e8036b6feed7927d4db890"
+content-hash = "de9fede0b85020d6dbafc7449829fc06d248bc973307ae6581f361542fb0a4d9"
