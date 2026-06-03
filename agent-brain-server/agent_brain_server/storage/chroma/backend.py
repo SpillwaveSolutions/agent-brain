@@ -7,9 +7,11 @@ functionality while conforming to the protocol interface.
 
 import asyncio
 import logging
+import os
 from typing import Any
 
 from agent_brain_server.indexing.bm25_index import BM25IndexManager, get_bm25_manager
+from agent_brain_server.models.query import ChunkRecord
 from agent_brain_server.storage.protocol import (
     EmbeddingMetadata,
     SearchResult,
@@ -49,6 +51,63 @@ def _bm25_tokens(text: str) -> list[str]:
     if not tokens_lists:
         return []
     return list(tokens_lists[0]) if tokens_lists[0] else []
+
+
+def _build_chunk_record(
+    chunk_id: str,
+    text: str,
+    metadata: dict[str, Any] | None,
+) -> ChunkRecord:
+    """Map raw chunk content + metadata into a v2-spec ``ChunkRecord``.
+
+    The chunk metadata dict written by ``IndexingService`` does not yet
+    have explicit ``parent_doc_id`` and ``folder_id`` fields (the v2
+    spec was just locked); fall back to deriving them from ``source``:
+
+    - ``parent_doc_id`` falls back to ``source`` (one chunk-per-doc
+      semantics is a reasonable approximation until indexing surfaces
+      an explicit field).
+    - ``folder_id`` falls back to ``dirname(source)`` so the value lines
+      up with the path stored by ``FolderManager``.
+
+    Args:
+        chunk_id: Primary key.
+        text: Chunk content.
+        metadata: Backend-stored metadata dict (may be ``None``).
+
+    Returns:
+        Fully populated ``ChunkRecord`` per the v2 design doc shape.
+    """
+    meta = metadata or {}
+    source = str(meta.get("source", ""))
+    parent_doc_id = str(meta.get("parent_doc_id") or source)
+    folder_id = str(
+        meta.get("folder_id")
+        or (os.path.dirname(source) if source else "")
+    )
+
+    summary_val = meta.get("summary") or meta.get("section_summary")
+    summary: str | None = str(summary_val) if summary_val else None
+
+    token_count_raw = meta.get("token_count")
+    try:
+        token_count = int(token_count_raw) if token_count_raw is not None else 0
+    except (TypeError, ValueError):
+        token_count = 0
+
+    language_val = meta.get("language")
+    language: str | None = str(language_val) if language_val else None
+
+    return ChunkRecord(
+        chunk_id=chunk_id,
+        parent_doc_id=parent_doc_id,
+        source=source,
+        content=text,
+        summary=summary,
+        folder_id=folder_id,
+        token_count=token_count,
+        language=language,
+    )
 
 
 def _intersect_tokens(query_tokens: list[str], doc_text: str) -> list[str]:
@@ -446,6 +505,40 @@ class ChromaBackend:
                 f"Delete by IDs failed: {e}",
                 backend="chroma",
             ) from e
+
+    async def get_chunk_by_id(self, chunk_id: str) -> ChunkRecord | None:
+        """O(1) lookup of a single chunk by primary key.
+
+        Delegates to ``VectorStoreManager.get_by_id`` which uses
+        ``collection.get(ids=[chunk_id], include=["documents", "metadatas"])``
+        — embeddings are NOT requested. The returned dict is then mapped
+        to the v2-spec :class:`ChunkRecord` shape.
+
+        Args:
+            chunk_id: Unique chunk identifier.
+
+        Returns:
+            :class:`ChunkRecord` if found, ``None`` otherwise.
+
+        Raises:
+            StorageError: If the underlying lookup fails.
+        """
+        try:
+            raw = await self.vector_store.get_by_id(chunk_id)
+        except Exception as e:
+            raise StorageError(
+                f"Get chunk by ID failed: {e}",
+                backend="chroma",
+            ) from e
+
+        if raw is None:
+            return None
+
+        return _build_chunk_record(
+            chunk_id=chunk_id,
+            text=str(raw.get("text", "")),
+            metadata=raw.get("metadata") or {},
+        )
 
     def validate_embedding_compatibility(
         self,
