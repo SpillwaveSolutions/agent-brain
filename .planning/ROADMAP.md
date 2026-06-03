@@ -44,7 +44,7 @@
 | 52. Resource subscriptions | 4/4 | Complete    | 2026-06-03 |
 | 53. Streamable HTTP transport | 3/3 | Complete    | 2026-06-03 |
 | 54. 9 remaining MCP tools | 0/1 | Complete    | 2026-06-03 |
-| 55. Validation, contract tests & QA gate | 1/5 | Executing  | -          |
+| 55. Validation, contract tests & QA gate | 2/5 | Executing  | -          |
 
 ## Phase Details
 

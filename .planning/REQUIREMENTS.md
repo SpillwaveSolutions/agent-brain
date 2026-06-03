@@ -46,7 +46,7 @@ Requirements for v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completi
 
 ### Validation & Quality (VAL)
 
-- [ ] **VAL-01**: All 16 MCP tools (7 from v1 + 9 from v2) covered by parameterized contract tests verified against the official MCP SDK
+- [x] **VAL-01**: All 16 MCP tools (7 from v1 + 9 from v2) covered by parameterized contract tests verified against the official MCP SDK
 - [ ] **VAL-02**: Resource subscriptions tested end-to-end against the official MCP SDK, including subscribe / unsubscribe / disconnect cleanup
 - [ ] **VAL-03**: Streamable HTTP transport tested via the official MCP SDK HTTP client
 - [ ] **VAL-04**: New MCP packages folded into root `task before-push` and `task pr-qa-gate` (closes DR-5 from v1 design)
@@ -109,7 +109,7 @@ Phase mapping for v10.2. Phase numbering continues sequentially from v9.6.0 (las
 | TOOL-07 | Phase 54 | Complete |
 | TOOL-08 | Phase 54 | Complete (2026-06-03, Plan 54-03) |
 | TOOL-09 | Phase 54 | Complete |
-| VAL-01 | Phase 55 | Pending |
+| VAL-01 | Phase 55 | Complete |
 | VAL-02 | Phase 55 | Pending |
 | VAL-03 | Phase 55 | Pending |
 | VAL-04 | Phase 55 | Pending |
