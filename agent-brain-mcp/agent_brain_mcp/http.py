@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import socket
 from collections.abc import AsyncIterator
 from typing import Any, Final
 
@@ -215,6 +216,46 @@ def build_asgi_app(server: Server) -> Starlette:
     )
 
 
+def _probe_port_available(host: str, port: int) -> None:
+    """Raise :class:`PortInUseError` if ``(host, port)`` is already bound.
+
+    Uvicorn's :meth:`uvicorn.Server.serve` catches ``OSError`` on
+    ``loop.create_server`` and calls :func:`sys.exit(1)` rather than
+    propagating — that swallows the errno information AND short-
+    circuits our ``finally`` block before it can run the subscription
+    cleanup hook. By probing the port ourselves BEFORE handing off to
+    uvicorn we get a clean :class:`PortInUseError` with the right
+    ``exit_code`` AND the cleanup hook runs symmetrically.
+
+    The probe binds-and-closes a one-shot socket. There IS a TOCTOU
+    window between the close here and uvicorn's bind, but it's
+    measured in microseconds. The production failure mode if a process
+    steals the port in that window is a clean :class:`SystemExit(1)`
+    from uvicorn — still no silent fallback, just a slightly noisier
+    error than the clean Plan 02 path.
+
+    Args:
+        host: The bind host (already loopback-validated).
+        port: The TCP port.
+
+    Raises:
+        PortInUseError: if the port is already in use (errno 48 on
+            macOS / errno 98 on Linux). Exit code 2 per D-12.
+    """
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.bind((host, port))
+    except OSError as e:
+        if e.errno in (48, 98):
+            raise PortInUseError(
+                f"Port {port} already in use. Pass --port <free-port> "
+                "or stop the conflicting process."
+            ) from e
+        # Anything else: surface verbatim so the operator sees the
+        # real bind failure mode. No silent mapping.
+        raise
+
+
 def build_uvicorn_server(app: Starlette, *, host: str, port: int) -> uvicorn.Server:
     """Build the in-process uvicorn server wrapping ``app``.
 
@@ -299,6 +340,22 @@ async def run_http(
     """
     validate_loopback_host(host)
 
+    # Pre-flight port check. Uvicorn's ``serve()`` catches OSError on
+    # bind and calls ``sys.exit(1)`` (see uvicorn/server.py:169-172),
+    # which swallows the errno AND short-circuits our finally block
+    # (SystemExit propagates upward before subscription_manager.cleanup_all
+    # runs). By probing the port ourselves first we get a clean
+    # PortInUseError + the finally block always fires.
+    try:
+        _probe_port_available(host, port)
+    except PortInUseError:
+        # Run the cleanup hook even though we never reached uvicorn
+        # — symmetry matters: callers expect the manager state to be
+        # quiescent after run_http returns/raises, regardless of how
+        # far execution got.
+        subscription_manager.cleanup_all()
+        raise
+
     app = build_asgi_app(server)
     uvi_server = build_uvicorn_server(app, host=host, port=port)
 
@@ -316,9 +373,12 @@ async def run_http(
     try:
         await uvi_server.serve()
     except OSError as e:
-        # EADDRINUSE — macOS errno 48 / Linux errno 98 (per
-        # ``errno.EADDRINUSE`` constants on each platform). uvicorn
-        # surfaces the underlying ``socket.bind`` OSError unchanged.
+        # Defense-in-depth: in the extreme TOCTOU case where another
+        # process grabs the port between _probe_port_available and
+        # uvicorn's own bind, uvicorn raises SystemExit(1) (NOT
+        # OSError) — but this branch catches the case where uvicorn's
+        # behavior changes upstream and starts propagating OSError
+        # directly.
         if e.errno in (48, 98):
             raise PortInUseError(
                 f"Port {port} already in use. Pass --port <free-port> "
