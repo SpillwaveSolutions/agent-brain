@@ -1,8 +1,9 @@
 # Agent Brain UDS Task Runner
 # https://taskfile.dev
 #
-# Per-package, opt-in tasks. NOT wired into root before-push / pr-qa-gate in v1
-# (see docs/plans/2026-05-28-mcp-uds-transport-design.md DR-1).
+# Per-package tasks; wired into root before-push and pr-qa-gate as of v10.2
+# (Phase 55, closes DR-5 from docs/plans/2026-05-28-mcp-uds-transport-design.md
+# §14 #5).
 
 version: '3'
 
@@ -104,6 +105,15 @@ tasks:
       - task: format:check
       - task: lint
       - task: typecheck
+
+  before-push:
+    desc: Per-package pre-push check (format, lint, typecheck, test with coverage)
+    deps: [install]
+    cmds:
+      - task: format:check
+      - task: lint
+      - task: typecheck
+      - task: test:cov
 
   pr-qa-gate:
     desc: PR quality gate with 80% coverage minimum (security-boundary code per plan DR)
