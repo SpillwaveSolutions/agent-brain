@@ -112,10 +112,10 @@
   3. An MCP client can call `inject_documents` with an enrichment-script path and a folder path and receive a `{job_id, status}` response
   4. An MCP client can call `wait_for_job` for an active job and receive `notifications/progress` events at least every 2s until the job terminates, then a final completion result
   5. An MCP client can call `list_folders`, `remove_folder`, `cache_status`, `clear_cache`, and `list_file_types` and receive payloads consistent with the existing CLI/HTTP behavior for each operation
-**Plans**: 2/4 complete
+**Plans**: 3/4 complete
   - [x] **Plan 01** — Schemas + ApiClient + FILE_TYPE_PRESETS foundation (locks 18 Pydantic schemas, 5 ApiClient methods, vendored preset table). Shipped 2026-06-03.
   - [x] **Plan 02** — Read-only tool handlers (explain_result, list_folders, cache_status, list_file_types). TOOL-01/05/07/09 complete; TOOL_REGISTRY 7 -> 11; +15 fast-lane MCP tests (400 -> 415); 4 atomic commits (07ee21a / 720c27d / c27c9b2 / b310230) on main; all quality gates green. Shipped 2026-06-03.
-  - [ ] Plan 03 — Mutating tool handlers (add_documents, inject_documents, remove_folder, clear_cache)
+  - [x] **Plan 03** — Mutating tool handlers (add_documents, inject_documents, remove_folder, clear_cache). TOOL-02/03/06/08 complete; TOOL_REGISTRY 11 -> 15; +18 fast-lane MCP tests (415 -> 433); 4 atomic commits (bd5cb02 / 0768ac6 / 095f5f2 / c6301b6) on main; all quality gates green. Shipped 2026-06-03.
   - [ ] Plan 04 — wait_for_job async handler with notifications/progress
 
 ---
