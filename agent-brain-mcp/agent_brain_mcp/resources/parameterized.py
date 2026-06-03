@@ -1,4 +1,4 @@
-"""Parameterized URI schemes — Phase 51 (URI-01 / URI-02 / URI-03).
+"""Parameterized URI schemes — Phase 51 (URI-01 / URI-02 / URI-03 / URI-04).
 
 Sister module to :mod:`agent_brain_mcp.resources.corpus`. Where ``corpus``
 holds the 5 static ``corpus://*`` resources keyed by exact URI string,
@@ -11,10 +11,13 @@ arguments and therefore can't live in a string-keyed registry:
 - ``file://<abs-path>`` (Plan 51-03 — URI-04)
 
 Plan 51-01 lands the dispatcher infrastructure plus the ``job://``
-handler as the exemplar. Plan 51-02 (this plan) swaps in real handlers
-for ``chunk://`` and ``graph-entity://``. Plan 51-03 swaps in
-``file://``. The dispatcher and registry shape stay untouched across
-all three plans.
+handler as the exemplar. Plan 51-02 swaps in real handlers for
+``chunk://`` and ``graph-entity://``. Plan 51-03 (this completes the
+parameterized layer) swaps in ``file://`` — the only scheme that
+does NOT hit the FastAPI server. It reads bytes off disk after the
+path is validated against the dynamically-fetched list of indexed
+roots from ``corpus://folders``, gated by the Phase 50 sandbox helper
+re-exported through :mod:`agent_brain_mcp.security`.
 
 Error-payload contract (Phase 51 CONTEXT decision C/D):
 
@@ -41,15 +44,22 @@ from __future__ import annotations
 
 import asyncio
 import json
+import mimetypes
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 from mcp import McpError
+from mcp.server.lowlevel.helper_types import ReadResourceContents
 from mcp.types import ErrorData
 
 from ..errors import INVALID_PARAMS
+from ..security import (
+    DEFAULT_MAX_READ_BYTES,
+    canonicalize_path,
+    is_path_allowed,
+)
 
 if TYPE_CHECKING:
     from ..client import ApiClient
@@ -159,15 +169,24 @@ def parse_uri(uri: str) -> ParsedURI | None:
         return ParsedURI(scheme=scheme, entity_type=entity_type, entity_id=entity_id)
 
     if scheme == "file":
-        # ``file://<abs-path>`` — urlsplit puts the host portion in
-        # netloc (usually empty for ``file:///foo/bar``) and the path
-        # in ``path``. For an absolute UNIX path ``/foo/bar``, the
-        # canonical URI form is ``file:///foo/bar`` (three slashes).
-        # We do NOT enforce absoluteness here — that is the sandbox
-        # helper's job in Plan 51-03. We only check that *some* path
-        # is present.
+        # ``file://<abs-path>`` — RFC 3986 requires three slashes for an
+        # absolute path with empty authority: ``file:///abs/path``. In
+        # that canonical form, ``urlsplit(...)`` returns ``netloc=""``
+        # and ``path="/abs/path"`` (path starts with ``/``).
+        #
+        # The two-slash form ``file://abs/path`` is non-canonical for
+        # absolute paths: urlsplit reads ``abs`` as the netloc (host)
+        # and ``/path`` as the path. We reject this so callers cannot
+        # accidentally smuggle relative paths past the sandbox check by
+        # writing ``file://relative/secret`` — they MUST use the three-
+        # slash form, which forces an absolute path.
+        #
+        # We do NOT enforce existence or "is regular file" here — the
+        # sandbox helper and ``handle_file_uri`` body do that.
+        if netloc:
+            raise _invalid_uri(uri, "missing_path")
         path = raw_path
-        if not path:
+        if not path or not path.startswith("/"):
             raise _invalid_uri(uri, "missing_path")
         return ParsedURI(scheme=scheme, path=path)
 
@@ -285,9 +304,7 @@ def _extract_graph_entity_reason(original_data: dict[str, object] | None) -> str
     return None
 
 
-async def _handle_graph_entity_uri(
-    client: ApiClient, params: ParsedURI
-) -> str:
+async def _handle_graph_entity_uri(client: ApiClient, params: ParsedURI) -> str:
     """Read ``graph-entity://<type>/<id>`` → ``GET /graph/entity/<t>/<i>`` body.
 
     Phase 50 Plan 03 ships the backing endpoint. Response is the locked
@@ -340,16 +357,178 @@ async def _handle_graph_entity_uri(
     return json.dumps(response, indent=2, default=str)
 
 
+async def _handle_file_uri(
+    client: ApiClient, params: ParsedURI
+) -> ReadResourceContents:
+    """Read ``file:///<abs-path>`` → raw file contents from disk (URI-04).
+
+    The only parameterized scheme that does NOT hit the FastAPI server.
+    The path is sandboxed against the dynamically-fetched list of
+    indexed folder roots from :meth:`ApiClient.list_folders` and read
+    directly off disk inside the MCP process.
+
+    Plan 51-03 / Phase 51 CONTEXT decision E pipeline:
+
+    1. **Refresh roots** from ``GET /index/folders/`` on EVERY read
+       (no cache — folders can be added/removed during a session,
+       and stale roots would silently widen the sandbox).
+    2. **Canonicalize** the URI path via :func:`canonicalize_path`,
+       which calls ``Path.resolve(strict=False)`` and so resolves
+       symlinks plus collapses ``..`` segments.
+    3. **Sandbox check** via :func:`is_path_allowed` — returns
+       ``(allowed, reason)`` where ``reason`` is one of the Phase 50
+       literals: ``outside_indexed_roots`` | ``hidden_file`` |
+       ``symlink_escape`` | ``size_limit``. We re-emit the reason
+       verbatim in the ``data["reason"]`` blob so MCP clients can
+       route on it without re-parsing.
+    4. **Pre-flight size check** via ``Path.stat().st_size`` so we
+       refuse oversized files BEFORE loading them into memory.
+       :func:`is_path_allowed` also does this check, but we repeat it
+       here so a misconfigured operator who raised the sandbox cap
+       still gets a clean error if the file truly does exceed
+       :data:`DEFAULT_MAX_READ_BYTES`.
+    5. **Read bytes** via ``asyncio.to_thread(Path.read_bytes)`` —
+       no ``aiofiles`` dependency added; the standard library is
+       enough and keeps the MCP package's footprint lean.
+    6. **MIME sniff + text/binary dispatch** via
+       :func:`mimetypes.guess_type`. ``text/*`` MIMEs are decoded as
+       UTF-8 and returned via ``ReadResourceContents(content=str)``;
+       any non-text MIME (or a UTF-8 decode failure on a mis-typed
+       text file) falls through to bytes content, which the MCP SDK
+       auto-encodes as ``BlobResourceContents`` with base64.
+
+    Error contract (Phase 51 CONTEXT decision E):
+
+    - Sandbox denial → ``McpError(INVALID_PARAMS, data={"scheme":
+      "file", "path": <input>, "reason": <Phase 50 literal>})``.
+    - Size cap → same shape, ``reason == "size_limit"``, plus
+      ``data["size"]`` and ``data["limit"]`` for ops visibility.
+    - Missing file or stat error inside an allowed root → propagates
+      as an OSError-wrapped INVALID_PARAMS.
+
+    TOCTOU note: the pre-flight ``stat`` and the subsequent
+    ``read_bytes`` are not atomic. For the agent-brain threat model
+    (local-first, single-user) this is acceptable; a malicious local
+    actor with write access to an indexed folder is already trusted.
+    """
+    assert params.path is not None  # parse_uri guarantees this
+    input_path = params.path
+
+    # Step 1: refresh allowed roots from the server (no cache).
+    folders_response = await asyncio.to_thread(client.list_folders)
+    folders_list = folders_response.get("folders", [])
+    roots = [f["folder_path"] for f in folders_list if "folder_path" in f]
+
+    # Step 2: canonicalize the input path.
+    canonical = canonicalize_path(input_path)
+
+    # Step 3: sandbox decision. is_path_allowed expects (str|Path,
+    # Sequence[str|Path], max_bytes). We pass the *canonical* path so
+    # the symlink-escape rule, which inspects the literal path's
+    # ``.is_symlink()`` against the unresolved input, sees the right
+    # node — but the literal input may itself BE a symlink, so we
+    # pass it via a side check too.
+    #
+    # The Phase 50 module already handles symlink resolution inside
+    # is_path_allowed; we forward the original *input* so the literal
+    # symlink check uses the unresolved form. Callers must NOT do
+    # their own resolution before this call.
+    allowed, reason = is_path_allowed(input_path, roots)
+    if not allowed:
+        raise McpError(
+            ErrorData(
+                code=INVALID_PARAMS,
+                message=f"file:// access denied: {reason}",
+                data={
+                    "scheme": "file",
+                    "path": input_path,
+                    "reason": reason,
+                },
+            )
+        )
+
+    # Step 4: pre-flight size check — refuse oversized files BEFORE
+    # loading them into memory. is_path_allowed already checks this
+    # against the configured cap, but we double-check here against
+    # DEFAULT_MAX_READ_BYTES so a future caller that bypasses the
+    # sandbox helper still gets a sane upper bound.
+    try:
+        st = await asyncio.to_thread(canonical.stat)
+    except OSError as exc:
+        raise McpError(
+            ErrorData(
+                code=INVALID_PARAMS,
+                message=f"file:// stat failed: {exc}",
+                data={
+                    "scheme": "file",
+                    "path": input_path,
+                    "reason": "not_found",
+                    "cause": str(exc),
+                },
+            )
+        ) from exc
+
+    if st.st_size > DEFAULT_MAX_READ_BYTES:
+        raise McpError(
+            ErrorData(
+                code=INVALID_PARAMS,
+                message=(
+                    f"file:// too large: {st.st_size} bytes > "
+                    f"{DEFAULT_MAX_READ_BYTES} byte limit"
+                ),
+                data={
+                    "scheme": "file",
+                    "path": input_path,
+                    "reason": "size_limit",
+                    "size": st.st_size,
+                    "limit": DEFAULT_MAX_READ_BYTES,
+                },
+            )
+        )
+
+    # Step 5: read bytes off disk.
+    raw = await asyncio.to_thread(canonical.read_bytes)
+
+    # Step 6: MIME sniff + text/binary dispatch.
+    mime, _ = mimetypes.guess_type(str(canonical))
+    if mime and mime.startswith("text/"):
+        try:
+            return ReadResourceContents(
+                content=raw.decode("utf-8"),
+                mime_type=mime,
+            )
+        except UnicodeDecodeError:
+            # Mis-typed as text (e.g., latin-1 .txt) — fall through
+            # to blob with the originally-guessed MIME so the client
+            # can still attempt its own decode.
+            return ReadResourceContents(
+                content=raw,
+                mime_type=mime,
+            )
+
+    # Binary or unknown — return bytes. The MCP SDK's read_resource
+    # decorator auto-wraps bytes as BlobResourceContents (base64).
+    return ReadResourceContents(
+        content=raw,
+        mime_type=mime or "application/octet-stream",
+    )
+
+
 async def _handle_not_implemented(client: ApiClient, params: ParsedURI) -> str:
     """Placeholder for schemes wired in later Plan 51 plans.
 
-    Plan 51-03 (file) replaces this with a real handler by overwriting
-    the matching entry in :data:`PARAMETERIZED_HANDLERS`. Plans 51-01
-    and 51-02 have already swapped their placeholders out. Keeping a
-    callable here (rather than leaving the dict key absent) lets the
-    dispatcher in :mod:`server` stay scheme-agnostic and lets contract
-    tests assert "all four schemes are registered" before Plan 03
-    ships.
+    All three previously-reserved slots (``chunk``, ``graph-entity``,
+    ``file``) now have real handlers landed by Plans 51-02 and 51-03.
+    This callable is retained for two reasons:
+
+    1. **Future schemes** added to :data:`PARAMETERIZED_SCHEMES` can
+       use it as a temporary placeholder while their real handler is
+       being planned — same pattern Plans 51-02 and 51-03 followed.
+    2. **Defensive registry coverage** — :data:`PARAMETERIZED_HANDLERS`
+       must have an entry for every key in
+       :data:`PARAMETERIZED_SCHEMES`. Contract tests assert this; a
+       missing key would silently misroute a valid URI to the
+       ``Unknown resource`` fallback instead of failing loud.
     """
     raise NotImplementedError(
         f"Handler for scheme '{params.scheme}' is not implemented yet "
@@ -357,19 +536,24 @@ async def _handle_not_implemented(client: ApiClient, params: ParsedURI) -> str:
     )
 
 
-# Async handler signature: ``Callable[[ApiClient, ParsedURI], Awaitable[str]]``
-ParameterizedHandler = Callable[["ApiClient", ParsedURI], Awaitable[str]]
+# Async handler signature. JSON-backed schemes (``job``, ``chunk``,
+# ``graph-entity``) return ``str`` which the server dispatcher wraps
+# as ``application/json``. The ``file://`` handler returns a
+# :class:`ReadResourceContents` directly so it can carry a per-file
+# mime_type plus optional ``bytes`` payload (auto-base64-encoded into
+# a ``BlobResourceContents`` by the MCP SDK at the wire boundary).
+# The server dispatcher in ``server.py`` checks ``isinstance(content,
+# ReadResourceContents)`` and uses it verbatim or wraps the str.
+ParameterizedHandler = Callable[
+    ["ApiClient", ParsedURI], Awaitable[str | ReadResourceContents]
+]
 
 
 PARAMETERIZED_HANDLERS: dict[str, ParameterizedHandler] = {
     "job": _handle_job_uri,
     "chunk": _handle_chunk_uri,
     "graph-entity": _handle_graph_entity_uri,
-    # Reserved slot — Plan 51-03 swaps this placeholder in with the
-    # real file:// handler. Do NOT remove this key; the dispatcher in
-    # ``server.py`` keys off the registry, and contract tests assert
-    # the four parameterized schemes are all registered.
-    "file": _handle_not_implemented,
+    "file": _handle_file_uri,
 }
 
 

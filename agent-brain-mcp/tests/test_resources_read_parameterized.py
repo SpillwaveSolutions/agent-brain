@@ -463,30 +463,16 @@ class TestReadResourceGraphEntityUri:
         assert err.data["reason"] == "kuzu_unavailable"
 
 
-# --- placeholder schemes raise NotImplementedError ------------------------
-
-
-class TestPlaceholderHandlers:
-    """Plan 51-03 will replace the remaining ``file://`` placeholder.
-    Until it ships, attempting to read that scheme raises
-    ``NotImplementedError`` — not ``McpError``. This is intentional:
-    callers should not be able to silently get an empty/None response
-    for an unwired handler. Plans 51-01 and 51-02 have already swapped
-    out their placeholders, so only ``file://`` remains here."""
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize(
-        "uri",
-        [
-            "file:///tmp/foo.py",
-        ],
-    )
-    async def test_placeholder_schemes_raise_not_implemented(
-        self, fake_httpx_client: httpx.Client, uri: str
-    ) -> None:
-        server = build_server(fake_httpx_client)
-        with pytest.raises(NotImplementedError):
-            await _read(server, uri)
+# --- placeholder handler retained for future schemes ---------------------
+#
+# Plans 51-01, 51-02, and 51-03 have each shipped real handlers for
+# ``job://``, ``chunk://``, ``graph-entity://``, and ``file://``. The
+# ``_handle_not_implemented`` callable in :mod:`agent_brain_mcp
+# .resources.parameterized` is kept for future schemes added to
+# :data:`PARAMETERIZED_SCHEMES`. There is nothing to assert end-to-end
+# until such a scheme is registered; the contract that EVERY scheme in
+# :data:`PARAMETERIZED_SCHEMES` has a handler entry is already asserted
+# by ``TestParseUri.test_handler_registry_covers_all_schemes``.
 
 
 # --- parse_uri unit tests for chunk + graph-entity (Plan 51-02) -----------

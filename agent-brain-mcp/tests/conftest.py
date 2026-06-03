@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -200,3 +202,201 @@ def mock_client_factory() -> Callable[..., httpx.Client]:
 def fake_httpx_client() -> httpx.Client:
     """A default httpx.Client wired to default responses."""
     return make_httpx_client()
+
+
+# --- Phase 51 Plan 03 (URI-04) file:// fixtures ---------------------------
+
+
+@dataclass
+class FileSandboxScenario:
+    """Filesystem scenario for ``file://`` sandbox tests.
+
+    Plan 51-03 needs a tmp directory that simulates "operator has
+    indexed folder X but folder Y is off-limits." We expose the layout
+    explicitly so individual tests can compose URIs against specific
+    files without re-deriving paths.
+
+    Attributes:
+        allowed_root: Canonical absolute path that the stub
+            ``/index/folders/`` endpoint reports as the only indexed
+            root. Test ``file://`` reads against files inside this
+            directory should succeed.
+        denied_root: A sibling directory NOT in the indexed-folder
+            list. Reads against files here should be denied with
+            ``outside_indexed_roots``.
+        allowed_text: A small UTF-8 text file inside ``allowed_root``
+            (``.txt`` MIME). Used by the text-success test.
+        allowed_binary: A small binary file inside ``allowed_root``
+            (``.bin`` extension, will be sniffed as
+            ``application/octet-stream``). Used by the
+            binary-success test.
+        big_text: A text file inside ``allowed_root`` whose size
+            exceeds :data:`DEFAULT_MAX_READ_BYTES`. Used by the
+            size-cap test.
+        hidden_file: A dot-file inside ``allowed_root`` (named
+            ``.secret``). Phase 50's sandbox rule allows hidden files
+            INSIDE an indexed root (root policy wins) — so this read
+            should actually succeed. The ``hidden_file`` deny only
+            fires for hidden files OUTSIDE every root.
+        outside_hidden: A dot-file inside ``denied_root`` (``.env``-
+            style). This one should trigger ``hidden_file`` denial.
+        denied_file: A regular file inside ``denied_root``. Should
+            trigger ``outside_indexed_roots`` denial.
+        symlink_escape: A symlink LIVING INSIDE ``allowed_root`` whose
+            target is ``denied_file`` outside. Phase 50's policy:
+            ``symlink_escape`` reason fires because the literal path
+            is a symlink whose canonical target escapes every root.
+        traversal_attempt: An unresolved string path inside
+            ``allowed_root`` that contains ``..`` segments resolving
+            outside (e.g. ``<allowed>/../<denied>/secret.txt``).
+            Canonicalization should collapse the ``..`` and the result
+            should fall outside all roots → ``outside_indexed_roots``.
+    """
+
+    allowed_root: Path
+    denied_root: Path
+    allowed_text: Path
+    allowed_binary: Path
+    big_text: Path
+    hidden_file: Path
+    outside_hidden: Path
+    denied_file: Path
+    symlink_escape: Path
+    traversal_attempt: str
+
+
+@pytest.fixture
+def tmp_path_with_indexed_root(tmp_path: Path) -> FileSandboxScenario:
+    """Build a tmp directory tree exercising every sandbox rule.
+
+    Layout (under ``tmp_path``)::
+
+        sandbox/
+          allowed/                       <- indexed root
+            allowed.txt                  (small text)
+            allowed.bin                  (small binary)
+            big.txt                      (> DEFAULT_MAX_READ_BYTES)
+            .secret                      (hidden file INSIDE root -> allowed)
+            escape -> ../denied/secret.txt   (symlink escapes -> denied)
+          denied/                        <- NOT indexed
+            secret.txt
+            .env
+
+    The ``tmp_path_with_indexed_root`` fixture does NOT stub the HTTP
+    layer — tests that need the stub call
+    :func:`make_file_sandbox_httpx_client` with the returned scenario.
+    Separation of concerns: the scenario owns the filesystem layout,
+    the helper owns the network mock.
+
+    The ``big.txt`` size is deliberately a tiny bit over the cap
+    (cap + 1 byte) so the test runs fast — pyfilesystem writes are
+    cheap up to a few MB but multi-GB writes would slow CI. Phase 50
+    cap is 10 MiB.
+    """
+    from agent_brain_server.security.file_sandbox import DEFAULT_MAX_READ_BYTES
+
+    sandbox = tmp_path / "sandbox"
+    sandbox.mkdir()
+    allowed = sandbox / "allowed"
+    allowed.mkdir()
+    denied = sandbox / "denied"
+    denied.mkdir()
+
+    allowed_text = allowed / "allowed.txt"
+    allowed_text.write_text("hello from allowed root\n", encoding="utf-8")
+
+    allowed_binary = allowed / "allowed.bin"
+    allowed_binary.write_bytes(b"\x00\x01\x02\x03BINARYDATA\xff\xfe")
+
+    big_text = allowed / "big.txt"
+    # Write cap + 1 byte to trip the size limit. Writing the cap exactly
+    # would PASS (the rule is strictly >, not >=).
+    big_text.write_bytes(b"A" * (DEFAULT_MAX_READ_BYTES + 1))
+
+    hidden_file = allowed / ".secret"
+    hidden_file.write_text("hidden but inside root\n", encoding="utf-8")
+
+    denied_file = denied / "secret.txt"
+    denied_file.write_text("you should not see this\n", encoding="utf-8")
+
+    outside_hidden = denied / ".env"
+    outside_hidden.write_text("SECRET_KEY=hunter2\n", encoding="utf-8")
+
+    symlink_escape = allowed / "escape"
+    # Relative symlink: from allowed/, target is ../denied/secret.txt.
+    # ``Path.resolve`` follows the link; the canonical target is
+    # ``denied/secret.txt`` (outside the indexed root).
+    symlink_escape.symlink_to(denied_file)
+
+    # Pre-canonical traversal attempt — string with literal ``..``
+    # segments. Sandbox check canonicalizes it; result falls in
+    # ``denied`` so is_path_allowed returns
+    # (False, "outside_indexed_roots").
+    traversal_attempt = str(allowed / ".." / "denied" / "secret.txt")
+
+    return FileSandboxScenario(
+        allowed_root=allowed.resolve(),
+        denied_root=denied.resolve(),
+        allowed_text=allowed_text.resolve(),
+        allowed_binary=allowed_binary.resolve(),
+        big_text=big_text.resolve(),
+        hidden_file=hidden_file.resolve(),
+        outside_hidden=outside_hidden,  # NOT canonicalized; we want the literal path
+        denied_file=denied_file.resolve(),
+        symlink_escape=symlink_escape,  # literal symlink — do NOT resolve here
+        traversal_attempt=traversal_attempt,
+    )
+
+
+def make_file_sandbox_httpx_client(
+    scenario: FileSandboxScenario,
+    *,
+    folders_call_counter: list[int] | None = None,
+) -> httpx.Client:
+    """Build an httpx.Client whose ``/index/folders/`` reports the
+    scenario's allowed root as the only indexed folder.
+
+    Args:
+        scenario: The fixture-produced :class:`FileSandboxScenario`.
+        folders_call_counter: Optional 1-element list used as a
+            mutable counter. Each ``GET /index/folders/`` request
+            increments ``folders_call_counter[0]``. Used by the
+            roots-refresh-on-each-read regression test to assert that
+            two consecutive ``file://`` reads result in two calls to
+            ``list_folders``.
+
+    The transport returns:
+
+    - ``GET /index/folders/`` → ``{"folders": [{"folder_path":
+      "<allowed_root>", ...}]}`` (canonical absolute path).
+    - All other paths → 404 with a stub detail (the file:// handler
+      should never hit any other endpoint).
+    """
+    counter = folders_call_counter
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/index/folders/":
+            if counter is not None:
+                counter[0] += 1
+            return httpx.Response(
+                200,
+                json={
+                    "folders": [
+                        {
+                            "folder_path": str(scenario.allowed_root),
+                            "chunk_count": 1,
+                            "last_indexed": "2026-06-03T00:00:00Z",
+                            "watch_mode": "off",
+                            "watch_debounce_seconds": 30,
+                        }
+                    ]
+                },
+            )
+        return httpx.Response(
+            404,
+            json={"detail": f"sandbox test fixture has no stub for {path}"},
+        )
+
+    transport = httpx.MockTransport(handler)
+    return httpx.Client(transport=transport, base_url="http://test-agent-brain")

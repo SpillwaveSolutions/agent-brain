@@ -176,7 +176,19 @@ def build_server(httpx_client: httpx.Client, *, transport: str = "http") -> Serv
             # Parameterized handlers are async; they do their own
             # asyncio.to_thread() for the sync httpx call inside the
             # handler body, so we await directly here.
+            #
+            # Handler return contract (Plans 51-01/02/03):
+            #   - str → wrap as ``application/json`` (the JSON-backed
+            #     schemes: ``job``, ``chunk``, ``graph-entity``).
+            #   - ReadResourceContents → use verbatim (file://, which
+            #     needs a per-file mime_type + may carry bytes for
+            #     binary blob payloads).
+            # This dual-return shape is the minimal-surface way to let
+            # file:// pick its own MIME without forcing the JSON
+            # schemes to construct a ReadResourceContents themselves.
             content = await handler(api, parsed)
+            if isinstance(content, ReadResourceContents):
+                return [content]
             return [
                 ReadResourceContents(
                     content=content,
