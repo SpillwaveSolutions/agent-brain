@@ -6,6 +6,7 @@ import asyncio
 
 import click
 
+from .http import probe_port_available, validate_loopback_host
 from .server import main_async
 
 
@@ -73,6 +74,20 @@ def main(
     port: int,
 ) -> None:
     """Run the Agent Brain MCP server over stdio or Streamable HTTP."""
+    # Phase 53 Plan 03: validate the loopback whitelist + probe the
+    # port at the CLI layer BEFORE main_async() opens the backend
+    # httpx client. The Plan 02 in-process checks inside ``run_http``
+    # still serve as defense-in-depth for direct callers that bypass
+    # the CLI (tests, embeddings), but operators get the fastest /
+    # cleanest failure mode when the misconfiguration is rejected here.
+    # Without these hoists, ``--transport http --host 0.0.0.0`` (or
+    # ``--port <occupied>``) against a missing backend surfaces as
+    # ``BackendUnavailable`` (the version-compat check fires before
+    # the dispatcher reaches run_http) — a confusing error that hides
+    # the real misconfiguration.
+    if transport == "http":
+        validate_loopback_host(host)
+        probe_port_available(host, port)
     asyncio.run(
         main_async(
             backend=backend,

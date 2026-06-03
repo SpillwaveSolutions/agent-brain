@@ -28,8 +28,10 @@ import json
 import logging
 import warnings
 from collections.abc import Iterable
+from contextlib import AsyncExitStack
 from typing import Any
 
+import anyio
 import httpx
 import mcp.server.stdio
 import mcp.types as types
@@ -37,6 +39,9 @@ from mcp import McpError
 from mcp.server.lowlevel import NotificationOptions, Server
 from mcp.server.lowlevel.helper_types import ReadResourceContents
 from mcp.server.models import InitializationOptions
+from mcp.server.session import InitializationState, ServerSession
+from mcp.shared.session import RequestResponder
+from mcp.shared.version import SUPPORTED_PROTOCOL_VERSIONS
 from mcp.types import ErrorData
 from pydantic import AnyUrl, ValidationError
 
@@ -569,11 +574,34 @@ def build_server(
     # reaches this server (stdio vs Streamable HTTP). The legacy
     # ``_agent_brain_transport`` attribute is retained as a backwards-
     # compat shim mirroring ``backend_transport`` — slated for removal
-    # in Phase 55. Plan 03 will wire these into the MCP initialize
-    # ``serverInfo._meta`` blob; for now they're in-process only.
+    # in Phase 55.
     server._agent_brain_backend_transport = backend_transport  # type: ignore[attr-defined]
     server._agent_brain_listen_transport = listen_transport  # type: ignore[attr-defined]
     server._agent_brain_transport = backend_transport  # type: ignore[attr-defined]
+
+    # Phase 53 Plan 03: surface BOTH axis labels over the wire via the
+    # MCP ``initialize`` response. The MCP SDK 1.12.x hardcodes the
+    # ``Implementation`` construction inside
+    # ``mcp/server/session.py:_received_request`` (lines 177-182) with
+    # no extension hook — but ``Implementation.model_config =
+    # ConfigDict(extra="allow")`` (mcp/types.py:274), so passing
+    # ``_meta=<dict>`` as a constructor kwarg stores it as an extra
+    # field that the wire-format ``model_dump(by_alias=True)`` includes
+    # as ``"_meta": {...}``.
+    #
+    # We wire this by wrapping ``server.run``. The wrapper substitutes
+    # a tiny ``_MetaInjectingServerSession`` subclass (defined below)
+    # in place of the SDK's ``ServerSession``. The substitute mirrors
+    # the SDK's Initialize handler verbatim with one change: the
+    # ``Implementation(...)`` call carries ``_meta=server._agent_brain_meta``.
+    # Both stdio (``run_stdio``) and HTTP (``run_http`` via the SDK's
+    # ``StreamableHTTPSessionManager`` → ``Server.run``) inherit the
+    # injection because both paths land in ``Server.run`` eventually.
+    server._agent_brain_meta = {  # type: ignore[attr-defined]
+        "agentBrainBackendTransport": backend_transport,
+        "agentBrainListenTransport": listen_transport,
+    }
+    _install_meta_injecting_session(server)
     return server, subscription_manager
 
 
@@ -610,6 +638,144 @@ def _summarize(tool_name: str, structured: dict[str, Any]) -> str:
             f"(v{structured.get('version')})"
         )
     return f"{tool_name} → ok"
+
+
+class _MetaInjectingServerSession(ServerSession):
+    """Phase 53 Plan 03: ServerSession variant that injects ``_meta`` on initialize.
+
+    The bare :class:`mcp.server.session.ServerSession` hard-codes the
+    :class:`mcp.types.Implementation` construction inside
+    ``_received_request`` (lines 177-182 of mcp/server/session.py in
+    mcp 1.12.x), with no extension hook for adding ``_meta``. This
+    subclass overrides ``_received_request`` only for the
+    ``InitializeRequest`` case — every other case defers to the SDK
+    parent class verbatim — and constructs
+    :class:`mcp.types.Implementation` with the ``_meta`` kwarg drawn
+    from the bound ``server._agent_brain_meta`` dict.
+
+    The ``Implementation`` model has ``model_config =
+    ConfigDict(extra="allow")`` (mcp/types.py:274), so passing the
+    extra ``_meta`` kwarg is accepted and round-trips through the
+    wire-format JSON-RPC response.
+
+    SDK version pin: the duplicated handler logic mirrors
+    ``mcp/server/session.py`` lines 165-187 in mcp 1.12.x. If the SDK
+    surface evolves (e.g., new InitializeResult fields), this subclass
+    needs to mirror those changes. The duplication is the price of the
+    SDK's missing extension hook; Phase 55 will revisit if upstream
+    publishes a cleaner injection point.
+    """
+
+    _agent_brain_meta: dict[str, Any] | None = None
+
+    async def _received_request(
+        self, responder: RequestResponder[types.ClientRequest, types.ServerResult]
+    ) -> None:
+        match responder.request.root:
+            case types.InitializeRequest(params=params):
+                requested_version = params.protocolVersion
+                self._initialization_state = InitializationState.Initializing
+                self._client_params = params
+                with responder:
+                    # Implementation accepts extras (extra="allow"); pass
+                    # _meta as a kwarg so it round-trips on the wire.
+                    impl_kwargs: dict[str, Any] = {
+                        "name": self._init_options.server_name,
+                        "version": self._init_options.server_version,
+                        "websiteUrl": self._init_options.website_url,
+                        "icons": self._init_options.icons,
+                    }
+                    if self._agent_brain_meta is not None:
+                        impl_kwargs["_meta"] = dict(self._agent_brain_meta)
+                    await responder.respond(
+                        types.ServerResult(
+                            types.InitializeResult(
+                                protocolVersion=(
+                                    requested_version
+                                    if requested_version in SUPPORTED_PROTOCOL_VERSIONS
+                                    else types.LATEST_PROTOCOL_VERSION
+                                ),
+                                capabilities=self._init_options.capabilities,
+                                serverInfo=types.Implementation(**impl_kwargs),
+                                instructions=self._init_options.instructions,
+                            )
+                        )
+                    )
+                self._initialization_state = InitializationState.Initialized
+            case _:
+                # Defer every other request type to the SDK parent.
+                await super()._received_request(responder)
+
+
+def _install_meta_injecting_session(server: Server) -> None:
+    """Patch ``server.run`` to use :class:`_MetaInjectingServerSession`.
+
+    The SDK's :meth:`Server.run` hard-codes
+    ``ServerSession(read_stream, write_stream, init_options,
+    stateless=stateless)`` inline; the only surgical way to substitute
+    our subclass is to wrap the method on the instance. This is the
+    "Plan 03 carry-forward Plan 02 SUMMARY's option (b)" — extending
+    ``build_server``'s capability-patching wrapper so the substitution
+    works for stdio AND HTTP transports through the same code path.
+
+    The wrapper mirrors :meth:`Server.run` from mcp 1.12.x verbatim
+    (lines 640-690 of mcp/server/lowlevel/server.py) with the single
+    substitution noted above. SDK version pin is the same as for
+    :class:`_MetaInjectingServerSession`.
+    """
+    original_run = server.run
+
+    async def _run(  # type: ignore[no-untyped-def]
+        read_stream,
+        write_stream,
+        initialization_options,
+        raise_exceptions: bool = False,
+        stateless: bool = False,
+    ) -> None:
+        # Body mirrors mcp/server/lowlevel/server.py:640-690 with the
+        # ``ServerSession`` substitution. See the class docstring for
+        # the SDK pin rationale.
+        async with AsyncExitStack() as stack:
+            lifespan_context = await stack.enter_async_context(server.lifespan(server))
+            session = await stack.enter_async_context(
+                _MetaInjectingServerSession(
+                    read_stream,
+                    write_stream,
+                    initialization_options,
+                    stateless=stateless,
+                )
+            )
+            # Inject the meta dict captured in build_server.
+            session._agent_brain_meta = getattr(server, "_agent_brain_meta", None)
+
+            # Configure task support for this session if enabled. Mirrors
+            # the SDK's check on ``self._experimental_handlers``.
+            task_support = (
+                server._experimental_handlers.task_support
+                if server._experimental_handlers
+                else None
+            )
+            if task_support is not None:
+                task_support.configure_session(session)
+                await stack.enter_async_context(task_support.run())
+
+            async with anyio.create_task_group() as tg:
+                try:
+                    async for message in session.incoming_messages:
+                        logger.debug("Received message: %s", message)
+                        tg.start_soon(
+                            server._handle_message,
+                            message,
+                            session,
+                            lifespan_context,
+                            raise_exceptions,
+                        )
+                finally:
+                    tg.cancel_scope.cancel()
+
+    # Stash the original on the instance so tests can introspect / restore.
+    server._agent_brain_original_run = original_run  # type: ignore[attr-defined]
+    server.run = _run  # type: ignore[method-assign]
 
 
 async def run_stdio(server: Server, subscription_manager: SubscriptionManager) -> None:

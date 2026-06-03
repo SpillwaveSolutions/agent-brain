@@ -399,6 +399,15 @@ async def run_http(
 # ``Any`` annotation here is a no-op — the real names are visible
 # above. Kept so ``from agent_brain_mcp.http import *`` advertises
 # the public surface deterministically.
+# Phase 53 Plan 03: alias ``_probe_port_available`` as a public name so
+# the CLI (which hoists the probe earlier to dodge ``BackendUnavailable``
+# masking real misconfigurations) doesn't import the underscore-prefixed
+# name. The Plan 02 implementation keeps the leading-underscore name
+# in this module for in-process callers; this alias is the cross-module
+# public surface.
+probe_port_available = _probe_port_available
+
+
 __all__: list[str] = [
     "ALLOWED_LOOPBACK_HOSTS",
     "HEALTHZ_PATH",
@@ -408,6 +417,7 @@ __all__: list[str] = [
     "build_asgi_app",
     "build_uvicorn_server",
     "loopback_transport_security",
+    "probe_port_available",
     "run_http",
     "validate_loopback_host",
 ]
