@@ -1,10 +1,12 @@
 """Phase 4 / Phase 54 test: ``tools/list`` advertises the expected tool set.
 
-Phase 54 Plan 02 bumps the registry from 7 (v1) to 11 (v1 + 4 read-only
-v2 tools). Plan 03 will bump to 15, Plan 04 to 16 — the assertions in
-this module use ``>= 11`` and superset semantics so they keep passing
-across the staged plan landings without per-plan churn. The final exact
-count assertion (== 16) lives in Phase 55's contract-test suite.
+Phase 54 Plan 02 bumped the registry from 7 (v1) to 11 (v1 + 4 read-only
+v2 tools). Plan 03 bumps to 15 (adds add_documents, inject_documents,
+remove_folder, clear_cache). Plan 04 → 16 (wait_for_job). The
+assertions in this module use ``>= 15`` and superset semantics so they
+keep passing across the staged plan landings without per-plan churn.
+The final exact count assertion (== 16) lives in Phase 55's contract-
+test suite.
 """
 
 from __future__ import annotations
@@ -34,23 +36,32 @@ PHASE_54_READ_ONLY_TOOLS = {
     "list_file_types",
 }
 
-# Superset of v1 + Plan 02 — every entry below MUST be advertised after
-# Plan 02 lands. Plans 03 / 04 add more (remove_folder, clear_cache,
-# add_documents, inject_documents, wait_for_job) on top of this floor.
-EXPECTED_TOOLS = V1_TOOLS | PHASE_54_READ_ONLY_TOOLS
+# Phase 54 Plan 03 mutating additions.
+PHASE_54_MUTATING_TOOLS = {
+    "add_documents",
+    "inject_documents",
+    "remove_folder",
+    "clear_cache",
+}
+
+# Superset of v1 + Plan 02 + Plan 03 — every entry below MUST be
+# advertised after Plan 03 lands. Plan 04 adds ``wait_for_job`` on top
+# of this floor.
+EXPECTED_TOOLS = V1_TOOLS | PHASE_54_READ_ONLY_TOOLS | PHASE_54_MUTATING_TOOLS
 
 
 class TestToolsList:
-    def test_registry_has_at_least_eleven_tools(self) -> None:
-        # Phase 54 Plan 02 → 11 tools (7 v1 + 4 read-only v2). Plan 03 → 15,
-        # Plan 04 → 16. The ``>= 11`` assertion is forward-compatible.
-        assert len(TOOL_REGISTRY) >= 11
-        # Every v1 tool + every Plan 02 tool MUST be registered. Plan 03/
+    def test_registry_has_at_least_fifteen_tools(self) -> None:
+        # Phase 54 Plan 03 → 15 tools (7 v1 + 4 read-only + 4 mutating).
+        # Plan 04 → 16 (adds wait_for_job). The ``>= 15`` assertion is
+        # forward-compatible.
+        assert len(TOOL_REGISTRY) >= 15
+        # Every v1 tool + every Plan 02/03 tool MUST be registered. Plan
         # 04 additions are allowed but not required here.
         assert EXPECTED_TOOLS.issubset(set(TOOL_REGISTRY.keys()))
 
     @pytest.mark.asyncio
-    async def test_list_tools_handler_returns_at_least_eleven(
+    async def test_list_tools_handler_returns_at_least_fifteen(
         self, fake_httpx_client: httpx.Client
     ) -> None:
         server, _ = build_server(fake_httpx_client)
@@ -61,7 +72,7 @@ class TestToolsList:
         req = types.ListToolsRequest(method="tools/list")
         result = await handler(req)
         tools = result.root.tools
-        assert len(tools) >= 11
+        assert len(tools) >= 15
         assert EXPECTED_TOOLS.issubset({t.name for t in tools})
 
     @pytest.mark.asyncio

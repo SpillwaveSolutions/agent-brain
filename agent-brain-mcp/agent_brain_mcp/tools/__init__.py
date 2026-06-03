@@ -260,7 +260,8 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         description=(
             "Remove all indexed chunks for a folder. Requires confirm=true. "
             "Removing a folder while an indexing job is active for it will "
-            "fail with INVALID_PARAMS — cancel the job first."
+            "fail with a BackendConflict error (HTTP 409 surfaced as "
+            "MCP code -32000) — cancel the job first."
         ),
         handler=handle_remove_folder,
         input_model=RemoveFolderInput,
