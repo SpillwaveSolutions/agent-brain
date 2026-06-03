@@ -4,13 +4,13 @@ milestone: v10.2
 milestone_name: MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
 current_phase: 51
 status: executing
-stopped_at: "Plan 51-01 complete (job:// dispatcher shipped) — resume at Plan 51-02 (chunk:// + graph-entity://)"
-last_updated: "2026-06-03T05:22:19Z"
+stopped_at: "Plan 51-02 complete (chunk:// + graph-entity:// shipped) — resume at Plan 51-03 (file://) or Plan 51-04 (templates/list); Plan 03 running in parallel"
+last_updated: "2026-06-03T05:37:34Z"
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 24
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Agent Brain — Project State
@@ -23,7 +23,7 @@ progress:
 ## Current Position
 
 Phase: 51 (uri-schemes-templates) — EXECUTING
-Plan: 2 of 4 (Plan 51-01 shipped 2026-06-03)
+Plan: 3 of 4 (Plans 51-01 + 51-02 shipped 2026-06-03; Plan 51-03 file:// in parallel)
 
 ## Project Reference
 
@@ -49,7 +49,7 @@ v9.6.0 Runtime Parity:       [██▌       ]  25% (1/4 phases — parked, def
 v10.0.0–v10.0.6 Patch Train: [██████████] 100% (shipped 2026-05-25 → 2026-05-27)
 v10.1.0 MCP v1:              [██████████] 100% (shipped 2026-05-30; UDS + 7-tool stdio MCP + CLI dual transport)
 v10.1.2 MCP package rename:  [██████████] 100% (shipped 2026-06-01; agent-brain-mcp PyPI distribution + standalone user guide)
-v10.2 MCP v2:                [█▌        ]  17% (Phase 50 complete — 4/24 plans · VERIFICATION passed)
+v10.2 MCP v2:                [██▌       ]  25% (Phase 50 + Plans 51-01/02 complete — 6/24 plans)
 ```
 
 ## v10.2 Phase Progress
@@ -57,7 +57,7 @@ v10.2 MCP v2:                [█▌        ]  17% (Phase 50 complete — 4/24 p
 | Phase | Status | Requirements | Plans |
 |-------|--------|--------------|-------|
 | 50. Server endpoint prep + v2 design doc | ✓ Complete (2026-06-03) | VAL-05 ✓ | 4/4 |
-| 51. URI schemes + templates | In progress (Plan 01 shipped 2026-06-03) | URI-03 ✓ · URI-01/02/04/05 pending | 1/4 |
+| 51. URI schemes + templates | In progress (Plans 01+02 shipped 2026-06-03) | URI-01 ✓ · URI-02 ✓ · URI-03 ✓ · URI-04/05 pending | 2/4 |
 | 52. Resource subscriptions | Planned, not started | SUB-01, SUB-02, SUB-03, SUB-04, SUB-05 | 0/4 |
 | 53. Streamable HTTP transport | Planned, not started | HTTP-01, HTTP-02, HTTP-03 | 0/3 |
 | 54. 9 remaining MCP tools | Planned, not started | TOOL-01..TOOL-09 | 0/4 |
@@ -99,6 +99,8 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 - **Decision (2026-06-01):** Pivot away from MCP-is-out-of-scope stance recorded in PROJECT.md v9.6.0 era. MCP is now the active investment direction; that out-of-scope line has been removed.
 - **Decision (2026-06-02):** v2 design doc (VAL-05) lands in Phase 50, *before* MCP-layer implementation, so reviewers can challenge the subscription/transport approach before code lands.
 - **Decision (2026-06-03, Plan 51-01):** Parameterized URI dispatcher in `agent_brain_mcp/resources/parameterized.py` uses a *single* `ParsedURI` dataclass (all per-scheme fields optional, only the relevant ones populated) and a *closed* `PARAMETERIZED_SCHEMES` frozenset with NotImplementedError-raising placeholders for `chunk`/`graph-entity`/`file`. Plans 51-02 and 51-03 swap the placeholder values in `PARAMETERIZED_HANDLERS` without touching the dispatcher or the registry shape. Error-data shapes for malformed-URI (`{uri, reason}`) vs backend-404 (`{scheme, <id>, httpStatus, cause}`) are intentionally different — see module docstring.
+- **Decision (2026-06-03, Plan 51-02):** Per-scheme error refinement preserves the *original* `McpError.code` and only enriches `data`. For `graph-entity` 503 responses, the handler additionally extracts a `reason` slug (`graphrag_disabled` or `kuzu_unavailable`) from the Phase 50 server's detail body via a forgiving substring scan against a closed reason set — operators (and MCP clients) can route on `data.reason` without re-parsing `data.cause`. This handles the #178 Kuzu SIGSEGV fallback transparently across the MCP boundary.
+- **Decision (2026-06-03, Plan 51-02):** `graph-entity://` URI parser allows entity ids containing `/` (e.g., `graph-entity://Function/AuthService/login` → entity_id=`AuthService/login`). Phase 50 decision B explicitly permits hierarchical ids; the parser treats `raw_path.lstrip("/").rstrip("/")` as the FULL id including inner slashes. Phase 50's FastAPI path-style `{entity_id}` route honors this verbatim.
 
 ### Blockers/Concerns
 
@@ -120,10 +122,10 @@ Feature backlog (#152, #154, #155, #156, #157, #158, #160, #162, #163, #164) and
 
 ## Session Continuity
 
-**Last Session:** 2026-06-03T05:22:19Z
-**Stopped At:** Plan 51-01 complete (job:// dispatcher + parameterized handler infrastructure shipped; 21 new tests; 4 commits 4bc2901..b84890c; all four MCP quality gates green + task before-push exit 0)
-**Resume File:** `.planning/phases/51-uri-schemes-templates/plans/02-chunk-and-graph-entity-uris.md`
-**Next Action:** `/gsd:execute-plan 51 02` — execute Plan 51-02 (chunk:// + graph-entity:// handlers, swap NotImplementedError placeholders in PARAMETERIZED_HANDLERS, add ApiClient.get_chunk + get_graph_entity methods)
+**Last Session:** 2026-06-03T05:37:34Z
+**Stopped At:** Plan 51-02 complete (chunk:// + graph-entity:// handlers shipped; 17 new tests — 3 chunk e2e + 8 graph-entity e2e + 6 parse_uri unit; 3 commits 63c5623, 5727709, e48edc6; Plan 51-03 file:// in parallel; mypy + pytest green on Plan 02 surface; ruff F401 and black diffs remaining belong to Plan 03's in-flight changes)
+**Resume File:** `.planning/phases/51-uri-schemes-templates/plans/03-file-uri-handler.md` (Plan 03 in flight) or `04-resources-templates-list.md` (after Plan 03)
+**Next Action:** `/gsd:execute-plan 51 04` (or wait for Plan 03 finish) — execute Plan 51-04 (resources/templates/list advertising all 4 schemes + MIN_BACKEND_VERSION bump to 10.2.0)
 
 ## Recommended Execution Order
 
@@ -137,4 +139,4 @@ Per workflow summarizer (verified ready_to_execute: true):
 6. **Phase 55** — Validation + QA gate (validates Phases 50-54; must be last; verification-only, no new production code)
 
 ---
-*State updated: 2026-06-03 — Plan 51-01 shipped (parameterized URI dispatcher + job:// handler); Phase 51 1/4 plans complete; URI-03 closed*
+*State updated: 2026-06-03 — Plans 51-01 + 51-02 shipped (URI dispatcher + job:// + chunk:// + graph-entity:// handlers); Phase 51 2/4 plans complete; URI-01, URI-02, URI-03 all closed; Plan 51-03 file:// in parallel*
