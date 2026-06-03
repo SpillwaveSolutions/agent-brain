@@ -4,6 +4,11 @@ Phase 52 (Plan 01) greenfield package. Owns per-session subscription
 state, polling tasks, canonical payload hashing for diff-suppression,
 and the ``SubscribableUriRejected`` error type.
 
+Plan 02 adds the per-URI policy registry — :class:`SubscriptionPolicy`
++ :data:`SUBSCRIPTION_POLICIES` (empty until Plan 03 populates) +
+:func:`resolve_policy` (exact-then-scheme lookup helper used by the
+``@server.subscribe_resource()`` wire handler).
+
 Public API (Plans 02/03/04 + Phase 54 TOOL-04 ``wait_for_job`` reuse):
 
 * :class:`SubscriptionManager` — per-server-process subscription
@@ -15,20 +20,36 @@ Public API (Plans 02/03/04 + Phase 54 TOOL-04 ``wait_for_job`` reuse):
 * :class:`SubscribableUriRejected` — MCP error raised by Plan 02's
   ``@server.subscribe_resource()`` handler when a URI is unknown
   or outside the subscribable allowlist.
+* :class:`SubscriptionPolicy` — Protocol for per-URI cadence + fetcher
+  factory (Plan 03 will land concrete implementations).
+* :data:`SUBSCRIPTION_POLICIES` — registry of per-URI policies, empty
+  in Plan 02; Plan 03 populates.
+* :func:`resolve_policy` — exact-then-scheme lookup helper.
 
-No MCP wire integration lives here — Plan 02 wires the SDK
-decorators and the ``ServerSession.send_resource_updated`` call.
+The MCP wire integration in :mod:`agent_brain_mcp.server` consumes these
+symbols; this package owns the data structures and dispatch helpers but
+does NOT import the MCP SDK directly outside of :mod:`.errors`.
 """
 
 from .errors import SubscribableUriRejected
 from .manager import Fetcher, OnChange, SubscriptionManager
 from .payloads import DEFAULT_DROP_KEYS, canonical_hash
+from .policies import (
+    SUBSCRIPTION_POLICIES,
+    PolicyFetcherFactory,
+    SubscriptionPolicy,
+    resolve_policy,
+)
 
 __all__ = [
     "DEFAULT_DROP_KEYS",
     "Fetcher",
     "OnChange",
+    "PolicyFetcherFactory",
+    "SUBSCRIPTION_POLICIES",
     "SubscribableUriRejected",
     "SubscriptionManager",
+    "SubscriptionPolicy",
     "canonical_hash",
+    "resolve_policy",
 ]

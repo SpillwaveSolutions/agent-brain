@@ -1,12 +1,20 @@
 """MCP stdio server — wires the registries into the low-level Server.
 
-Capabilities advertised (plan §6.1):
-  tools.listChanged   = False
-  resources.subscribe = False
+Capabilities advertised:
+  tools.listChanged     = False
+  resources.subscribe   = True   (Phase 52 — flipped from False)
   resources.listChanged = False
-  prompts.listChanged = False
+  prompts.listChanged   = False
 
-No sampling / elicitation / logging / completions / subscriptions in v1.
+Phase 52 wires the ``resources/subscribe`` + ``resources/unsubscribe``
+handlers and a per-session :class:`SubscriptionManager` instance attached
+to the server as a private attribute (``server._subscription_manager``).
+Plan 04 will refactor :func:`build_server` to return a tuple
+``(server, manager)`` so :func:`run_stdio` can call
+``manager.cleanup_all()`` on session disconnect without reaching into
+the private attribute.
+
+No sampling / elicitation / logging / completions in v2.
 """
 
 from __future__ import annotations
@@ -37,7 +45,13 @@ from .resources import (
     TEMPLATE_REGISTRY,
     parse_uri,
 )
+from .resources.parameterized import PARAMETERIZED_SCHEMES
 from .schemas import json_schema
+from .subscriptions import (
+    SubscribableUriRejected,
+    SubscriptionManager,
+    resolve_policy,
+)
 from .tools import TOOL_REGISTRY
 
 logger = logging.getLogger(__name__)
@@ -98,9 +112,84 @@ def check_backend_version(
         )
 
 
+def _normalize_uri(uri: AnyUrl | str) -> str:
+    """Apply the Phase 51 trailing-slash strip used by ``read_resource``.
+
+    Strips at most a single trailing ``/`` so ``job://abc/`` collapses
+    to ``job://abc`` without mangling empty-netloc URIs like ``job://``
+    (which we want to surface verbatim for the malformed-URI error path).
+    Mirrors the inline normalization at ``read_resource`` above so the
+    subscribe handler keys against the same canonical URI string as
+    ``RESOURCE_REGISTRY`` / ``PARAMETERIZED_SCHEMES``.
+    """
+    raw = str(uri)
+    return raw[:-1] if raw.endswith("/") and not raw.endswith("//") else raw
+
+
+def _is_known_uri(uri_str: str) -> bool:
+    """Return True if ``uri_str`` corresponds to a known resource.
+
+    Two ways a URI can be "known":
+
+    1. **Exact string match** in ``RESOURCE_REGISTRY`` — the static
+       ``corpus://*`` URIs (5 entries).
+    2. **Parameterized scheme** in ``PARAMETERIZED_SCHEMES`` — the four
+       templated schemes (``chunk``, ``graph-entity``, ``job``,
+       ``file``). For subscription purposes we only check that the URI's
+       scheme is recognized; per-id validation (does ``job://abc`` exist
+       in the backend?) is deferred to the polling fetcher in Plan 03.
+
+    The "scheme is recognized" check is intentionally NOT a full
+    ``parse_uri`` invocation. ``parse_uri`` raises for malformed
+    parameterized URIs (e.g., ``job://`` with no id), but for the
+    subscribe handler we want the *not_subscribable* / *unknown_uri*
+    branches to win over *missing_job_id*. A malformed parameterized
+    URI is still "known scheme" → falls through to the policy lookup
+    → ``not_subscribable`` if no policy matches the empty id.
+    """
+    if uri_str in RESOURCE_REGISTRY:
+        return True
+    # Cheap scheme extraction — same shape as resolve_policy in
+    # :mod:`subscriptions.policies` but here we check membership in the
+    # broader PARAMETERIZED_SCHEMES set (any of the 4 templated schemes
+    # is considered "known", even if no subscription policy is
+    # registered for it).
+    sep = uri_str.find("://")
+    if sep == -1:
+        return False
+    scheme = uri_str[:sep]
+    return scheme in PARAMETERIZED_SCHEMES
+
+
 def build_server(httpx_client: httpx.Client, *, transport: str = "http") -> Server:
-    """Construct and configure the low-level MCP ``Server`` instance."""
+    """Construct and configure the low-level MCP ``Server`` instance.
+
+    Phase 52 owns subscription wiring:
+
+    * Constructs a :class:`SubscriptionManager` instance per server.
+    * Registers ``@server.subscribe_resource()`` / ``@server.unsubscribe_resource()``
+      handlers that gate URIs against the subscribable allowlist defined
+      in :mod:`agent_brain_mcp.subscriptions.policies`.
+    * Patches ``server.get_capabilities`` so the SDK's hardcoded
+      ``subscribe=False`` is flipped to ``True`` whenever Phase 52's
+      handler is present. The MCP SDK (mcp 1.12.x, spec 2025-03-26)
+      hardcodes the capability at ``mcp/server/lowlevel/server.py:211``
+      with no opt-in flag on :class:`NotificationOptions`; a wrapper is
+      the surgical fix until upstream exposes a knob.
+
+    Manager ownership: the manager is attached as the private attribute
+    ``server._subscription_manager``. Plan 04 will refactor this to a
+    tuple return so ``run_stdio`` can call ``manager.cleanup_all()`` on
+    disconnect without poking the private attr. Documented as a known
+    short-term shape — see Plan 02 docstring + Plan 04 plan.
+    """
     server: Server = Server(SERVER_NAME, version=__version__)
+
+    # Phase 52 (Plan 02): one SubscriptionManager per server. Stored as a
+    # private attr so Plan 04's run_stdio cleanup hook can reach it
+    # without changing build_server's return type mid-milestone.
+    subscription_manager = SubscriptionManager()
+    server._subscription_manager = subscription_manager  # type: ignore[attr-defined]
 
     @server.list_tools()
     async def list_tools() -> list[types.Tool]:
@@ -290,6 +379,138 @@ def build_server(httpx_client: httpx.Client, *, transport: str = "http") -> Serv
         ]
         return types.GetPromptResult(description=spec.description, messages=messages)
 
+    @server.subscribe_resource()
+    async def handle_subscribe(uri: AnyUrl) -> None:
+        """Validate + dispatch ``resources/subscribe`` to the polling manager.
+
+        Pipeline (Plan 02 acceptance criteria):
+
+        1. Normalize URI (strip single trailing slash — Phase 51 shape).
+        2. Reject if URI is neither a known static ``corpus://*`` entry
+           nor a recognized parameterized scheme:
+           ``SubscribableUriRejected(reason="unknown_uri")``.
+        3. Reject if no policy matches the URI (exact then scheme-prefix
+           lookup): ``SubscribableUriRejected(reason="not_subscribable")``.
+        4. Get the owning ``ServerSession`` via
+           ``server.request_context.session``.
+        5. Reject if this ``(session, uri)`` pair already has an active
+           subscription: ``SubscribableUriRejected(reason="duplicate_subscribe")``.
+           This pre-checks ``manager.is_subscribed`` so the bare
+           :class:`RuntimeError` from ``start_polling`` never surfaces
+           as a generic internal error on the MCP wire.
+        6. Build the fetcher closure from
+           ``policy.build_fetcher(api_client, uri)`` and the on-change
+           closure that calls
+           ``session.send_resource_updated(AnyUrl(uri))``.
+        7. Hand off to ``manager.start_polling(...)``.
+
+        Subscribable allowlist (Phase 52 CONTEXT decision A):
+            ``job://<id>``, ``corpus://status``, ``corpus://folders``.
+        Anything else fails at step 3, even if it's a valid
+        ``read_resource`` target (``chunk://``, ``graph-entity://``,
+        ``file://``, ``corpus://config``, etc.).
+        """
+        uri_str = _normalize_uri(uri)
+
+        # (2) Is the URI even known to this server?
+        if not _is_known_uri(uri_str):
+            raise SubscribableUriRejected(uri_str, reason="unknown_uri")
+
+        # (3) Is a subscription policy registered? Plan 03 populates the
+        # registry; under Plan 02 alone the registry is empty so every
+        # subscribe attempt returns ``not_subscribable``. Tests use
+        # ``monkeypatch.setitem`` to install a stub policy.
+        policy = resolve_policy(uri_str)
+        if policy is None:
+            raise SubscribableUriRejected(uri_str, reason="not_subscribable")
+
+        # (4) Capture the owning session. ``request_context`` raises
+        # ``LookupError`` if we're somehow invoked outside a request —
+        # the SDK guarantees we are, so let it propagate (it would be a
+        # framework-level bug).
+        session = server.request_context.session
+
+        # (5) Duplicate-subscribe check. CONTEXT decision A picks strict
+        # rejection so the polling-task lifecycle stays deterministic.
+        if subscription_manager.is_subscribed(session, uri_str):
+            raise SubscribableUriRejected(uri_str, reason="duplicate_subscribe")
+
+        # (6) Build the on-change closure that fires
+        # ``notifications/resources/updated`` on the OWNING session only
+        # (Phase 52 CONTEXT decision A — per-session, not per-URI).
+        api_client = ApiClient(httpx_client)
+        fetcher = policy.build_fetcher(api_client, uri_str)
+        sid_slug = f"{id(session):x}"[-8:]
+
+        async def on_change(changed_uri: str, _payload: dict[str, Any]) -> None:
+            logger.info(
+                "send_resource_updated session=%s uri=%s", sid_slug, changed_uri
+            )
+            await session.send_resource_updated(AnyUrl(changed_uri))
+
+        # (7) Hand off to the manager. ``start_polling`` registers the
+        # task synchronously so a follow-up ``unsubscribe`` on the next
+        # line cancels it cleanly (Plan 01 race-safety contract).
+        subscription_manager.start_polling(
+            session=session,
+            uri=uri_str,
+            interval_s=policy.interval_s,
+            fetcher=fetcher,
+            on_change=on_change,
+            drop_keys=policy.drop_keys,
+        )
+
+    @server.unsubscribe_resource()
+    async def handle_unsubscribe(uri: AnyUrl) -> None:
+        """Tear down the polling task for ``resources/unsubscribe``.
+
+        Per the MCP spec, ``resources/unsubscribe`` for a URI the client
+        never subscribed to is a no-op (the SDK still acks with
+        ``EmptyResult``). We follow that semantic — ``manager.unsubscribe``
+        returns a bool flagging "was a task actually cancelled?" but we
+        intentionally ignore the return value here. The acknowledgement
+        is sent regardless.
+
+        Normalization mirrors the subscribe path so a client that uses
+        a trailing-slash variant in unsubscribe still matches whatever
+        it subscribed to.
+        """
+        uri_str = _normalize_uri(uri)
+        # Tolerated no-op if no subscription existed — MCP spec lets
+        # clients send unsubscribe for URIs they never subscribed to.
+        subscription_manager.unsubscribe(server.request_context.session, uri_str)
+
+    # Phase 52 capability flip. The MCP SDK 1.12.x hardcodes
+    # ``subscribe=False`` at ``mcp/server/lowlevel/server.py:211``,
+    # ignoring both ``NotificationOptions`` and ``_subscribe_resource_handler``
+    # presence (verified at Plan 02 land time). We wrap ``get_capabilities``
+    # so the cap is flipped to ``True`` whenever Phase 52's handler is
+    # registered, which is always-true after this build_server() runs.
+    #
+    # Why a wrapper and not a monkeypatched return: the SDK's
+    # ``create_initialization_options`` calls ``self.get_capabilities``;
+    # patching the bound method is the minimal-touch path. Plan 04 keeps
+    # this — there's no upstream SDK fix yet (see issue tracker note in
+    # the v2 design doc).
+    _original_get_capabilities = server.get_capabilities
+
+    def _patched_get_capabilities(
+        notification_options: NotificationOptions,
+        experimental_capabilities: dict[str, dict[str, Any]],
+    ) -> types.ServerCapabilities:
+        caps = _original_get_capabilities(
+            notification_options, experimental_capabilities
+        )
+        if caps.resources is not None:
+            # Pydantic ServerCapabilities is mutable; flipping the field
+            # in place is the simplest path. ``resources.subscribe`` is
+            # the only knob Phase 52 cares about — ``listChanged`` stays
+            # whatever ``notification_options.resources_changed`` says.
+            caps.resources.subscribe = True
+        return caps
+
+    server.get_capabilities = _patched_get_capabilities  # type: ignore[method-assign]
+
     server._agent_brain_transport = transport  # type: ignore[attr-defined]
     return server
 
@@ -330,7 +551,14 @@ def _summarize(tool_name: str, structured: dict[str, Any]) -> str:
 
 
 async def run_stdio(server: Server) -> None:
-    """Run the MCP server over stdio until the client disconnects."""
+    """Run the MCP server over stdio until the client disconnects.
+
+    Phase 52: the ``capabilities`` blob now advertises
+    ``resources.subscribe: true`` (flipped by the wrapper in
+    :func:`build_server`). Plan 04 will add a ``try/finally`` here to
+    call ``server._subscription_manager.cleanup_all()`` on EOF so no
+    polling task survives a client disconnect.
+    """
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,
@@ -347,8 +575,9 @@ async def run_stdio(server: Server) -> None:
                     experimental_capabilities={},
                 ),
                 instructions=(
-                    "Agent Brain MCP v1 — 7 tools, 5 resources, 6 prompts, "
-                    "stdio. Read-only resources (no subscriptions in v1)."
+                    "Agent Brain MCP v2 — 7 tools, 5 resources, 6 prompts, "
+                    "stdio. Resources support subscribe/unsubscribe; "
+                    "per-URI policies land in a follow-up plan."
                 ),
             ),
         )
