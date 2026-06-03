@@ -950,10 +950,23 @@ class GraphStoreManager:
         incoming: list[GraphEntityRecordNeighbor] = []
         outgoing: list[GraphEntityRecordNeighbor] = []
         # Backends differ in how they identify nodes inside triplets:
-        # SimplePropertyGraphStore sets source_id == name; KuzuPropertyGraphStore
-        # may use the id field. Match against the union of both so direction
-        # detection works on either backend.
+        # - SimplePropertyGraphStore sets ``Relation.source_id`` /
+        #   ``target_id`` to the node ``name`` correctly, so we can route
+        #   direction off ``source_id``.
+        # - KuzuPropertyGraphStore (as of llama-index-graph-stores-kuzu
+        #   0.9.x) returns only outgoing edges from ``get_triplets`` and
+        #   sets BOTH source_id and target_id to the target's name. We
+        #   can't trust the relation's id fields on Kuzu, so we fall back
+        #   to positional matching: subject_node (item [0]) is always the
+        #   "from" side of the edge, object_node (item [2]) is always the
+        #   "to" side. ``get_rel_map`` would be more reliable but Kuzu
+        #   exhibits the same quirk there.
         target_match = {node_id, entity_id, getattr(node, "name", entity_id)}
+        # ``get_rel_map`` returns both directions on SimplePropertyGraphStore
+        # but on Kuzu may return outgoing-only. We always call both and
+        # de-dupe by (source_name, predicate, target_name) so we don't
+        # double-count when the source/target ids are unreliable.
+        seen: set[tuple[str, str, str, str]] = set()
         for triplet in triplets or []:
             try:
                 subject_node, relation, object_node = triplet
@@ -970,31 +983,142 @@ class GraphStoreManager:
             source_id = getattr(relation, "source_id", None)
             target_id = getattr(relation, "target_id", None)
             predicate = getattr(relation, "label", "") or ""
+            subj_id = _id_of(subject_node)
+            obj_id = _id_of(object_node)
 
-            if source_id in target_match:
-                # Outgoing edge: target entity points at object_node.
+            dedupe_key = (subj_id, predicate, obj_id, "fwd")
+            if dedupe_key in seen:
+                continue
+
+            # Direction detection. Prefer Relation.source_id/target_id when
+            # they match the target (SimplePropertyGraphStore path); fall
+            # back to positional matching against the subject/object node
+            # ids (Kuzu path).
+            if source_id in target_match and target_id not in target_match:
+                # Outgoing edge.
                 outgoing.append(
                     GraphEntityRecordNeighbor(
                         type=_label_of(object_node),
-                        id=_id_of(object_node),
+                        id=obj_id,
                         predicate=predicate,
                         properties=relation_props,
                     )
                 )
-            elif target_id in target_match:
-                # Incoming edge: subject_node points at target entity.
+                seen.add(dedupe_key)
+            elif target_id in target_match and source_id not in target_match:
+                # Incoming edge.
                 incoming.append(
                     GraphEntityRecordNeighbor(
                         type=_label_of(subject_node),
-                        id=_id_of(subject_node),
+                        id=subj_id,
                         predicate=predicate,
                         properties=relation_props,
                     )
                 )
+                seen.add(dedupe_key)
             else:
-                # Triplet doesn't actually touch the target entity — likely
-                # a backend quirk (e.g. Kuzu returning extra rows). Skip.
-                continue
+                # Either both ids match the target (Kuzu quirk: both equal
+                # the target name) or neither does. Use positional info.
+                if subj_id in target_match and obj_id not in target_match:
+                    outgoing.append(
+                        GraphEntityRecordNeighbor(
+                            type=_label_of(object_node),
+                            id=obj_id,
+                            predicate=predicate,
+                            properties=relation_props,
+                        )
+                    )
+                    seen.add(dedupe_key)
+                elif obj_id in target_match and subj_id not in target_match:
+                    incoming.append(
+                        GraphEntityRecordNeighbor(
+                            type=_label_of(subject_node),
+                            id=subj_id,
+                            predicate=predicate,
+                            properties=relation_props,
+                        )
+                    )
+                    seen.add(dedupe_key)
+                # else: triplet doesn't reference the target at all (e.g.
+                # Kuzu returning rows from an unrelated edge) — skip.
+
+        # Backend-specific fallback for Kuzu: ``get_triplets`` and
+        # ``get_rel_map`` both return outgoing-only on the current
+        # ``llama-index-graph-stores-kuzu`` (0.9.x) version, so incoming
+        # neighbors stay invisible if we stop here. Drop down to direct
+        # Cypher to fetch incoming edges. The Kuzu schema collapses every
+        # relationship into a single ``LINKS`` table with the real
+        # predicate stored as the relation's ``label`` property.
+        if self.store_type == "kuzu":
+            kuzu_db = getattr(self, "_kuzu_db", None)
+            if kuzu_db is not None:
+                try:
+                    import kuzu as _kuzu_module
+
+                    conn = _kuzu_module.Connection(kuzu_db)
+                    # NOTE: parameterized to dodge Cypher injection — id is
+                    # untrusted (came from a URL path component).
+                    # ``r`` returns the whole relation as a dict in Kuzu
+                    # (``properties(r)`` is not supported on REL).
+                    raw_result = conn.execute(
+                        "MATCH (n)-[r]->(m {id: $tid}) "
+                        "RETURN n.id, n.label, n.name, r",
+                        {"tid": entity_id},
+                    )
+                except (IndexError, RuntimeError, OSError) as exc:
+                    raise KuzuUnavailableError(
+                        f"Kuzu graph store raised during Cypher lookup: "
+                        f"{exc}. Operator workaround: "
+                        "set graphrag.store_type=simple."
+                    ) from exc
+
+                # ``execute`` returns ``QueryResult`` for single statements
+                # and a list for multi-statement queries. We never run
+                # multi-statement here, so the list path is defensive.
+                result_iterable: Any = (
+                    raw_result[0] if isinstance(raw_result, list) else raw_result
+                )
+                while result_iterable.has_next():
+                    try:
+                        row = result_iterable.get_next()
+                    except (IndexError, RuntimeError, OSError) as exc:
+                        raise KuzuUnavailableError(
+                            f"Kuzu raised while iterating Cypher result: "
+                            f"{exc}. Operator workaround: "
+                            "set graphrag.store_type=simple."
+                        ) from exc
+                    if not row or len(row) < 4:
+                        continue
+                    n_id = row[0]
+                    n_label = row[1]
+                    n_name = row[2]
+                    raw_rel_props = row[3]
+                    rel_props: dict[str, Any] = (
+                        raw_rel_props if isinstance(raw_rel_props, dict) else {}
+                    )
+                    predicate = str(rel_props.get("label", "")) or ""
+                    # Don't surface internal-only Kuzu fields.
+                    surfaced_props: dict[str, Any] = {
+                        k: v
+                        for k, v in rel_props.items()
+                        if k not in {"label", "_src", "_dst", "_id", "_label"}
+                        and v is not None
+                    }
+                    neighbor_id = str(n_id or n_name or "")
+                    if not neighbor_id or neighbor_id == entity_id:
+                        continue
+                    key = (neighbor_id, predicate, entity_id, "fwd")
+                    if key in seen:
+                        continue
+                    incoming.append(
+                        GraphEntityRecordNeighbor(
+                            type=str(n_label) if n_label else "Entity",
+                            id=neighbor_id,
+                            predicate=predicate,
+                            properties=surfaced_props,
+                        )
+                    )
+                    seen.add(key)
 
         return GraphEntityRecord(
             entity=GraphEntityRecordNode(
