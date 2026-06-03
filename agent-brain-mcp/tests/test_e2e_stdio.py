@@ -153,7 +153,11 @@ async def test_initialize_lists_tools_resources_prompts(
             assert init_result.serverInfo.name == "agent-brain"
 
             tools = await session.list_tools()
-            assert len(tools.tools) == 7
+            # Phase 54 Plan 04 brings the registry to its final v2 count
+            # of 16 (7 v1 + 9 Phase 54 tools). This e2e asserts the live
+            # ``tools/list`` wire shape matches that count — the
+            # tools/list registry pin lives in ``tests/test_tools_list.py``.
+            assert len(tools.tools) == 16
 
             resources = await session.list_resources()
             assert len(resources.resources) == 5
