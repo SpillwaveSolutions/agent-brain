@@ -29,7 +29,7 @@ import logging
 import warnings
 from collections.abc import Iterable
 from contextlib import AsyncExitStack
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import anyio
 import httpx
@@ -64,6 +64,13 @@ from .subscriptions import (
     resolve_policy,
 )
 from .tools import TOOL_REGISTRY
+
+if TYPE_CHECKING:
+    # Phase 54 Plan 04: type-only import. ``ProgressNotifier`` is the
+    # async closure shape that progress-emitting tool handlers consume;
+    # imported here purely for the forward-reference in
+    # :func:`_build_progress_notifier`'s return type annotation.
+    from .tools.wait import ProgressNotifier  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -287,11 +294,25 @@ def build_server(
             ) from e
 
         api = ApiClient(httpx_client)
-        # Run the sync handler in a thread so the asyncio event loop stays
-        # responsive (plan §6.4 / §12.3 #12). A blocking httpx call inline
-        # in an async def would freeze stdio and defeat MCP
-        # ``notifications/cancelled``.
-        result = await asyncio.to_thread(spec.handler, api, args)
+        if spec.emits_progress:
+            # Phase 54 Plan 04 — async dispatch for progress-emitting
+            # tools. The handler is an ``async def`` with signature
+            # ``(api, args, *, notify) -> output``; ``notify`` is a
+            # closure that wraps the SDK's
+            # ``ServerSession.send_progress_notification``, baking in
+            # the ``progressToken`` from the request meta and the
+            # ``related_request_id``. If the client did NOT attach a
+            # ``progressToken`` (progress notifications are opt-in per
+            # MCP spec), the closure becomes a no-op so the handler's
+            # control flow stays uniform.
+            notify = _build_progress_notifier(server)
+            result = await spec.handler(api, args, notify=notify)
+        else:
+            # Run the sync handler in a thread so the asyncio event loop
+            # stays responsive (plan §6.4 / §12.3 #12). A blocking httpx
+            # call inline in an async def would freeze stdio and defeat
+            # MCP ``notifications/cancelled``.
+            result = await asyncio.to_thread(spec.handler, api, args)
         structured = result.model_dump(mode="json", exclude_none=False)
         text_summary = _summarize(name, structured)
         return ([types.TextContent(type="text", text=text_summary)], structured)
@@ -681,7 +702,92 @@ def _summarize(tool_name: str, structured: dict[str, Any]) -> str:
             f"remove_folder → {structured.get('folder_path')}: "
             f"{structured.get('chunks_deleted')} chunks removed"
         )
+    if tool_name == "wait_for_job":
+        # Phase 54 Plan 04: ``wait_for_job → <job_id>: <status>
+        # (<progress>%) after <elapsed>s`` per CONTEXT specifics §6.
+        # ``progress_percent`` is 0-100 from the server's job record;
+        # ``elapsed_seconds`` is the wait duration.
+        pct = structured.get("progress_percent")
+        pct_str = f"{pct}%" if pct is not None else "0%"
+        elapsed = structured.get("elapsed_seconds", 0.0) or 0.0
+        return (
+            f"wait_for_job → {structured.get('job_id')}: "
+            f"{structured.get('status')} ({pct_str}) after {elapsed:.1f}s"
+        )
     return f"{tool_name} → ok"
+
+
+def _build_progress_notifier(
+    server: Server,
+) -> "ProgressNotifier":
+    """Build the ``notify`` closure injected into progress-emitting tools.
+
+    Captures the current ``request_context`` once at handler-invocation
+    time and returns a closure that emits one ``notifications/progress``
+    per call. The closure handles three runtime conditions:
+
+    1. **No progressToken on the request meta** — the MCP spec makes
+       progress notifications opt-in; the client signals participation
+       by attaching ``_meta.progressToken`` to the request. Without
+       a token there is no addressable recipient. The closure
+       silently no-ops in this case — the handler's control flow
+       (poll → notify → check terminal) stays identical.
+    2. **Token present** — emit ``send_progress_notification(token,
+       progress, total, message, related_request_id)``. The
+       ``related_request_id`` is the JSON-RPC id of the ``tools/call``
+       request that triggered the wait, captured from
+       ``request_context.request_id``. The MCP SDK requires it on
+       progress notifications so the client can route the
+       notification to the originating call.
+    3. **Token type** — MCP spec allows ``str`` or ``int``. The SDK's
+       ``ProgressNotificationParams.progressToken`` accepts both
+       (``ProgressToken = str | int``); we pass through verbatim.
+
+    Returns:
+        An async callable ``(progress: float, total: float,
+        message: str | None) -> None``. Re-entrant; safe to invoke
+        multiple times per handler call.
+    """
+    # Lookup the request context ONCE at notifier-construction. The
+    # context is a ContextVar; reading it inside the closure would also
+    # work but would re-read on every notification — pointless overhead
+    # since the request is the same for the handler's entire lifetime.
+    try:
+        ctx = server.request_context
+    except LookupError:
+        # Direct in-process callers (e.g., unit tests calling
+        # call_tool without a request context) get a no-op notifier.
+        # Production paths always have a context — the SDK guarantees
+        # it before dispatching a tools/call.
+        async def _noop(_progress: float, _total: float, _message: str | None) -> None:
+            return None
+
+        return _noop
+
+    progress_token = ctx.meta.progressToken if ctx.meta is not None else None
+    related_request_id = ctx.request_id
+    session = ctx.session
+
+    if progress_token is None:
+        # Client did not opt into progress. No-op closure keeps the
+        # handler's poll/notify/check loop uniform.
+        async def _noop_no_token(
+            _progress: float, _total: float, _message: str | None
+        ) -> None:
+            return None
+
+        return _noop_no_token
+
+    async def _emit(progress: float, total: float, message: str | None) -> None:
+        await session.send_progress_notification(
+            progress_token=progress_token,
+            progress=progress,
+            total=total,
+            message=message,
+            related_request_id=related_request_id,
+        )
+
+    return _emit
 
 
 class _MetaInjectingServerSession(ServerSession):

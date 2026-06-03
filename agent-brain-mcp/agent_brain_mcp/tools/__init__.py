@@ -45,6 +45,8 @@ from ..schemas import (
     SearchDocumentsOutput,
     ServerHealthInput,
     ServerHealthOutput,
+    WaitForJobInput,
+    WaitForJobOutput,
 )
 from . import file_types  # Phase 54 Plan 01; consumed by handlers in Plan 02+
 from .cache import handle_cache_status, handle_clear_cache
@@ -56,6 +58,7 @@ from .inject import handle_inject_documents
 from .jobs import handle_cancel_job, handle_get_job, handle_list_jobs
 from .meta import handle_query_count, handle_server_health
 from .search import handle_search_documents
+from .wait import handle_wait_for_job
 
 # ``ToolHandler`` is intentionally typed as ``Any`` because each concrete
 # handler narrows the arg/return to its specific input/output models
@@ -66,7 +69,15 @@ ToolHandler = Any
 
 
 class ToolSpec:
-    """A registered MCP tool."""
+    """A registered MCP tool.
+
+    Phase 54 Plan 04: ``emits_progress`` was added to discriminate v1's
+    sync handlers (default ``False`` — invoked via ``asyncio.to_thread``
+    in :func:`server.call_tool`) from the new async progress-emitting
+    handler signature ``async (client, args, *, notify) -> output``. Only
+    ``wait_for_job`` currently sets ``emits_progress=True``; every other
+    Phase 54 + v1 tool keeps the default and the legacy dispatch path.
+    """
 
     __slots__ = (
         "name",
@@ -75,6 +86,7 @@ class ToolSpec:
         "input_model",
         "output_model",
         "annotations",
+        "emits_progress",
     )
 
     def __init__(
@@ -86,6 +98,7 @@ class ToolSpec:
         input_model: type[BaseModel],
         output_model: type[BaseModel],
         annotations: dict[str, Any] | None = None,
+        emits_progress: bool = False,
     ) -> None:
         self.name = name
         self.description = description
@@ -93,6 +106,7 @@ class ToolSpec:
         self.input_model = input_model
         self.output_model = output_model
         self.annotations = annotations or {}
+        self.emits_progress = emits_progress
 
 
 TOOL_REGISTRY: dict[str, ToolSpec] = {
@@ -277,6 +291,28 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         input_model=ClearCacheInput,
         output_model=ClearCacheOutput,
         annotations={"destructiveHint": True},
+    ),
+    # ---------------------------------------------------------------------
+    # Phase 54 Plan 04 — the progress-emitting tool (TOOL-04). The only
+    # ``emits_progress=True`` entry in the registry; the only async
+    # handler. ``server.call_tool`` branches on ``emits_progress`` and
+    # invokes ``handle_wait_for_job(api, args, notify=notify)`` instead
+    # of the legacy ``asyncio.to_thread`` path. Per CONTEXT decision E.
+    # ---------------------------------------------------------------------
+    "wait_for_job": ToolSpec(
+        name="wait_for_job",
+        description=(
+            "Block until a job reaches a terminal status (succeeded, failed, "
+            "cancelled, or dry_run). Emits notifications/progress at least "
+            "every 2 seconds (1s default cadence) while the job runs. "
+            "Cancelling this MCP request via notifications/cancelled will "
+            "also cancel the underlying indexing job server-side."
+        ),
+        handler=handle_wait_for_job,
+        input_model=WaitForJobInput,
+        output_model=WaitForJobOutput,
+        annotations={"readOnlyHint": True},
+        emits_progress=True,
     ),
 }
 
