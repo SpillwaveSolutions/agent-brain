@@ -7,7 +7,10 @@ must implement, along with backend-agnostic data types.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from agent_brain_server.models.query import ChunkRecord
 
 
 @dataclass
@@ -343,5 +346,29 @@ class StorageBackendProtocol(Protocol):
 
         Raises:
             StorageError: If the delete operation fails.
+        """
+        ...
+
+    async def get_chunk_by_id(self, chunk_id: str) -> ChunkRecord | None:
+        """O(1) lookup of a single chunk by primary key.
+
+        Returns the chunk content plus the full ``ChunkRecord`` metadata
+        shape locked by the v2 design doc §2.3
+        (``docs/plans/2026-06-02-mcp-v2-subscriptions.md``). Embeddings
+        are NEVER included in the response, even if the underlying
+        backend stores them — see design doc for rationale.
+
+        Implementations MUST use a primary-key/direct lookup (not a
+        filter scan) so the cost stays O(1) at the corpus level.
+
+        Args:
+            chunk_id: Unique chunk identifier (primary key).
+
+        Returns:
+            ``ChunkRecord`` populated from chunk content and metadata,
+            or ``None`` if no chunk with this id exists.
+
+        Raises:
+            StorageError: If the retrieval operation fails.
         """
         ...

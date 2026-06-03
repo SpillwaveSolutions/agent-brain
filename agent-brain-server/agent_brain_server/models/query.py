@@ -264,6 +264,106 @@ class QueryResult(BaseModel):
     )
 
 
+class ChunkRecord(BaseModel):
+    """Single chunk lookup response keyed by ``chunk_id``.
+
+    Locked response shape backing ``GET /query/chunk/{chunk_id}`` (Phase 50
+    Plan 02) and the future MCP ``chunk://<chunk_id>`` URI scheme (Phase 51,
+    URI-01). Field set is committed by the v2 design doc §2.3
+    (``docs/plans/2026-06-02-mcp-v2-subscriptions.md``) and Phase 50
+    CONTEXT decision C.
+
+    NOTE: ``embedding`` is intentionally NOT included on this model.
+    Embeddings are large (~12 KB per chunk at 3072d x 4 bytes), MCP clients
+    rarely consume raw vectors, and they remain available via
+    ``POST /query/`` if a real consumer surfaces. See design doc §2.3 for
+    rationale.
+
+    Attributes:
+        chunk_id: Primary key; opaque chunk identifier.
+        parent_doc_id: Identifier of the document this chunk belongs to.
+            Currently derived from ``source`` (absolute file path) when
+            chunks lack an explicit parent-doc field.
+        source: Absolute file path of the chunk's source document.
+        content: Full chunk text content.
+        summary: Optional ``SummaryExtractor`` output when available.
+        folder_id: Owning indexed folder. Currently derived from
+            ``source`` parent directory when chunks lack an explicit
+            folder field.
+        token_count: Token count for budget calculations.
+        language: Language tag for code chunks (per ``CodeSplitter``).
+    """
+
+    chunk_id: str = Field(
+        ...,
+        description="Primary key; opaque chunk identifier.",
+    )
+    parent_doc_id: str = Field(
+        ...,
+        description=(
+            "Identifier of the document this chunk belongs to. Falls back "
+            "to source path when an explicit parent-doc field is absent."
+        ),
+    )
+    source: str = Field(
+        ...,
+        description="Absolute file path of the chunk's source document.",
+    )
+    content: str = Field(
+        ...,
+        description="Full chunk text content.",
+    )
+    summary: str | None = Field(
+        default=None,
+        description="Optional SummaryExtractor output when available.",
+    )
+    folder_id: str = Field(
+        ...,
+        description=(
+            "Owning indexed folder. Falls back to the source parent "
+            "directory when chunks lack an explicit folder field."
+        ),
+    )
+    token_count: int = Field(
+        ...,
+        description="Token count for budget calculations.",
+    )
+    language: str | None = Field(
+        default=None,
+        description="Language tag for code chunks (per CodeSplitter).",
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "chunk_id": "chunk_abc123",
+                    "parent_doc_id": "/home/user/project/docs/auth.md",
+                    "source": "/home/user/project/docs/auth.md",
+                    "content": "Authentication is configured via...",
+                    "summary": (
+                        "Section explaining how authentication is "
+                        "configured."
+                    ),
+                    "folder_id": "/home/user/project/docs",
+                    "token_count": 512,
+                    "language": None,
+                },
+                {
+                    "chunk_id": "chunk_def456",
+                    "parent_doc_id": "/home/user/project/src/auth.py",
+                    "source": "/home/user/project/src/auth.py",
+                    "content": "def authenticate_user(username, password):",
+                    "summary": None,
+                    "folder_id": "/home/user/project/src",
+                    "token_count": 128,
+                    "language": "python",
+                },
+            ]
+        }
+    }
+
+
 class QueryResponse(BaseModel):
     """Response model for document queries."""
 

@@ -38,6 +38,7 @@ from .job import (
     QueueStats,
 )
 from .query import (
+    ChunkRecord,
     QueryMode,
     QueryRequest,
     QueryResponse,
@@ -52,6 +53,7 @@ __all__ = [
     "FolderDeleteRequest",
     "FolderDeleteResponse",
     # Query models
+    "ChunkRecord",
     "QueryMode",
     "QueryRequest",
     "QueryResponse",
