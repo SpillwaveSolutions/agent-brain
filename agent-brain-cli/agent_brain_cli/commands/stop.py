@@ -217,18 +217,22 @@ def stop_command(
         pid = runtime.get("pid", 0)
 
         if not pid:
+            # runtime.json exists but carries no server PID — e.g. it only holds
+            # the API key written by `agent-brain init` (Issue #179), or a server
+            # never recorded one. Either way no server is running.
             cleanup_state_files(state_dir)
             if json_output:
                 click.echo(
                     json.dumps(
                         {
                             "status": "not_running",
-                            "message": "No PID in runtime state",
+                            "message": "No server running",
+                            "project_root": str(project_root),
                         }
                     )
                 )
             else:
-                console.print("[yellow]No server PID found in runtime state.[/]")
+                console.print("[yellow]No server running for this project.[/]")
             return
 
         # Check if process is alive
