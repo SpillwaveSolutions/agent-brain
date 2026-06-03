@@ -12,11 +12,11 @@ Requirements for v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completi
 
 ### Resource Subscriptions (SUB)
 
-- [x] **SUB-01**: Client can call `resources/subscribe` on a `job://<id>` resource and receive `notifications/resources/updated` events at 1s cadence while the job is active — wire handler + capability flip shipped 2026-06-03 in Plan 52-02; `JobPolicy` 1.0s cadence + `SubscriptionTerminated` auto-cancel on terminal status shipped 2026-06-03 in Plan 52-03
-- [x] **SUB-02**: Client can subscribe to `corpus://status` and receive update notifications at 30s cadence — wire handler + capability flip shipped 2026-06-03 in Plan 52-02; `CorpusStatusPolicy` 30.0s cadence + `request_id`-drop shipped 2026-06-03 in Plan 52-03
-- [x] **SUB-03**: Client can subscribe to `corpus://folders` and receive watcher-driven update notifications when indexed folders change — `CorpusFoldersPolicy` settings-driven cadence (default 5.0s active) + `last_indexed`-preserving drop_keys shipped 2026-06-03 in Plan 52-03 (CONTEXT decision E: client-side polling, no server-side change endpoint; 60s safety poll reserved for v3)
-- [x] **SUB-04**: Server emits `notifications/resources/updated` messages conforming to the current MCP spec, including resource URI and revision metadata — payload foundations (canonical_hash + DEFAULT_DROP_KEYS) shipped 2026-06-03 in Plan 52-01; on_change closure wired to `ServerSession.send_resource_updated` in Plan 52-02
-- [x] **SUB-05**: Server tracks per-client subscriptions and cleans up subscriptions on client disconnect — per-session registry (`SubscriptionManager`) shipped 2026-06-03 in Plan 52-01; wire handler captures owning session in Plan 52-02 (disconnect cleanup hook lands in Plan 52-04)
+- [x] **SUB-01**: Client can call `resources/subscribe` on a `job://<id>` resource and receive `notifications/resources/updated` events at 1s cadence while the job is active — wire handler + capability flip shipped 2026-06-03 in Plan 52-02; `JobPolicy` 1.0s cadence + `SubscriptionTerminated` auto-cancel on terminal status shipped 2026-06-03 in Plan 52-03; end-to-end validated by `test_subscribe_job_emits_until_terminal` (running→terminal lifecycle exercises ≥2 notifications and the SubscriptionTerminated auto-cancel) in Plan 52-04
+- [x] **SUB-02**: Client can subscribe to `corpus://status` and receive update notifications at 30s cadence — wire handler + capability flip shipped 2026-06-03 in Plan 52-02; `CorpusStatusPolicy` 30.0s cadence + `request_id`-drop shipped 2026-06-03 in Plan 52-03; end-to-end validated by `test_subscribe_corpus_status_emits_on_change` against the real MCP wire in Plan 52-04
+- [x] **SUB-03**: Client can subscribe to `corpus://folders` and receive watcher-driven update notifications when indexed folders change — `CorpusFoldersPolicy` settings-driven cadence (default 5.0s active) + `last_indexed`-preserving drop_keys shipped 2026-06-03 in Plan 52-03 (CONTEXT decision E: client-side polling, no server-side change endpoint; 60s safety poll reserved for v3); end-to-end validated by `test_subscribe_folders_active_cadence` (2-state flip exercises ≥2 notifications within 1.5s) in Plan 52-04
+- [x] **SUB-04**: Server emits `notifications/resources/updated` messages conforming to the current MCP spec, including resource URI and revision metadata — payload foundations (canonical_hash + DEFAULT_DROP_KEYS) shipped 2026-06-03 in Plan 52-01; on_change closure wired to `ServerSession.send_resource_updated` in Plan 52-02; spec-conformance pinned by 9 unit tests in `tests/test_notification_shape.py` validating minimal URI-only shape + optional `_meta.revision` (64-char hex SHA-256) envelope against the SDK's `ResourceUpdatedNotification` Pydantic model in Plan 52-04
+- [x] **SUB-05**: Server tracks per-client subscriptions and cleans up subscriptions on client disconnect — per-session registry (`SubscriptionManager`) shipped 2026-06-03 in Plan 52-01; wire handler captures owning session in Plan 52-02; disconnect cleanup hook shipped 2026-06-03 in Plan 52-04 (`run_stdio` try/finally + `_poll_loop` explicit `except asyncio.CancelledError` clause); end-to-end validated by `test_disconnect_cleans_up_polling_tasks` (counter-based deterministic assertion against the real MCP wire via the official Python SDK)
 
 ### Deferred URI Schemes (URI)
 
@@ -87,11 +87,11 @@ Phase mapping for v10.2. Phase numbering continues sequentially from v9.6.0 (las
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SUB-01 | Phase 52 | Complete (2026-06-03, Plans 52-02 + 52-03) |
-| SUB-02 | Phase 52 | Complete (2026-06-03, Plans 52-02 + 52-03) |
-| SUB-03 | Phase 52 | Complete (2026-06-03, Plan 52-03) |
-| SUB-04 | Phase 52 | Complete (2026-06-03, Plan 52-01 foundations + Plan 52-02 wire-up) |
-| SUB-05 | Phase 52 | Complete (2026-06-03, Plan 52-01 registry + Plan 52-02 session capture; disconnect hook in Plan 52-04) |
+| SUB-01 | Phase 52 | Complete (2026-06-03, Plans 52-02 + 52-03; e2e validated in 52-04) |
+| SUB-02 | Phase 52 | Complete (2026-06-03, Plans 52-02 + 52-03; e2e validated in 52-04) |
+| SUB-03 | Phase 52 | Complete (2026-06-03, Plan 52-03; e2e validated in 52-04) |
+| SUB-04 | Phase 52 | Complete (2026-06-03, Plan 52-01 foundations + Plan 52-02 wire-up; spec conformance pinned in 52-04) |
+| SUB-05 | Phase 52 | Complete (2026-06-03, Plan 52-01 registry + Plan 52-02 session capture; disconnect hook + e2e in 52-04) |
 | URI-01 | Phase 51 | Complete (2026-06-03, Plan 51-02) |
 | URI-02 | Phase 51 | Complete (2026-06-03, Plan 51-02) |
 | URI-03 | Phase 51 | Complete (2026-06-03, Plan 51-01) |
