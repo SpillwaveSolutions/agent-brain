@@ -43,6 +43,7 @@ from pydantic import AnyUrl, ValidationError
 from . import __version__
 from .client import ApiClient
 from .errors import INVALID_PARAMS, raise_backend_unavailable
+from .http import run_http
 from .prompts import PROMPT_REGISTRY
 from .resources import (
     PARAMETERIZED_HANDLERS,
@@ -666,43 +667,12 @@ async def run_stdio(server: Server, subscription_manager: SubscriptionManager) -
                 )
 
 
-async def run_http(
-    server: Server,
-    subscription_manager: SubscriptionManager,
-    *,
-    host: str,
-    port: int,
-) -> None:
-    """Run the MCP server over Streamable HTTP. Implemented in Phase 53 Plan 02.
-
-    Plan 01 ships the dispatcher + flag surface only. Plan 02 swaps this
-    stub for an in-process uvicorn server wrapping the SDK's
-    :class:`StreamableHTTPSessionManager` mounted at ``/mcp``, with
-    loopback enforcement on ``host`` (D-08) and a ``/healthz`` probe
-    (D-07). The ``subscription_manager`` argument mirrors
-    :func:`run_stdio`'s signature so Plan 02's HTTP-side cleanup hook
-    (Phase 52 CONTEXT decision D, layer 1 — the SDK-level disconnect
-    cleanup that runs on every session teardown) can call
-    :meth:`SubscriptionManager.cleanup_all` symmetrically across both
-    transports.
-
-    Args:
-        server: The configured low-level MCP :class:`Server` from
-            :func:`build_server`.
-        subscription_manager: The :class:`SubscriptionManager` paired
-            with ``server`` (also second element of the
-            ``build_server`` tuple). Carried through for the Plan 02
-            cleanup hook.
-        host: Loopback host (``127.0.0.1`` / ``localhost`` / ``::1``).
-            Validation happens in Plan 02; Plan 01's stub raises before
-            inspection.
-        port: TCP port to bind. Validated by Click's
-            ``IntRange(1, 65535)`` at the CLI layer.
-
-    Raises:
-        NotImplementedError: Always — Plan 01 ships the stub only.
-    """
-    raise NotImplementedError("HTTP transport implemented in Plan 02")
+# Phase 53 Plan 02: ``run_http`` lives in :mod:`agent_brain_mcp.http`
+# (Starlette + uvicorn wiring is too involved to keep co-located with
+# the stdio path). Plan 01's local ``NotImplementedError`` stub was
+# replaced by the module-top re-export below — callers that already
+# import ``from agent_brain_mcp.server import run_http`` keep working
+# unchanged.
 
 
 async def main_async(

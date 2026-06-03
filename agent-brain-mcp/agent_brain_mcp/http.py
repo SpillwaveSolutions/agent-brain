@@ -1,0 +1,357 @@
+"""Streamable HTTP listener for the MCP server (Phase 53 Plan 02).
+
+This module replaces Plan 01's :func:`run_http` stub with a working
+in-process uvicorn server that mounts the MCP SDK's
+:class:`mcp.server.streamable_http_manager.StreamableHTTPSessionManager`
+at ``/mcp`` and serves a tiny ``/healthz`` probe alongside it.
+
+Design decisions cross-referenced from
+``.planning/phases/53-streamable-http-transport/53-CONTEXT.md``:
+
+* **D-05 / D-06** — Lean on the MCP SDK's built-in Streamable HTTP
+  support; run uvicorn in-process (no subprocess orchestration).
+* **D-07** — Mount path is ``/mcp``; ``/healthz`` lives alongside it.
+* **D-08** — Hard whitelist on ``--host``: only ``127.0.0.1``,
+  ``localhost``, and ``::1`` are accepted. No ``--allow-public-bind``
+  escape hatch (auth is v4).
+* **D-09** — Pass an explicit ``security_settings`` to the SDK's
+  :class:`StreamableHTTPSessionManager` mirroring the FastMCP
+  defaults at ``mcp/server/fastmcp/server.py:177-183``: DNS rebinding
+  protection on with the loopback-only ``allowed_hosts`` /
+  ``allowed_origins`` lists. The SDK's :class:`FastMCP` auto-enables
+  this in its ``__init__``, but the lower-level
+  :class:`StreamableHTTPSessionManager` does NOT — so the
+  ``run_http`` path wires it explicitly.
+* **D-10** — Emit a startup banner naming the bind address, mount
+  path, and the no-auth warning.
+* **D-12** — Wrap ``OSError`` (``EADDRINUSE``: macOS errno 48 / Linux
+  errno 98) at the uvicorn ``serve()`` call site as a
+  :class:`PortInUseError` (a :class:`click.ClickException` subclass
+  with ``exit_code = 2``).
+
+Phase 52 carry-forward (CONTEXT decision D, layer 1): :func:`run_http`
+inherits :func:`agent_brain_mcp.server.run_stdio`'s symmetric
+``try / finally`` shape and calls
+:meth:`SubscriptionManager.cleanup_all` on every exit path so no
+polling task survives a server exit (graceful shutdown, SIGINT,
+port-in-use, unhandled exception).
+"""
+
+from __future__ import annotations
+
+import contextlib
+import logging
+from collections.abc import AsyncIterator
+from typing import Any, Final
+
+import click
+import uvicorn
+from mcp.server.lowlevel import Server
+from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+from mcp.server.transport_security import TransportSecuritySettings
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+from starlette.routing import Mount, Route
+from starlette.types import Receive, Scope, Send
+
+from .subscriptions import SubscriptionManager
+
+logger = logging.getLogger(__name__)
+
+# --- Public constants (load-bearing in tests) -----------------------------
+
+ALLOWED_LOOPBACK_HOSTS: Final[frozenset[str]] = frozenset(
+    {"127.0.0.1", "localhost", "::1"}
+)
+"""Hosts accepted by :func:`validate_loopback_host` (Phase 53 D-08)."""
+
+MCP_MOUNT_PATH: Final[str] = "/mcp"
+"""Path the MCP Streamable HTTP transport is mounted at (Phase 53 D-07)."""
+
+HEALTHZ_PATH: Final[str] = "/healthz"
+"""Liveness probe path returning ``{"status":"ok","transport":"http"}``."""
+
+# Exact error message wording — pinned by tests.
+LOOPBACK_REJECTION_MESSAGE: Final[str] = (
+    "--host must be one of {127.0.0.1, localhost, ::1} "
+    "(auth is deferred to v4; binding to public interfaces is unsafe in v2)"
+)
+
+# DNS-rebinding-protection defaults mirror the FastMCP auto-enable rule at
+# ``mcp/server/fastmcp/server.py:177-183`` — same allowed_hosts /
+# allowed_origins lists for the loopback case.
+_LOOPBACK_ALLOWED_HOSTS: Final[list[str]] = [
+    "127.0.0.1:*",
+    "localhost:*",
+    "[::1]:*",
+]
+_LOOPBACK_ALLOWED_ORIGINS: Final[list[str]] = [
+    "http://127.0.0.1:*",
+    "http://localhost:*",
+    "http://[::1]:*",
+]
+
+
+class PortInUseError(click.ClickException):
+    """Raised when uvicorn cannot bind because the port is already in use.
+
+    Phase 53 D-12 mandates exit code 2 (distinct from Click's default
+    exit code 1 used for generic usage errors) so callers — including
+    Plan 03's smoke harness — can distinguish "port collision" from
+    "bad CLI args" without parsing stderr.
+    """
+
+    exit_code = 2
+
+
+def loopback_transport_security() -> TransportSecuritySettings:
+    """Return the loopback-only DNS-rebinding-protection settings.
+
+    Mirrors the FastMCP auto-enable defaults at
+    ``mcp/server/fastmcp/server.py:177-183`` for ``host in
+    ("127.0.0.1", "localhost", "::1")``. Exposed at module level so the
+    ``test_dns_rebinding.py`` defensive test can build the same
+    settings and assert the SDK accepts them without raising.
+    """
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=list(_LOOPBACK_ALLOWED_HOSTS),
+        allowed_origins=list(_LOOPBACK_ALLOWED_ORIGINS),
+    )
+
+
+def validate_loopback_host(host: str) -> None:
+    """Reject any ``--host`` outside the loopback whitelist (HTTP-02).
+
+    Phase 53 D-08 mandates a hard whitelist with no escape hatch — auth
+    is the only acceptable gate for a non-loopback bind, and auth is
+    v4 (OAUTH-01).
+
+    Args:
+        host: The candidate bind host.
+
+    Raises:
+        click.ClickException: with :data:`LOOPBACK_REJECTION_MESSAGE`
+            if ``host`` is not in :data:`ALLOWED_LOOPBACK_HOSTS`. The
+            exception's default ``exit_code = 1`` is appropriate here:
+            this is a usage-error class, distinct from the
+            port-in-use case (exit 2 via :class:`PortInUseError`).
+    """
+    if host not in ALLOWED_LOOPBACK_HOSTS:
+        raise click.ClickException(LOOPBACK_REJECTION_MESSAGE)
+
+
+def build_asgi_app(server: Server) -> Starlette:
+    """Compose the Starlette ASGI app served by :func:`run_http`.
+
+    Layout:
+
+    * ``GET /healthz`` → JSON ``{"status": "ok", "transport": "http"}``
+      (D-07 probe — operators curl-check without driving the MCP
+      handshake).
+    * ``POST /mcp`` → MCP SDK's
+      :class:`StreamableHTTPSessionManager.handle_request` (raw ASGI
+      callable; Mount routes any sub-path including the bare ``/mcp``
+      to the handler).
+
+    The session manager's lifecycle is bound to Starlette's lifespan
+    so the MCP session task group is created/torn-down with the ASGI
+    server. This is the same shape FastMCP uses at
+    ``mcp/server/fastmcp/server.py:1044`` for its own streamable HTTP
+    app.
+
+    The session manager is given an explicit ``security_settings``
+    blob — D-09. The bare-bones :class:`StreamableHTTPSessionManager`
+    does NOT auto-enable DNS rebinding protection (only
+    :class:`FastMCP` does, in its own ``__init__``), so the
+    ``run_http`` path wires it here.
+
+    Args:
+        server: The configured low-level MCP :class:`Server` from
+            :func:`agent_brain_mcp.server.build_server`.
+
+    Returns:
+        A Starlette ``ASGI`` app suitable for ``uvicorn.Server(
+        uvicorn.Config(app, ...))``.
+    """
+    session_manager = StreamableHTTPSessionManager(
+        app=server,
+        event_store=None,
+        json_response=False,
+        stateless=False,
+        security_settings=loopback_transport_security(),
+    )
+
+    async def healthz(_request: Request) -> JSONResponse:
+        return JSONResponse({"status": "ok", "transport": "http"})
+
+    async def mcp_asgi_app(scope: Scope, receive: Receive, send: Send) -> None:
+        # Thin wrapper around the raw-ASGI callable on the session
+        # manager. ``Mount(..., app=callable)`` accepts any ASGI3
+        # callable; FastMCP wraps this in a small class
+        # (StreamableHTTPASGIApp) — we keep it as a module-level
+        # function for testability.
+        await session_manager.handle_request(scope, receive, send)
+
+    @contextlib.asynccontextmanager
+    async def lifespan(_app: Starlette) -> AsyncIterator[None]:
+        # ``session_manager.run()`` is the SDK's documented lifespan
+        # contract (see its docstring): create the task group on
+        # entry, drain it on exit. The manager can only be run once
+        # per instance — fine for our single-process listener.
+        # ``@asynccontextmanager`` wraps the async generator so
+        # Starlette's lifespan kwarg accepts it as an
+        # ``AsyncContextManager`` per its type signature.
+        async with session_manager.run():
+            yield
+
+    return Starlette(
+        routes=[
+            Route(HEALTHZ_PATH, healthz, methods=["GET"]),
+            Mount(MCP_MOUNT_PATH, app=mcp_asgi_app),
+        ],
+        lifespan=lifespan,
+    )
+
+
+def build_uvicorn_server(app: Starlette, *, host: str, port: int) -> uvicorn.Server:
+    """Build the in-process uvicorn server wrapping ``app``.
+
+    Factored out of :func:`run_http` so the listener tests can
+    introspect the bound socket via
+    ``uvicorn.Server.servers[0].sockets`` without driving the
+    full ``serve()`` lifecycle.
+
+    Args:
+        app: The Starlette ASGI app from :func:`build_asgi_app`.
+        host: Loopback host (already validated).
+        port: TCP port (already validated by Click's
+            :class:`click.IntRange`).
+
+    Returns:
+        Configured but not-yet-started :class:`uvicorn.Server`.
+    """
+    config = uvicorn.Config(
+        app,
+        host=host,
+        port=port,
+        log_level="info",
+        lifespan="on",
+        # Silence access logs by default — the MCP SDK already emits
+        # request-level logging, and uvicorn access logs duplicate
+        # every healthz probe noisily.
+        access_log=False,
+    )
+    return uvicorn.Server(config)
+
+
+async def run_http(
+    server: Server,
+    subscription_manager: SubscriptionManager,
+    *,
+    host: str,
+    port: int,
+) -> None:
+    """Serve the MCP server over Streamable HTTP on ``host:port``.
+
+    This is Plan 02's replacement for Plan 01's
+    :class:`NotImplementedError` stub.
+
+    Lifecycle:
+
+    1. Validate ``host`` against the loopback whitelist (D-08). A
+       rejection here raises BEFORE any socket bind — verified by
+       ``test_http_listener.py::test_invalid_host_validated_before_bind``.
+    2. Build the Starlette app + the in-process uvicorn server.
+    3. Log the startup banner (D-10) so operators see the no-auth
+       warning in both stdout and aggregated log shippers.
+    4. ``await server.serve()``. On ``EADDRINUSE`` (macOS errno 48 /
+       Linux errno 98) catch and re-raise as :class:`PortInUseError`
+       with the contract message (D-12). Any other ``OSError``
+       propagates verbatim — failures other than port collision are
+       not silently mapped.
+    5. In ``finally``, drain polling tasks via
+       :meth:`SubscriptionManager.cleanup_all`. Mirrors
+       :func:`agent_brain_mcp.server.run_stdio`'s try/finally shape so
+       no polling task survives an HTTP server exit (graceful
+       shutdown, SIGINT, port-in-use, mid-loop exception). Phase 52
+       CONTEXT decision D, layer 1 — extended verbatim to the HTTP
+       transport per the v2 design doc §3.3.1.
+
+    Args:
+        server: The configured low-level MCP :class:`Server` from
+            :func:`agent_brain_mcp.server.build_server`.
+        subscription_manager: The :class:`SubscriptionManager` paired
+            with ``server`` (second tuple element of ``build_server``).
+            Cleaned up on every exit path.
+        host: Loopback host — one of ``127.0.0.1`` / ``localhost`` /
+            ``::1`` per D-08.
+        port: TCP port to bind. Click's :class:`click.IntRange(1,
+            65535)` validates this at the CLI layer.
+
+    Raises:
+        click.ClickException: if ``host`` is not loopback
+            (:data:`LOOPBACK_REJECTION_MESSAGE`, exit code 1).
+        PortInUseError: if the port is already in use (exit code 2).
+        OSError: any other low-level bind failure (propagated
+            verbatim — no silent fallback).
+    """
+    validate_loopback_host(host)
+
+    app = build_asgi_app(server)
+    uvi_server = build_uvicorn_server(app, host=host, port=port)
+
+    # Banner per D-10. Format string is pinned by the acceptance
+    # criteria — operators (and the grep-in-logs verification step)
+    # rely on the literal substring "loopback only, no auth".
+    logger.info(
+        "MCP server listening on http://%s:%d%s (loopback only, no auth "
+        "— do NOT expose this port)",
+        host,
+        port,
+        MCP_MOUNT_PATH,
+    )
+
+    try:
+        await uvi_server.serve()
+    except OSError as e:
+        # EADDRINUSE — macOS errno 48 / Linux errno 98 (per
+        # ``errno.EADDRINUSE`` constants on each platform). uvicorn
+        # surfaces the underlying ``socket.bind`` OSError unchanged.
+        if e.errno in (48, 98):
+            raise PortInUseError(
+                f"Port {port} already in use. Pass --port <free-port> "
+                "or stop the conflicting process."
+            ) from e
+        raise
+    finally:
+        cleaned = subscription_manager.cleanup_all()
+        if cleaned:
+            logger.info(
+                "subscription cleanup: cancelled %d polling task(s) on "
+                "HTTP server exit",
+                cleaned,
+            )
+
+
+# Re-export hook for ``agent_brain_mcp.server.run_http``. The
+# ``Any`` annotation here is a no-op — the real names are visible
+# above. Kept so ``from agent_brain_mcp.http import *`` advertises
+# the public surface deterministically.
+__all__: list[str] = [
+    "ALLOWED_LOOPBACK_HOSTS",
+    "HEALTHZ_PATH",
+    "LOOPBACK_REJECTION_MESSAGE",
+    "MCP_MOUNT_PATH",
+    "PortInUseError",
+    "build_asgi_app",
+    "build_uvicorn_server",
+    "loopback_transport_security",
+    "run_http",
+    "validate_loopback_host",
+]
+
+# Silence unused-import warnings for ``Any`` — kept in the import
+# block so future typed helpers have it without re-importing.
+_ = Any
