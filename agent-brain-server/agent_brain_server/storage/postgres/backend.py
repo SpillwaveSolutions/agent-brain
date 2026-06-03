@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Any
 
 from sqlalchemy import text
@@ -16,6 +17,7 @@ from sqlalchemy import text
 from agent_brain_server.config.provider_config import (
     load_provider_settings,
 )
+from agent_brain_server.models.query import ChunkRecord
 from agent_brain_server.providers.exceptions import ProviderMismatchError
 from agent_brain_server.providers.factory import ProviderRegistry
 from agent_brain_server.storage.postgres.config import PostgresConfig
@@ -625,6 +627,89 @@ class PostgresBackend:
         except Exception as e:
             raise StorageError(
                 f"Delete by IDs failed: {e}",
+                backend="postgres",
+            ) from e
+
+    async def get_chunk_by_id(self, chunk_id: str) -> ChunkRecord | None:
+        """O(1) lookup of a single chunk by primary key.
+
+        Issues a ``SELECT document_text, metadata FROM documents WHERE
+        chunk_id = :id LIMIT 1`` against the ``documents`` table.
+        ``chunk_id`` is the primary key (see
+        ``PostgresSchemaManager.create_schema``) so the index lookup is
+        O(1) — no additional index needs to be created.
+
+        The ``embedding`` column is intentionally NOT selected, matching
+        the v2 design doc §2.3 contract.
+
+        Args:
+            chunk_id: Unique chunk identifier.
+
+        Returns:
+            :class:`ChunkRecord` if found, ``None`` otherwise.
+
+        Raises:
+            StorageError: If the query fails.
+        """
+        engine = self.connection_manager.engine
+        try:
+            async with engine.connect() as conn:
+                result = await conn.execute(
+                    text(
+                        """
+                        SELECT document_text, metadata
+                        FROM documents
+                        WHERE chunk_id = :chunk_id
+                        LIMIT 1
+                        """
+                    ),
+                    {"chunk_id": chunk_id},
+                )
+                row = result.fetchone()
+                if row is None:
+                    return None
+
+                content = row[0] or ""
+                metadata_val: Any = row[1]
+                if isinstance(metadata_val, str):
+                    metadata_val = json.loads(metadata_val)
+                meta: dict[str, Any] = metadata_val if metadata_val else {}
+
+                source = str(meta.get("source", ""))
+                parent_doc_id = str(meta.get("parent_doc_id") or source)
+                folder_id = str(
+                    meta.get("folder_id")
+                    or (os.path.dirname(source) if source else "")
+                )
+
+                summary_val = meta.get("summary") or meta.get("section_summary")
+                summary: str | None = str(summary_val) if summary_val else None
+
+                token_count_raw = meta.get("token_count")
+                try:
+                    token_count = (
+                        int(token_count_raw) if token_count_raw is not None else 0
+                    )
+                except (TypeError, ValueError):
+                    token_count = 0
+
+                language_val = meta.get("language")
+                language: str | None = str(language_val) if language_val else None
+
+                return ChunkRecord(
+                    chunk_id=chunk_id,
+                    parent_doc_id=parent_doc_id,
+                    source=source,
+                    content=str(content),
+                    summary=summary,
+                    folder_id=folder_id,
+                    token_count=token_count,
+                    language=language,
+                )
+
+        except Exception as e:
+            raise StorageError(
+                f"Get chunk by ID failed: {e}",
                 backend="postgres",
             ) from e
 
