@@ -19,12 +19,30 @@ from agent_brain_server.config import settings
 from agent_brain_server.config.provider_config import (
     load_provider_settings,
 )
+from agent_brain_server.models import (
+    GraphEntityRecord,
+    GraphEntityRecordNeighbor,
+    GraphEntityRecordNeighbors,
+    GraphEntityRecordNode,
+)
 from agent_brain_server.storage.graph_snapshot import (
     GraphSnapshotManager,
     SnapshotTriplet,
 )
 
 logger = logging.getLogger(__name__)
+
+
+class KuzuUnavailableError(RuntimeError):
+    """Sentinel raised by the graph store when Kuzu corruption is detected.
+
+    The router translates this to HTTP 503 ``kuzu_unavailable`` so a Kuzu
+    SIGSEGV / catalog-corruption event (issue #178) returns a structured
+    error to the caller rather than crashing the server process.
+
+    Operator workaround: switch ``graphrag.store_type`` to ``simple`` until
+    #178 is fixed. See Phase 50 design doc §2.4 and risk register R1.
+    """
 
 
 def _corrupted_sibling(path: Path, now: datetime | None = None) -> Path:
@@ -50,6 +68,33 @@ def _quarantine_file(path: Path) -> Path | None:
     except OSError:
         shutil.move(str(path), str(dest))
     return dest
+
+
+def _label_of(node: Any) -> str:
+    """Return a neighbor node's label, falling back to ``"Entity"``.
+
+    Kuzu's ``get_triplets`` historically returns the literal ``"Entity"`` as
+    the ``LabelledNode.label`` and stashes the real schema label inside
+    ``node.properties["label"]``. SimplePropertyGraphStore puts it on
+    ``node.label`` directly. We try both so neighbor records carry the
+    schema type either way.
+    """
+    label = getattr(node, "label", None)
+    if label and label != "Entity":
+        return str(label)
+    props = getattr(node, "properties", None) or {}
+    prop_label = props.get("label") if isinstance(props, dict) else None
+    if prop_label:
+        return str(prop_label)
+    return str(label) if label else "Entity"
+
+
+def _id_of(node: Any) -> str:
+    """Return a neighbor node's id (the entity's ``name`` in current backends)."""
+    name = getattr(node, "name", None)
+    if name:
+        return str(name)
+    return str(getattr(node, "id", ""))
 
 
 def _graphrag_enabled() -> bool:
@@ -782,6 +827,186 @@ class GraphStoreManager:
                 },
             )
             return False
+
+    def get_entity_by_id(
+        self,
+        entity_type: str,
+        entity_id: str,
+    ) -> GraphEntityRecord | None:
+        """Fetch an entity by ``(type, id)`` with its 1-hop neighbors.
+
+        Backs ``GET /graph/entity/{entity_type}/{entity_id}`` and the MCP
+        ``graph-entity://<type>/<id>`` resource scheme (URI-02 in Phase 51).
+        Wire shape locked by Phase 50 design doc §2.4.
+
+        Implementation strategy: both ``SimplePropertyGraphStore`` and
+        ``KuzuPropertyGraphStore`` inherit the LlamaIndex ``PropertyGraphStore``
+        contract, so we drive both backends through the same primitives:
+
+        - ``graph_store.get(ids=[entity_id])`` — entity lookup by id
+        - ``graph_store.get_triplets(ids=[entity_id])`` — 1-hop relationships
+
+        We then filter the returned entity by label (``entity_type``) so a
+        request for ``Function/foo`` does not return a ``Class/foo`` even
+        when both exist. Direction (incoming vs outgoing) is derived from
+        whether the relation's ``source_id`` matches the target entity.
+
+        Args:
+            entity_type: SCHEMA-01 entity type (caller validates against the
+                vocabulary; this method treats it as an opaque label so
+                non-canonical labels in legacy data still resolve).
+            entity_id: Entity id (the entity's ``name`` in current backends).
+
+        Returns:
+            ``GraphEntityRecord`` when the ``(type, id)`` pair exists.
+            ``None`` when no entity with that type+id is found — the router
+            translates this to HTTP 404 ``entity_not_found``.
+
+        Raises:
+            KuzuUnavailableError: When the Kuzu backend raises a corruption
+                signature (IndexError / RuntimeError / OSError out of
+                pybind11 internals). The router translates this to HTTP 503
+                ``kuzu_unavailable`` so the server keeps running. See #178.
+        """
+        if not _graphrag_enabled():
+            return None
+        if not self._initialized or self._graph_store is None:
+            return None
+
+        store = self._graph_store
+        try:
+            nodes = store.get(ids=[entity_id])
+        except (IndexError, RuntimeError, OSError) as exc:
+            # Kuzu SIGSEGV / catalog corruption signature (issue #178).
+            # Surface as a structured error the router can translate to 503
+            # rather than crashing the process.
+            if self.store_type == "kuzu":
+                logger.warning(
+                    "graph_store.get_entity_by_id: Kuzu unavailable for "
+                    "%s/%s (#178 corruption signature): %s",
+                    entity_type,
+                    entity_id,
+                    exc,
+                )
+                raise KuzuUnavailableError(
+                    f"Kuzu graph store raised during entity lookup: {exc}. "
+                    "Operator workaround: set graphrag.store_type=simple."
+                ) from exc
+            # Simple store / minimal fallback shouldn't raise these — but
+            # we treat them as transient and return None rather than
+            # crashing.
+            logger.warning(
+                "graph_store.get_entity_by_id: %s raised on get(ids=...) "
+                "for %s/%s: %s",
+                self.store_type,
+                entity_type,
+                entity_id,
+                exc,
+            )
+            return None
+
+        # Filter by entity_type so (Function, "foo") and (Class, "foo")
+        # are distinguishable. Backends differ on which attribute carries
+        # the schema label: SimplePropertyGraphStore puts it on
+        # ``node.label`` directly; Kuzu's ``get_triplets`` sets ``.label``
+        # to the literal ``"Entity"`` and stashes the real schema label
+        # inside ``node.properties["label"]``. We accept either.
+        matching = [n for n in nodes if _label_of(n) == entity_type]
+        if not matching:
+            return None
+        node = matching[0]
+
+        # Use the actual backend-internal id (in current LlamaIndex
+        # PropertyGraphStore impls this is the same as ``name``; we resolve
+        # it through ``getattr`` so a future backend can carry a separate
+        # opaque id without changing the wire shape).
+        node_id = getattr(node, "id", entity_id) or entity_id
+
+        try:
+            triplets = store.get_triplets(ids=[node_id])
+        except (IndexError, RuntimeError, OSError) as exc:
+            if self.store_type == "kuzu":
+                logger.warning(
+                    "graph_store.get_entity_by_id: Kuzu unavailable for "
+                    "neighbors of %s/%s (#178): %s",
+                    entity_type,
+                    entity_id,
+                    exc,
+                )
+                raise KuzuUnavailableError(
+                    f"Kuzu graph store raised during neighbor lookup: {exc}. "
+                    "Operator workaround: set graphrag.store_type=simple."
+                ) from exc
+            logger.warning(
+                "graph_store.get_entity_by_id: %s raised on "
+                "get_triplets(ids=...) for %s/%s: %s",
+                self.store_type,
+                entity_type,
+                entity_id,
+                exc,
+            )
+            triplets = []
+
+        incoming: list[GraphEntityRecordNeighbor] = []
+        outgoing: list[GraphEntityRecordNeighbor] = []
+        # Backends differ in how they identify nodes inside triplets:
+        # SimplePropertyGraphStore sets source_id == name; KuzuPropertyGraphStore
+        # may use the id field. Match against the union of both so direction
+        # detection works on either backend.
+        target_match = {node_id, entity_id, getattr(node, "name", entity_id)}
+        for triplet in triplets or []:
+            try:
+                subject_node, relation, object_node = triplet
+            except (TypeError, ValueError):
+                logger.debug(
+                    "graph_store.get_entity_by_id: skipping malformed triplet "
+                    "for %s/%s",
+                    entity_type,
+                    entity_id,
+                )
+                continue
+
+            relation_props = dict(getattr(relation, "properties", {}) or {})
+            source_id = getattr(relation, "source_id", None)
+            target_id = getattr(relation, "target_id", None)
+            predicate = getattr(relation, "label", "") or ""
+
+            if source_id in target_match:
+                # Outgoing edge: target entity points at object_node.
+                outgoing.append(
+                    GraphEntityRecordNeighbor(
+                        type=_label_of(object_node),
+                        id=_id_of(object_node),
+                        predicate=predicate,
+                        properties=relation_props,
+                    )
+                )
+            elif target_id in target_match:
+                # Incoming edge: subject_node points at target entity.
+                incoming.append(
+                    GraphEntityRecordNeighbor(
+                        type=_label_of(subject_node),
+                        id=_id_of(subject_node),
+                        predicate=predicate,
+                        properties=relation_props,
+                    )
+                )
+            else:
+                # Triplet doesn't actually touch the target entity — likely
+                # a backend quirk (e.g. Kuzu returning extra rows). Skip.
+                continue
+
+        return GraphEntityRecord(
+            entity=GraphEntityRecordNode(
+                type=entity_type,
+                id=getattr(node, "name", entity_id) or entity_id,
+                properties=dict(getattr(node, "properties", {}) or {}),
+            ),
+            neighbors=GraphEntityRecordNeighbors(
+                incoming=incoming,
+                outgoing=outgoing,
+            ),
+        )
 
     def clear(self) -> None:
         """Clear all graph data.
