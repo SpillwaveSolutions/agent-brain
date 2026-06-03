@@ -54,3 +54,33 @@ def test_build_server_legacy_transport_kwarg_still_constructs(
         "expected DeprecationWarning mentioning transport= alias; "
         f"got: {[str(w.message) for w in caught]}"
     )
+
+
+def test_build_server_attaches_meta_dict_with_both_axis_labels(
+    fake_httpx_client: httpx.Client,
+) -> None:
+    """Phase 53 Plan 03: ``server._agent_brain_meta`` carries both axes.
+
+    The over-the-wire counterpart — that ``serverInfo._meta`` returned
+    on ``initialize`` contains the same dict — is exercised by
+    :mod:`tests.test_transport_selection` against the SDK HTTP client.
+    Here we pin the in-process contract that ``build_server`` populates
+    the dict with both ``agentBrainBackendTransport`` and
+    ``agentBrainListenTransport`` keys whose values match the kwargs.
+
+    Symmetric counterpart to the HTTP-side assertion in
+    ``test_transport_selection.test_http_round_trip_lists_v1_surface``
+    — keeps the contract pinned at the lowest level so a regression
+    surfaces in the fast lane, not just under ``task mcp:smoke:http``.
+    """
+    server, _ = build_server(
+        fake_httpx_client,
+        backend_transport="uds",
+        listen_transport="stdio",
+    )
+
+    meta = server._agent_brain_meta
+    assert meta == {
+        "agentBrainBackendTransport": "uds",
+        "agentBrainListenTransport": "stdio",
+    }
