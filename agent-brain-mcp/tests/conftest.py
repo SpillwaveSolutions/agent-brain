@@ -164,6 +164,82 @@ _DEFAULT_RESPONSES: dict[tuple[str, str], dict[str, Any]] = {
         },
         "neighbors": {"incoming": [], "outgoing": []},
     },
+    # --- Phase 55 Plan 01 (VAL-01 scaffolding) -------------------------
+    # Stubs for the v2 endpoints the 9 new MCP tools (Phase 54) call.
+    # All shapes mirror the Phase 50-54 Pydantic models 1:1 so contract
+    # tests in Plans 02 (16-tool matrix), 03 (subscription lifecycle),
+    # and 04 (HTTP transport) can rely on schema correctness without
+    # bringing up a live ``agent-brain-serve``. Additive only —
+    # existing entries above are untouched.
+    #
+    # ``DELETE /index/folders/`` -> ``FolderDeleteResponse`` per
+    # ``agent_brain_server/models/folders.py``. Wraps remove_folder.
+    ("DELETE", "/index/folders/"): {
+        "folder_path": "/tmp/test",
+        "chunks_deleted": 42,
+        "message": "Successfully removed 42 chunks for /tmp/test",
+    },
+    # ``GET /index/cache/`` -> embedding cache status. Shape from
+    # ``agent_brain_server/api/routers/cache.py::_cache_status_impl``;
+    # MCP-side mirror at
+    # ``agent_brain_mcp/schemas.py::CacheStatusOutput``. The
+    # extra-allow config on the MCP schema permits future server
+    # additions; this stub stays minimal so Plans 02/03/04 can override
+    # with richer payloads when needed.
+    ("GET", "/index/cache/"): {
+        "hits": 100,
+        "misses": 25,
+        "hit_rate": 0.8,
+        "mem_entries": 50,
+        "entry_count": 1024,
+        "size_bytes": 2_097_152,
+    },
+    # ``DELETE /index/cache/`` -> clear-cache result. Shape from
+    # ``agent_brain_server/api/routers/cache.py::_clear_cache_impl``;
+    # MCP-side mirror at ``schemas.py::ClearCacheOutput``.
+    ("DELETE", "/index/cache/"): {
+        "count": 1024,
+        "size_bytes": 2_097_152,
+        "size_mb": 2.0,
+    },
+    # ``POST /index/add`` -> ``IndexResponse`` shape (job_id + status
+    # + message). Wraps the ``add_documents`` MCP tool which posts a
+    # ``{"paths": [...]}`` body. MockTransport ignores the body; tests
+    # that need body-shape assertions construct a per-test client.
+    ("POST", "/index/add"): {
+        "job_id": "job_add_001",
+        "status": "queued",
+        "message": "Documents queued for indexing",
+    },
+    # --- Additional ``/index/jobs/{id}`` variants for ``wait_for_job``
+    # contract tests. The base ``job_abc`` entry above stays at
+    # ``running`` for backwards compat with the v1 query-time guard
+    # tests; these aliases cover terminal-status assertions Plans 02
+    # and 04 will write against.
+    ("GET", "/index/jobs/job_done"): {
+        "job_id": "job_done",
+        "status": "completed",
+        "progress_percent": 100.0,
+        "message": "Indexing complete.",
+        "started_at": "2026-06-03T05:00:00Z",
+        "completed_at": "2026-06-03T05:01:00Z",
+    },
+    ("GET", "/index/jobs/job_failed"): {
+        "job_id": "job_failed",
+        "status": "failed",
+        "progress_percent": 25.0,
+        "message": "Embedding provider rejected payload.",
+        "started_at": "2026-06-03T05:00:00Z",
+        "completed_at": "2026-06-03T05:00:15Z",
+    },
+    ("GET", "/index/jobs/job_cancelled"): {
+        "job_id": "job_cancelled",
+        "status": "cancelled",
+        "progress_percent": 60.0,
+        "message": "Cancelled by client.",
+        "started_at": "2026-06-03T05:00:00Z",
+        "completed_at": "2026-06-03T05:00:30Z",
+    },
 }
 
 
