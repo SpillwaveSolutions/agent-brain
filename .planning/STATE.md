@@ -3,34 +3,34 @@ gsd_state_version: 1.0
 milestone: v10.2
 milestone_name: MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
 current_phase: 53
-status: planning
-stopped_at: "Plan 52-04 complete — disconnect cleanup hook + `build_server()` tuple refactor + e2e SDK validation shipped. `build_server()` signature changed to `tuple[Server, SubscriptionManager]` while preserving Plan 02's `server._subscription_manager` private attr for backwards compatibility (same instance, both surfaces; `test_build_server_attaches_subscription_manager` asserts identity-equality). `run_stdio(server, subscription_manager)` body wrapped in `try / finally`; the finally calls `manager.cleanup_all()` on every exit path (stdio EOF, exception, mid-loop crash) with an info-level log line. `_poll_loop` gains an explicit `except asyncio.CancelledError` clause that DEBUG-logs `session_id_short + uri` then re-raises — Plan 04 defense-in-depth on top of Plan 01's `finally`; makes leaked-task assertion tests diagnosable in CI. `tests/test_notification_shape.py` NEW (9 unit tests pinning `ResourceUpdatedNotification` + `ResourceUpdatedNotificationParams` spec conformance — minimal URI-only shape, optional `_meta.revision` 64-char hex SHA-256 envelope, method-literal pin; SUB-04 acceptance). `tests/e2e/test_e2e_subscriptions.py` NEW (5 SDK-driven e2e tests: corpus://status emit-on-change, job:// running→terminal lifecycle with `SubscriptionTerminated` auto-cancel, corpus://folders 2-state flip, **disconnect-cleanup counter-based assertion**, two-sessions cross-process isolation; SUB-01/02/03/05 end-to-end against the real MCP wire via the official Python SDK). 15 existing test files updated to unpack the new tuple shape. Phase 50 v2 design doc updated with §3.3.1 Phase 52 ship-outcome subsection (mirrors §3.2.1 structure; documents all Plan 04 contracts + risk carry-forward to Phase 53 + LOCKED reuse contract for Phase 54 TOOL-04 `wait_for_job`). 4 atomic commits: `2d16b68` (feat), `839b24b` (test SUB-04), `d0a3287` (test e2e SDK), `638ddcc` (docs §3.3.1). `task before-push` exit 0 — 416 monorepo tests passed, 265 MCP tests (was 241 non-e2e in Plan 03; +9 SUB-04 conformance + 5 e2e + Plan 03 e2e re-included when running full suite), 28 skipped, 3 layering contracts kept, 80% coverage. `task pr-qa-gate` exit 0. SUB-01..05 all closed and validated end-to-end. Phase 52 ready for verifier scoring (Wave 4); Phase 53 unblocked."
-last_updated: "2026-06-03T16:05:50.907Z"
+status: executing
+stopped_at: Plan 53-01 complete — CLI transport flags + dispatcher refactor shipped.
+last_updated: "2026-06-03T16:26:51.414Z"
 progress:
   total_phases: 6
-  completed_phases: 3
-  total_plans: 24
-  completed_plans: 12
+  completed_phases: 0
+  total_plans: 6
+  completed_plans: 0
 ---
 
 # Agent Brain — Project State
 
 **Last Updated:** 2026-06-03
 **Current Milestone:** v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
-**Status:** Ready to plan
+**Status:** Executing Phase 53
 **Current Phase:** 53
 
 ## Current Position
 
-Phase: 52 (resource-subscriptions) — EXECUTING (all 4 plans complete; awaiting verifier scoring)
-Plan: 4 of 4 ✓ complete
+Phase: 53 (streamable-http-transport) — EXECUTING
+Plan: 2 of 3 (Plan 01 complete; Plan 02 next — HTTP listener implementation)
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-06-03)
 
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Phase 52 — resource-subscriptions
+**Current focus:** Phase 53 — streamable-http-transport
 
 ## Milestone Summary
 
@@ -49,7 +49,7 @@ v9.6.0 Runtime Parity:       [██▌       ]  25% (1/4 phases — parked, def
 v10.0.0–v10.0.6 Patch Train: [██████████] 100% (shipped 2026-05-25 → 2026-05-27)
 v10.1.0 MCP v1:              [██████████] 100% (shipped 2026-05-30; UDS + 7-tool stdio MCP + CLI dual transport)
 v10.1.2 MCP package rename:  [██████████] 100% (shipped 2026-06-01; agent-brain-mcp PyPI distribution + standalone user guide)
-v10.2 MCP v2:                [█████     ]  50% (Phases 50–51 complete + Phase 52 plans 1-4 complete — 12/24 plans)
+v10.2 MCP v2:                [█████▌    ]  54% (Phases 50–51 complete + Phase 52 plans 1-4 complete + Phase 53 plan 1 complete — 13/24 plans)
 ```
 
 ## v10.2 Phase Progress
@@ -59,7 +59,7 @@ v10.2 MCP v2:                [█████     ]  50% (Phases 50–51 complet
 | 50. Server endpoint prep + v2 design doc | ✓ Complete (2026-06-03) | VAL-05 ✓ | 4/4 |
 | 51. URI schemes + templates | ✓ Complete (2026-06-03) | URI-01 ✓ · URI-02 ✓ · URI-03 ✓ · URI-04 ✓ · URI-05 ✓ | 4/4 |
 | 52. Resource subscriptions | Executing (4/4 plans done; awaiting verifier) | **SUB-01 ✓**, **SUB-02 ✓**, **SUB-03 ✓**, **SUB-04 ✓**, **SUB-05 ✓** | 4/4 |
-| 53. Streamable HTTP transport | Planned, not started | HTTP-01, HTTP-02, HTTP-03 | 0/3 |
+| 53. Streamable HTTP transport | Executing (1/3 plans done) | **HTTP-01 partial (Plan 01 — CLI surface)**, HTTP-02, **HTTP-03 ✓ (dispatcher level)** | 1/3 |
 | 54. 9 remaining MCP tools | Planned, not started | TOOL-01..TOOL-09 | 0/4 |
 | 55. Validation, contract tests & QA gate | Planned, not started | VAL-01, VAL-02, VAL-03, VAL-04 | 0/5 |
 
@@ -136,6 +136,12 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 - **Decision (2026-06-03, Plan 52-04):** Disconnect test catches `builtins.BaseExceptionGroup` and filters out `anyio.BrokenResourceError`. The SDK's `stdio_client` task group surfaces this when the subprocess emits a final in-flight notification AFTER the client closed its read side; the noise is harmless (the subprocess write succeeds; the parent stopped reading) and Plan 04's cleanup hook still fires correctly on the subprocess side. The filter is documented inline with a multi-line comment; non-`BrokenResourceError` exceptions are re-raised so real bugs aren't swallowed. The same filter pattern will likely extend to Phase 53's HTTP-transport e2e tests with a different exception class for HTTP framing — added to the v2 design doc §3.3.1 risk register.
 - **Decision (2026-06-03, Plan 52-04):** Two-sessions test scoped to CROSS-PROCESS isolation (not in-process). For stdio, each `stdio_client` invocation spawns its own MCP subprocess; the "two sessions on one process" semantic only applies to Streamable HTTP (Phase 53). The "real" multi-session isolation is Plan 01's `test_two_sessions_for_same_uri_get_independent_tasks` which runs inside a single asyncio loop. Plan 04's e2e test verifies the trivial-but-load-bearing property that session A's process exit doesn't affect session B's notification stream — documented in the test docstring + v2 design doc.
 - **Decision (2026-06-03, Plan 52-04):** SUB-04 conformance pins BOTH the minimal URI-only shape (the v2 default — Plan 02's `on_change` closure calls `ServerSession.send_resource_updated(uri)` which builds the minimal form) AND the optional `_meta.revision` envelope (CONTEXT decision C "when known" path). Even though v2 doesn't populate revision today, the contract is locked here so any future revision-bearing path stays spec-conformant. `canonical_hash` is independently verified against `hashlib.sha256(json.dumps(stripped, sort_keys=True, separators=(",", ":")))` — pins the digest computation against accidental drift.
+- **Decision (2026-06-03, Plan 53-01):** Two-axis transport labels on the `Server` instance. Phase 52's single `build_server(transport=)` kwarg is split into orthogonal `backend_transport=` (how MCP talks to `agent-brain-serve`) and `listen_transport=` (how the MCP client reaches this server). Phase 53 D-01 mandate. Both surfaced as private Server attributes (`_agent_brain_backend_transport` + `_agent_brain_listen_transport`) for in-process testing; Plan 03 will wire them into the MCP `initialize` `serverInfo._meta` blob over the wire.
+- **Decision (2026-06-03, Plan 53-01):** Backwards-compat alias for legacy `build_server(transport=)`. Routes to `backend_transport` with `warnings.warn(..., DeprecationWarning, stacklevel=2)`. Keeps Plan 52's tuple-return contract intact and lets every existing build_server() call site (39 references across 15 test files via `_, srv = build_server(client)`) continue to work without coordinated rename pressure. Slated for full removal in Phase 55. When both `transport=` and `backend_transport=` are passed, the legacy `transport=` wins — keeps the migration path single-knob (replacing `transport=X` with `backend_transport=X` doesn't accidentally drop the value mid-edit). Pinned by `test_legacy_transport_kwarg_does_not_override_explicit_backend`.
+- **Decision (2026-06-03, Plan 53-01):** Legacy `_agent_brain_transport` private attribute kept as one-way shim mirroring `backend_transport` only (NOT `listen_transport`). No production tests read it (verified by grep), but the shim costs nothing and protects any downstream observability/debug code that may sample the private attribute. Inline comment marks the shim for Phase 55 removal.
+- **Decision (2026-06-03, Plan 53-01):** `run_http(server, subscription_manager, *, host, port)` stub signature mirrors `run_stdio(server, subscription_manager)`. The manager parameter is unused in Plan 01 (stub raises `NotImplementedError("HTTP transport implemented in Plan 02")`) but is in the signature so Plan 02 inherits the Phase 52 Plan 04 disconnect-cleanup contract symmetrically across both transports — the HTTP-side `try/finally` will need to call `manager.cleanup_all()` the same way `run_stdio` does. Phase 53 carry-forward from v2 design doc §3.3.1 "HTTP transport analog inherits this design verbatim."
+- **Decision (2026-06-03, Plan 53-01):** `main_async` dispatcher raises `ValueError(f"Unknown transport: {transport!r}")` for unrecognized values. Click's `Choice(case_sensitive=False)` already rejects bogus values at the CLI layer — the `ValueError` branch is the defensive guard for direct callers (tests, embeddings) that bypass the CLI wrapper. No-silent-fallback (HTTP-03) extended to the runtime-error path: if `run_http` raises (e.g., port-in-use `OSError`), the error propagates verbatim — the dispatcher does NOT silently retry with `run_stdio`. Pinned by `test_no_silent_fallback_on_http_runtime_error`.
+- **Decision (2026-06-03, Plan 53-01):** `AGENT_BRAIN_MCP_TRANSPORT` env var is documented as reserved-but-not-honored per Phase 53 D-02. The `--transport` help text explicitly says so ("AGENT_BRAIN_MCP_TRANSPORT env is reserved but NOT honored in v2 (Phase 53 D-02).") to head off operator confusion. No negative-space test (would be brittle); Plan 03 USER_GUIDE.md update will repeat the warning.
 
 ### Blockers/Concerns
 
@@ -157,10 +163,10 @@ Feature backlog (#152, #154, #155, #156, #157, #158, #160, #162, #163, #164) and
 
 ## Session Continuity
 
-**Last Session:** 2026-06-03T15:50:49Z
-**Stopped At:** Plan 52-04 complete — disconnect cleanup hook + `build_server()` tuple refactor + e2e SDK validation shipped. `build_server()` signature changed to `tuple[Server, SubscriptionManager]` while preserving Plan 02's `server._subscription_manager` private attr for backwards compatibility (same instance, both surfaces; `test_build_server_attaches_subscription_manager` asserts identity-equality). `run_stdio(server, subscription_manager)` body wrapped in `try / finally`; the finally calls `manager.cleanup_all()` on every exit path (stdio EOF, exception, mid-loop crash) with an info-level log line. `_poll_loop` gains an explicit `except asyncio.CancelledError` clause that DEBUG-logs `session_id_short + uri` then re-raises — Plan 04 defense-in-depth on top of Plan 01's `finally`; makes leaked-task assertion tests diagnosable in CI. `tests/test_notification_shape.py` NEW (9 unit tests pinning `ResourceUpdatedNotification` + `ResourceUpdatedNotificationParams` spec conformance — minimal URI-only shape, optional `_meta.revision` 64-char hex SHA-256 envelope, method-literal pin; SUB-04 acceptance). `tests/e2e/test_e2e_subscriptions.py` NEW (5 SDK-driven e2e tests: corpus://status emit-on-change, job:// running→terminal lifecycle with `SubscriptionTerminated` auto-cancel, corpus://folders 2-state flip, **disconnect-cleanup counter-based assertion**, two-sessions cross-process isolation; SUB-01/02/03/05 end-to-end against the real MCP wire via the official Python SDK). 15 existing test files updated to unpack the new tuple shape. Phase 50 v2 design doc updated with §3.3.1 Phase 52 ship-outcome subsection (mirrors §3.2.1 structure; documents all Plan 04 contracts + risk carry-forward to Phase 53 + LOCKED reuse contract for Phase 54 TOOL-04 `wait_for_job`). 4 atomic commits: `2d16b68` (feat), `839b24b` (test SUB-04), `d0a3287` (test e2e SDK), `638ddcc` (docs §3.3.1). `task before-push` exit 0 — 416 monorepo tests passed, 265 MCP tests (was 241 non-e2e in Plan 03; +9 SUB-04 conformance + 5 e2e + Plan 03 e2e re-included when running full suite), 28 skipped, 3 layering contracts kept, 80% coverage. `task pr-qa-gate` exit 0. SUB-01..05 all closed and validated end-to-end. Phase 52 ready for verifier scoring (Wave 4); Phase 53 unblocked.
-**Resume File:** `.planning/phases/53-streamable-http-transport/` (Phase 52 complete; Phase 53 is the next workable phase — independent of 52, can run in parallel with 54)
-**Next Action:** Phase 52 is complete pending verifier scoring. The gsd-verifier orchestrator (Wave 4 of the workflow) will re-confirm SUB-01..05 acceptance against the shipped code; assuming PASS, Phase 52 flips to `Complete` in ROADMAP.md and the milestone progress advances to 12/24 plans (50%). Next workable phase is Phase 53 (Streamable HTTP MCP transport — independent of 52; depends on 53's own preparation). Phase 54 TOOL-04 (`wait_for_job`) can also start whenever Phase 52's `SubscriptionManager.start_polling` LOCKED signature is needed.
+**Last Session:** 2026-06-03T16:26:51.410Z
+**Stopped At:** Plan 53-01 complete — `--transport [stdio|http]` / `--host` / `--port` Click options shipped on `agent-brain-mcp`; `build_server()` refactored to split Phase 52's single `transport=` kwarg into orthogonal `backend_transport=` / `listen_transport=` axes (Phase 53 D-01) with backwards-compat `transport=` deprecation alias emitting `DeprecationWarning(stacklevel=2)` and routing to `backend_transport`; legacy `_agent_brain_transport` private attribute kept as one-way shim mirroring `backend_transport` (Phase 55 removal noted); both new axis labels (`_agent_brain_backend_transport`, `_agent_brain_listen_transport`) surfaced on Server instance for in-process testing (Plan 03 will wire over the wire via `serverInfo._meta`); `run_http(server, manager, *, host, port)` stub raises `NotImplementedError("HTTP transport implemented in Plan 02")` with the manager parameter in place so Plan 02 inherits the Phase 52 Plan 04 disconnect-cleanup contract symmetrically; `main_async()` accepts new `transport`/`host`/`port` kwargs and dispatches stdio→`run_stdio(server, manager)` vs http→`run_http(server, manager, host=host, port=port)` vs invalid→`ValueError("Unknown transport: …")` (no-silent-fallback HTTP-03 invariant pinned by `test_no_silent_fallback_on_http_runtime_error`); 24 net new tests across 2 new files + 1 smoke touch (10 `tests/test_cli_transport_flags.py` + 13 `tests/test_dispatch.py` + 1 `tests/test_smoke.py` legacy-alias assertion); 250 prior tests unchanged → 274 MCP tests passing; full `task before-push` exit 0 (416 monorepo tests, 3 layering contracts kept, Black + Ruff + mypy strict all clean); 2 atomic commits (`3e76220` feat, `52ddfdf` test). MCP SDK availability gate cleared on first run (`from mcp.server.streamable_http_manager import StreamableHTTPSessionManager`). 1 plan deviation auto-applied (Rule 2 — added `test_no_silent_fallback_on_http_runtime_error` to pin HTTP-03 dispatcher invariant the plan listed but didn't enumerate in test cases). Plan 53-02 (HTTP listener implementation) unblocked.
+**Resume File:** `.planning/phases/53-streamable-http-transport/plans/02-http-listener.md` (TBD; Plan 02 will swap the `run_http` stub for in-process uvicorn wrapping the SDK's `StreamableHTTPSessionManager` at `/mcp` + `/healthz` probe + loopback host whitelist enforcement per D-08)
+**Next Action:** Plan 53-02 — HTTP listener implementation. Plan 01's `run_http(server, manager, *, host, port)` stub is the swap point; Plan 02 must (a) replace `raise NotImplementedError` with the in-process uvicorn + StreamableHTTPSessionManager wiring, (b) enforce the loopback whitelist (`127.0.0.1` / `localhost` / `::1`) per D-08, (c) add the `/healthz` probe per D-07, (d) wrap port-in-use OSError as `click.ClickException` per D-12, (e) wire the symmetric disconnect-cleanup hook (`manager.cleanup_all()` in `try/finally`) mirroring `run_stdio`. Plan 53-03 ships SDK smoke + USER_GUIDE.md update. Phase 52 still pending verifier scoring (Wave 4) — orchestrator should run that in parallel with Plan 53-02 execution since the two are independent.
 
 ## Recommended Execution Order
 
@@ -175,3 +181,5 @@ Per workflow summarizer (verified ready_to_execute: true):
 
 ---
 *State updated: 2026-06-03 — Plan 52-04 shipped (build_server tuple refactor + run_stdio disconnect cleanup hook + _poll_loop explicit CancelledError clause + 9 SUB-04 notification-shape conformance tests + 5 SDK-driven e2e subscription tests covering SUB-01/02/03/05 end-to-end + Phase 50 v2 design doc §3.3.1 Phase 52 ship-outcome subsection); +24 tests across MCP package (9 SUB-04 + 5 e2e + Plan 03 e2e re-included when full suite runs); 265 MCP tests passing; 416 monorepo tests passing; Phase 52 plans 1-4 all complete; SUB-01..05 all closed and end-to-end validated against the real MCP wire via the official Python SDK; 12/24 plans complete across the v10.2 milestone; Phase 52 awaiting verifier scoring (Wave 4); Phase 53 (Streamable HTTP transport) is the next workable phase.*
+
+*State updated: 2026-06-03 — Plan 53-01 shipped (CLI `--transport`/`--host`/`--port` Click options + `build_server()` two-axis split with `transport=` DeprecationWarning alias + `run_http()` NotImplementedError stub awaiting Plan 02 + `main_async()` dispatcher with no-silent-fallback invariant); +24 tests across MCP package (10 CLI flag + 13 dispatcher + 1 smoke); 274 MCP tests passing (was 250); 416 monorepo tests passing; 2 atomic commits (`3e76220` feat, `52ddfdf` test) + this metadata commit; HTTP-01 partial (CLI surface) + HTTP-03 ✓ (dispatcher-level explicit selection / no silent fallback); 13/24 plans complete across the v10.2 milestone; Phase 53-02 (HTTP listener implementation) is the next workable plan within Phase 53.*

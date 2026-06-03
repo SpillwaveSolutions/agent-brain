@@ -42,7 +42,7 @@
 | 50. Server endpoint prep + v2 design doc | 0/0 | Complete    | 2026-06-03 |
 | 51. URI schemes + templates | 4/4 | Complete    | 2026-06-03 |
 | 52. Resource subscriptions | 4/4 | Complete    | 2026-06-03 |
-| 53. Streamable HTTP transport | 0/0 | Not started | - |
+| 53. Streamable HTTP transport | 1/3 | Executing  |  |
 | 54. 9 remaining MCP tools | 0/0 | Not started | - |
 | 55. Validation, contract tests & QA gate | 0/0 | Not started | - |
 
