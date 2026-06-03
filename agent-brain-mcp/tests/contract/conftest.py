@@ -175,9 +175,29 @@ def contract_fake_server_module(
 _FAST_CADENCE_SUBSCRIPTION_SCRIPT = """
 import asyncio
 import json
+import logging
 import os
+import sys
 
 import httpx
+
+# Plan 03 disconnect-cleanup test reads stderr for the Phase 52 log
+# line emitted by server.run_stdio's finally block
+# (``"subscription cleanup: cancelled %d polling task(s) on session
+# close"``). The MCP package itself does NOT configure logging, so the
+# default root logger has no handler and ``logger.info(...)`` calls
+# would silently drop. We attach a StreamHandler on stderr at INFO
+# level here BEFORE importing the server module so the cleanup log
+# line surfaces to the parent test's stderr drain.
+#
+# This is test-only logging configuration — production MCP servers
+# inherit whatever logging the MCP runtime (LLM client, plugin host)
+# configures.
+logging.basicConfig(
+    level=logging.INFO,
+    stream=sys.stderr,
+    format="%(name)s %(levelname)s %(message)s",
+)
 
 from agent_brain_mcp.server import build_server, run_stdio
 from agent_brain_mcp.subscriptions.policies import SUBSCRIPTION_POLICIES
