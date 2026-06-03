@@ -24,7 +24,7 @@
 - ✅ **v10.0.x Patch Train** — bugfixes (shipped 2026-05-25 → 2026-05-27)
 - ✅ **v10.1.0 MCP v1** — UDS transport + 7-tool stdio MCP + CLI dual transport (shipped 2026-05-30)
 - ✅ **v10.1.2 MCP package rename + standalone user guide** — `agent-brain-mcp` PyPI distribution (shipped 2026-06-01)
-- 🚧 **v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion** — Phases 50-55 (active)
+- ✅ **v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion** — Phases 50-55 (24/24 plans complete 2026-06-03; READY FOR RELEASE — awaiting `gsd-complete-milestone` + release workflow)
 
 ## Phases
 
@@ -33,7 +33,7 @@
 - [x] **Phase 52: Resource subscriptions** — `resources/subscribe` + per-resource polling cadence + `notifications/resources/updated` + disconnect cleanup (completed 2026-06-03)
 - [x] **Phase 53: Streamable HTTP transport** — `--transport http` on `agent-brain-mcp` with loopback bind and explicit transport selection (completed 2026-06-03)
 - [x] **Phase 54: 9 remaining MCP tools** — `explain_result`, `add_documents`, `inject_documents`, `wait_for_job` (with progress), `list_folders`, `remove_folder`, `cache_status`, `clear_cache`, `list_file_types` (completed 2026-06-03)
-- [ ] **Phase 55: Validation, contract tests & QA gate integration** — 16-tool parameterized SDK contract tests, subscription E2E test, HTTP transport SDK test, root `task before-push` integration
+- [x] **Phase 55: Validation, contract tests & QA gate integration** — 16-tool parameterized SDK contract tests, subscription E2E test, HTTP transport SDK test, root `task before-push` integration (completed 2026-06-03)
 
 ## Progress
 
@@ -44,7 +44,7 @@
 | 52. Resource subscriptions | 4/4 | Complete    | 2026-06-03 |
 | 53. Streamable HTTP transport | 3/3 | Complete    | 2026-06-03 |
 | 54. 9 remaining MCP tools | 0/1 | Complete    | 2026-06-03 |
-| 55. Validation, contract tests & QA gate | 4/5 | Executing  | -          |
+| 55. Validation, contract tests & QA gate | 5/5 | Complete    | 2026-06-03 |
 
 ## Phase Details
 
@@ -134,8 +134,8 @@
   - [x] **Plan 02** — 16-tool parameterized contract tests (VAL-01). `_tool_matrix.py` SOT shared by Layer 1 (in-process) and Layer 2 (SDK) with import-time drift guard; 32 SDK tool contract assertions (16 happy + 16 negative) + 6 resources contract assertions (4 templates lock + 5 v1 corpus list + 4 per-scheme read round-trips). Layer 1 expanded from 7 to 16 tools. 4 atomic commits (86999e0 / c3b6f1f / 4a6b51c / 3e07334) on main; all quality gates green. Shipped 2026-06-03.
   - [x] **Plan 03** — Subscription lifecycle E2E (VAL-02). 3 parameterized happy-path tests (job://, corpus://status, corpus://folders) + 1 disconnect-cleanup test using raw `subprocess.Popen` for the EOF code path; cadence override via bundled fast-cadence script (monkeypatches `SUBSCRIPTION_POLICIES[*].interval_s` from env vars before `build_server`); stderr-scrape verification for Phase 52's `"subscription cleanup: cancelled"` log line (CONTEXT D-06 fallback — Phase 52 ships no debug endpoint); follow-up GitHub issue #194 filed proposing `/mcp/subscriptions/__debug` for v10.3+. 2 atomic commits (0c156fd / 0c3c9ec) on main; contract suite 39 → 43 tests (+4.32s); all quality gates green. Shipped 2026-06-03.
   - [x] **Plan 04** — Streamable HTTP transport contract tests (VAL-03). 5 SDK-driven contract tests in `tests/contract/test_http_transport_contract.py` (initialize / tools/list==16 / tools/call(server_health) / resources/list⊇{5 v1 corpus URIs} / resources/read(corpus://config)) + 1 mount-path sanity pin = 6 new tests proving the SAME 16-tool surface + 5 v1 corpus URIs surface over HTTP that Plan 02 pinned over stdio (transport-equivalence proof). New `mcp_http_session` factory fixture (parallel to Plan 01's `mcp_stdio_session` callable shape) reuses Phase 53 Plan 03's `mcp_http_subprocess` + `fake_http_server_module` from `tests/conftest.py` via pytest's parent-conftest cascade — no duplicate HTTP harness in `tests/contract/`. Defensive `*_` unpack on `streamablehttp_client` yield tuple absorbs additive SDK signature evolution. Autouse orphan-scan regex widened to also catch `fake_mcp_http_server.py`. Per CONTEXT D-10: loopback-rejection / `--transport`-rejection tests stay in Phase 53 — Plan 04 only proves happy-path SDK round-trip. NO root Taskfile changes (Plan 05). 1 atomic commit (9b8eda6) on main; contract suite 43 → 49 tests (+3.76s); all quality gates green. Shipped 2026-06-03.
-  - [ ] **Plan 05** — Root QA gate integration (VAL-04, closes DR-5)
+  - [x] **Plan 05** — Root QA gate integration (VAL-04, closes DR-5). agent-brain-mcp + agent-brain-uds folded into root `task before-push` + `task pr-qa-gate`; per-package `before-push` tasks added (format:check → lint → typecheck → test:cov) to both Taskfiles; root recipes invoke sub-tasks inside the existing lock-guard wrapping (issue #174 mechanism preserved). Stale `# NOT wired into root` v1 headers replaced with v10.2 attribution citing DR-5 closure. VALIDATION.md milestone exit-gate attestation produced (VAL-01..04 all ✓, QA gate exit 0, coverage 91.83% MCP / 99% UDS, +60-90s wall-clock delta as planned). CHANGELOG `[10.2.0]` entry shipped consolidating full v10.2 narrative + DR-5 closure callout. ONE auto-fixed deviation: Rule 3 blocking — agent-brain-uds smoke test version assertion loosened from hardcoded "10.0.7" to MAJOR.MINOR.PATCH regex (was silently broken since 10.1.0 PyPI bump). 3 atomic commits (0391a27 / a7ca7c9 / 2ccbb84) on main; MANDATORY FINAL `task before-push` from repo root exit 0 in 162s (the DR-5 closure attestation); all quality gates green. Shipped 2026-06-03.
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-06-03 — Plan 55-04 complete (Streamable HTTP transport contract suite shipped, VAL-03 closed)*
+*Last updated: 2026-06-03 — v10.2 milestone COMPLETE (24/24 plans across Phases 50-55); Plan 55-05 closed VAL-04 + DR-5; milestone READY FOR RELEASE*
