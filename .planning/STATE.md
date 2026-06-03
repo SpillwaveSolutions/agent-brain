@@ -3,27 +3,28 @@ gsd_state_version: 1.0
 milestone: v10.2
 milestone_name: MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
 current_phase: 51
-status: executing
-stopped_at: "Plan 51-03 complete (file:// handler + Phase 50 sandbox re-export shim shipped; 17 new tests; 3 commits 8ea1460, f284568, 9093ed4; task before-push exit 0 — 416 passed)"
-last_updated: "2026-06-03T06:00:00Z"
+status: phase_complete
+stopped_at: "Plan 51-04 complete (resources/templates/list + MIN_BACKEND_VERSION 10.2.0 floor shipped; 17 new tests; 5 commits df61962, 4bfdcb4, 76bb797, 870d763, e137191; task before-push exit 0 — 416 passed; Phase 51 closes URI-01 through URI-05)"
+last_updated: "2026-06-03T06:07:00Z"
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 24
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Agent Brain — Project State
 
 **Last Updated:** 2026-06-03
 **Current Milestone:** v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
-**Status:** Executing Phase 51
-**Current Phase:** 51
+**Status:** Phase 51 complete — ready for Phase 52
+**Current Phase:** 51 → 52 (next)
 
 ## Current Position
 
-Phase: 51 (uri-schemes-templates) — EXECUTING
-Plan: 4 of 4 (Plans 51-01 + 51-02 + 51-03 shipped 2026-06-03; Plan 51-04 templates/list pending)
+Phase: 51 (uri-schemes-templates) — COMPLETE (all 4 plans shipped 2026-06-03)
+Plan: 4 of 4 done (Plans 51-01, 51-02, 51-03, 51-04 all closed; URI-01 through URI-05 all complete)
+Next Phase: 52 (resource-subscriptions) — ready to begin
 
 ## Project Reference
 
@@ -49,7 +50,7 @@ v9.6.0 Runtime Parity:       [██▌       ]  25% (1/4 phases — parked, def
 v10.0.0–v10.0.6 Patch Train: [██████████] 100% (shipped 2026-05-25 → 2026-05-27)
 v10.1.0 MCP v1:              [██████████] 100% (shipped 2026-05-30; UDS + 7-tool stdio MCP + CLI dual transport)
 v10.1.2 MCP package rename:  [██████████] 100% (shipped 2026-06-01; agent-brain-mcp PyPI distribution + standalone user guide)
-v10.2 MCP v2:                [██▉       ]  29% (Phase 50 + Plans 51-01/02/03 complete — 7/24 plans)
+v10.2 MCP v2:                [███▎      ]  33% (Phase 50 complete + Phase 51 complete — 8/24 plans)
 ```
 
 ## v10.2 Phase Progress
@@ -57,7 +58,7 @@ v10.2 MCP v2:                [██▉       ]  29% (Phase 50 + Plans 51-01/02/
 | Phase | Status | Requirements | Plans |
 |-------|--------|--------------|-------|
 | 50. Server endpoint prep + v2 design doc | ✓ Complete (2026-06-03) | VAL-05 ✓ | 4/4 |
-| 51. URI schemes + templates | In progress (Plans 01+02+03 shipped 2026-06-03) | URI-01 ✓ · URI-02 ✓ · URI-03 ✓ · URI-04 ✓ · URI-05 pending | 3/4 |
+| 51. URI schemes + templates | ✓ Complete (2026-06-03) | URI-01 ✓ · URI-02 ✓ · URI-03 ✓ · URI-04 ✓ · URI-05 ✓ | 4/4 |
 | 52. Resource subscriptions | Planned, not started | SUB-01, SUB-02, SUB-03, SUB-04, SUB-05 | 0/4 |
 | 53. Streamable HTTP transport | Planned, not started | HTTP-01, HTTP-02, HTTP-03 | 0/3 |
 | 54. 9 remaining MCP tools | Planned, not started | TOOL-01..TOOL-09 | 0/4 |
@@ -66,6 +67,8 @@ v10.2 MCP v2:                [██▉       ]  29% (Phase 50 + Plans 51-01/02/
 **Coverage:** 27/27 v1 requirements mapped to phases (no orphans, no duplicates)
 **Total plans:** 24 (Phase 50: 4 ✓ · Phase 51: 4 · Phase 52: 4 · Phase 53: 3 · Phase 54: 4 · Phase 55: 5)
 **Phase 50 shipped:** v2 design doc (486 lines) · `GET /query/chunk/{chunk_id}` (ChromaDB + Postgres) · `GET /graph/entity/{type}/{id}` (Kuzu + Simple, #178 503 fallback) · `agent_brain_server/security/file_sandbox.py` (4 deny reasons, 10 MiB cap) — full suite green: 1269 passed, 0 regressions, Black/Ruff/mypy strict all clean
+
+**Phase 51 shipped:** Parameterized URI dispatcher + 4 handlers (`chunk://`, `graph-entity://`, `job://`, `file://`) + `resources/templates/list` advertising 4 RFC 6570 templates with byte-identical CONTEXT decision B strings + `MIN_BACKEND_VERSION` bumped to `10.2.0` + pyproject pins (`agent-brain-rag`, `agent-brain-uds`) bumped to `^10.2.0` in lockstep + `agent_brain_mcp.security` re-export shim sharing Phase 50's sandbox helpers without forking — 50 net new tests added across the four plans, 141 MCP tests + 416 monorepo tests passing at HEAD, Black/Ruff/mypy strict all clean, 3 layering contracts kept.
 
 ## v10.2 Cross-Phase Risk Register (from workflow summarizer)
 
@@ -98,6 +101,10 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 - [v10.1.2]: PyPI package renamed to `agent-brain-mcp`; standalone MCP user guide added (commits `1e34818`, `cf7a364`)
 - **Decision (2026-06-01):** Pivot away from MCP-is-out-of-scope stance recorded in PROJECT.md v9.6.0 era. MCP is now the active investment direction; that out-of-scope line has been removed.
 - **Decision (2026-06-02):** v2 design doc (VAL-05) lands in Phase 50, *before* MCP-layer implementation, so reviewers can challenge the subscription/transport approach before code lands.
+- **Decision (2026-06-03, Plan 51-04):** The four `uriTemplate` strings advertised by `resources/templates/list` (`chunk://{chunk_id}`, `graph-entity://{type}/{id}`, `job://{job_id}`, `file://{+path}`) are a forward-compatibility commitment per Phase 51 CONTEXT decision B — once published in 10.2.0, MCP client libraries lock onto them and changes are breaking. The strings are pinned by `test_registry_uri_templates_match_expected_set` against silent drift.
+- **Decision (2026-06-03, Plan 51-04):** `file://{+path}` uses RFC 6570 reserved expansion (operator `+`) rather than the default expansion (`{path}`). Default expansion percent-encodes `/` as `%2F`, which is the WRONG behavior for filesystem paths. Pinned by `test_file_template_uses_reserved_expansion`.
+- **Decision (2026-06-03, Plan 51-04):** Release-train coupling locked in two places. Runtime `MIN_BACKEND_VERSION = "10.2.0"` (refuses startup against older server) + install-time pyproject pin `agent-brain-rag = "^10.2.0"`. `agent-brain-server 10.2.0` MUST publish to PyPI BEFORE `agent-brain-mcp 10.2.0`; existing lockstep release flow (`.claude/commands/ag-brain-release.md`) handles propagation timing.
+- **Decision (2026-06-03, Plan 51-04):** `resources.subscribe` capability stays `False` through Phase 51. Phase 52 owns flipping it; Phase 51 explicitly preserves the v1 wire shape so clients that don't yet understand subscriptions are unaffected.
 - **Decision (2026-06-03, Plan 51-01):** Parameterized URI dispatcher in `agent_brain_mcp/resources/parameterized.py` uses a *single* `ParsedURI` dataclass (all per-scheme fields optional, only the relevant ones populated) and a *closed* `PARAMETERIZED_SCHEMES` frozenset with NotImplementedError-raising placeholders for `chunk`/`graph-entity`/`file`. Plans 51-02 and 51-03 swap the placeholder values in `PARAMETERIZED_HANDLERS` without touching the dispatcher or the registry shape. Error-data shapes for malformed-URI (`{uri, reason}`) vs backend-404 (`{scheme, <id>, httpStatus, cause}`) are intentionally different — see module docstring.
 - **Decision (2026-06-03, Plan 51-02):** Per-scheme error refinement preserves the *original* `McpError.code` and only enriches `data`. For `graph-entity` 503 responses, the handler additionally extracts a `reason` slug (`graphrag_disabled` or `kuzu_unavailable`) from the Phase 50 server's detail body via a forgiving substring scan against a closed reason set — operators (and MCP clients) can route on `data.reason` without re-parsing `data.cause`. This handles the #178 Kuzu SIGSEGV fallback transparently across the MCP boundary.
 - **Decision (2026-06-03, Plan 51-02):** `graph-entity://` URI parser allows entity ids containing `/` (e.g., `graph-entity://Function/AuthService/login` → entity_id=`AuthService/login`). Phase 50 decision B explicitly permits hierarchical ids; the parser treats `raw_path.lstrip("/").rstrip("/")` as the FULL id including inner slashes. Phase 50's FastAPI path-style `{entity_id}` route honors this verbatim.
@@ -126,10 +133,10 @@ Feature backlog (#152, #154, #155, #156, #157, #158, #160, #162, #163, #164) and
 
 ## Session Continuity
 
-**Last Session:** 2026-06-03T06:00:00Z
-**Stopped At:** Plan 51-03 complete (file:// handler + Phase 50 sandbox re-export shim shipped; 17 new tests covering all 4 Phase 50 deny reasons, AnyUrl normalization, traversal protection, and roots-refresh-on-each-read regression; 3 commits 8ea1460, f284568, 9093ed4; task before-push exit 0 — 416 tests passed across the full monorepo; Plan 02 ran in parallel and closed simultaneously, both plans' commits are in the main history)
-**Resume File:** `.planning/phases/51-uri-schemes-templates/plans/04-resources-templates-list-and-version-floor.md`
-**Next Action:** `/gsd:execute-plan 51 04` — execute Plan 51-04 (resources/templates/list advertising all 4 schemes + MIN_BACKEND_VERSION bump to 10.2.0)
+**Last Session:** 2026-06-03T06:07:00Z
+**Stopped At:** Plan 51-04 complete — resources/templates/list advertising 4 RFC 6570 templates + MIN_BACKEND_VERSION bump to 10.2.0 + pyproject pin lockstep + e2e SDK test covering all 4 schemes. 5 commits df61962, 4bfdcb4, 76bb797, 870d763, e137191. task before-push exit 0 — 416 tests passed across the full monorepo; 141 MCP tests passing; 3 layering contracts kept. Phase 51 closes — URI-01 through URI-05 all complete.
+**Resume File:** _(Phase 51 closed; awaiting Phase 52 kick-off)_
+**Next Action:** `/gsd:execute-phase 52` — begin Phase 52 (Resource subscriptions; SUB-01 through SUB-05). Phase 52 will flip `resources.subscribe` capability to True and add `SubscriptionManager.start_polling()` infrastructure for `job://`, `corpus://status`, and `corpus://folders`. Phase 53 (Streamable HTTP transport) can run in parallel.
 
 ## Recommended Execution Order
 
@@ -143,4 +150,4 @@ Per workflow summarizer (verified ready_to_execute: true):
 6. **Phase 55** — Validation + QA gate (validates Phases 50-54; must be last; verification-only, no new production code)
 
 ---
-*State updated: 2026-06-03 — Plans 51-01 + 51-02 + 51-03 shipped (URI dispatcher + job:// + chunk:// + graph-entity:// + file:// handlers + Phase 50 sandbox re-export shim); Phase 51 3/4 plans complete; URI-01, URI-02, URI-03, URI-04 all closed; only URI-05 (resources/templates/list) remains*
+*State updated: 2026-06-03 — Plan 51-04 shipped (resources/templates/list + MIN_BACKEND_VERSION 10.2.0 floor + pyproject pin lockstep + e2e SDK test); Phase 51 COMPLETE 4/4 plans; URI-01 through URI-05 all closed; 50 net new tests added across the four plans of Phase 51; 8/24 plans complete across the v10.2 milestone; ready to begin Phase 52 (resource subscriptions)*
