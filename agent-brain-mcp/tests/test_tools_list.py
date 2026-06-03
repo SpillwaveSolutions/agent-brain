@@ -1,4 +1,11 @@
-"""Phase 4 test: ``tools/list`` advertises exactly 7 tools (plan §12.3 #8)."""
+"""Phase 4 / Phase 54 test: ``tools/list`` advertises the expected tool set.
+
+Phase 54 Plan 02 bumps the registry from 7 (v1) to 11 (v1 + 4 read-only
+v2 tools). Plan 03 will bump to 15, Plan 04 to 16 — the assertions in
+this module use ``>= 11`` and superset semantics so they keep passing
+across the staged plan landings without per-plan churn. The final exact
+count assertion (== 16) lives in Phase 55's contract-test suite.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +15,8 @@ import pytest
 from agent_brain_mcp.server import build_server
 from agent_brain_mcp.tools import TOOL_REGISTRY
 
-EXPECTED_TOOLS = {
+# v1 base set — every entry below MUST exist after Phase 54 lands.
+V1_TOOLS = {
     "search_documents",
     "query_count",
     "index_folder",
@@ -18,14 +26,31 @@ EXPECTED_TOOLS = {
     "server_health",
 }
 
+# Phase 54 Plan 02 read-only additions.
+PHASE_54_READ_ONLY_TOOLS = {
+    "explain_result",
+    "list_folders",
+    "cache_status",
+    "list_file_types",
+}
+
+# Superset of v1 + Plan 02 — every entry below MUST be advertised after
+# Plan 02 lands. Plans 03 / 04 add more (remove_folder, clear_cache,
+# add_documents, inject_documents, wait_for_job) on top of this floor.
+EXPECTED_TOOLS = V1_TOOLS | PHASE_54_READ_ONLY_TOOLS
+
 
 class TestToolsList:
-    def test_registry_has_seven_tools(self) -> None:
-        assert len(TOOL_REGISTRY) == 7
-        assert set(TOOL_REGISTRY.keys()) == EXPECTED_TOOLS
+    def test_registry_has_at_least_eleven_tools(self) -> None:
+        # Phase 54 Plan 02 → 11 tools (7 v1 + 4 read-only v2). Plan 03 → 15,
+        # Plan 04 → 16. The ``>= 11`` assertion is forward-compatible.
+        assert len(TOOL_REGISTRY) >= 11
+        # Every v1 tool + every Plan 02 tool MUST be registered. Plan 03/
+        # 04 additions are allowed but not required here.
+        assert EXPECTED_TOOLS.issubset(set(TOOL_REGISTRY.keys()))
 
     @pytest.mark.asyncio
-    async def test_list_tools_handler_returns_seven(
+    async def test_list_tools_handler_returns_at_least_eleven(
         self, fake_httpx_client: httpx.Client
     ) -> None:
         server, _ = build_server(fake_httpx_client)
@@ -36,8 +61,8 @@ class TestToolsList:
         req = types.ListToolsRequest(method="tools/list")
         result = await handler(req)
         tools = result.root.tools
-        assert len(tools) == 7
-        assert {t.name for t in tools} == EXPECTED_TOOLS
+        assert len(tools) >= 11
+        assert EXPECTED_TOOLS.issubset({t.name for t in tools})
 
     @pytest.mark.asyncio
     async def test_each_tool_has_input_schema(
