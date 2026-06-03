@@ -4,13 +4,13 @@ milestone: v10.2
 milestone_name: MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
 current_phase: 52
 status: executing
-stopped_at: Plan 52-02 complete — MCP wire integration shipped. @server.subscribe_resource() + @server.unsubscribe_resource() handlers wired through Plan 01's SubscriptionManager; capability flipped via get_capabilities wrapper (MCP SDK 1.12.x hardcodes False with no opt-in knob); policies.py stub landed for Plan 03. 2 commits bde8d47 (feat) + 4716f7a (test). task before-push exit 0 — 416 monorepo tests, 211 MCP tests (+26 new), 3 layering contracts kept. SUB-01 + SUB-02 covered; SUB-03 infrastructurally landed (on_change closure wired; actual cadence policies ship in Plan 03).
-last_updated: "2026-06-03T14:59:00Z"
+stopped_at: Plan 52-03 complete — three concrete per-URI polling policies (JobPolicy 1s auto-terminating + CorpusStatusPolicy 30s diff-suppressed + CorpusFoldersPolicy settings-driven 5s) populate SUBSCRIPTION_POLICIES at module load; SubscriptionTerminated control-flow sentinel + _poll_loop catch branch land; MCPSubscriptionSettings Pydantic model with gt=0 validation + two new env vars. 2 commits e0c4010 (feat) + 8a2017d (test). task before-push exit 0 — 416 monorepo tests, 241 MCP tests (+40 new), 3 layering contracts kept. SUB-01 + SUB-02 + SUB-03 closed; Plan 04 (disconnect cleanup hook + build_server tuple refactor + e2e SDK tests) unblocked.
+last_updated: "2026-06-03T15:24:39Z"
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 24
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Agent Brain — Project State
@@ -23,7 +23,7 @@ progress:
 ## Current Position
 
 Phase: 52 (resource-subscriptions) — EXECUTING
-Plan: 2 of 4 ✓ complete; 3 of 4 next
+Plan: 3 of 4 ✓ complete; 4 of 4 next
 
 ## Project Reference
 
@@ -49,7 +49,7 @@ v9.6.0 Runtime Parity:       [██▌       ]  25% (1/4 phases — parked, def
 v10.0.0–v10.0.6 Patch Train: [██████████] 100% (shipped 2026-05-25 → 2026-05-27)
 v10.1.0 MCP v1:              [██████████] 100% (shipped 2026-05-30; UDS + 7-tool stdio MCP + CLI dual transport)
 v10.1.2 MCP package rename:  [██████████] 100% (shipped 2026-06-01; agent-brain-mcp PyPI distribution + standalone user guide)
-v10.2 MCP v2:                [████▏     ]  42% (Phases 50–51 complete + Phase 52 in flight — 10/24 plans)
+v10.2 MCP v2:                [████▌     ]  46% (Phases 50–51 complete + Phase 52 in flight — 11/24 plans)
 ```
 
 ## v10.2 Phase Progress
@@ -58,7 +58,7 @@ v10.2 MCP v2:                [████▏     ]  42% (Phases 50–51 complet
 |-------|--------|--------------|-------|
 | 50. Server endpoint prep + v2 design doc | ✓ Complete (2026-06-03) | VAL-05 ✓ | 4/4 |
 | 51. URI schemes + templates | ✓ Complete (2026-06-03) | URI-01 ✓ · URI-02 ✓ · URI-03 ✓ · URI-04 ✓ · URI-05 ✓ | 4/4 |
-| 52. Resource subscriptions | Executing (2/4 plans done) | **SUB-01 ✓**, **SUB-02 ✓**, SUB-03 (infra ✓; policies in Plan 03), **SUB-04 ✓**, **SUB-05 ✓** | 2/4 |
+| 52. Resource subscriptions | Executing (3/4 plans done) | **SUB-01 ✓**, **SUB-02 ✓**, **SUB-03 ✓**, **SUB-04 ✓**, **SUB-05 ✓** | 3/4 |
 | 53. Streamable HTTP transport | Planned, not started | HTTP-01, HTTP-02, HTTP-03 | 0/3 |
 | 54. 9 remaining MCP tools | Planned, not started | TOOL-01..TOOL-09 | 0/4 |
 | 55. Validation, contract tests & QA gate | Planned, not started | VAL-01, VAL-02, VAL-03, VAL-04 | 0/5 |
@@ -122,6 +122,12 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 - **Decision (2026-06-03, Plan 52-02):** `policies.py` registry key shape is either exact URI (`corpus://status`) OR scheme prefix ending in `://` (`job://`). `resolve_policy` tries exact first, then scheme-prefix — exact-URI entries always win over scheme entries. Pinned by `test_exact_uri_policy_wins_over_scheme`. Critical for Plan 03 where `corpus://status` (exact) and a future per-scheme `corpus://` entry must not collide.
 - **Decision (2026-06-03, Plan 52-02):** `SubscriptionPolicy` is a `runtime_checkable` `Protocol` (not an ABC). Plan 03's concrete policies will be plain dataclasses that happen to satisfy the Protocol; structural typing keeps test stubs lightweight (no inheritance required for `monkeypatch.setitem` fixtures). Stub policies installed via `monkeypatch.setitem(SUBSCRIPTION_POLICIES, ...)` are ADDITIVE so Plan 03's real policies can coexist with test stubs without breakage.
 - **Decision (2026-06-03, Plan 52-02):** Test pattern: integration tests INLINE the `async with create_connected_server_and_client_session` block rather than wrapping it in a `pytest_asyncio.fixture` — fixture-wrapped harness trips anyio's `RuntimeError: Attempted to exit cancel scope in a different task than it was entered in` because the fixture's enter/exit cross task boundaries. Documented inline in `TestSubscribeHandlerDispatch` so future contributors don't fall into the same trap.
+- **Decision (2026-06-03, Plan 52-03):** `SubscriptionTerminated` is a control-flow sentinel, NOT an error. Plan 03's `JobPolicy.fetcher` raises it when the polled job reports status in `TERMINAL_JOB_STATUSES = {completed, failed, cancelled}`. `_poll_loop` catches the sentinel BEFORE the generic `except Exception` (which logs+continues), emits one final `on_change` with the terminal payload (if provided), and returns. Plan 01's synchronous-cleanup contract is preserved verbatim — the finally block + `unsubscribe`/`cleanup_*` synchronous paths both scrub the registry. Pinned by `test_manager_catches_subscription_terminated_and_emits_final` + `test_job_policy_running_to_completed_lifecycle`.
+- **Decision (2026-06-03, Plan 52-03):** `CorpusStatusPolicy.drop_keys = DEFAULT_DROP_KEYS | {request_id}`. Uvicorn's `GET /health/status` payload embeds a per-request UUID; without dropping it the SHA-256 churns every 30s regardless of actual change. `CorpusFoldersPolicy.drop_keys = DEFAULT_DROP_KEYS | {last_polled}` but PRESERVES `last_indexed` — that's a real change signal that file watcher + index job completion update. Pinned by `test_corpus_status_drop_keys_suppress_request_id_churn` + `test_corpus_folders_last_indexed_change_is_not_suppressed`.
+- **Decision (2026-06-03, Plan 52-03):** `CorpusFoldersPolicy.__init__` accepts `interval_s` so the module-level registry instantiation reads from `mcp_subscription_settings.folders_active_interval_s` at import time. Tests inject 0.05s for speed. The 60s "safety poll" cadence (`folders_safety_interval_s`) is exposed as a settings field for operator pre-staging but Plan 03 does NOT wire it through the polling loop — v2 has no separate no-subscriber branch (CONTEXT decision E + specifics §3). Reserved for a future v3 micro-plan if 5s active cadence proves insufficient.
+- **Decision (2026-06-03, Plan 52-03):** `MCPSubscriptionSettings` Pydantic `BaseModel` with `Field(default=..., gt=0)` validation on both interval fields. Non-positive intervals would starve the polling loop (0) or invert asyncio.sleep's contract (<0). Non-numeric env vars raise `RuntimeError` at config-module import with the offending env var name surfaced — clear failure mode at startup, not at runtime. Two new env vars: `AGENT_BRAIN_MCP_SUBSCRIPTION_FOLDERS_ACTIVE_INTERVAL_S` (5.0 default) + `AGENT_BRAIN_MCP_SUBSCRIPTION_FOLDERS_SAFETY_INTERVAL_S` (60.0 default). No hot reload — restart MCP server to pick up changes.
+- **Decision (2026-06-03, Plan 52-03):** `SubscriptionPolicy` Protocol attributes refactored from settable class-level vars (`uri_pattern: str, ...`) to read-only `@property` declarations. Mypy strict refuses dataclass instances with effectively read-only attributes as matches for a Protocol with settable attributes. Properties express the read-only intent at the type level and let mypy admit `@dataclass` (non-frozen) implementations. Runtime `isinstance(policy, SubscriptionPolicy)` still works via `@runtime_checkable`. Pinned by `test_*_policy_satisfies_protocol` tests.
+- **Decision (2026-06-03, Plan 52-03):** `build_fetcher` extracted from `@staticmethod` inside the dataclasses to module-level `_build_*_fetcher` functions assigned via `field(default=_build_*_fetcher)`. Mypy treats `@staticmethod` as a method descriptor, not a plain `Callable`, and refuses Protocol structural matches. Module-level functions produce a plain `function`-typed instance attribute that satisfies `PolicyFetcherFactory` verbatim. Documented inline in `policies.py` with explanation.
 
 ### Blockers/Concerns
 
@@ -143,10 +149,10 @@ Feature backlog (#152, #154, #155, #156, #157, #158, #160, #162, #163, #164) and
 
 ## Session Continuity
 
-**Last Session:** 2026-06-03T14:59:00Z
-**Stopped At:** Plan 52-02 complete — MCP wire integration shipped. `@server.subscribe_resource()` + `@server.unsubscribe_resource()` handlers wired through Plan 01's `SubscriptionManager`; `resources.subscribe` capability flipped from SDK-hardcoded False to True via a `_patched_get_capabilities` wrapper inside `build_server()`; `agent_brain_mcp/subscriptions/policies.py` stub landed (`SubscriptionPolicy` Protocol + empty `SUBSCRIPTION_POLICIES` registry + `resolve_policy()` exact-then-scheme helper) so Plan 03 can fill the registry without touching wiring code. 2 atomic commits: `bde8d47` (feat: server.py + policies.py + subscriptions/__init__.py) and `4716f7a` (test: +26 tests across `test_subscribe_handler.py` NEW, `test_initialize.py`, `test_e2e_resources.py`). `task before-push` exit 0 — 416 monorepo tests passed, 211 MCP tests (was 180; +26 new + 5 e2e), 3 layering contracts kept, 80% coverage. SUB-01 + SUB-02 covered; SUB-03 infrastructurally landed (`on_change` closure calls `session.send_resource_updated` but no real cadence fires until Plan 03's per-URI policies). Plans 03 + 04 unblocked.
-**Resume File:** `.planning/phases/52-resource-subscriptions/plans/03-*.md` (Plan 03 unblocked — per-URI policies for job:// + corpus://status + corpus://folders)
-**Next Action:** Execute Plan 52-03 — populate `SUBSCRIPTION_POLICIES` in `agent_brain_mcp/subscriptions/policies.py` with three concrete `SubscriptionPolicy` dataclasses: `JobPolicy` (1s polling against `GET /index/jobs/{id}`, auto-cancel on terminal state), `CorpusStatusPolicy` (30s polling against `GET /health/status`, diff-suppressed via canonical_hash), `CorpusFoldersPolicy` (5s active / 60s safety polling against `GET /index/folders/`). Plan 03 does NOT touch `server.py` or `subscriptions/__init__.py` — the wiring is locked. Stub-policy monkeypatch pattern in `tests/test_subscribe_handler.py` will keep working additively once Plan 03's real entries land.
+**Last Session:** 2026-06-03T15:24:39Z
+**Stopped At:** Plan 52-03 complete — per-URI polling policies shipped. Three concrete `SubscriptionPolicy` dataclasses now populate `SUBSCRIPTION_POLICIES` at module load: `JobPolicy` (scheme-prefix key `"job://"`, 1.0s cadence, raises `SubscriptionTerminated(payload)` when the polled job hits `status in {completed, failed, cancelled}`), `CorpusStatusPolicy` (exact key, 30.0s cadence, drops `request_id` + `DEFAULT_DROP_KEYS`), `CorpusFoldersPolicy` (exact key, settings-driven cadence default 5.0s, drops `last_polled` but PRESERVES `last_indexed` as a real change signal). `SubscriptionTerminated` control-flow sentinel added to `subscriptions/errors.py`; Plan 01's `_poll_loop` extended with a clean-exit branch that emits one final `on_change` with the terminal payload then returns — Plan 01's synchronous-cleanup contract preserved verbatim. `MCPSubscriptionSettings` Pydantic model with `Field(gt=0)` validation lands in `config.py` with env-var ingestion (`AGENT_BRAIN_MCP_SUBSCRIPTION_FOLDERS_ACTIVE_INTERVAL_S` + `_SAFETY_INTERVAL_S`). 2 atomic commits: `e0c4010` (feat: source) and `8a2017d` (test: +40 tests across `test_policies.py` NEW + `test_policy_integration.py` NEW). `task before-push` exit 0 — 416 monorepo tests passed, 241 MCP tests (was 201; +40 new), 3 layering contracts kept, 80% coverage. SUB-01 + SUB-02 + SUB-03 all closed; Plan 04 (disconnect cleanup hook + `build_server()` tuple refactor + e2e SDK tests) unblocked.
+**Resume File:** `.planning/phases/52-resource-subscriptions/plans/04-*.md` (Plan 04 unblocked — disconnect cleanup hook + build_server tuple refactor + e2e SDK process-lifecycle test)
+**Next Action:** Execute Plan 52-04 — refactor `build_server()` in `agent-brain-mcp/agent_brain_mcp/server.py` to return `(server, manager)` so `run_stdio` can call `manager.cleanup_all()` from its `finally` block without poking the `server._subscription_manager` private attr. Add the disconnect-cleanup `try/finally` in `run_stdio` (and document the Phase 53 HTTP analog). Add an e2e SDK test that subscribes to `job://<live-id>`, terminates the client subprocess, and asserts the polling task exits within 2s. Plan 04 must NOT touch the Plan 01/02/03 surfaces — `SubscriptionManager.start_polling` signature is locked; the policies + wire handlers + capability flip + duplicate-subscribe rejection are all final.
 
 ## Recommended Execution Order
 
@@ -160,4 +166,4 @@ Per workflow summarizer (verified ready_to_execute: true):
 6. **Phase 55** — Validation + QA gate (validates Phases 50-54; must be last; verification-only, no new production code)
 
 ---
-*State updated: 2026-06-03 — Plan 52-02 shipped (MCP wire integration: subscribe/unsubscribe handlers + capability flip + policies.py stub; +26 tests across MCP package; 211 MCP tests passing; 416 monorepo tests passing); Phase 52 in flight 2/4 plans; SUB-01 + SUB-02 closed (SUB-03 infrastructurally landed, per-URI cadences in Plan 03); 10/24 plans complete across the v10.2 milestone; Plans 52-03 (per-URI policies) + 52-04 (disconnect cleanup hook) are both unblocked and can run in parallel*
+*State updated: 2026-06-03 — Plan 52-03 shipped (per-URI polling policies: JobPolicy 1s auto-terminating + CorpusStatusPolicy 30s diff-suppressed + CorpusFoldersPolicy settings-driven 5s + SubscriptionTerminated control-flow sentinel + MCPSubscriptionSettings Pydantic model); +40 tests across MCP package; 241 MCP tests passing; 416 monorepo tests passing; Phase 52 in flight 3/4 plans; SUB-01 + SUB-02 + SUB-03 all closed; 11/24 plans complete across the v10.2 milestone; Plan 52-04 (disconnect cleanup hook + build_server tuple refactor + e2e SDK process-lifecycle test) is unblocked.*
