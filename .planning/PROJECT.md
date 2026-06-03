@@ -115,11 +115,19 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 - ✓ **HTTP-01**: `agent-brain-mcp --transport http` starts a Streamable HTTP listener via `StreamableHTTPSessionManager` + uvicorn; SDK round-trip drives `streamablehttp_client` and asserts v1 surface symmetry (7 tools / 5 resources / 6 prompts) — v10.2 (Phase 53, Plans 01-03)
 - ✓ **HTTP-02**: Loopback-only enforcement {127.0.0.1, localhost, ::1} at CLI entry + in-process; startup banner literal `(loopback only, no auth — do NOT expose this port)`; explicit `security_settings=loopback_transport_security()` because `StreamableHTTPSessionManager` doesn't auto-enable like `FastMCP`; psutil socket-bind verification — v10.2 (Phase 53, Plans 01-03)
 - ✓ **HTTP-03**: Explicit selection via `click.Choice`; no silent fallback; `PortInUseError(exit_code=2)` for EADDRINUSE; pre-flight `socket.bind` probe because uvicorn 0.32.x catches OSError as SystemExit(1); CLI hoist of validation precedes `main_async` to avoid BackendUnavailable masking — v10.2 (Phase 53, Plans 01-03)
+- ✓ **TOOL-01**: `explain_result` re-runs query with `explain=true` + filters by chunk_id; INVALID_PARAMS when chunk not in top-k; `top_k=50` default per CONTEXT decision F — v10.2 (Phase 54, Plan 02)
+- ✓ **TOOL-02**: `add_documents` thin wrapper over `POST /index/add?force=`; #180 `allow_external` deliberately omitted (security guarantee) — v10.2 (Phase 54, Plans 01+03)
+- ✓ **TOOL-03**: `inject_documents` wraps `POST /index/` with required injector_script/folder_metadata_file (Pydantic root validator); `Path(...).expanduser().resolve()` matching CLI; tool description names #181 allowlist — v10.2 (Phase 54, Plans 01+03)
+- ✓ **TOOL-04**: `wait_for_job` async handler with 1s poll cadence (le=2.0 under MCP spec); `notifications/progress` via `_build_progress_notifier` closure; CancelledError → `cancel_job` cleanup; first `emits_progress=True` ToolSpec; inline poll loop chosen over `SubscriptionManager.start_polling` for request-response shape — v10.2 (Phase 54, Plans 01+04)
+- ✓ **TOOL-05**: `list_folders` thin wrapper reusing v1 `client.list_folders()` — v10.2 (Phase 54, Plan 02)
+- ✓ **TOOL-06**: `remove_folder` thin wrapper with `confirm: Literal[True]` Pydantic guard; 409 surfaces as BACKEND_CONFLICT (-32000), not INVALID_PARAMS — v10.2 (Phase 54, Plans 01+03)
+- ✓ **TOOL-07**: `cache_status` thin wrapper over `GET /index/cache/`; 503-uninitialized surfaces as McpError — v10.2 (Phase 54, Plan 02)
+- ✓ **TOOL-08**: `clear_cache` thin wrapper with `confirm: Literal[True]` Pydantic guard — v10.2 (Phase 54, Plans 01+03)
+- ✓ **TOOL-09**: `list_file_types` returns vendored `FILE_TYPE_PRESETS` (no HTTP roundtrip); module docstring cites CLI source + Phase 55 parity contract — v10.2 (Phase 54, Plans 01+02)
 
 ### Active
 
- - [ ] MCP v2 9 remaining tools (explain_result, add_documents, inject_documents, wait_for_job, list_folders, remove_folder, cache_status, clear_cache, list_file_types)
- - [ ] MCP v2 progress notifications on long-running jobs (`wait_for_job` every ≤2s, reuses Phase 52 `start_polling`)
+(no active items — milestone v10.2 has only Phase 55 remaining: validation + contract tests + QA gate)
 
 ## Current Milestone: v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
 
@@ -250,4 +258,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-03 after Phase 53 completion — HTTP-01..03 validated (Streamable HTTP listener loopback-only via SDK SessionManager + uvicorn, `_meta` carries both transport axes over the wire via `_MetaInjectingServerSession`, deterministic exit code 2 on port collision via pre-flight probe); advancing to Phase 54 (9 remaining MCP tools)*
+*Last updated: 2026-06-03 after Phase 54 completion — TOOL-01..09 validated (TOOL_REGISTRY at exactly 16; all 9 new tools wrap existing FastAPI routes with no new server endpoints; first async handler + `emits_progress` dispatch branch; `_build_progress_notifier` no-ops cleanly when progressToken absent); advancing to Phase 55 (validation + contract tests + QA gate)*

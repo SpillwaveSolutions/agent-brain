@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v10.2
 milestone_name: MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
-current_phase: 54
-status: executing
-stopped_at: "Plan 54-04 complete — wait_for_job MCP tool (TOOL-04) shipped as final v2 tool. TOOL_REGISTRY at FINAL v2 count of 16 (15 sync + 1 async progress-emitting). First async tool handler in agent-brain-mcp codebase introduced. ToolSpec gains emits_progress: bool = False discriminator; server.call_tool branches on it (sync path stays asyncio.to_thread for v1 + Plans 02/03 tools; async path invokes spec.handler(api, args, notify=notify) where notify is a closure built by _build_progress_notifier wrapping ServerSession.send_progress_notification with progressToken + related_request_id baked in from request_context — no-ops cleanly when client did not opt in). New tools/wait.py module: async polling loop with time.monotonic timeout, 6-element terminal-states superset {succeeded, failed, cancelled, dry_run, completed, done} absorbing server-version drift, defensive _project_job_output projection against the WaitForJobOutput(**record, final=...) collision risk, asyncio.CancelledError → finally best-effort client.cancel_job → re-raise (secondary failure silenced so the wire cancellation flow is never masked). Inline poll loop chosen over reusing Phase 52 SubscriptionManager.start_polling (both valid per objective; start_polling's void-return + session-scoped registry is wrong shape for a request-response tool). 4 atomic commits on main: f95e0ce feat (handler + ToolSpec + dispatch + closure + summarize), e7d8fec test (17 unit tests + exact-count == 16 pin + emits_progress invariant), 4a2c1e0 test (e2e SDK test + Rule-1 v1 e2e count bump 7 -> 16), 7a691e7 chore (Black + Ruff UP037 + mypy related_request_id coercion). +18 fast-lane MCP tests (433 -> 451) + 1 new e2e (15 -> 16). Quality gates green: black/ruff/mypy strict/pytest exit 0; task check:layering 3/3 contracts kept (164 files, 414 deps); task before-push exit 0 (416 monorepo CLI tests, 80% coverage gate honored); task mcp:contract placeholder until Phase 55. ONE Rule-1 deviation auto-applied (tests/test_e2e_stdio.py asserted `== 7` tools from v1 — bumped to `== 16` to match Phase 54 final v2 count; the e2e was forward-incompatible by design, only Plan 04 surfaced it because e2e marker excluded earlier plan runs). The plan's _TERMINAL_STATES set was specified as 4 elements; we shipped a 6-element superset honoring the actual server JobStatus enum + observed runner aliases — documented as a design decision in the module docstring + summary frontmatter, not a deviation. Phase 54 ALL 4 PLANS COMPLETE — verifier orchestration needed to flip ROADMAP Phase 54 row to [x]. 19/24 plans complete across v10.2 milestone."
-last_updated: "2026-06-03T20:30:00.000Z"
+current_phase: 55
+status: planning
+stopped_at: "Plan 54-04 complete — wait_for_job MCP tool (TOOL-04) shipped as the final v2 tool. TOOL_REGISTRY at FINAL v2 count of 16 (15 sync + 1 async progress-emitting). First async tool handler in the agent-brain-mcp codebase introduced. ToolSpec gains `emits_progress: bool = False` discriminator; server.call_tool branches on it (sync path stays asyncio.to_thread for v1 + Plans 02/03 tools; async path invokes `spec.handler(api, args, notify=notify)` where notify is a closure built by `_build_progress_notifier` wrapping `ServerSession.send_progress_notification` with progressToken + related_request_id baked in from `request_context` — no-ops cleanly when client did not opt in). New `tools/wait.py` module: async polling loop with `time.monotonic` timeout, 6-element terminal-states superset `{succeeded, failed, cancelled, dry_run, completed, done}` absorbing server-version drift, defensive `_project_job_output` projection against the `WaitForJobOutput(**record, final=...)` collision risk, `asyncio.CancelledError` → finally best-effort `client.cancel_job` → re-raise (secondary failure silenced so the wire cancellation flow is never masked). Inline poll loop chosen over reusing Phase 52 SubscriptionManager.start_polling (both valid per objective; start_polling's void-return + session-scoped registry is wrong shape for a request-response tool). 4 atomic commits on main: f95e0ce feat (handler + ToolSpec + dispatch + closure + summarize), e7d8fec test (17 unit tests + exact-count == 16 pin + emits_progress invariant), 4a2c1e0 test (e2e SDK test + Rule-1 v1 e2e count bump 7 -> 16), 7a691e7 chore (Black + Ruff UP037 + mypy related_request_id coercion). +18 fast-lane MCP tests (433 -> 451) + 1 new e2e (15 -> 16). Quality gates green: black/ruff/mypy strict/pytest exit 0; task check:layering 3/3 contracts kept (164 files, 414 deps); task before-push exit 0 (416 monorepo CLI tests, 80% coverage gate honored); task mcp:contract placeholder until Phase 55. ONE Rule-1 deviation auto-applied (tests/test_e2e_stdio.py asserted `== 7` tools from v1 — bumped to `== 16` to match Phase 54 final v2 count; the e2e was forward-incompatible by design, only Plan 04 surfaced it because e2e marker excluded earlier plan runs). Phase 54 ALL 4 PLANS COMPLETE — verifier orchestration needed to flip ROADMAP Phase 54 row to [x]. 19/24 plans complete across v10.2 milestone."
+last_updated: "2026-06-03T19:30:31.393Z"
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 5
   total_plans: 24
   completed_plans: 19
 ---
@@ -17,8 +17,8 @@ progress:
 
 **Last Updated:** 2026-06-03
 **Current Milestone:** v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
-**Status:** Executing Phase 54
-**Current Phase:** 54
+**Status:** Ready to plan
+**Current Phase:** 55
 
 ## Current Position
 
