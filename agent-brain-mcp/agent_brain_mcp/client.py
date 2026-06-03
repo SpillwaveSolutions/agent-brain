@@ -149,3 +149,77 @@ class ApiClient:
         which is what the FastAPI route expects.
         """
         return self._get(f"/graph/entity/{entity_type}/{entity_id}")
+
+    # --- Phase 54: tool-backing methods for the remaining 9 tools ---
+
+    def add_documents(
+        self,
+        body: dict[str, Any],
+        *,
+        force: bool = False,
+    ) -> dict[str, Any]:
+        """POST /index/add — add documents from another folder to the index.
+
+        Backs the ``add_documents`` MCP tool (TOOL-02, Phase 54). The
+        ``allow_external`` query parameter was removed by issue #180;
+        containment is enforced exclusively by the server-side
+        ``AGENT_BRAIN_ALLOW_EXTERNAL_PATHS`` setting.
+        """
+        params: dict[str, Any] = {}
+        if force:
+            params["force"] = "true"
+        return self._request("POST", "/index/add", json=body, params=params or None)
+
+    def inject_documents(
+        self,
+        body: dict[str, Any],
+        *,
+        force: bool = False,
+    ) -> dict[str, Any]:
+        """POST /index/ — index a folder with injector_script/folder_metadata_file.
+
+        Same endpoint as :meth:`index_folder`; the differentiator is
+        that ``body`` MUST include at least one of ``injector_script``
+        or ``folder_metadata_file`` (CONTEXT decision D — the MCP
+        handler raises ``INVALID_PARAMS`` before this method is called
+        if both are missing). Backs the ``inject_documents`` MCP tool
+        (TOOL-03, Phase 54).
+
+        Unallowlisted scripts (issue #181) surface as 403 → structured
+        ``McpError(INVALID_PARAMS)`` via ``errors.raise_for_status``.
+        """
+        params: dict[str, Any] = {}
+        if force:
+            params["force"] = "true"
+        return self._request("POST", "/index/", json=body, params=params or None)
+
+    def cache_status(self) -> dict[str, Any]:
+        """GET /index/cache/ — embedding cache hit/miss + disk statistics.
+
+        Backs the ``cache_status`` MCP tool (TOOL-07, Phase 54). Returns
+        503 → ``McpError`` via the standard pipeline when the cache
+        service is not initialised.
+        """
+        return self._get("/index/cache/")
+
+    def clear_cache(self) -> dict[str, Any]:
+        """DELETE /index/cache/ — clear all cached embeddings.
+
+        Backs the ``clear_cache`` MCP tool (TOOL-08, Phase 54). The MCP
+        handler's ``confirm: Literal[True]`` guard ensures this method
+        is only reachable after explicit destructive-op acknowledgement.
+        Returns 503 → ``McpError`` when the cache service is not
+        initialised.
+        """
+        return self._delete("/index/cache/")
+
+    def delete_folder(self, body: dict[str, Any]) -> dict[str, Any]:
+        """DELETE /index/folders/ — remove a folder from the index.
+
+        ``FolderDeleteRequest`` is a request *body*, not a query/path
+        param — see folders router source. Backs the ``remove_folder``
+        MCP tool (TOOL-06, Phase 54). 409 (active job for this folder,
+        FOLD-07) surfaces as ``McpError(INVALID_PARAMS)`` via the
+        existing pipeline.
+        """
+        return self._delete("/index/folders/", json=body)
