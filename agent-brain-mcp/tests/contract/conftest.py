@@ -71,6 +71,7 @@ from typing import Any
 import pytest
 from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
+from mcp.client.streamable_http import streamablehttp_client
 
 # ----------------------------------------------------------------------
 # Bundled fake-server script
@@ -317,11 +318,16 @@ def _scan_for_orphans() -> list[str]:
     """
     result = subprocess.run(
         # ``pgrep -f`` accepts an extended regex; the alternation
-        # matches either bundled script name. Both names end in
+        # matches every bundled fake-server script name. Each ends in
         # ``_server.py`` but we anchor on the distinctive prefix to
         # avoid matching unrelated *_server.py scripts in the same
-        # python process tree.
-        ["pgrep", "-f", "fake_(contract|subscription)_server.py"],
+        # python process tree. Plan 04 adds ``fake_mcp_http_server.py``
+        # so HTTP-transport contract orphans surface in the same scan.
+        [
+            "pgrep",
+            "-f",
+            "fake_(contract|subscription)_server.py|fake_mcp_http_server.py",
+        ],
         capture_output=True,
         text=True,
         check=False,
@@ -506,6 +512,115 @@ def mcp_stdio_subprocess_handle(
     return _spawn
 
 
+# ----------------------------------------------------------------------
+# Plan 04 — Streamable HTTP transport contract session fixture
+# ----------------------------------------------------------------------
+#
+# Wraps Phase 53 Plan 03's ``mcp_http_subprocess`` factory (defined in
+# ``tests/conftest.py``, cascaded into ``tests/contract/`` via pytest's
+# parent-conftest discovery) and the SDK's
+# :func:`mcp.client.streamable_http.streamablehttp_client` into a single
+# async-context-manager fixture analogous to ``mcp_stdio_session``.
+#
+# Plan 04 is the FIRST USAGE of ``streamablehttp_client`` in the contract
+# suite. Phase 53 Plan 03 used it in ``test_transport_selection.py`` under
+# the ``e2e_http`` marker; Plan 04 introduces a parallel ``contract``-
+# marked fixture so the HTTP wire surface is verified alongside the stdio
+# tools/resources contract assertions.
+#
+# Defensive ``*_`` unpack on ``streamablehttp_client``'s yield tuple
+# (current shape in mcp 1.12.x: ``(read, write, session_id_factory)``)
+# absorbs any future trailing-element addition (per Phase 53 Plan 03
+# risk #1) so SDK upgrades don't break Plan 04 silently.
+@pytest.fixture
+def mcp_http_session(
+    mcp_http_subprocess: Callable[..., AbstractAsyncContextManager[Any]],
+    free_loopback_port: int,
+) -> Callable[..., AbstractAsyncContextManager[ClientSession]]:
+    """Factory yielding an async context manager around a fake-backed HTTP MCP session.
+
+    Usage::
+
+        async def test_x(mcp_http_session):
+            async with mcp_http_session() as session:
+                result = await session.initialize()
+                tools = await session.list_tools()
+
+    The factory binds ``free_loopback_port`` so each test gets its own
+    (port, subprocess, SDK session) triple. The fake-server subprocess
+    (Phase 53's ``fake_mcp_http_server.py`` via
+    ``fake_http_server_module``) wires
+    :func:`agent_brain_mcp.server.build_server` to an
+    :class:`httpx.MockTransport` backend and calls
+    :func:`agent_brain_mcp.http.run_http` directly — same fake-backend
+    contract as ``mcp_stdio_session`` per Phase 55 CONTEXT D-04, just
+    over the HTTP transport instead of stdio.
+
+    The subprocess is held inside ``mcp_http_subprocess`` (which probes
+    ``/healthz`` until 200 OK before yielding) so by the time
+    ``streamablehttp_client`` opens the SDK connection, uvicorn is
+    already bound and answering.
+
+    The host is fixed at ``127.0.0.1`` — Phase 53 D-08 loopback
+    whitelist (anything else would be rejected at CLI parse anyway).
+
+    The mount path is :data:`agent_brain_mcp.http.MCP_MOUNT_PATH`
+    (``/mcp``) — Phase 53 D-07.
+
+    Optional kwargs (passed through to the underlying subprocess
+    factory):
+
+    * ``host``: bind host. Defaults to ``127.0.0.1``.
+    * ``extra_env``: env-var overrides merged into ``os.environ`` for
+      the child.
+
+    Teardown contract:
+
+    1. SDK ``streamablehttp_client.__aexit__()`` drains the in-flight
+       streams + closes the underlying httpx connection.
+    2. ``mcp_http_subprocess`` context exit sends SIGINT to the child,
+       waits 3s, then SIGKILLs if still alive (matches Phase 53 Plan
+       03's harness — the 3s window is enough for
+       ``run_http``'s ``finally`` block to run
+       ``subscription_manager.cleanup_all()``).
+    3. Autouse ``_contract_orphan_scan_after_each_test`` catches any
+       surviving ``fake_mcp_http_server.py`` orphans.
+    """
+
+    @asynccontextmanager
+    async def _open(
+        *,
+        host: str = "127.0.0.1",
+        extra_env: dict[str, str] | None = None,
+    ) -> AsyncIterator[ClientSession]:
+        # Phase 53 Plan 03 contract: the subprocess context manager is a
+        # SYNC ``contextmanager`` (httpx liveness probe is sync), so we
+        # enter it inline and rely on its ``finally`` for teardown.
+        sub_cm = mcp_http_subprocess(host=host, extra_env=extra_env)
+        with sub_cm:
+            url = f"http://{host}:{free_loopback_port}{_HTTP_MOUNT_PATH}"
+            # The SDK yields ``(read, write, session_id_factory)`` in
+            # mcp 1.12.x. The ``*_`` absorbs any future trailing
+            # elements so additive SDK signature evolution doesn't break
+            # this fixture silently (Phase 53 Plan 03 risk #1).
+            async with streamablehttp_client(url) as (read, write, *_):
+                async with ClientSession(read, write) as session:
+                    yield session
+
+    return _open
+
+
+# Mount-path constant for Plan 04's HTTP session fixture. Pinned to the
+# string literal rather than re-importing
+# :data:`agent_brain_mcp.http.MCP_MOUNT_PATH` so this conftest stays
+# import-cheap for the stdio-only contract tests (the production HTTP
+# module pulls in uvicorn + starlette which would otherwise be loaded
+# at collection time for every Plan 02/03 stdio test). Plan 04's
+# ``test_http_mount_path_matches_production_constant`` test pins this
+# against the production constant so any drift surfaces immediately.
+_HTTP_MOUNT_PATH: str = "/mcp"
+
+
 @pytest.fixture(autouse=True)
 def _contract_orphan_scan_after_each_test() -> Iterator[None]:
     """Defensive D-17 orphan scan after every contract test.
@@ -517,17 +632,24 @@ def _contract_orphan_scan_after_each_test() -> Iterator[None]:
     bug), the orphan would otherwise leak into the next test's
     environment and mask the regression.
 
-    Plan 03 extension: the regex now matches BOTH bundled scripts
+    Plan 03 extension: the regex matched BOTH bundled stdio scripts
     (``fake_contract_server.py`` and ``fake_subscription_server.py``)
     so subscription-lifecycle orphans surface in the same pass.
+
+    Plan 04 extension: the regex now also matches
+    ``fake_mcp_http_server.py`` (the Phase 53 HTTP fake-server script
+    Plan 04 reuses for the Streamable HTTP contract suite) so HTTP-
+    transport orphans surface in the same pass.
     """
     yield
     orphans = _scan_for_orphans()
     if orphans:
         _kill_orphans(orphans)
         raise RuntimeError(
-            "Orphan fake_(contract|subscription)_server.py subprocesses "
-            f"survived contract test teardown: {orphans}. SDK stdio_client "
-            "and/or the Plan 03 disconnect-cleanup teardown should have "
-            "SIGTERM'd them — investigate signal handling or the SDK pin."
+            "Orphan fake_(contract|subscription)_server.py or "
+            "fake_mcp_http_server.py subprocesses survived contract "
+            f"test teardown: {orphans}. SDK stdio_client / "
+            "streamablehttp_client and/or the Plan 03 disconnect-cleanup "
+            "teardown should have SIGTERM'd them — investigate signal "
+            "handling or the SDK pin."
         )
