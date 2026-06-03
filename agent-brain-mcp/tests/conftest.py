@@ -69,6 +69,20 @@ _DEFAULT_RESPONSES: dict[tuple[str, str], dict[str, Any]] = {
         "progress_percent": 50.0,
         "message": "Processing...",
     },
+    # Phase 51 (51-01) job:// resource fixtures. The detailed body
+    # mirrors a real JobDetailResponse so the read shape contract is
+    # validated end-to-end through the parameterized dispatcher.
+    ("GET", "/index/jobs/job_51_full"): {
+        "job_id": "job_51_full",
+        "status": "running",
+        "progress_percent": 73.5,
+        "message": "Indexing /tmp/repo (147 / 200 files)",
+        "folder_path": "/tmp/repo",
+        "started_at": "2026-06-03T05:00:00Z",
+        "updated_at": "2026-06-03T05:02:34Z",
+        "files_processed": 147,
+        "files_total": 200,
+    },
     ("GET", "/index/jobs/"): {
         "jobs": [
             {"job_id": "j1", "status": "completed", "progress_percent": 100.0},

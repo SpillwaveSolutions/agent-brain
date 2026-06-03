@@ -146,7 +146,12 @@ def build_server(httpx_client: httpx.Client, *, transport: str = "http") -> Serv
 
     @server.read_resource()
     async def read_resource(uri: AnyUrl) -> list[ReadResourceContents]:
-        uri_str = str(uri).rstrip("/")
+        # Strip at most a single trailing '/' so 'job://abc/' → 'job://abc'
+        # without collapsing 'job://' (empty netloc) into 'job:'. The v1
+        # ``.rstrip('/')`` form mangled empty-netloc URIs that we now
+        # want to surface verbatim in malformed-URI error data (51-01).
+        raw = str(uri)
+        uri_str = raw[:-1] if raw.endswith("/") and not raw.endswith("//") else raw
 
         # Phase 51 (URI-03): parameterized schemes dispatch first.
         # parse_uri() returns None for any scheme outside the four-
