@@ -3,35 +3,34 @@ gsd_state_version: 1.0
 milestone: v10.2
 milestone_name: MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
 current_phase: 51
-status: ready_for_phase_51
-stopped_at: Phase 50 complete (4/4 plans, VERIFICATION passed); ready to execute Phase 51 (URI schemes + templates)
-last_updated: "2026-06-03T02:10:00Z"
+status: executing
+stopped_at: "Plan 51-01 complete (job:// dispatcher shipped) — resume at Plan 51-02 (chunk:// + graph-entity://)"
+last_updated: "2026-06-03T05:22:19Z"
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 24
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Agent Brain — Project State
 
 **Last Updated:** 2026-06-03
 **Current Milestone:** v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
-**Status:** Phase 50 complete; ready to execute Phase 51
-**Current Phase:** 51 — URI schemes + templates
+**Status:** Executing Phase 51
+**Current Phase:** 51
 
 ## Current Position
 
-Phase: 51 — URI schemes + templates (ready to execute; 4 plans drafted)
-Plan: 0 of 4 (not yet started)
-Previous: Phase 50 complete — VERIFICATION passed all 4 success criteria; VAL-05 closed; 4/4 plans shipped
+Phase: 51 (uri-schemes-templates) — EXECUTING
+Plan: 2 of 4 (Plan 51-01 shipped 2026-06-03)
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-06-03)
 
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Phase 51 — Implement chunk://, graph-entity://, job://, file:// URI schemes + resources/templates/list against the locked contracts in docs/plans/2026-06-02-mcp-v2-subscriptions.md
+**Current focus:** Phase 51 — uri-schemes-templates
 
 ## Milestone Summary
 
@@ -58,7 +57,7 @@ v10.2 MCP v2:                [█▌        ]  17% (Phase 50 complete — 4/24 p
 | Phase | Status | Requirements | Plans |
 |-------|--------|--------------|-------|
 | 50. Server endpoint prep + v2 design doc | ✓ Complete (2026-06-03) | VAL-05 ✓ | 4/4 |
-| 51. URI schemes + templates | Planned, not started | URI-01, URI-02, URI-03, URI-04, URI-05 | 0/4 |
+| 51. URI schemes + templates | In progress (Plan 01 shipped 2026-06-03) | URI-03 ✓ · URI-01/02/04/05 pending | 1/4 |
 | 52. Resource subscriptions | Planned, not started | SUB-01, SUB-02, SUB-03, SUB-04, SUB-05 | 0/4 |
 | 53. Streamable HTTP transport | Planned, not started | HTTP-01, HTTP-02, HTTP-03 | 0/3 |
 | 54. 9 remaining MCP tools | Planned, not started | TOOL-01..TOOL-09 | 0/4 |
@@ -99,6 +98,7 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 - [v10.1.2]: PyPI package renamed to `agent-brain-mcp`; standalone MCP user guide added (commits `1e34818`, `cf7a364`)
 - **Decision (2026-06-01):** Pivot away from MCP-is-out-of-scope stance recorded in PROJECT.md v9.6.0 era. MCP is now the active investment direction; that out-of-scope line has been removed.
 - **Decision (2026-06-02):** v2 design doc (VAL-05) lands in Phase 50, *before* MCP-layer implementation, so reviewers can challenge the subscription/transport approach before code lands.
+- **Decision (2026-06-03, Plan 51-01):** Parameterized URI dispatcher in `agent_brain_mcp/resources/parameterized.py` uses a *single* `ParsedURI` dataclass (all per-scheme fields optional, only the relevant ones populated) and a *closed* `PARAMETERIZED_SCHEMES` frozenset with NotImplementedError-raising placeholders for `chunk`/`graph-entity`/`file`. Plans 51-02 and 51-03 swap the placeholder values in `PARAMETERIZED_HANDLERS` without touching the dispatcher or the registry shape. Error-data shapes for malformed-URI (`{uri, reason}`) vs backend-404 (`{scheme, <id>, httpStatus, cause}`) are intentionally different — see module docstring.
 
 ### Blockers/Concerns
 
@@ -120,10 +120,10 @@ Feature backlog (#152, #154, #155, #156, #157, #158, #160, #162, #163, #164) and
 
 ## Session Continuity
 
-**Last Session:** 2026-06-02T21:30:00Z
-**Stopped At:** All 6 phases planned via parallel workflow `wf_cded3eeb-c6e` (24 plans across phases 50-55)
-**Resume File:** `.planning/phases/50-server-endpoint-prep-v2-design-doc/50-PLAN.md`
-**Next Action:** `/gsd:execute-phase 50` — execute Phase 50's 4 plans (v2 design doc, chunk-by-id endpoint, graph-entity endpoint, file_sandbox module)
+**Last Session:** 2026-06-03T05:22:19Z
+**Stopped At:** Plan 51-01 complete (job:// dispatcher + parameterized handler infrastructure shipped; 21 new tests; 4 commits 4bc2901..b84890c; all four MCP quality gates green + task before-push exit 0)
+**Resume File:** `.planning/phases/51-uri-schemes-templates/plans/02-chunk-and-graph-entity-uris.md`
+**Next Action:** `/gsd:execute-plan 51 02` — execute Plan 51-02 (chunk:// + graph-entity:// handlers, swap NotImplementedError placeholders in PARAMETERIZED_HANDLERS, add ApiClient.get_chunk + get_graph_entity methods)
 
 ## Recommended Execution Order
 
@@ -137,4 +137,4 @@ Per workflow summarizer (verified ready_to_execute: true):
 6. **Phase 55** — Validation + QA gate (validates Phases 50-54; must be last; verification-only, no new production code)
 
 ---
-*State updated: 2026-06-02 — all 6 phases planned, ready to execute Phase 50*
+*State updated: 2026-06-03 — Plan 51-01 shipped (parameterized URI dispatcher + job:// handler); Phase 51 1/4 plans complete; URI-03 closed*
