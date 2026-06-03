@@ -637,6 +637,26 @@ def _summarize(tool_name: str, structured: dict[str, Any]) -> str:
             f"server_health → {structured.get('status')} "
             f"(v{structured.get('version')})"
         )
+    # ---------------------------------------------------------------------
+    # Phase 54 Plan 02 — 4 read-only tool summaries. Branch order is
+    # alphabetical (cache_status → explain_result → list_file_types →
+    # list_folders) so Plan 03's additions slot in cleanly.
+    # ---------------------------------------------------------------------
+    if tool_name == "cache_status":
+        return (
+            f"cache_status → {structured.get('hit_rate')}% hit rate "
+            f"({structured.get('size_bytes')} bytes)"
+        )
+    if tool_name == "explain_result":
+        reason = str(structured.get("reason", ""))
+        reason_fragment = reason[:80]
+        return f"explain_result → {structured.get('chunk_id')}: {reason_fragment}"
+    if tool_name == "list_file_types":
+        return f"list_file_types → {structured.get('preset_count')} presets"
+    if tool_name == "list_folders":
+        folders = structured.get("folders") or []
+        n = structured.get("total", len(folders))
+        return f"list_folders → {n} folder(s) indexed"
     return f"{tool_name} → ok"
 
 

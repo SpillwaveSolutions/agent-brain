@@ -15,12 +15,20 @@ from typing import Any
 from pydantic import BaseModel
 
 from ..schemas import (
+    CacheStatusInput,
+    CacheStatusOutput,
     CancelJobInput,
     CancelJobOutput,
+    ExplainResultInput,
+    ExplainResultOutput,
     GetJobInput,
     GetJobOutput,
     IndexFolderInput,
     IndexFolderOutput,
+    ListFileTypesInput,
+    ListFileTypesOutput,
+    ListFoldersInput,
+    ListFoldersOutput,
     ListJobsInput,
     ListJobsOutput,
     QueryCountInput,
@@ -31,6 +39,10 @@ from ..schemas import (
     ServerHealthOutput,
 )
 from . import file_types  # Phase 54 Plan 01; consumed by handlers in Plan 02+
+from .cache import handle_cache_status
+from .explain import handle_explain_result
+from .file_types import handle_list_file_types
+from .folders import handle_list_folders
 from .index import handle_index_folder
 from .jobs import handle_cancel_job, handle_get_job, handle_list_jobs
 from .meta import handle_query_count, handle_server_health
@@ -146,6 +158,53 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         handler=handle_server_health,
         input_model=ServerHealthInput,
         output_model=ServerHealthOutput,
+        annotations={"readOnlyHint": True},
+    ),
+    # ---------------------------------------------------------------------
+    # Phase 54 Plan 02 — 4 read-only tools (TOOL-01 / TOOL-05 / TOOL-07 /
+    # TOOL-09). All four are flagged ``readOnlyHint: True``. ``explain_result``
+    # additionally carries ``openWorldHint: True`` because it triggers a
+    # search-pipeline re-execution against the live corpus.
+    # ---------------------------------------------------------------------
+    "explain_result": ToolSpec(
+        name="explain_result",
+        description=(
+            "Get provenance and scoring breakdown for a specific result chunk. "
+            "Re-executes the original query with explain=true; not suitable for "
+            "high-frequency calls. Use search_documents(..., explain=true) "
+            "directly for known-bulk explanation needs."
+        ),
+        handler=handle_explain_result,
+        input_model=ExplainResultInput,
+        output_model=ExplainResultOutput,
+        annotations={"readOnlyHint": True, "openWorldHint": True},
+    ),
+    "list_folders": ToolSpec(
+        name="list_folders",
+        description=(
+            "List all indexed folders with chunk counts and last-indexed metadata."
+        ),
+        handler=handle_list_folders,
+        input_model=ListFoldersInput,
+        output_model=ListFoldersOutput,
+        annotations={"readOnlyHint": True},
+    ),
+    "cache_status": ToolSpec(
+        name="cache_status",
+        description="Show embedding cache statistics (hit rate, size, entries).",
+        handler=handle_cache_status,
+        input_model=CacheStatusInput,
+        output_model=CacheStatusOutput,
+        annotations={"readOnlyHint": True},
+    ),
+    "list_file_types": ToolSpec(
+        name="list_file_types",
+        description=(
+            "List available file type presets and their associated glob patterns."
+        ),
+        handler=handle_list_file_types,
+        input_model=ListFileTypesInput,
+        output_model=ListFileTypesOutput,
         annotations={"readOnlyHint": True},
     ),
 }
