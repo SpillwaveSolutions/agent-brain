@@ -50,6 +50,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
+import mcp.types as types
 from mcp import McpError
 from mcp.server.lowlevel.helper_types import ReadResourceContents
 from mcp.types import ErrorData
@@ -557,10 +558,89 @@ PARAMETERIZED_HANDLERS: dict[str, ParameterizedHandler] = {
 }
 
 
+# --- RFC 6570 URI templates for ``resources/templates/list`` -------------
+#
+# Phase 51 CONTEXT decision B locks the four ``uriTemplate`` strings the
+# MCP server advertises. These are a **forward-compatibility commitment**:
+# once published in ``resources/templates/list``, MCP client libraries
+# (including future Agent Brain CLI v3 work) lock onto them. Changing a
+# template string after release is a breaking change.
+#
+# Notable choices:
+#
+# - ``chunk://{chunk_id}`` — single opaque id (per Phase 50 ``ChunkRecord``).
+# - ``graph-entity://{type}/{id}`` — short names (NOT ``{entity_type}/
+#   {entity_id}``) per CONTEXT decision B. Mirrors the HTTP route shape
+#   ``GET /graph/entity/{type}/{id}``.
+# - ``job://{job_id}`` — single opaque id, matches CLI conventions.
+# - ``file://{+path}`` — RFC 6570 *reserved expansion* (operator ``+``).
+#   The default expansion percent-encodes ``/`` (the very character
+#   filesystem paths require); the ``+`` operator preserves reserved
+#   characters so clients can expand a path like ``/tmp/foo.py`` without
+#   encoding the slashes.
+#
+# ``mimeType`` is set for the three JSON-backed schemes; ``file://``
+# leaves it unset (``None``) because the MIME type is sniffed per-read
+# (CONTEXT decision E). The MCP SDK serializes the field as absent when
+# the model value is ``None``, which matches the spec form.
+TEMPLATE_REGISTRY: list[types.ResourceTemplate] = [
+    types.ResourceTemplate(
+        uriTemplate="chunk://{chunk_id}",
+        name="chunk",
+        description=(
+            "Retrieve a single indexed chunk by id. Returns the chunk's "
+            "content, summary, source path, language, token count, and "
+            "parent-doc id. The embedding vector is intentionally "
+            "excluded — use POST /query/ if you need vectors."
+        ),
+        mimeType="application/json",
+    ),
+    types.ResourceTemplate(
+        uriTemplate="graph-entity://{type}/{id}",
+        name="graph-entity",
+        description=(
+            "Retrieve a GraphRAG entity by type and id. Returns the "
+            "entity plus its 1-hop incoming and outgoing neighbors. "
+            "Returns SERVICE_INDEXING if GraphRAG is disabled or the "
+            "Kuzu backend is unavailable; multi-hop traversal is not "
+            "supported in this scheme."
+        ),
+        mimeType="application/json",
+    ),
+    types.ResourceTemplate(
+        uriTemplate="job://{job_id}",
+        name="job",
+        description=(
+            "Retrieve the current state of an indexing job by id "
+            "(status, progress percent, file counts, started/updated "
+            "timestamps). Phase 51 exposes this as a one-shot read; "
+            "live subscriptions (notifications/resources/updated at 1s "
+            "cadence) ship in Phase 52."
+        ),
+        mimeType="application/json",
+    ),
+    types.ResourceTemplate(
+        uriTemplate="file://{+path}",
+        name="file",
+        description=(
+            "Read a file by absolute path. Access is gated by the "
+            "indexed-folder sandbox (canonicalize_path + "
+            "is_path_allowed); reads outside indexed roots, symlinks "
+            "that escape roots, hidden files outside roots, and files "
+            "above the 10 MiB read cap are denied. MIME type is sniffed "
+            "per-read via mimetypes.guess_type, so it is not advertised "
+            "statically on the template."
+        ),
+        # mimeType intentionally omitted — per-read sniff.
+    ),
+]
+
+
 __all__ = [
     "PARAMETERIZED_HANDLERS",
     "PARAMETERIZED_SCHEMES",
     "ParameterizedHandler",
     "ParsedURI",
+    "TEMPLATE_REGISTRY",
     "parse_uri",
 ]

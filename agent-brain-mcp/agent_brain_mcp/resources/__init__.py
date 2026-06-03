@@ -12,6 +12,7 @@ from .corpus import RESOURCE_REGISTRY, ResourceSpec
 from .parameterized import (
     PARAMETERIZED_HANDLERS,
     PARAMETERIZED_SCHEMES,
+    TEMPLATE_REGISTRY,
     ParameterizedHandler,
     ParsedURI,
     parse_uri,
@@ -24,5 +25,6 @@ __all__ = [
     "ParsedURI",
     "RESOURCE_REGISTRY",
     "ResourceSpec",
+    "TEMPLATE_REGISTRY",
     "parse_uri",
 ]
