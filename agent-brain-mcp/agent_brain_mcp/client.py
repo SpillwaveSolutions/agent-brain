@@ -133,9 +133,7 @@ class ApiClient:
         """
         return self._get(f"/query/chunk/{chunk_id}")
 
-    def get_graph_entity(
-        self, entity_type: str, entity_id: str
-    ) -> dict[str, Any]:
+    def get_graph_entity(self, entity_type: str, entity_id: str) -> dict[str, Any]:
         """GET /graph/entity/{entity_type}/{entity_id} — entity + 1-hop neighbors.
 
         Backs the MCP ``graph-entity://<type>/<id>`` URI scheme (URI-02,
