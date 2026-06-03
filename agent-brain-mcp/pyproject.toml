@@ -85,6 +85,7 @@ asyncio_mode = "auto"
 markers = [
     "e2e: end-to-end test requiring a real agent-brain-serve subprocess and the official MCP Python SDK as client (slow; opt-in via `task mcp:e2e`)",
     "e2e_http: end-to-end test requiring an agent-brain-mcp subprocess in HTTP transport mode (slow; opt-in via `task mcp:smoke:http`)",
+    "contract: SDK-driven contract test verifying MCP wire-protocol conformance (stdio + HTTP transports). Spawns fake-backed agent-brain-mcp subprocesses via the official MCP Python SDK client. Opt-in via `task mcp:contract`. Phase 55 Plans 01-04.",
 ]
-# Default test runs exclude both e2e suites to keep `task mcp:test` fast.
-addopts = "-m 'not e2e and not e2e_http'"
+# Default test runs exclude e2e + contract suites to keep `task mcp:test` fast.
+addopts = "-m 'not e2e and not e2e_http and not contract'"
