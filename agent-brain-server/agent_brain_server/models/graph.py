@@ -5,7 +5,7 @@ All models are configured with frozen=True for immutability.
 """
 
 from datetime import datetime
-from typing import Literal, get_args
+from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -380,4 +380,180 @@ class GraphQueryContext(BaseModel):
         ge=0.0,
         le=1.0,
         description="Score from graph-based retrieval",
+    )
+
+
+# -----------------------------------------------------------------------------
+# GraphEntityRecord v2 — backs GET /graph/entity/{type}/{id}
+#
+# Locked by Phase 50 design doc §2.4 (docs/plans/2026-06-02-mcp-v2-subscriptions.md).
+# These are deliberately distinct from the legacy ``GraphEntity`` /
+# ``GraphTriple`` extraction models above:
+#
+#   - ``GraphEntity`` (above) describes an entity extracted from documents
+#     during indexing — its primary key is ``name`` and it carries
+#     ``source_chunk_ids`` for traceability.
+#   - ``GraphEntityRecordNode`` (below) describes an entity as exposed via
+#     the public HTTP endpoint — its primary key is ``(type, id)`` and it
+#     carries a free-form ``properties`` dict matching the wire shape.
+#
+# The two will eventually converge; keeping them separate now avoids
+# rewriting existing extraction code in this plan.
+# -----------------------------------------------------------------------------
+
+
+class GraphEntityRecordNode(BaseModel):
+    """Entity node payload for ``GET /graph/entity/{type}/{id}``.
+
+    Wire shape locked in Phase 50 design doc §2.4. Used for both the
+    target entity and its 1-hop neighbors.
+    """
+
+    model_config = ConfigDict(
+        frozen=True,
+        json_schema_extra={
+            "examples": [
+                {
+                    "type": "Function",
+                    "id": "authenticate_user",
+                    "properties": {
+                        "module": "auth.handlers",
+                        "language": "python",
+                    },
+                }
+            ]
+        },
+    )
+
+    type: str = Field(
+        ...,
+        min_length=1,
+        description=(
+            "Entity type — one of the 17 SCHEMA-01 types when canonical, "
+            "but accepted as opaque on the wire so existing data with "
+            "non-canonical labels still serializes."
+        ),
+    )
+    id: str = Field(
+        ...,
+        min_length=1,
+        description="Stable opaque entity id (entity name in current backends).",
+    )
+    properties: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Free-form entity properties carried by the backend.",
+    )
+
+
+class GraphEntityRecordNeighbor(BaseModel):
+    """A single 1-hop neighbor of the target entity.
+
+    Direction is implied by the containing list (``neighbors.incoming`` vs
+    ``neighbors.outgoing``); the predicate names the relationship.
+    """
+
+    model_config = ConfigDict(
+        frozen=True,
+        json_schema_extra={
+            "examples": [
+                {
+                    "type": "Class",
+                    "id": "AuthService",
+                    "predicate": "calls",
+                    "properties": {"source_chunk_id": "chunk_42"},
+                }
+            ]
+        },
+    )
+
+    type: str = Field(
+        ...,
+        min_length=1,
+        description="Neighbor entity type (SCHEMA-01 vocabulary when canonical).",
+    )
+    id: str = Field(
+        ...,
+        min_length=1,
+        description="Neighbor entity id.",
+    )
+    predicate: str = Field(
+        ...,
+        min_length=1,
+        description="Relationship predicate (SCHEMA-03 vocabulary when canonical).",
+    )
+    properties: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Free-form relationship properties (e.g. source_chunk_id).",
+    )
+
+
+class GraphEntityRecordNeighbors(BaseModel):
+    """Container for the 1-hop neighborhood of the target entity.
+
+    Empty arrays are returned as ``[]`` — never ``None`` — so MCP clients
+    can iterate without null-checks. v2 caps at 1-hop; multi-hop traversal
+    is a v3 concern (see design doc §2.4).
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    incoming: list[GraphEntityRecordNeighbor] = Field(
+        default_factory=list,
+        description="Neighbors with edges pointing at the target entity.",
+    )
+    outgoing: list[GraphEntityRecordNeighbor] = Field(
+        default_factory=list,
+        description="Neighbors that the target entity points at.",
+    )
+
+
+class GraphEntityRecord(BaseModel):
+    """Response model for ``GET /graph/entity/{entity_type}/{entity_id}``.
+
+    Shape locked by Phase 50 design doc §2.4. Phase 51 wires this through
+    the MCP ``graph-entity://<type>/<id>`` resource scheme (URI-02) — both
+    paths must serialize this exact shape so an MCP client and a direct
+    HTTP consumer see the same wire format.
+    """
+
+    model_config = ConfigDict(
+        frozen=True,
+        json_schema_extra={
+            "examples": [
+                {
+                    "entity": {
+                        "type": "Function",
+                        "id": "authenticate_user",
+                        "properties": {"module": "auth.handlers"},
+                    },
+                    "neighbors": {
+                        "incoming": [
+                            {
+                                "type": "Class",
+                                "id": "AuthController",
+                                "predicate": "calls",
+                                "properties": {},
+                            }
+                        ],
+                        "outgoing": [
+                            {
+                                "type": "Function",
+                                "id": "verify_password",
+                                "predicate": "calls",
+                                "properties": {},
+                            }
+                        ],
+                    },
+                }
+            ]
+        },
+    )
+
+    entity: GraphEntityRecordNode = Field(
+        ...,
+        description="The requested entity's type, id, and properties.",
+    )
+    neighbors: GraphEntityRecordNeighbors = Field(
+        default_factory=GraphEntityRecordNeighbors,
+        description="1-hop neighbors split by direction. Empty lists, never None.",
     )

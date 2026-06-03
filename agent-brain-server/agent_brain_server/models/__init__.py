@@ -18,6 +18,10 @@ from .graph import (
     DocEntityType,
     EntityType,
     GraphEntity,
+    GraphEntityRecord,
+    GraphEntityRecordNeighbor,
+    GraphEntityRecordNeighbors,
+    GraphEntityRecordNode,
     GraphIndexStatus,
     GraphQueryContext,
     GraphTriple,
@@ -72,6 +76,11 @@ __all__ = [
     "GraphEntity",
     "GraphIndexStatus",
     "GraphQueryContext",
+    # Graph entity record (Phase 50 — backs GET /graph/entity/{type}/{id})
+    "GraphEntityRecord",
+    "GraphEntityRecordNeighbor",
+    "GraphEntityRecordNeighbors",
+    "GraphEntityRecordNode",
     # Graph schema types (Feature 122 - Phase 3)
     "EntityType",
     "CodeEntityType",
