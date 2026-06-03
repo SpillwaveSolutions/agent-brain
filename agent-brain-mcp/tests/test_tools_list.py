@@ -1,12 +1,16 @@
 """Phase 4 / Phase 54 test: ``tools/list`` advertises the expected tool set.
 
-Phase 54 Plan 02 bumped the registry from 7 (v1) to 11 (v1 + 4 read-only
-v2 tools). Plan 03 bumps to 15 (adds add_documents, inject_documents,
-remove_folder, clear_cache). Plan 04 → 16 (wait_for_job). The
-assertions in this module use ``>= 15`` and superset semantics so they
-keep passing across the staged plan landings without per-plan churn.
-The final exact count assertion (== 16) lives in Phase 55's contract-
-test suite.
+Phase 54 staged landings:
+* Plan 02 bumped 7 (v1) → 11 (v1 + 4 read-only).
+* Plan 03 bumped 11 → 15 (added add_documents, inject_documents,
+  remove_folder, clear_cache).
+* Plan 04 bumps 15 → 16 (adds wait_for_job — the only progress-emitting
+  tool in v2).
+
+After Plan 04, the registry is at its final v2 count. This module now
+asserts the EXACT count of 16 plus the single ``emits_progress=True``
+entry (``wait_for_job``). Phase 55's contract-test suite owns the final
+spec-conformance pin.
 """
 
 from __future__ import annotations
@@ -44,24 +48,39 @@ PHASE_54_MUTATING_TOOLS = {
     "clear_cache",
 }
 
-# Superset of v1 + Plan 02 + Plan 03 — every entry below MUST be
-# advertised after Plan 03 lands. Plan 04 adds ``wait_for_job`` on top
-# of this floor.
-EXPECTED_TOOLS = V1_TOOLS | PHASE_54_READ_ONLY_TOOLS | PHASE_54_MUTATING_TOOLS
+# Phase 54 Plan 04 progress-emitting addition (final v2 entry).
+PHASE_54_PROGRESS_TOOLS = {
+    "wait_for_job",
+}
+
+# Final v2 set — 7 + 4 + 4 + 1 = 16. This is the exact-count contract
+# after Phase 54 Plan 04 lands; Phase 55's parameterized contract test
+# pins it again against the official MCP SDK schema.
+EXPECTED_TOOLS = (
+    V1_TOOLS
+    | PHASE_54_READ_ONLY_TOOLS
+    | PHASE_54_MUTATING_TOOLS
+    | PHASE_54_PROGRESS_TOOLS
+)
 
 
 class TestToolsList:
-    def test_registry_has_at_least_fifteen_tools(self) -> None:
-        # Phase 54 Plan 03 → 15 tools (7 v1 + 4 read-only + 4 mutating).
-        # Plan 04 → 16 (adds wait_for_job). The ``>= 15`` assertion is
-        # forward-compatible.
-        assert len(TOOL_REGISTRY) >= 15
-        # Every v1 tool + every Plan 02/03 tool MUST be registered. Plan
-        # 04 additions are allowed but not required here.
-        assert EXPECTED_TOOLS.issubset(set(TOOL_REGISTRY.keys()))
+    def test_registry_has_exactly_sixteen_tools(self) -> None:
+        # Phase 54 Plan 04 → 16 tools (7 v1 + 4 read-only + 4 mutating +
+        # 1 progress-emitting). This is the final v2 count.
+        assert len(TOOL_REGISTRY) == 16
+        # All 16 expected names registered.
+        assert set(TOOL_REGISTRY.keys()) == EXPECTED_TOOLS
+
+    def test_only_wait_for_job_emits_progress(self) -> None:
+        """Pin the discrimination: 1 async progress-emitting tool, 15 sync."""
+        emits = {
+            name for name, spec in TOOL_REGISTRY.items() if spec.emits_progress
+        }
+        assert emits == {"wait_for_job"}
 
     @pytest.mark.asyncio
-    async def test_list_tools_handler_returns_at_least_fifteen(
+    async def test_list_tools_handler_returns_exactly_sixteen(
         self, fake_httpx_client: httpx.Client
     ) -> None:
         server, _ = build_server(fake_httpx_client)
@@ -72,8 +91,8 @@ class TestToolsList:
         req = types.ListToolsRequest(method="tools/list")
         result = await handler(req)
         tools = result.root.tools
-        assert len(tools) >= 15
-        assert EXPECTED_TOOLS.issubset({t.name for t in tools})
+        assert len(tools) == 16
+        assert {t.name for t in tools} == EXPECTED_TOOLS
 
     @pytest.mark.asyncio
     async def test_each_tool_has_input_schema(
