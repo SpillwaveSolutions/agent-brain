@@ -1,7 +1,15 @@
-"""Phase 4 test: MCP server initialization + capability advertisement.
+"""MCP server initialization + capability advertisement.
 
-Maps to plan §6.1, §12.3 #8 — capabilities flags must match exactly
-(``tools.listChanged: false``, ``resources.subscribe: false``, etc.).
+Phase 4 (v1) pinned ``resources.subscribe: False`` in this test.
+Phase 52 (Plan 02) flips the assertion to ``True`` — the v2 server
+advertises subscriptions in the ``initialize`` capabilities so clients
+that understand the v2 wire shape light up the subscription path.
+
+The flip is implemented by a wrapper around ``Server.get_capabilities``
+in :func:`agent_brain_mcp.server.build_server` (the MCP SDK 1.12.x
+hardcodes ``subscribe=False`` at ``mcp/server/lowlevel/server.py:211``
+with no opt-in knob, so a method-level patch is the surgical fix —
+documented inline in build_server).
 """
 
 from __future__ import annotations
@@ -25,11 +33,34 @@ class TestServerConstruction:
         server = build_server(fake_httpx_client)
         assert server.version == __version__
 
+    def test_build_server_attaches_subscription_manager(
+        self, fake_httpx_client: httpx.Client
+    ) -> None:
+        """Plan 02 private-attr workaround: ``server._subscription_manager``
+        must be a :class:`SubscriptionManager`. Plan 04 will refactor
+        ``build_server`` to a tuple return so ``run_stdio`` can wire the
+        cleanup hook without poking the private attr; until then, this
+        regression pin lets future readers see the contract explicitly.
+        """
+        from agent_brain_mcp.subscriptions import SubscriptionManager
+
+        server = build_server(fake_httpx_client)
+        manager = getattr(server, "_subscription_manager", None)
+        assert isinstance(manager, SubscriptionManager)
+        assert manager.active_count() == 0
+
 
 class TestCapabilityAdvertisement:
-    """Capabilities the SDK emits during initialize must match plan §6.1."""
+    """Capabilities the SDK emits during ``initialize``.
 
-    def test_capabilities_have_no_subscriptions(
+    Phase 52 inverts the original v1 assertion: ``resources.subscribe``
+    is now advertised as ``True``. Listchanged stays driven by
+    :class:`NotificationOptions.resources_changed` (still False — the
+    v2 milestone does not commit to a resourceListChanged notification
+    pipeline; that's a future scope).
+    """
+
+    def test_capabilities_advertise_subscriptions(
         self, fake_httpx_client: httpx.Client
     ) -> None:
         from mcp.server.lowlevel import NotificationOptions
@@ -47,9 +78,36 @@ class TestCapabilityAdvertisement:
         assert caps.tools is not None
         assert caps.tools.listChanged is False
 
+        # Phase 52 wire shape — subscribe is True so v2 clients know
+        # they can call resources/subscribe + listen for
+        # notifications/resources/updated. listChanged stays driven by
+        # the explicit NotificationOptions flag (still False).
         assert caps.resources is not None
-        assert caps.resources.subscribe is False
+        assert caps.resources.subscribe is True
         assert caps.resources.listChanged is False
 
         assert caps.prompts is not None
         assert caps.prompts.listChanged is False
+
+    def test_capabilities_subscribe_independent_of_resources_changed_flag(
+        self, fake_httpx_client: httpx.Client
+    ) -> None:
+        """``resources.subscribe`` flip is independent of
+        ``resources_changed`` — flipping the latter to True (a future
+        listChanged opt-in) must NOT silently flip subscribe back to
+        False. Pins the wrapper's contract.
+        """
+        from mcp.server.lowlevel import NotificationOptions
+
+        server = build_server(fake_httpx_client)
+        caps = server.get_capabilities(
+            notification_options=NotificationOptions(
+                prompts_changed=False,
+                resources_changed=True,  # hypothetical future flip
+                tools_changed=False,
+            ),
+            experimental_capabilities={},
+        )
+        assert caps.resources is not None
+        assert caps.resources.subscribe is True
+        assert caps.resources.listChanged is True
