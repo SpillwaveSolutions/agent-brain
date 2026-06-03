@@ -414,6 +414,42 @@ def get_server_url(config: AgentBrainConfig | None = None) -> str:
     return config.server.url
 
 
+def get_api_key(config: AgentBrainConfig | None = None) -> str | None:
+    """Get the API key for bearer-token auth (Issue #179).
+
+    Sibling to :func:`get_server_url`. Resolution order:
+
+    1. ``AGENT_BRAIN_API_KEY`` environment variable
+    2. ``runtime.json`` ``api_key`` (written by ``agent-brain init`` / the server)
+
+    Args:
+        config: Optional pre-loaded config (accepted for symmetry with
+            ``get_server_url``; reserved for a future config-file key).
+
+    Returns:
+        The API key, or None if none is configured (server may be ``--insecure``).
+    """
+    import json
+
+    env_key = os.getenv("AGENT_BRAIN_API_KEY")
+    if env_key:
+        return env_key
+
+    state_dir = get_state_dir()
+    runtime_file = state_dir / "runtime.json"
+    if runtime_file.exists():
+        try:
+            with open(runtime_file) as f:
+                runtime = json.load(f)
+            key = runtime.get("api_key")
+            if key:
+                return str(key)
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    return None
+
+
 def resolve_transport(
     *,
     transport_hint: str | None = None,

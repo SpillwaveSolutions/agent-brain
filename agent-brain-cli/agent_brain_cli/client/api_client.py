@@ -159,6 +159,7 @@ class DocServeClient:
         self,
         base_url: str = "http://127.0.0.1:8000",
         timeout: float = 30.0,
+        api_key: str | None = None,
     ):
         """
         Initialize the client.
@@ -166,13 +167,19 @@ class DocServeClient:
         Args:
             base_url: Server base URL.
             timeout: Request timeout in seconds.
+            api_key: Bearer token sent as ``Authorization: Bearer <token>`` on
+                every request (Issue #179). When None, no auth header is sent
+                (server must be running ``--insecure``).
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
-        self._client = httpx.Client(timeout=timeout)
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
+        self._client = httpx.Client(timeout=timeout, headers=headers)
 
     @classmethod
-    def from_httpx(cls, client: httpx.Client) -> "DocServeClient":
+    def from_httpx(
+        cls, client: httpx.Client, api_key: str | None = None
+    ) -> "DocServeClient":
         """Build a DocServeClient that uses a pre-constructed httpx.Client.
 
         Used by the transport selector to inject a UDS-backed client
@@ -191,6 +198,8 @@ class DocServeClient:
         instance.base_url = ""  # inner client carries the real base_url
         timeout = client.timeout
         instance.timeout = timeout.read or 30.0
+        if api_key:
+            client.headers["Authorization"] = f"Bearer {api_key}"
         instance._client = client
         return instance
 

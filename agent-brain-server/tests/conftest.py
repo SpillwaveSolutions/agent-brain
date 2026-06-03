@@ -151,6 +151,25 @@ def reset_singletons():
     factory_mod._backend_type = None
 
 
+@pytest.fixture(scope="session", autouse=True)
+def bypass_bearer_auth():
+    """Bypass bearer-token auth (Issue #179) for the whole suite.
+
+    Auth is enforced at the router level, so any test that builds the app and
+    hits a guarded endpoint would otherwise 401/503. Session-scoped so the
+    override is installed once (not per-test — a per-test autouse measurably
+    slowed the suite and starved the UDS subprocess test of startup headroom).
+    Tests in ``test_api_auth.py`` pop the override to exercise real auth and
+    restore it on teardown.
+    """
+    from agent_brain_server.api.main import app
+    from agent_brain_server.api.security import verify_bearer_token
+
+    app.dependency_overrides[verify_bearer_token] = lambda: None
+    yield
+    app.dependency_overrides.pop(verify_bearer_token, None)
+
+
 @pytest.fixture
 def mock_bm25_manager():
     """Mock BM25 manager for unit tests."""

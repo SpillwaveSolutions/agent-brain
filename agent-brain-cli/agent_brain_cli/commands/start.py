@@ -210,6 +210,12 @@ def update_registry(project_root: Path, state_dir: Path) -> None:
     is_flag=True,
     help="Bind only the Unix Domain Socket (no TCP listener). Implies --uds.",
 )
+@click.option(
+    "--insecure",
+    is_flag=True,
+    help="Start the server with bearer-token auth DISABLED (Issue #179). "
+    "UNSAFE — leaves every endpoint open to any local process.",
+)
 def start_command(
     path: str | None,
     host: str | None,
@@ -220,6 +226,7 @@ def start_command(
     strict: bool,
     uds: bool,
     uds_only: bool,
+    insecure: bool,
 ) -> None:
     """Start an Agent Brain server for this project.
 
@@ -359,6 +366,10 @@ def start_command(
             "--port",
             str(bind_port),
         ]
+
+        # Bearer-token auth opt-out (Issue #179) — pass through to the server.
+        if insecure:
+            server_cmd.append("--insecure")
 
         # --uds-only implies --uds (plan §7)
         enable_uds = uds or uds_only

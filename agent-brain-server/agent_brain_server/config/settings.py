@@ -6,6 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,18 @@ class Settings(BaseSettings):
     API_HOST: str = "127.0.0.1"
     API_PORT: int = 8000
     DEBUG: bool = False
+
+    # Authentication (Issue #179)
+    # Bearer-token auth gates every endpoint except /health. The CLI auto-
+    # generates a key on `agent-brain init` (stored in .agent-brain/runtime.json,
+    # mode 600) and sends it as `Authorization: Bearer <token>`. The server
+    # refuses to start without a key unless INSECURE_NO_AUTH is set (the
+    # `agent-brain-serve --insecure` flag), mirroring how Postgres requires
+    # `--allow-empty-password` and Redis `protected-mode no` to run unauthenticated.
+    # 127.0.0.1 is not an authorization boundary: any local process or agent on
+    # the same box can otherwise read or wipe the index (OWASP API1/API2:2023).
+    API_KEY: SecretStr | None = None
+    INSECURE_NO_AUTH: bool = False
 
     # OpenAI Configuration
     OPENAI_API_KEY: str = ""

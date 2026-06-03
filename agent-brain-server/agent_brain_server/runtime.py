@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import secrets
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,6 +12,16 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
+
+
+def generate_api_key() -> str:
+    """Generate a fresh API key for bearer-token auth (Issue #179).
+
+    Returns:
+        A URL-safe 32-byte token (~43 chars). Shared between the server (which
+        verifies it) and the CLI (which sends it as ``Authorization: Bearer``).
+    """
+    return secrets.token_urlsafe(32)
 
 
 class RuntimeState(BaseModel):
@@ -27,6 +38,10 @@ class RuntimeState(BaseModel):
     started_at: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
+    # Bearer-token auth (Issue #179). Generated on `agent-brain init` or backfilled
+    # on first authenticated server start; the file is written mode 600 because
+    # this field is a secret. None only in --insecure mode.
+    api_key: str | None = None
     # Shared mode fields
     project_id: str | None = None
     active_projects: list[str] | None = None
@@ -44,6 +59,11 @@ def write_runtime(state_dir: Path, state: RuntimeState) -> None:
     state_dir.mkdir(parents=True, exist_ok=True)
     runtime_path = state_dir / "runtime.json"
     runtime_path.write_text(state.model_dump_json(indent=2))
+    # runtime.json holds the API key (Issue #179) — keep it owner-only.
+    try:
+        runtime_path.chmod(0o600)
+    except OSError as e:  # e.g. exotic filesystems without POSIX perms
+        logger.warning(f"Could not set mode 600 on {runtime_path}: {e}")
     logger.info(f"Runtime state written to {runtime_path}")
 
 

@@ -170,6 +170,12 @@ Run completely offline with Ollama:
 - Automatic port allocation
 - Work on multiple projects simultaneously
 
+### Authentication
+- Bearer-token auth on every endpoint except `/health` (secure by default)
+- `agent-brain init` auto-generates a key into `.agent-brain/runtime.json` (mode 600); the CLI sends it automatically — no setup for solo use
+- The server refuses to start without a key unless you pass `--insecure` (disables auth; only safe on a trusted single-user box)
+- Interactive docs (`/docs`, `/redoc`, `/openapi.json`) are served only when `DEBUG=true`
+
 ## Project Structure
 
 ```

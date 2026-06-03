@@ -17,7 +17,7 @@ from pathlib import Path
 
 import click
 
-from ..config import resolve_transport
+from ..config import get_api_key, resolve_transport
 from .api_client import DocServeClient
 
 
@@ -44,11 +44,14 @@ def open_client(ctx: click.Context, *, timeout: float = 30.0) -> DocServeClient:
     if obj.get("debug_transport"):
         click.echo(f"[debug-transport] {transport} -> {target}", err=True)
 
+    # Bearer token for auth (Issue #179); None when the server runs --insecure.
+    api_key = get_api_key()
+
     if transport == "http":
-        return DocServeClient(base_url=target, timeout=timeout)
+        return DocServeClient(base_url=target, timeout=timeout, api_key=api_key)
 
     # UDS: import lazily so HTTP-only invocations don't pay the cost.
     from agent_brain_uds import make_client
 
     inner = make_client(socket_path=Path(target), timeout=timeout)
-    return DocServeClient.from_httpx(inner)
+    return DocServeClient.from_httpx(inner, api_key=api_key)

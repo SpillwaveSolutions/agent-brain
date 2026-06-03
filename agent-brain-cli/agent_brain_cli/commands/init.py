@@ -1,7 +1,9 @@
 """Init command for initializing an Agent Brain project."""
 
 import json
+import secrets
 from pathlib import Path
+from typing import Any
 
 import click
 from rich.console import Console
@@ -147,6 +149,24 @@ def init_command(
 
         # Write configuration
         config_path.write_text(json.dumps(config, indent=2))
+
+        # Bearer-token auth (Issue #179): ensure an API key exists in runtime.json
+        # (mode 600) so the server verifies it and the CLI sends it. Idempotent —
+        # a re-init preserves any existing key and any running-server fields.
+        runtime_path = resolved_state_dir / "runtime.json"
+        runtime_data: dict[str, Any] = {"schema_version": "1.0"}
+        if runtime_path.exists():
+            try:
+                runtime_data = json.loads(runtime_path.read_text())
+            except (json.JSONDecodeError, OSError):
+                runtime_data = {"schema_version": "1.0"}
+        if not runtime_data.get("api_key"):
+            runtime_data["api_key"] = secrets.token_urlsafe(32)
+            runtime_path.write_text(json.dumps(runtime_data, indent=2))
+            try:
+                runtime_path.chmod(0o600)
+            except OSError:
+                pass
 
         if json_output:
             click.echo(

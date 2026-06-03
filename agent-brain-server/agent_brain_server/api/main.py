@@ -18,11 +18,13 @@ from pathlib import Path
 
 import click
 import uvicorn
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import SecretStr
 
 from agent_brain_server import __version__
 from agent_brain_server.api import uds_bind
+from agent_brain_server.api.security import verify_bearer_token
 from agent_brain_server.config import settings
 from agent_brain_server.config.provider_config import (
     ValidationSeverity,
@@ -40,7 +42,13 @@ from agent_brain_server.locking import (
     release_lock,
 )
 from agent_brain_server.project_root import resolve_project_root
-from agent_brain_server.runtime import RuntimeState, delete_runtime, write_runtime
+from agent_brain_server.runtime import (
+    RuntimeState,
+    delete_runtime,
+    generate_api_key,
+    read_runtime,
+    write_runtime,
+)
 from agent_brain_server.services import FolderManager, IndexingService, QueryService
 from agent_brain_server.storage import (
     VectorStoreManager,
@@ -677,9 +685,12 @@ app = FastAPI(
     ),
     version=__version__,
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    # Interactive docs + OpenAPI schema are open in DEBUG (local dev) but closed
+    # otherwise, so a shared/production host doesn't leak its full API surface to
+    # unauthenticated callers (Issue #179, Q3).
+    docs_url="/docs" if settings.DEBUG else None,
+    redoc_url="/redoc" if settings.DEBUG else None,
+    openapi_url="/openapi.json" if settings.DEBUG else None,
 )
 
 # Add CORS middleware
@@ -691,13 +702,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
+# Include routers.
+# /health is intentionally unauthenticated (liveness probes, CLI port discovery).
+# Every other router requires a valid bearer token (Issue #179).
+_auth = [Depends(verify_bearer_token)]
 app.include_router(health_router, prefix="/health", tags=["Health"])
-app.include_router(index_router, prefix="/index", tags=["Indexing"])
-app.include_router(cache_router, prefix="/index/cache", tags=["Cache"])
-app.include_router(folders_router, prefix="/index/folders", tags=["Folders"])
-app.include_router(jobs_router, prefix="/index/jobs", tags=["Jobs"])
-app.include_router(query_router, prefix="/query", tags=["Querying"])
+app.include_router(index_router, prefix="/index", tags=["Indexing"], dependencies=_auth)
+app.include_router(
+    cache_router, prefix="/index/cache", tags=["Cache"], dependencies=_auth
+)
+app.include_router(
+    folders_router, prefix="/index/folders", tags=["Folders"], dependencies=_auth
+)
+app.include_router(jobs_router, prefix="/index/jobs", tags=["Jobs"], dependencies=_auth)
+app.include_router(query_router, prefix="/query", tags=["Querying"], dependencies=_auth)
 
 
 @app.get("/", include_in_schema=False)
@@ -724,11 +742,79 @@ def _find_free_port() -> int:
     return port  # type: ignore[no-any-return]
 
 
+def _apply_api_key(key: str) -> None:
+    """Make the resolved API key visible to this process and uvicorn reload workers.
+
+    Sets it on the live settings instance (this process) and in the environment so
+    a ``--reload`` worker subprocess re-reads it when it re-imports the app.
+    """
+    settings.API_KEY = SecretStr(key)
+    os.environ["API_KEY"] = key
+
+
+def _resolve_api_key(state_dir: Path | None, insecure: bool) -> str | None:
+    """Resolve the bearer-token API key, or refuse to start (Issue #179, Q1).
+
+    Precedence: ``--insecure`` (no auth) > ``API_KEY`` env > ``runtime.json`` >
+    generate-and-persist. The server refuses to start unauthenticated unless
+    ``--insecure`` is set — secure by default, like Postgres
+    ``--allow-empty-password`` / Redis ``protected-mode no``.
+
+    Args:
+        state_dir: Resolved state directory, or None when not in per-project mode.
+        insecure: True if the operator passed ``--insecure`` (auth disabled).
+
+    Returns:
+        The API key to persist into runtime.json, or None in ``--insecure`` mode.
+
+    Raises:
+        click.ClickException: if auth is required but no key is available and none
+            can be persisted (no state_dir to store one).
+    """
+    if insecure:
+        settings.INSECURE_NO_AUTH = True
+        os.environ["INSECURE_NO_AUTH"] = "true"
+        logger.warning(
+            "================ INSECURE MODE (Issue #179) ================\n"
+            "  --insecure: every endpoint is UNAUTHENTICATED.\n"
+            "  Any local process or agent on this box can read or wipe the index.\n"
+            "  Use only on a trusted single-user machine.\n"
+            "==========================================================="
+        )
+        return None
+
+    # 1. Explicit API_KEY (env or .env) wins.
+    key = settings.API_KEY.get_secret_value() if settings.API_KEY else None
+    key = key or os.environ.get("API_KEY") or None
+
+    # 2. Fall back to the project's runtime.json (written by `agent-brain init`).
+    if not key and state_dir is not None:
+        existing = read_runtime(state_dir)
+        if existing and existing.api_key:
+            key = existing.api_key
+
+    # 3. Backfill: generate + persist (one-time migration for pre-auth installs).
+    if not key:
+        if state_dir is None:
+            raise click.ClickException(
+                "Refusing to start without authentication (Issue #179).\n"
+                "  - Start via `agent-brain start` (auto-generates a key), or\n"
+                "  - set API_KEY=<token> in the environment, or\n"
+                "  - pass --insecure to run unauthenticated (NOT recommended)."
+            )
+        key = generate_api_key()
+        logger.info("No API key found for this project - generated a new one.")
+
+    _apply_api_key(key)
+    return key
+
+
 def run(
     host: str | None = None,
     port: int | None = None,
     reload: bool | None = None,
     state_dir: str | None = None,
+    insecure: bool = False,
 ) -> None:
     """Run the server using uvicorn.
 
@@ -737,6 +823,7 @@ def run(
         port: Port to bind to (default: from settings, 0 = auto-assign)
         reload: Enable auto-reload (default: from DEBUG setting)
         state_dir: State directory for per-project mode (enables locking)
+        insecure: Disable bearer-token auth (Issue #179). Requires explicit opt-in.
     """
     global _runtime_state, _state_dir
 
@@ -747,6 +834,10 @@ def run(
     if resolved_port == 0:
         resolved_port = _find_free_port()
         logger.info(f"Auto-assigned port: {resolved_port}")
+
+    # Resolve authentication before binding so we can refuse cleanly (Issue #179).
+    resolved_state_path = Path(state_dir).resolve() if state_dir else None
+    api_key = _resolve_api_key(resolved_state_path, insecure)
 
     # Set up per-project mode if state_dir specified
     if state_dir:
@@ -768,6 +859,7 @@ def run(
             port=resolved_port,
             pid=os.getpid(),
             base_url=f"http://{resolved_host}:{resolved_port}",
+            api_key=api_key,  # persisted mode 600 for the CLI to read (Issue #179)
         )
 
         # Write runtime.json before starting server
@@ -878,12 +970,20 @@ def run(
     default=None,
     help="Project directory (auto-resolves state-dir to .agent-brain)",
 )
+@click.option(
+    "--insecure",
+    is_flag=True,
+    default=False,
+    help="Disable bearer-token auth (Issue #179). UNSAFE — leaves every endpoint "
+    "open to any local process. Use only on a trusted single-user box.",
+)
 def cli(
     host: str | None,
     port: int | None,
     reload: bool | None,
     state_dir: str | None,
     project_dir: str | None,
+    insecure: bool,
 ) -> None:
     """Agent Brain RAG Server - Document indexing and semantic search API.
 
@@ -918,7 +1018,13 @@ def cli(
         # Use environment variable if set
         resolved_state_dir = settings.AGENT_BRAIN_STATE_DIR
 
-    run(host=host, port=port, reload=reload, state_dir=resolved_state_dir)
+    run(
+        host=host,
+        port=port,
+        reload=reload,
+        state_dir=resolved_state_dir,
+        insecure=insecure,
+    )
 
 
 if __name__ == "__main__":
