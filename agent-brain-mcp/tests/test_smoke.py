@@ -15,6 +15,6 @@ def test_package_imports() -> None:
     version = agent_brain_mcp.__version__
     assert isinstance(version, str) and version, "missing __version__"
     # Semver-ish: at least major.minor.patch with optional pre-release.
-    assert re.match(r"^\d+\.\d+\.\d+", version), (
-        f"version {version!r} is not semver-shaped"
-    )
+    assert re.match(
+        r"^\d+\.\d+\.\d+", version
+    ), f"version {version!r} is not semver-shaped"
