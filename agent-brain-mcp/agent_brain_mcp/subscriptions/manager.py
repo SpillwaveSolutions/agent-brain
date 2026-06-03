@@ -152,6 +152,17 @@ class SubscriptionManager:
         # run until the next await point in the calling code. That
         # guarantees ``unsubscribe()`` immediately after this method
         # returns can find the task in ``self._tasks`` and cancel it.
+        #
+        # NB on cancellation timing (CONTEXT decision D, layer-2 belt
+        # and-suspenders): when ``unsubscribe()`` is called before the
+        # asyncio scheduler has even given the new task a chance to
+        # start, asyncio skips the coroutine body entirely on
+        # cancellation — the ``try/finally`` does NOT run in that
+        # case. So ``unsubscribe`` / ``cleanup_*`` pop the registry
+        # entry SYNCHRONOUSLY as the primary path, and the
+        # ``_poll_loop.finally`` is the defense-in-depth path for the
+        # case where the loop crashes mid-iteration after it actually
+        # started running.
         task = asyncio.create_task(
             self._poll_loop(
                 session=session,
@@ -244,14 +255,20 @@ class SubscriptionManager:
 
                 await asyncio.sleep(interval_s)
         finally:
-            # Defense-in-depth: regardless of HOW we exit (cancellation,
-            # unhandled exception, normal return — though a polling
-            # loop never normally returns), purge our entries from the
-            # registry so the manager state stays consistent.
-            self._tasks.pop(key, None)
-            self._last_hash.pop(key, None)
+            # Defense-in-depth (CONTEXT decision D, layer 2): regardless
+            # of HOW we exit (cancellation, unhandled exception, normal
+            # return — though a polling loop never normally returns),
+            # purge our entries from the registry so the manager state
+            # stays consistent. Pop ONLY if the slot still holds OUR
+            # task — if a caller already unsubscribed then re-
+            # subscribed to the same (session, uri), the slot now
+            # holds the NEW task and we must not evict it.
+            current = self._tasks.get(key)
+            if current is None or current is asyncio.current_task():
+                self._tasks.pop(key, None)
+                self._last_hash.pop(key, None)
             logger.info(
-                "unsubscribe session=%s uri=%s (active=%d)",
+                "poll_loop exit session=%s uri=%s (active=%d)",
                 self._truncate_session_id(session),
                 uri,
                 len(self._tasks),
@@ -272,14 +289,19 @@ class SubscriptionManager:
             URIs they never subscribed to.
         """
         key = self._key(session, uri)
-        task = self._tasks.get(key)
+        task = self._tasks.pop(key, None)
         if task is None:
             return False
+        # Also drop the last-hash so a future re-subscribe starts
+        # clean (first poll emits as if no prior payload existed).
+        self._last_hash.pop(key, None)
         task.cancel()
-        # Don't pop here — the task's own ``finally`` block will pop
-        # both ``_tasks`` and ``_last_hash`` once the cancellation
-        # actually runs. Popping here too would race with the finally
-        # if a caller immediately re-subscribed to the same uri.
+        logger.info(
+            "unsubscribe session=%s uri=%s (active=%d)",
+            self._truncate_session_id(session),
+            uri,
+            len(self._tasks),
+        )
         return True
 
     def cleanup_session(self, session: Any) -> int:
@@ -297,11 +319,11 @@ class SubscriptionManager:
             Count of tasks cancelled.
         """
         sid = id(session)
-        # Snapshot keys first — mutating ``self._tasks`` during iteration
-        # would error, and the per-task finally blocks will mutate it.
+        # Snapshot keys first — we are about to mutate ``self._tasks``.
         victims = [k for k in self._tasks if k[0] == sid]
         for key in victims:
-            task = self._tasks.get(key)
+            task = self._tasks.pop(key, None)
+            self._last_hash.pop(key, None)
             if task is not None:
                 task.cancel()
         if victims:
@@ -322,8 +344,14 @@ class SubscriptionManager:
             Count of tasks cancelled.
         """
         count = len(self._tasks)
-        # Snapshot before iterating — see ``cleanup_session``.
-        for task in list(self._tasks.values()):
+        # Snapshot then drain. Pop the registry SYNCHRONOUSLY so
+        # ``active_count()`` immediately reflects zero — a task
+        # cancelled before its coro started never runs its finally
+        # block, so we cannot rely on the loop's own cleanup here.
+        tasks = list(self._tasks.values())
+        self._tasks.clear()
+        self._last_hash.clear()
+        for task in tasks:
             task.cancel()
         if count:
             logger.info("cleanup_all count=%d", count)
