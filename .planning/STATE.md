@@ -2,23 +2,23 @@
 gsd_state_version: 1.0
 milestone: v10.2
 milestone_name: MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
-current_phase: 52
-status: executing
-stopped_at: "Plan 52-04 complete — disconnect cleanup hook + build_server tuple refactor + SDK e2e validation shipped. `build_server()` signature changed to `tuple[Server, SubscriptionManager]`; Plan 02's `server._subscription_manager` private attr preserved for backwards compatibility (same instance, both surfaces; `test_build_server_attaches_subscription_manager` asserts identity-equality). `run_stdio(server, subscription_manager)` body wrapped in try/finally; the finally calls `manager.cleanup_all()` on every exit path (stdio EOF, exception, mid-loop crash) with an info-level log line when ≥1 task was cancelled. `_poll_loop` gains an explicit `except asyncio.CancelledError` clause that DEBUG-logs `session_id_short + uri` then re-raises — Plan 04 defense-in-depth on top of Plan 01's `finally` block; makes leaked-task diagnosable in CI without ratcheting the root logger to DEBUG. `tests/test_notification_shape.py` NEW (9 unit tests pinning `ResourceUpdatedNotification` + `ResourceUpdatedNotificationParams` spec conformance — minimal URI-only shape, optional `_meta.revision` envelope, method-literal pin; SUB-04 acceptance). `tests/e2e/test_e2e_subscriptions.py` NEW (5 SDK-driven e2e tests: corpus://status emit-on-change, job:// running→terminal lifecycle, corpus://folders 2-state flip, disconnect-cleanup counter assertion, two-sessions cross-process isolation; SUB-01/02/03/05 end-to-end). 15 existing test files updated to unpack the tuple. Phase 50 v2 design doc updated with §3.3.1 Phase 52 ship-outcome subsection (mirrors §3.2.1 structure; documents all Plan 04 contracts + risk carry-forward to Phase 53 + LOCKED reuse contract for Phase 54 TOOL-04). 4 atomic commits: `2d16b68` (feat: build_server tuple + run_stdio cleanup hook + CancelledError clause), `839b24b` (test: SUB-04 notification shape conformance), `d0a3287` (test: SUB-01/02/03/05 e2e SDK subscriptions), `638ddcc` (docs: §3.3.1 Phase 52 ship outcome). `task before-push` exit 0 — 416 monorepo tests, 265 MCP tests (was 241 non-e2e in Plan 03; +9 SUB-04 conformance + 5 e2e + Plan 03 e2e re-included when running full suite), 28 skipped, 3 layering contracts kept, 80% coverage. `task pr-qa-gate` exit 0. All 5 SUB requirements (SUB-01..05) closed and validated against the real MCP wire via the official Python SDK. Phase 52 ready for verifier scoring; Phase 53 (Streamable HTTP transport) is unblocked and inherits the disconnect-cleanup design + BrokenResourceError filter pattern; Phase 54 TOOL-04 (`wait_for_job`) consumes the now-LOCKED `start_polling` primitive."
-last_updated: "2026-06-03T15:50:49Z"
+current_phase: 53
+status: planning
+stopped_at: "Plan 52-04 complete — disconnect cleanup hook + `build_server()` tuple refactor + e2e SDK validation shipped. `build_server()` signature changed to `tuple[Server, SubscriptionManager]` while preserving Plan 02's `server._subscription_manager` private attr for backwards compatibility (same instance, both surfaces; `test_build_server_attaches_subscription_manager` asserts identity-equality). `run_stdio(server, subscription_manager)` body wrapped in `try / finally`; the finally calls `manager.cleanup_all()` on every exit path (stdio EOF, exception, mid-loop crash) with an info-level log line. `_poll_loop` gains an explicit `except asyncio.CancelledError` clause that DEBUG-logs `session_id_short + uri` then re-raises — Plan 04 defense-in-depth on top of Plan 01's `finally`; makes leaked-task assertion tests diagnosable in CI. `tests/test_notification_shape.py` NEW (9 unit tests pinning `ResourceUpdatedNotification` + `ResourceUpdatedNotificationParams` spec conformance — minimal URI-only shape, optional `_meta.revision` 64-char hex SHA-256 envelope, method-literal pin; SUB-04 acceptance). `tests/e2e/test_e2e_subscriptions.py` NEW (5 SDK-driven e2e tests: corpus://status emit-on-change, job:// running→terminal lifecycle with `SubscriptionTerminated` auto-cancel, corpus://folders 2-state flip, **disconnect-cleanup counter-based assertion**, two-sessions cross-process isolation; SUB-01/02/03/05 end-to-end against the real MCP wire via the official Python SDK). 15 existing test files updated to unpack the new tuple shape. Phase 50 v2 design doc updated with §3.3.1 Phase 52 ship-outcome subsection (mirrors §3.2.1 structure; documents all Plan 04 contracts + risk carry-forward to Phase 53 + LOCKED reuse contract for Phase 54 TOOL-04 `wait_for_job`). 4 atomic commits: `2d16b68` (feat), `839b24b` (test SUB-04), `d0a3287` (test e2e SDK), `638ddcc` (docs §3.3.1). `task before-push` exit 0 — 416 monorepo tests passed, 265 MCP tests (was 241 non-e2e in Plan 03; +9 SUB-04 conformance + 5 e2e + Plan 03 e2e re-included when running full suite), 28 skipped, 3 layering contracts kept, 80% coverage. `task pr-qa-gate` exit 0. SUB-01..05 all closed and validated end-to-end. Phase 52 ready for verifier scoring (Wave 4); Phase 53 unblocked."
+last_updated: "2026-06-03T16:05:50.907Z"
 progress:
   total_phases: 6
-  completed_phases: 2
-  total_plans: 24
-  completed_plans: 12
+  completed_phases: 0
+  total_plans: 6
+  completed_plans: 0
 ---
 
 # Agent Brain — Project State
 
 **Last Updated:** 2026-06-03
 **Current Milestone:** v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
-**Status:** Executing Phase 52
-**Current Phase:** 52
+**Status:** Ready to plan
+**Current Phase:** 53
 
 ## Current Position
 

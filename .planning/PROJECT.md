@@ -107,13 +107,17 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 - ✓ **URI-03**: `job://<job_id>` resource readable via MCP `resources/read` (foundational dispatcher) — v10.2 (Phase 51, Plan 01)
 - ✓ **URI-04**: `file://<abs-path>` resource readable, gated by Phase 50 sandbox helpers (shared, not forked) — v10.2 (Phase 51, Plan 03)
 - ✓ **URI-05**: `resources/templates/list` advertises all 4 URI templates as RFC 6570 strings; `MIN_BACKEND_VERSION` bumped to `10.2.0` — v10.2 (Phase 51, Plan 04)
+- ✓ **SUB-01**: `job://<job_id>` subscription with 1s polling cadence, auto-cancel on terminal status via `SubscriptionTerminated` sentinel — v10.2 (Phase 52, Plan 03)
+- ✓ **SUB-02**: `corpus://status` subscription with 30s polling cadence, `request_id` drop set defeats uvicorn UUID churn — v10.2 (Phase 52, Plan 03)
+- ✓ **SUB-03**: `corpus://folders` subscription with configurable 5s active cadence (`mcp_subscription_folders_active_interval_s` setting) — v10.2 (Phase 52, Plan 03)
+- ✓ **SUB-04**: `notifications/resources/updated` payload conforms to 2025-03-26 MCP spec; URI-only shape today, `_meta.revision` (64-char hex SHA-256) future-pinned in tests — v10.2 (Phase 52, Plan 04)
+- ✓ **SUB-05**: Per-session subscription tracking via `(id(session), uri)` key; cleanup via `run_stdio` try/finally + `cleanup_all()` on EOF; deterministic counter-based e2e test (not psutil) — v10.2 (Phase 52, Plan 04)
 
 ### Active
 
- - [ ] MCP v2 resource subscriptions (`resources/subscribe` + `notifications/resources/updated`)
  - [ ] MCP v2 Streamable HTTP transport (alongside stdio, loopback only)
  - [ ] MCP v2 9 remaining tools (explain_result, add_documents, inject_documents, wait_for_job, list_folders, remove_folder, cache_status, clear_cache, list_file_types)
- - [ ] MCP v2 progress notifications on long-running jobs (`wait_for_job` every ≤2s)
+ - [ ] MCP v2 progress notifications on long-running jobs (`wait_for_job` every ≤2s, reuses Phase 52 `start_polling`)
 
 ## Current Milestone: v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
 
@@ -244,4 +248,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-03 after Phase 51 completion — URI-01..05 validated (4 URI schemes addressable, `resources/templates/list` advertised, version floor 10.2.0); advancing to Phase 52 (resource subscriptions)*
+*Last updated: 2026-06-03 after Phase 52 completion — SUB-01..05 validated (3 subscribable URIs with policy-defined cadences, MCP-spec-compliant notification shape, per-session tracking + disconnect cleanup, capability-flip wrapper around SDK 1.12.x); advancing to Phase 53 (Streamable HTTP transport)*
