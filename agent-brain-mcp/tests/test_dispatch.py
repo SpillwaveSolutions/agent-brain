@@ -280,15 +280,45 @@ class TestMainAsyncDispatch:
 
 
 class TestRunHttpStub:
-    """Plan 01 ships the stub; Plan 02 swaps it for the real listener."""
+    """Plan 01 shipped the ``NotImplementedError`` stub; Plan 02 swapped
+    it for the real listener (in :mod:`agent_brain_mcp.http`). The
+    public name ``agent_brain_mcp.server.run_http`` is preserved as a
+    re-export so the dispatcher in :func:`main_async` keeps working.
+    """
 
-    async def test_run_http_raises_not_implemented(
+    async def test_run_http_is_re_exported_from_http_module(
         self, fake_httpx_client: httpx.Client
     ) -> None:
+        """``server.run_http`` IS ``http.run_http`` — same callable."""
+        from agent_brain_mcp.http import run_http as http_run_http
+        from agent_brain_mcp.server import run_http as server_run_http
+
+        # Identity assertion — the server-level name MUST resolve to the
+        # http module's symbol. A future refactor that puts a *wrapper*
+        # in server.py would break Plan 01's dispatcher contract
+        # (test_http_transport_calls_run_http_with_host_and_port relies
+        # on monkeypatching server_module.run_http reaching the same
+        # callable that gets awaited inside main_async).
+        assert server_run_http is http_run_http
+
+    def test_run_http_rejects_invalid_host_before_async_entry(
+        self, fake_httpx_client: httpx.Client
+    ) -> None:
+        """A non-loopback host raises BEFORE any uvicorn / socket work.
+
+        This is the dispatcher-level guarantee: Plan 02's listener can
+        be invoked directly (bypassing Click's CLI flag validation)
+        from a test or an embedding adapter and STILL refuses to bind
+        to a public interface. The integration test that pins this
+        with a sentinel-mocked uvicorn constructor lives in
+        ``test_http_listener.py::TestValidateBeforeBind``.
+        """
+        import asyncio
+
+        import click
+
         from agent_brain_mcp.server import run_http
 
         srv, manager = build_server(fake_httpx_client)
-        with pytest.raises(
-            NotImplementedError, match="HTTP transport implemented in Plan 02"
-        ):
-            await run_http(srv, manager, host="127.0.0.1", port=8765)
+        with pytest.raises(click.ClickException):
+            asyncio.run(run_http(srv, manager, host="0.0.0.0", port=12345))

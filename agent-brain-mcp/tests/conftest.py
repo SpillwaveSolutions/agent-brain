@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import socket
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -400,3 +401,31 @@ def make_file_sandbox_httpx_client(
 
     transport = httpx.MockTransport(handler)
     return httpx.Client(transport=transport, base_url="http://test-agent-brain")
+
+
+# --- Phase 53 Plan 02 (HTTP listener) shared fixture ---------------------
+
+
+@pytest.fixture
+def free_loopback_port() -> int:
+    """Return a free TCP port on ``127.0.0.1``, then close the probe socket.
+
+    Phase 53 Plan 02 needs an unbound port to pass to ``run_http``
+    without colliding with whatever else is on the dev box. We probe
+    by binding ``AF_INET`` on ``("127.0.0.1", 0)``, reading
+    :meth:`socket.socket.getsockname` for the kernel-assigned port,
+    and closing the probe before returning. There's a TOCTOU window
+    between close and the next bind, but in practice (single-process
+    test suite, ephemeral-port range) collisions are vanishingly
+    rare; the port-in-use test deliberately stays bound to test the
+    failure path.
+
+    NB: Plan 02 deliberately does NOT support ``--port 0`` (D-12
+    forbids dynamic ports in production), so tests have to find a
+    free port themselves rather than letting uvicorn pick one.
+    """
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("127.0.0.1", 0))
+    port = int(s.getsockname()[1])
+    s.close()
+    return port
