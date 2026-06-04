@@ -1,5 +1,26 @@
 # Milestones
 
+## v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion (Shipped: 2026-06-03)
+
+**Phases completed:** 6 phases (50-55), 24 plans, ~530 new tests
+**Tests:** 1685+ monorepo tests passing
+**Coverage:** agent-brain-mcp 91.83% / agent-brain-uds 99% (both above 80% floor)
+**Quality gate:** `task before-push` from repo root exit 0 in 162s (the DR-5 closure attestation)
+
+**Key accomplishments:**
+
+1. **TOOL_REGISTRY at exactly 16 tools** (7 v1 + 9 v2) — `explain_result`, `add_documents`, `inject_documents`, `wait_for_job` (async, emits progress), `list_folders`, `remove_folder`, `cache_status`, `clear_cache`, `list_file_types`. Locked by `_tool_matrix.py` SOT shared across Layer 1 (in-process) and Layer 2 (SDK) contract tests with import-time drift guard.
+2. **Resource subscriptions** — 3 subscribable URIs (`job://` 1s, `corpus://status` 30s, `corpus://folders` configurable 5s) with policy-defined cadences, `SubscriptionTerminated` auto-cancel on terminal job status, per-session registry, and disconnect cleanup via `run_stdio` try/finally — validated end-to-end against the official MCP SDK.
+3. **Streamable HTTP transport** — `agent-brain-mcp --transport http` via `StreamableHTTPSessionManager` + uvicorn; loopback-only enforced at CLI entry + in-process; `PortInUseError(exit_code=2)` for EADDRINUSE; pre-flight `socket.bind` probe because uvicorn 0.32.x swallows OSError as SystemExit(1); explicit `security_settings=loopback_transport_security()` because `StreamableHTTPSessionManager` does not auto-enable like `FastMCP`.
+4. **4 URI schemes addressable** via `resources/read` (`chunk://`, `graph-entity://`, `job://`, `file://`) with `resources/templates/list` advertising RFC 6570 templates; `file://` gated by Phase 50 sandbox helpers (hard whitelist, 4 deny reasons, 10 MiB cap).
+5. **DR-5 closed** — `agent-brain-mcp` and `agent-brain-uds` folded into root `task before-push` + `task pr-qa-gate` inside the existing `before_push_lock_guard.sh` wrapping (issue #174). Caught a real bug on first run: `agent-brain-uds` `test_smoke.py` was silently broken since 10.1.0 PyPI bump (hardcoded `__version__ == "10.0.7"` — loosened to semver regex).
+6. **Two-layer contract test suite** — Layer 1 in-process `fake_httpx_client` + Layer 2 SDK-driven subprocess sharing single SOT — 49 SDK contract tests (32 tool happy+negative + 6 resource + 3 subscription happy-path + 1 disconnect-cleanup + 6 HTTP transport + 1 mount-path).
+7. **Real-world SDK API drift discovered and worked around at every phase**: MCP SDK 1.12.x hardcodes `subscribe=False` (`_patched_get_capabilities` wrapper); uvicorn 0.32 swallows `OSError` as `SystemExit(1)` (pre-flight bind probe); `StreamableHTTPSessionManager` does not auto-enable `transport_security` (explicit param); `_MetaInjectingServerSession` exploits Pydantic `extra="allow"` on `Implementation` to carry both transport axes (server build + listen) in `_meta`.
+
+**Archive:** [v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md) | [v10.2-REQUIREMENTS.md](milestones/v10.2-REQUIREMENTS.md)
+
+---
+
 ## v9.5.0 Config Validation & Language Support (Shipped: 2026-03-31)
 
 **Phases completed:** 5 phases, 8 plans, 11 tasks

@@ -131,21 +131,7 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ### Active
 
-(milestone v10.2 SHIPPED 2026-06-03 — see Current Milestone section below)
-
-## Current Milestone: v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
-
-**Goal:** Promote the MCP server from the minimal v1 surface (7 tools, stdio only, no subscriptions) to a subscription-aware, Streamable-HTTP-capable, 16-tool-complete MCP server suitable for IDE integrations and framework adapters.
-
-**Target features:**
-- Resource subscriptions with per-resource polling cadence and `notifications/resources/updated` per MCP spec
-- Two deferred resource schemes requiring new server endpoints: `chunk://` (needs `GET /query/chunk/{id}`) and `graph-entity://` (needs `GET /graph/entity/{type}/{id}`)
-- Two further URI schemes (`job://`, `file://`) gated by subscriptions and sandbox design
-- Streamable HTTP MCP transport alongside stdio (loopback only, no auth yet — auth is v4)
-- All 9 deferred tools from the original 16-tool design, with `wait_for_job` emitting `notifications/progress` at least every 2s
-- Parameterized contract tests covering all 16 tools against the official MCP SDK
-
-**Reference:** umbrella issue [#186](https://github.com/SpillwaveSolutions/agent-brain/issues/186) | source design `docs/plans/2026-05-28-mcp-uds-transport-design.md` §11, §15.1 | scope doc `docs/roadmaps/mcp/v2-subscriptions-and-resources.md`
+(none — milestone v10.2 SHIPPED 2026-06-03; archived to `.planning/milestones/v10.2-*`. Run `/gsd:new-milestone` to scope the next milestone.)
 
 ## Next Milestone Goals
 
@@ -167,8 +153,12 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ## Context
 
-**Current State (v9.5.0 SHIPPED, 2026-03-31):**
-- v9.5.0 shipped: Config Validation & Language Support milestone — 5 phases, 9 plans, 58 commits, +8,693 lines
+**Current State (v10.2 SHIPPED, 2026-06-03):**
+- v10.2 shipped: MCP v2 milestone — 6 phases (50-55), 24 plans, ~530 new tests; agent-brain-mcp at 91.83% coverage, agent-brain-uds at 99%
+- Full 16-tool MCP server (7 v1 + 9 v2) with resource subscriptions, Streamable HTTP transport (loopback-only), and 4 addressable URI schemes (`chunk://`, `graph-entity://`, `job://`, `file://`)
+- DR-5 from MCP v1 design closed: `agent-brain-mcp` + `agent-brain-uds` folded into root `task before-push` + `task pr-qa-gate` (caught a silently-broken UDS smoke test on the first run that had been broken since 10.1.0)
+- Two-layer contract test architecture: in-process `fake_httpx_client` (Layer 1) + SDK-driven subprocess (Layer 2) sharing a single `_tool_matrix.py` source of truth with import-time drift guard
+- **Prior state (v9.5.0 SHIPPED, 2026-03-31):** Config Validation & Language Support milestone — 5 phases, 9 plans, 58 commits, +8,693 lines
 - `install-agent` already exposes Codex, OpenCode, Gemini, and skill-runtime targets, with converter-level and CLI-level tests covering installation behavior
 - Existing end-to-end CLI coverage is Claude-centric; runtime parity for project-local install plus headless execution is not yet verified for Codex, OpenCode, and Gemini
 - Repo-local runtime trees are uneven today: `.opencode/plugins/agent-brain/` exists, `.gemini/` is absent, and `.codex/` is used for GSD skills rather than a generated Agent Brain install tree
@@ -243,6 +233,12 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 | eviction_summary as dict[str, Any] on JobRecord | Pydantic-friendly serialization, no server import in CLI | ✓ Good |
 | Project-local runtime parity installs only | Protect local Codex/OpenCode/Gemini environments from test pollution | — Pending |
 | Headless JSON status is the runtime parity contract | Gives one machine-verifiable success signal across runtimes with different UX surfaces | — Pending |
+| **v10.2: TOOL_REGISTRY locked at 16 tools via `_tool_matrix.py` SOT** | Single source of truth shared by Layer 1 (in-process) and Layer 2 (SDK) contract tests with import-time drift guard prevents silent tool surface drift | ✓ Good |
+| **v10.2: `_MetaInjectingServerSession` exploits Pydantic `extra="allow"`** | Carries both transport axes (server build + listen) in MCP `_meta` without forking the SDK's `Implementation` class | ✓ Good |
+| **v10.2: pre-flight `socket.bind` probe before uvicorn handoff** | uvicorn 0.32.x catches `OSError` and calls `sys.exit(1)`, so a port-in-use error must be detected before the handoff to produce a clear error message | ✓ Good |
+| **v10.2: synchronous subscription cleanup with `finally` as defense-in-depth** | `asyncio.CancelledError` skips coroutine bodies on pre-await cancellation; sync cleanup in `unsubscribe`/`cleanup_session`/`cleanup_all` is required for correctness | ✓ Good |
+| **v10.2: DR-5 closure — fold agent-brain-mcp + agent-brain-uds into root QA gates** | +60-90s local pre-push cost (162s wall-clock) is worth catching silent regressions like the `test_smoke.py` `__version__ == "10.0.7"` assertion that was broken since 10.1.0 | ✓ Good |
+| **v10.2: hard whitelist by canonical absolute path for `file://` sandbox** | Symlink resolution at read-time keeps policy current as folders change; 4 deny reasons + 10 MiB cap; no `--no-resolve` escape hatch in v2 (deferred to v3 with auth) | ✓ Good |
 
 ## Evolution
 
