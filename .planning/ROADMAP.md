@@ -63,15 +63,19 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 ### Phase Details
 
 ### Phase 56: Design doc + CLI backend skeleton
-**Goal:** File the v3 design doc so reviewers can challenge the `McpStdioBackend` + `McpHttpBackend` shape BEFORE MCP-layer code lands; then land the two backend classes against the existing `DocServeClient` surface so callers cannot distinguish via the interface.
+**Goal:** File the v3 design doc so reviewers can challenge the `McpStdioBackend` + `McpHttpBackend` shape BEFORE MCP-layer code lands; then land the BackendClient Protocol + both backend classes as skeletons (non-trivial methods raise NotImplementedError; Phase 57+ wires them).
 **Depends on:** v10.2 (Phases 50-55) — needs Streamable HTTP transport + 16-tool MCP surface as the integration target
 **Requirements:** DESIGN-V3-01, CLI-MCP-01, CLI-MCP-02
 **Success Criteria** (what must be TRUE):
-  1. `docs/plans/2026-06-<dd>-mcp-v3-cli-via-mcp.md` exists, covers CLI backend abstraction + runtime discovery + framework matrix scope, and links from `docs/roadmaps/mcp/v3-cli-via-mcp-and-frameworks.md` (mirrors v10.2 Phase 50 design-first precedent)
-  2. `McpStdioBackend` exposes the full `DocServeClient` surface (query, list_folders, etc.); replacing one for the other inside a unit test passes without code changes
-  3. `McpHttpBackend` drives `streamablehttp_client` against a live `agent-brain-mcp --transport http` listener and exposes the same surface as `McpStdioBackend`
-  4. Both backends pass an interface-parity contract test that drives the same method matrix against both implementations
-**Plans:** TBD
+  1. `docs/plans/2026-06-05-mcp-v3-cli-via-mcp.md` exists, covers CLI backend abstraction + runtime discovery + framework matrix scope, and links from `docs/roadmaps/mcp/v3-cli-via-mcp-and-frameworks.md` (mirrors v10.2 Phase 50 design-first precedent)
+  2. `McpStdioBackend` exposes the full `DocServeClient` surface (query, list_folders, etc.); replacing one for the other inside a unit test passes without code changes (skeleton may raise NotImplementedError for non-trivial methods — signatures must be in place)
+  3. `McpHttpBackend` declares the BackendClient Protocol surface for `streamablehttp_client` against a future `agent-brain-mcp --transport http` listener (skeleton; Phase 57 wires real SDK calls)
+  4. Both backends pass an `isinstance(backend, BackendClient)` parity assertion against the runtime_checkable Protocol shipped in Plan 02
+  5. Skeleton stubs raise NotImplementedError with the literal sentinel "Wired in Phase 57+" so Phase 57 tests can grep for it
+**Plans:** 3 plans
+- [ ] 56-01-PLAN.md — File v3 design doc at docs/plans/2026-06-05-mcp-v3-cli-via-mcp.md mirroring v2 doc structure (DESIGN-V3-01; docs-only; design-first gate)
+- [ ] 56-02-PLAN.md — Land BackendClient runtime_checkable Protocol in agent_brain_cli/client/protocol.py + isinstance regression test asserting DocServeClient conformance
+- [ ] 56-03-PLAN.md — Land McpStdioBackend + McpHttpBackend skeletons in agent_brain_mcp/client.py satisfying BackendClient (CLI-MCP-01, CLI-MCP-02); non-trivial methods raise NotImplementedError("Wired in Phase 57+")
 
 ### Phase 57: CLI transport selector + byte-identical equivalence
 **Goal:** Wire `--transport mcp` + `--mcp-transport stdio|http` into the Click CLI with explicit selection (no silent fallback, mirroring v10.2 HTTP-03); pin the v3 Definition of Done — byte-identical query results between `--transport mcp` and `--transport uds` for the same backend state.
@@ -168,7 +172,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 | 53. Streamable HTTP transport                               | v10.2     | 3/3            | Complete    | 2026-06-03 |
 | 54. 9 remaining MCP tools                                   | v10.2     | 4/4            | Complete    | 2026-06-03 |
 | 55. Validation, contract tests & QA gate                    | v10.2     | 5/5            | Complete    | 2026-06-03 |
-| 56. Design doc + CLI backend skeleton                       | v10.3     | 0/TBD          | Not started | -          |
+| 56. Design doc + CLI backend skeleton                       | v10.3     | 0/3            | Planned     | -          |
 | 57. CLI transport selector + byte-identical equivalence     | v10.3     | 0/TBD          | Not started | -          |
 | 58. Runtime discovery + helper commands                     | v10.3     | 0/TBD          | Not started | -          |
 | 59. CLI prompts + resources commands                        | v10.3     | 0/TBD          | Not started | -          |
@@ -179,4 +183,4 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-06-05 — v10.3 MCP v3 scoped (Phases 56-63, 23/23 requirements mapped, granularity standard). v10.2 milestone archived. Next: `/gsd:discuss-phase 56` to begin v3 design doc planning.*
+*Last updated: 2026-06-05 — Phase 56 planned (3 plans: design doc + Protocol + backend skeletons). Next: `/gsd:execute-phase 56` to ship Wave 1 (56-01 design doc).*
