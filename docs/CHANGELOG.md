@@ -1,5 +1,5 @@
 ---
-last_validated: 2026-06-03
+last_validated: 2026-06-05
 ---
 
 # Changelog
@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [10.2.1] - 2026-06-05
 
 ### Security
 
