@@ -32,10 +32,20 @@ class RuntimeState(BaseModel):
     active_projects: list[str] | None = None
     # UDS transport (plan §4.3 — present when --uds, None otherwise)
     socket_path: str | None = None
+    # API key for X-API-Key auth (Issue #179). Optional — None means the
+    # server is running without auth (only safe on loopback). CLI and MCP
+    # clients read this field to authenticate their requests; the file is
+    # chmod'd to 0o600 by write_runtime so the secret stays user-only.
+    api_key: str | None = None
 
 
 def write_runtime(state_dir: Path, state: RuntimeState) -> None:
     """Write runtime state to state directory.
+
+    The file is chmod'd to 0o600 (owner read/write only) because it may
+    contain an ``api_key`` secret. The chmod is best-effort — on
+    filesystems that don't support POSIX mode bits (e.g., FAT) the write
+    still succeeds but the mode flag has no effect.
 
     Args:
         state_dir: Path to the state directory.
@@ -44,6 +54,10 @@ def write_runtime(state_dir: Path, state: RuntimeState) -> None:
     state_dir.mkdir(parents=True, exist_ok=True)
     runtime_path = state_dir / "runtime.json"
     runtime_path.write_text(state.model_dump_json(indent=2))
+    try:
+        runtime_path.chmod(0o600)
+    except OSError as exc:
+        logger.warning("Failed to chmod runtime.json to 0o600: %s", exc)
     logger.info(f"Runtime state written to {runtime_path}")
 
 

@@ -17,7 +17,7 @@ from pathlib import Path
 
 import click
 
-from ..config import resolve_transport
+from ..config import resolve_api_key, resolve_transport
 from .api_client import DocServeClient
 
 
@@ -41,14 +41,20 @@ def open_client(ctx: click.Context, *, timeout: float = 30.0) -> DocServeClient:
         base_url_override=obj.get("base_url_override"),
         socket_path_override=obj.get("socket_path_override"),
     )
+    # Issue #179: resolve the API key alongside the transport so the same
+    # CLI invocation works against an authed and an unauthed server.
+    api_key = resolve_api_key()
     if obj.get("debug_transport"):
-        click.echo(f"[debug-transport] {transport} -> {target}", err=True)
+        auth_marker = "with X-API-Key" if api_key else "no auth"
+        click.echo(
+            f"[debug-transport] {transport} -> {target} ({auth_marker})", err=True
+        )
 
     if transport == "http":
-        return DocServeClient(base_url=target, timeout=timeout)
+        return DocServeClient(base_url=target, timeout=timeout, api_key=api_key)
 
     # UDS: import lazily so HTTP-only invocations don't pay the cost.
     from agent_brain_uds import make_client
 
     inner = make_client(socket_path=Path(target), timeout=timeout)
-    return DocServeClient.from_httpx(inner)
+    return DocServeClient.from_httpx(inner, api_key=api_key)

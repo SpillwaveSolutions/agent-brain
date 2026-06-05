@@ -209,13 +209,22 @@ While the plugin is the recommended interface, you can also use the CLI directly
 pip install agent-brain-rag agent-brain-cli
 
 # Initialize and start
-agent-brain init
+agent-brain init                     # auto-generates a per-project API key
 agent-brain start --daemon
 
 # Index and query
 agent-brain index /path/to/docs --include-code
 agent-brain query "authentication" --mode hybrid
 ```
+
+> **Note on authentication.** As of the next release, every data endpoint
+> requires `X-API-Key`. `agent-brain init` writes a 32-byte urlsafe key
+> into `.agent-brain/config.json` (mode `0o600`); the CLI and
+> `agent-brain-mcp` pick it up automatically. Pass `--no-api-key` to
+> `agent-brain init` for the legacy no-auth experience on `127.0.0.1`.
+> The server refuses to start on any non-loopback bind without a key
+> set. See [`docs/CHANGELOG.md`](docs/CHANGELOG.md) under the unreleased
+> entry for the full design (Issue #179).
 
 ## Development
 

@@ -368,6 +368,12 @@ def start_command(
         env = os.environ.copy()
         env["AGENT_BRAIN_PROJECT_ROOT"] = str(project_root)
         env["AGENT_BRAIN_STATE_DIR"] = str(state_dir)
+        # Issue #179: propagate the project-local API key from config.json
+        # into the server subprocess. Existing env value wins so operators
+        # can override the file-stored key without re-running init.
+        config_api_key = config.get("api_key")
+        if config_api_key and not env.get("AGENT_BRAIN_API_KEY"):
+            env["AGENT_BRAIN_API_KEY"] = str(config_api_key)
         if strict:
             env["AGENT_BRAIN_STRICT_MODE"] = "true"
         if enable_uds:

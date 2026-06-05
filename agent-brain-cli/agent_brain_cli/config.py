@@ -414,6 +414,58 @@ def get_server_url(config: AgentBrainConfig | None = None) -> str:
     return config.server.url
 
 
+def resolve_api_key(state_dir: Path | None = None) -> str | None:
+    """Resolve the X-API-Key value the CLI should send (Issue #179).
+
+    Precedence (first non-empty wins):
+      1. ``AGENT_BRAIN_API_KEY`` environment variable
+      2. ``runtime.json::api_key`` for the resolved state directory
+         (set by the running server)
+      3. ``config.json::api_key`` for the resolved state directory
+         (set by ``agent-brain init``, used when the server hasn't
+         started yet)
+
+    Returns ``None`` when no source provides a value, which is the
+    correct behavior for a server running in default no-auth loopback
+    mode — the client sends no header and the server's no-op dependency
+    accepts the request.
+
+    Args:
+        state_dir: Optional state directory to read from. Defaults to
+            ``get_state_dir()`` so callers in CLI commands don't need
+            to thread the path through.
+
+    Returns:
+        The resolved API key or ``None``.
+    """
+    import json
+
+    env_key = os.getenv("AGENT_BRAIN_API_KEY")
+    if env_key:
+        return env_key
+
+    if state_dir is None:
+        try:
+            state_dir = get_state_dir()
+        except Exception:
+            return None
+
+    for filename in ("runtime.json", "config.json"):
+        candidate = state_dir / filename
+        if not candidate.exists():
+            continue
+        try:
+            with open(candidate) as f:
+                payload = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            continue
+        api_key = payload.get("api_key")
+        if api_key:
+            return str(api_key)
+
+    return None
+
+
 def resolve_transport(
     *,
     transport_hint: str | None = None,

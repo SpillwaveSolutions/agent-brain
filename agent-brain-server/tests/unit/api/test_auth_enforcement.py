@@ -33,7 +33,6 @@ from agent_brain_server.api.routers import health as health_router
 from agent_brain_server.api.security import verify_api_key
 from agent_brain_server.config.settings import get_settings
 
-
 GATED_ROUTERS = [
     ("cache", cache.router),
     ("folders", folders.router),
@@ -110,9 +109,9 @@ def test_gated_router_returns_401_without_header(
 
     response = client.get("/__authcheck")
 
-    assert response.status_code == 401, (
-        f"router '{name}' did not return 401 without X-API-Key"
-    )
+    assert (
+        response.status_code == 401
+    ), f"router '{name}' did not return 401 without X-API-Key"
 
 
 @pytest.mark.parametrize("name,router", GATED_ROUTERS)
@@ -127,9 +126,9 @@ def test_gated_router_returns_200_with_correct_header(
 
     response = client.get("/__authcheck", headers={"X-API-Key": "auth-test-key"})
 
-    assert response.status_code == 200, (
-        f"router '{name}' rejected the correct X-API-Key"
-    )
+    assert (
+        response.status_code == 200
+    ), f"router '{name}' rejected the correct X-API-Key"
     assert response.json() == {"ok": "true"}
 
 

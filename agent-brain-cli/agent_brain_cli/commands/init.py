@@ -1,6 +1,7 @@
 """Init command for initializing an Agent Brain project."""
 
 import json
+import secrets
 from pathlib import Path
 
 import click
@@ -69,6 +70,14 @@ STATE_DIR_NAME = ".agent-brain"
     type=click.Path(file_okay=False, resolve_path=True),
     help="Custom state directory for index data (default: .agent-brain)",
 )
+@click.option(
+    "--no-api-key",
+    is_flag=True,
+    help=(
+        "Skip auto-generating an API key (Issue #179). Use for single-user "
+        "loopback dev when no auth is desired. Server still starts without auth."
+    ),
+)
 def init_command(
     path: str | None,
     host: str,
@@ -76,6 +85,7 @@ def init_command(
     force: bool,
     json_output: bool,
     state_dir: str | None,
+    no_api_key: bool,
 ) -> None:
     """Initialize a new Agent Brain project.
 
@@ -145,8 +155,21 @@ def init_command(
             config["port"] = port
             config["auto_port"] = False
 
-        # Write configuration
+        # Issue #179: auto-generate an API key so the server boots with auth
+        # by default. Stored in config.json (project-local); the `start`
+        # command exports it as AGENT_BRAIN_API_KEY for the server
+        # subprocess, and `resolve_api_key` reads it for the CLI side. Opt
+        # out with --no-api-key for single-user loopback workflows.
+        if not no_api_key:
+            config["api_key"] = secrets.token_urlsafe(32)
+
+        # Write configuration with mode 0o600 since it may carry a secret.
         config_path.write_text(json.dumps(config, indent=2))
+        try:
+            config_path.chmod(0o600)
+        except OSError:
+            # Best-effort; filesystems without POSIX modes (FAT) still work.
+            pass
 
         if json_output:
             click.echo(
@@ -162,12 +185,18 @@ def init_command(
                 )
             )
         else:
+            api_key_note = (
+                f"[bold]API Key:[/] generated ({config_path.name}, mode 0o600)"
+                if not no_api_key
+                else "[bold]API Key:[/] [yellow]disabled[/] (--no-api-key)"
+            )
             console.print(
                 Panel(
                     f"[green]Project initialized successfully![/]\n\n"
                     f"[bold]Project Root:[/] {project_root}\n"
                     f"[bold]State Directory:[/] {resolved_state_dir}\n"
-                    f"[bold]Configuration:[/] {config_path}",
+                    f"[bold]Configuration:[/] {config_path}\n"
+                    f"{api_key_note}",
                     title="Agent Brain Initialized",
                     border_style="green",
                 )

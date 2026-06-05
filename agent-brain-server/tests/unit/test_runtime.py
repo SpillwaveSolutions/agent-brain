@@ -71,6 +71,35 @@ class TestWriteRuntime:
         assert state_dir.exists()
         assert (state_dir / "runtime.json").exists()
 
+    def test_chmods_file_to_0600(self, tmp_path):
+        """runtime.json may carry an api_key — must be owner-only (Issue #179)."""
+        import stat
+
+        state = RuntimeState(api_key="secret-token")
+        write_runtime(tmp_path, state)
+
+        runtime_path = tmp_path / "runtime.json"
+        mode = stat.S_IMODE(runtime_path.stat().st_mode)
+        assert mode == 0o600, f"runtime.json mode is {oct(mode)}, expected 0o600"
+
+    def test_api_key_round_trips(self, tmp_path):
+        """api_key field persists across write/read."""
+        state = RuntimeState(api_key="secret-token", port=8080)
+        write_runtime(tmp_path, state)
+
+        result = read_runtime(tmp_path)
+        assert result is not None
+        assert result.api_key == "secret-token"
+
+    def test_api_key_defaults_to_none(self, tmp_path):
+        """Omitting api_key produces None (existing runtime.json files keep working)."""
+        state = RuntimeState(port=8080)
+        write_runtime(tmp_path, state)
+
+        result = read_runtime(tmp_path)
+        assert result is not None
+        assert result.api_key is None
+
 
 class TestReadRuntime:
     """Tests for read_runtime function."""
