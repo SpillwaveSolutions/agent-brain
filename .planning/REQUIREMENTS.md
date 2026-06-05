@@ -90,39 +90,39 @@ Explicit exclusions to prevent scope creep.
 
 ## Traceability
 
-Which phases cover which requirements. Filled by roadmap creation.
+Which phases cover which requirements. Filled by roadmap creation 2026-06-05.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DESIGN-V3-01 | TBD | Pending |
-| CLI-MCP-01 | TBD | Pending |
-| CLI-MCP-02 | TBD | Pending |
-| CLI-MCP-03 | TBD | Pending |
-| CLI-MCP-04 | TBD | Pending |
-| CLI-MCP-05 | TBD | Pending |
-| CLI-MCP-06 | TBD | Pending |
-| CLI-MCP-07 | TBD | Pending |
-| CLI-MCP-08 | TBD | Pending |
-| CLI-MCP-09 | TBD | Pending |
-| CLI-MCP-10 | TBD | Pending |
-| MCPHYG-01 | TBD | Pending |
-| MCPHYG-02 | TBD | Pending |
-| FRAME-01 | TBD | Pending |
-| FRAME-02 | TBD | Pending |
-| FRAME-03 | TBD | Pending |
-| FRAME-04 | TBD | Pending |
-| FRAME-05 | TBD | Pending |
-| FRAME-06 | TBD | Pending |
-| FRAME-07 | TBD | Pending |
-| TOOLING-V3-01 | TBD | Pending |
-| TOOLING-V3-02 | TBD | Pending |
-| DOCS-V3-01 | TBD | Pending |
+| DESIGN-V3-01 | Phase 56 | Pending |
+| CLI-MCP-01 | Phase 56 | Pending |
+| CLI-MCP-02 | Phase 56 | Pending |
+| CLI-MCP-03 | Phase 57 | Pending |
+| CLI-MCP-04 | Phase 57 | Pending |
+| CLI-MCP-05 | Phase 59 | Pending |
+| CLI-MCP-06 | Phase 59 | Pending |
+| CLI-MCP-07 | Phase 59 | Pending |
+| CLI-MCP-08 | Phase 58 | Pending |
+| CLI-MCP-09 | Phase 58 | Pending |
+| CLI-MCP-10 | Phase 58 | Pending |
+| MCPHYG-01 | Phase 60 | Pending |
+| MCPHYG-02 | Phase 60 | Pending |
+| FRAME-01 | Phase 61 | Pending |
+| FRAME-02 | Phase 61 | Pending |
+| FRAME-03 | Phase 61 | Pending |
+| FRAME-04 | Phase 61 | Pending |
+| FRAME-05 | Phase 61 | Pending |
+| FRAME-06 | Phase 62 | Pending |
+| FRAME-07 | Phase 62 | Pending |
+| TOOLING-V3-01 | Phase 63 | Pending |
+| TOOLING-V3-02 | Phase 63 | Pending |
+| DOCS-V3-01 | Phase 63 | Pending |
 
 **Coverage:**
 - v1 requirements: 23 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 23 (until roadmapper runs)
+- Mapped to phases: 23 (Phases 56-63)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-05*
-*Last updated: 2026-06-05 after initial v10.3 definition*
+*Last updated: 2026-06-05 — Traceability updated by roadmapper. 23/23 mapped across Phases 56-63 (Phase 56: 3 / Phase 57: 2 / Phase 58: 3 / Phase 59: 3 / Phase 60: 2 / Phase 61: 5 / Phase 62: 2 / Phase 63: 3). No orphans, no duplicates.*

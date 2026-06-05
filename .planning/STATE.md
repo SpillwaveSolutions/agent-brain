@@ -5,9 +5,9 @@ milestone_name: mcp-v3-cli-via-mcp-and-frameworks
 current_phase: null
 status: defining-requirements
 stopped_at: "Milestone v10.3 started 2026-06-05. v10.2 MCP v2 SHIPPED 2026-06-03; v10.2.1 patch in flight for SECURITY-01 (#179 API key auth). Phase numbering will continue from 55 → 56+. Scope per issue #187: CLI-via-MCP backend clients (McpStdioBackend + McpHttpBackend), CLI transport selector (--transport mcp), prompts/resources CLI commands, mcp.runtime.json auto-discovery, framework adapter matrix (7 frameworks), docs/INTEGRATIONS.md, MCP stdio subprocess hygiene. Open question deferred to /gsd:discuss-phase: fold v9.6.0 Runtime Parity (Phases 47-49) in or hold for v10.4+. Next action: REQUIREMENTS.md + ROADMAP.md generation, then /gsd:discuss-phase 56."
-last_updated: "2026-06-05T00:00:00.000Z"
+last_updated: "2026-06-05T12:00:00.000Z"
 progress:
-  total_phases: 0
+  total_phases: 8
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -52,6 +52,7 @@ v10.0.0–v10.0.6 Patch Train: [██████████] 100% (shipped 20
 v10.1.0 MCP v1:              [██████████] 100% (shipped 2026-05-30; UDS + 7-tool stdio MCP + CLI dual transport)
 v10.1.2 MCP package rename:  [██████████] 100% (shipped 2026-06-01; agent-brain-mcp PyPI distribution + standalone user guide)
 v10.2 MCP v2:                [██████████] 100% (24/24 plans across Phases 50-55 — milestone READY FOR RELEASE, awaiting gsd-complete-milestone)
+v10.3 MCP v3:                [          ]   0% (0/8 phases — Phases 56-63, scoped 2026-06-05; 23/23 requirements mapped)
 ```
 
 ## v10.2 Phase Progress
@@ -237,3 +238,5 @@ Per workflow summarizer (verified ready_to_execute: true):
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 55 | 05 | 14min 33sec | 3 commits | 6 (2 created, 4 modified) |
+
+*State updated: 2026-06-05 — v10.3 ROADMAP CREATED. 8 phases (56-63) defined; 23/23 v1 requirements mapped to phases (Phase 56: DESIGN-V3-01 + CLI-MCP-01 + CLI-MCP-02; Phase 57: CLI-MCP-03 + CLI-MCP-04; Phase 58: CLI-MCP-08 + CLI-MCP-09 + CLI-MCP-10; Phase 59: CLI-MCP-05 + CLI-MCP-06 + CLI-MCP-07; Phase 60: MCPHYG-01 + MCPHYG-02; Phase 61: FRAME-01..05; Phase 62: FRAME-06 + FRAME-07; Phase 63: TOOLING-V3-01 + TOOLING-V3-02 + DOCS-V3-01). No orphans, no duplicates. Granularity: standard. Phase ordering enforces 3 hard dependencies — (1) Phase 56 design doc lands BEFORE Phase 57+ MCP code (v2 Phase 50 design-first precedent); (2) Phase 60 subprocess hygiene lands BEFORE Phase 61 framework matrix so every framework smoke test inherits the hygiene contract through McpStdioBackend rather than re-discovering orphan-process bugs; (3) Phase 63 tooling+docs lands AFTER Phases 61+62 since `task mcp:framework-matrix` and `docs/INTEGRATIONS.md` need the actual smoke tests to wire in. Open scope question deferred to /gsd:discuss-phase 61: whether to fold v9.6.0 Runtime Parity Phases 47-49 (headless Codex/OpenCode/Gemini execution verification) into v10.3 as a parallel track — the framework matrix surface overlaps; decision NOT pre-decided here. Framework SDK churn risk mitigated by pinning versions in `framework-matrix/requirements.txt` (Python) and `framework-matrix/ts/package.json` (TS); nightly CI is advisory only (TOOLING-V3-02). Files written: .planning/ROADMAP.md (appended v10.3 section after v10.2 details block — milestone history preserved), .planning/REQUIREMENTS.md (traceability table 23/23 mapped), .planning/STATE.md (Milestone Summary v10.3 row added with [          ] 0% (0/8 phases); frontmatter total_phases bumped 0 → 8). Next action: /gsd:discuss-phase 56 to begin v3 design doc planning.*
