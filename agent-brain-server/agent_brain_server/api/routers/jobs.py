@@ -2,12 +2,13 @@
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
+from agent_brain_server.api.security import verify_api_key
 from agent_brain_server.job_queue.job_service import JobQueueService
 from agent_brain_server.models.job import JobDetailResponse, JobListResponse
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 
 @router.get(

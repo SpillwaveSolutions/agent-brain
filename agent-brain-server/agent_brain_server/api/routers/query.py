@@ -2,14 +2,15 @@
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
+from agent_brain_server.api.security import verify_api_key
 from agent_brain_server.models import ChunkRecord, QueryRequest, QueryResponse
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 
 @router.post(

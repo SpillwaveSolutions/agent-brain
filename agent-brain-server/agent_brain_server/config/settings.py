@@ -19,6 +19,14 @@ class Settings(BaseSettings):
     API_PORT: int = 8000
     DEBUG: bool = False
 
+    # API Authentication (Issue #179)
+    # When empty (default), data endpoints are unauthenticated — safe only on
+    # loopback for single-user dev. The startup gate in api/main.py refuses to
+    # start when API_HOST != "127.0.0.1" and this is unset.
+    # When set, requests to gated routers must carry the value in the
+    # X-API-Key header; /health stays open; /docs is gated when DEBUG is False.
+    AGENT_BRAIN_API_KEY: str = ""
+
     # OpenAI Configuration
     OPENAI_API_KEY: str = ""
     EMBEDDING_MODEL: str = "text-embedding-3-large"

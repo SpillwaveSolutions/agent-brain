@@ -12,6 +12,7 @@ import asyncio
 import logging
 import os
 import socket
+import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -669,19 +670,82 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.info(f"Released lock and cleaned up state in {state_dir}")
 
 
+def _check_api_key_startup_gate(resolved_host: str) -> None:
+    """Refuse to start when binding non-loopback without an API key (Issue #179).
+
+    Loopback (``127.0.0.1`` / ``localhost`` / ``::1``) + empty key emits a
+    loud warning and proceeds. Any other bind host without a key exits with
+    code 2 — the same code uvicorn uses for "port in use" — so process
+    managers can distinguish a misconfiguration from a server crash.
+
+    Refreshes the settings lru_cache first so env vars set by the CLI
+    subprocess wrapper (and tests) are picked up before the check fires.
+    """
+    from agent_brain_server.config.settings import get_settings
+
+    get_settings.cache_clear()
+    current_settings = get_settings()
+
+    loopback_hosts = {"127.0.0.1", "localhost", "::1"}
+    api_key_set = bool(current_settings.AGENT_BRAIN_API_KEY)
+
+    if api_key_set:
+        return
+
+    if resolved_host in loopback_hosts:
+        logger.warning(
+            "Starting on %s with no AGENT_BRAIN_API_KEY set — endpoints are "
+            "unauthenticated. Safe for single-user dev only. Set "
+            "AGENT_BRAIN_API_KEY before exposing the server beyond loopback.",
+            resolved_host,
+        )
+        return
+
+    logger.critical(
+        "Refusing to start on %s without AGENT_BRAIN_API_KEY. The default "
+        "no-auth posture is only allowed on loopback (127.0.0.1, localhost, "
+        "::1). Set AGENT_BRAIN_API_KEY in the environment or bind to "
+        "127.0.0.1. (Issue #179)",
+        resolved_host,
+    )
+    sys.exit(2)
+
+
+def _build_app() -> FastAPI:
+    """Construct the FastAPI app, gating /docs and /openapi.json when configured.
+
+    When ``AGENT_BRAIN_API_KEY`` is set AND ``DEBUG`` is False, the interactive
+    docs (``/docs``, ``/redoc``) and the OpenAPI schema (``/openapi.json``) are
+    disabled — there's no point requiring an API key to read endpoints if the
+    schema describing them is publicly browsable. In DEBUG mode the docs stay
+    open so developers keep their normal workflow.
+
+    Extracted as a factory so tests can build alternate apps under a
+    monkeypatched environment without re-importing the module.
+    """
+    from agent_brain_server.config.settings import get_settings
+
+    get_settings.cache_clear()
+    current_settings = get_settings()
+    docs_gated = (
+        bool(current_settings.AGENT_BRAIN_API_KEY) and not current_settings.DEBUG
+    )
+    return FastAPI(
+        title="Agent Brain RAG API",
+        description=(
+            "RAG-based document indexing and semantic search API. "
+            "Index documents from folders and query them using natural language."
+        ),
+        version=__version__,
+        lifespan=lifespan,
+        docs_url=None if docs_gated else "/docs",
+        redoc_url=None if docs_gated else "/redoc",
+        openapi_url=None if docs_gated else "/openapi.json",
+    )
+
+
 # Create FastAPI application
-app = FastAPI(
-    title="Agent Brain RAG API",
-    description=(
-        "RAG-based document indexing and semantic search API. "
-        "Index documents from folders and query them using natural language."
-    ),
-    version=__version__,
-    lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
-)
+app = _build_app()
 
 # Add CORS middleware
 app.add_middleware(
@@ -744,6 +808,13 @@ def run(
 
     resolved_host = host or settings.API_HOST
     resolved_port = port if port is not None else settings.API_PORT
+
+    # Issue #179: refuse to start on non-loopback without an API key.
+    # Default-no-auth is only safe on 127.0.0.1; binding 0.0.0.0 or any
+    # routable interface without a key is a hard failure (exit 2). Loopback
+    # without a key keeps working with a loud warning so single-user dev
+    # workflows are unaffected.
+    _check_api_key_startup_gate(resolved_host)
 
     # Handle port 0: find a free port
     if resolved_port == 0:

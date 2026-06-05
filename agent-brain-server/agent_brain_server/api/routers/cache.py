@@ -17,13 +17,14 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
+from agent_brain_server.api.security import verify_api_key
 from agent_brain_server.services.embedding_cache import get_embedding_cache
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 
 async def _cache_status_impl(request: Request) -> dict[str, Any]:
