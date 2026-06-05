@@ -170,6 +170,47 @@ def _resolve_state_dir(state_dir: Path | None) -> Path | None:
     return candidate if candidate.exists() else None
 
 
+def _resolve_api_key(state_dir: Path | None) -> str | None:
+    """Resolve the X-API-Key the MCP server should send to the backend (Issue #179).
+
+    Precedence (first non-empty wins):
+      1. ``AGENT_BRAIN_MCP_API_KEY`` env (MCP-specific override)
+      2. ``AGENT_BRAIN_API_KEY`` env (shared with the CLI)
+      3. ``runtime.json::api_key`` for the resolved state dir
+         (set by a running server)
+      4. ``config.json::api_key`` for the resolved state dir
+         (set by ``agent-brain init``, used when the server has not
+         started yet)
+
+    Returns ``None`` when no source provides a value. The server's
+    ``verify_api_key`` dependency is a no-op in that case, so unauthed
+    loopback workflows keep working.
+    """
+    env_key = os.environ.get("AGENT_BRAIN_MCP_API_KEY") or os.environ.get(
+        "AGENT_BRAIN_API_KEY"
+    )
+    if env_key:
+        return env_key
+
+    sdir = _resolve_state_dir(state_dir)
+    if sdir is None:
+        return None
+
+    for filename in ("runtime.json", "config.json"):
+        candidate = sdir / filename
+        if not candidate.exists():
+            continue
+        try:
+            payload = json.loads(candidate.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        api_key = payload.get("api_key")
+        if api_key:
+            return str(api_key)
+
+    return None
+
+
 def _resolve_http_url(
     backend_url: str | None,
     state_dir: Path | None,
@@ -221,6 +262,7 @@ def _open_uds_client(
     socket_path: Path | None,
     state_dir: Path | None,
     timeout: float,
+    api_key: str | None = None,
 ) -> httpx.Client:
     if socket_path is None:
         env_path = os.environ.get("AGENT_BRAIN_UDS_PATH")
@@ -232,11 +274,16 @@ def _open_uds_client(
             )
     validate_socket(socket_path)
     client: httpx.Client = make_uds_client(socket_path=socket_path, timeout=timeout)
+    if api_key:
+        client.headers["X-API-Key"] = api_key
     return client
 
 
-def _open_http_client(backend_url: str, timeout: float) -> httpx.Client:
-    return httpx.Client(base_url=backend_url, timeout=timeout)
+def _open_http_client(
+    backend_url: str, timeout: float, api_key: str | None = None
+) -> httpx.Client:
+    headers = {"X-API-Key": api_key} if api_key else None
+    return httpx.Client(base_url=backend_url, timeout=timeout, headers=headers)
 
 
 def open_backend_client(
@@ -251,19 +298,23 @@ def open_backend_client(
 
     Auto mode tries UDS validation first; on any
     :class:`AgentBrainUdsError` falls back to HTTP transparently.
+
+    Resolves the X-API-Key once and injects it into whichever client wins
+    (Issue #179) so MCP can talk to an authed backend just like the CLI.
     """
     chosen = (backend or os.environ.get("AGENT_BRAIN_MCP_BACKEND") or "auto").lower()
+    api_key = _resolve_api_key(state_dir)
 
     if chosen == "http":
         url = _resolve_http_url(backend_url, state_dir)
-        return ("http", _open_http_client(url, timeout))
+        return ("http", _open_http_client(url, timeout, api_key))
 
     if chosen == "uds":
-        return ("uds", _open_uds_client(socket_path, state_dir, timeout))
+        return ("uds", _open_uds_client(socket_path, state_dir, timeout, api_key))
 
     # auto
     try:
-        return ("uds", _open_uds_client(socket_path, state_dir, timeout))
+        return ("uds", _open_uds_client(socket_path, state_dir, timeout, api_key))
     except (AgentBrainUdsError, OSError, FileNotFoundError):
         url = _resolve_http_url(backend_url, state_dir)
-        return ("http", _open_http_client(url, timeout))
+        return ("http", _open_http_client(url, timeout, api_key))

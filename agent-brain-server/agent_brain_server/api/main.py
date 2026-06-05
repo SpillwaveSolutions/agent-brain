@@ -833,7 +833,9 @@ def run(
             env_root = os.environ.get("AGENT_BRAIN_PROJECT_ROOT")
             _project_root = env_root or str(_state_dir.parent.parent.parent)
 
-        # Create runtime state
+        # Create runtime state — surface the configured API key so the CLI
+        # and MCP clients can discover it from runtime.json (Issue #179).
+        # write_runtime() chmods the file to 0o600.
         _runtime_state = RuntimeState(
             mode="project",
             project_root=_project_root,
@@ -841,6 +843,7 @@ def run(
             port=resolved_port,
             pid=os.getpid(),
             base_url=f"http://{resolved_host}:{resolved_port}",
+            api_key=settings.AGENT_BRAIN_API_KEY or None,
         )
 
         # Write runtime.json before starting server

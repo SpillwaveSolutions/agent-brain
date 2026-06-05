@@ -84,9 +84,7 @@ def test_startup_gate_silent_when_key_set_even_on_non_loopback(
         _check_api_key_startup_gate("0.0.0.0")
 
     # Neither warning nor critical when a key is configured
-    assert not any(
-        record.levelno >= logging.WARNING for record in caplog.records
-    )
+    assert not any(record.levelno >= logging.WARNING for record in caplog.records)
 
 
 # ---------------------------------------------------------------------------
