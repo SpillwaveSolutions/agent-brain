@@ -1,36 +1,38 @@
 ---
 gsd_state_version: 1.0
-milestone: v10.2
-milestone_name: milestone
-current_phase: 55
-status: completed
-stopped_at: "Plan 55-05 complete — v10.2 MCP v2 milestone READY FOR RELEASE. VAL-04 closed end-to-end + DR-5 resolved. Root QA gate integration shipped (agent-brain-mcp + agent-brain-uds folded into root `task before-push` + `task pr-qa-gate` inside the existing lock-guard wrapping); VALIDATION.md milestone exit-gate attestation produced; CHANGELOG `[10.2.0]` entry shipped consolidating full v10.2 narrative. MANDATORY FINAL `task before-push` from REPO ROOT exit 0 in 162s (the DR-5 closure attestation). 3 atomic commits on main: 0391a27 / a7ca7c9 / 2ccbb84. 24/24 plans complete across v10.2 milestone. Phase 55 5/5 done. Next action: gsd-complete-milestone consumes VALIDATION.md to ship v10.2; release workflow handles PyPI publish sequence."
-last_updated: "2026-06-03T23:30:00.000Z"
+milestone: v10.3
+milestone_name: mcp-v3-cli-via-mcp-and-frameworks
+current_phase: null
+status: defining-requirements
+stopped_at: "Milestone v10.3 started 2026-06-05. v10.2 MCP v2 SHIPPED 2026-06-03; v10.2.1 patch in flight for SECURITY-01 (#179 API key auth). Phase numbering will continue from 55 → 56+. Scope per issue #187: CLI-via-MCP backend clients (McpStdioBackend + McpHttpBackend), CLI transport selector (--transport mcp), prompts/resources CLI commands, mcp.runtime.json auto-discovery, framework adapter matrix (7 frameworks), docs/INTEGRATIONS.md, MCP stdio subprocess hygiene. Open question deferred to /gsd:discuss-phase: fold v9.6.0 Runtime Parity (Phases 47-49) in or hold for v10.4+. Next action: REQUIREMENTS.md + ROADMAP.md generation, then /gsd:discuss-phase 56."
+last_updated: "2026-06-05T00:00:00.000Z"
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 24
-  completed_plans: 24
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Agent Brain — Project State
 
-**Last Updated:** 2026-06-03
-**Current Milestone:** v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion
-**Status:** v10.2 milestone complete
-**Current Phase:** 55
+**Last Updated:** 2026-06-05
+**Current Milestone:** v10.3 MCP v3 — CLI-via-MCP + Framework Matrix
+**Status:** Defining requirements
+**Current Phase:** Not started
 
 ## Current Position
 
-Phase: 55 (validation-and-qa-gate) — COMPLETE
-Plan: 5 of 5 ✓
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-05 — Milestone v10.3 started
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-03)
+See: .planning/PROJECT.md (updated 2026-06-05)
 
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Phase 55 — validation-and-qa-gate
+**Current focus:** Scoping v10.3 — MCP v3 CLI-via-MCP + Framework Matrix
 
 ## Milestone Summary
 

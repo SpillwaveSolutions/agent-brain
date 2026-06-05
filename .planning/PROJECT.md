@@ -128,19 +128,37 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 - ✓ **VAL-02**: Subscription lifecycle E2E (subscribe→notify→unsubscribe for all 3 URIs) + disconnect cleanup via stderr-scrape fallback (debug endpoint absent — issue #194 filed for v10.3+); 4 SDK-driven tests — v10.2 (Phase 55, Plan 03)
 - ✓ **VAL-03**: Streamable HTTP contract via `mcp.client.streamable_http.streamablehttp_client` (first repo usage); 6 SDK tests over the real `--transport http` subprocess + free-port allocation; reuses Phase 53's `fake_http_server_module` — v10.2 (Phase 55, Plan 04)
 - ✓ **VAL-04**: `agent-brain-mcp` and `agent-brain-uds` folded into root `task before-push` + `task pr-qa-gate` (closes DR-5 from v1 design §14 #5); +60-90s local pre-push cost (162s wall-clock); CHANGELOG `[10.2.0]` entry shipped — v10.2 (Phase 55, Plan 05)
+- ✓ **SECURITY-01**: REST API key auth on data routers (`/index`, `/query`, `/graph`, etc.) via `X-API-Key` header + `verify_api_key` FastAPI dep; startup gate refuses non-loopback bind without key (exit 2); `AGENT_BRAIN_API_KEY` propagated CLI → server → MCP backend; `agent-brain init` auto-generates key into `.agent-brain/config.json` (chmod 0o600); 60 new tests — v10.2.1 (issue #179)
+
+## Current Milestone: v10.3 MCP v3 — CLI-via-MCP + Framework Matrix
+
+**Goal:** Make the CLI a reference MCP client and validate the MCP server against the major LLM agent frameworks (OpenAI Agents SDK, LangChain, LlamaIndex, Pydantic AI, Mastra, Vercel AI SDK, Autogen).
+
+**Target features:**
+- New `McpStdioBackend` + `McpHttpBackend` in `agent_brain_mcp/client.py` satisfying the same shape as `DocServeClient`
+- CLI `--transport mcp` + `--mcp-transport stdio|http` selectors with MCP HTTP server auto-discovery via `mcp.runtime.json`
+- CLI commands for prompts (`agent-brain prompt <name>`) and resources (`agent-brain resources list / read`)
+- `agent-brain mcp start` helper that launches `agent-brain-mcp --transport http` and writes runtime metadata
+- Framework adapter smoke tests against 7 frameworks (4 Python + 2 TypeScript + Autogen) via `task mcp:framework-matrix`
+- `docs/INTEGRATIONS.md` one-page-per-framework copy-pasteable configs
+- MCP stdio subprocess hygiene: pinned cwd, sanitized env, SIGTERM/SIGKILL escalation, 1000-invocation no-orphan pgrep test
+
+**Source design:** `docs/plans/2026-05-28-mcp-uds-transport-design.md` §11 (v3 row), §15.2. **Issue:** [#187](https://github.com/SpillwaveSolutions/agent-brain/issues/187). **Spec:** `docs/roadmaps/mcp/v3-cli-via-mcp-and-frameworks.md`.
+
+**Open scope question (deferred to `/gsd:discuss-phase`):** Whether to fold v9.6.0 Runtime Parity Phases 47-49 (headless Codex/OpenCode/Gemini execution verification) into v10.3 as a parallel track. The framework matrix work already exercises external CLIs, so the surface overlaps — but it could also be punted to v10.4 or beyond.
 
 ### Active
 
-(none — milestone v10.2 SHIPPED 2026-06-03; archived to `.planning/milestones/v10.2-*`. Run `/gsd:new-milestone` to scope the next milestone.)
-
-## Next Milestone Goals
-
-- TBD after v10.2 ships. Roadmap meta-issue [#189](https://github.com/SpillwaveSolutions/agent-brain/issues/189) sequences v3 (CLI-via-MCP + framework matrix, #187) then v4 (OAuth 2.1 for remote, #188). v3 depends on v2's HTTP transport; v4 depends on v3's `McpHttpBackend`.
+- [ ] **CLI-MCP-01..06**: CLI-via-MCP backend clients, transport selectors, prompts, resources, auto-discovery, helper
+- [ ] **FRAME-01..07**: Framework adapter smoke tests (OpenAI Agents, LangChain, LlamaIndex, Pydantic AI, Mastra, Vercel AI SDK, Autogen)
+- [ ] **MCPHYG-01**: MCP stdio subprocess hygiene + 1000-invocation orphan test
+- [ ] **TOOLING-V3-01**: `task mcp:framework-matrix` opt-in nightly CI gate
+- [ ] **DOCS-V3-01**: `docs/INTEGRATIONS.md` framework guide
+- [ ] **DESIGN-V3-01**: v3 design doc filed at `docs/plans/<date>-mcp-v3-cli-via-mcp.md`
 
 ### Out of Scope
 
-- **MCP CLI-via-MCP and framework adapter matrix**: Deferred to v3 (#187) — depends on v2's HTTP transport landing first
-- **OAuth 2.1 for remote MCP**: Deferred to v4 (#188) — depends on v3's `McpHttpBackend`
+- **OAuth 2.1 for remote MCP**: Deferred to v4 (#188) — depends on v3's `McpHttpBackend` (this milestone)
 - **MCP sampling / completion**: Out of scope for v2 (advanced LLM-in-the-server pattern; not required for tool/resource/subscription completeness)
 - **MCP plugin auto-registration**: Out of scope for v2 (deferred to a follow-up; requires manifest design)
 - **Runtime parity revival for Codex / OpenCode / Gemini (v9.6.0 phases 47–49)**: Deferred — re-evaluate once MCP v3 framework matrix work begins; converter-level + CLI-level tests already cover install behavior structurally
@@ -258,4 +276,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-03 — MILESTONE v10.2 (MCP v2 — Subscriptions, HTTP Transport, & Tool Completion) SHIPPED. All 24/24 plans across 6/6 phases complete: VAL-01..04 validated end-to-end, DR-5 closed, root QA gate integration live. v10.2 is release-ready; `gsd:complete-milestone` consumes `.planning/phases/55-validation-and-qa-gate/VALIDATION.md` to ship. Next milestone: v10.3 candidates (#187 MCP v3 CLI-via-MCP + framework matrix; #188 MCP v4 OAuth) tracked in roadmap meta-issue #189.*
+*Last updated: 2026-06-05 — MILESTONE v10.3 (MCP v3 — CLI-via-MCP + Framework Matrix) STARTED. v10.2 shipped 2026-06-03; v10.2.1 patch in flight for SECURITY-01 (#179 API key auth). v10.3 scope per [#187](https://github.com/SpillwaveSolutions/agent-brain/issues/187): CLI-via-MCP backend clients, framework adapter matrix (7 frameworks), `docs/INTEGRATIONS.md`, MCP stdio subprocess hygiene. Roadmap meta-issue [#189](https://github.com/SpillwaveSolutions/agent-brain/issues/189) sequences v3 → v4 (OAuth 2.1).*
