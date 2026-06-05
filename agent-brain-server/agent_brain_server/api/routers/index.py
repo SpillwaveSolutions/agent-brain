@@ -7,8 +7,9 @@ import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
+from agent_brain_server.api.security import verify_api_key
 from agent_brain_server.config import settings
 from agent_brain_server.config.provider_config import load_provider_settings
 from agent_brain_server.models import IndexRequest, IndexResponse
@@ -27,7 +28,7 @@ def _graphrag_enabled() -> bool:
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 # Maximum queue length for backpressure
 MAX_QUEUE_LENGTH = settings.AGENT_BRAIN_MAX_QUEUE
