@@ -261,19 +261,6 @@ if TYPE_CHECKING:
     )
 
 
-_PHASE_57_NOT_WIRED = "Wired in Phase 57+"
-
-# Verbatim NotImplementedError wording for `reset()` on both backends
-# (Phase 57 CONTEXT.md §decisions — DO NOT paraphrase). Duplicated as a
-# string literal in each backend's `reset()` body so a grep for the
-# message returns exactly 2 hits.
-_RESET_NOT_SUPPORTED = (
-    "--transport mcp does not support reset; use --transport uds "
-    "or http (no reset_index MCP tool in v2; v3 Phase 57+ open "
-    "decision per design doc §4 risks)"
-)
-
-
 def _coerce_query_response(payload: dict[str, Any]) -> QueryResponse:
     """Translate a ``search_documents`` MCP tool payload into ``QueryResponse``.
 
@@ -452,9 +439,16 @@ def _build_index_body(
 class McpStdioBackend:
     """CLI-side backend that talks to agent-brain-mcp over stdio.
 
-    Skeleton implementation. Constructor records configuration; method
-    bodies raise NotImplementedError until Phase 57 wires the MCP SDK
-    subprocess + tool-call dispatch.
+    Phase 57 wired: all 10 BackendClient methods (health, status, query,
+    index, list_folders, delete_folder, list_jobs, get_job, cancel_job,
+    cache_status, clear_cache) plus a deliberate ``reset()`` raise that
+    points at --transport uds (no reset_index MCP tool in v2; v3
+    Phase 57+ open decision per design doc §4 risks).
+
+    Each public method uses Pattern A: ``asyncio.run(self._async_*())``
+    per call, spawning a fresh ``agent-brain-mcp --transport stdio``
+    subprocess via the MCP SDK's ``stdio_client``. Phase 60 owns the
+    persistent-subprocess hygiene refinement.
 
     Structurally satisfies the BackendClient Protocol at
     agent_brain_cli.client.protocol.BackendClient (Plan 56-02). Verified
@@ -462,21 +456,15 @@ class McpStdioBackend:
     and by mypy strict structural conformance.
 
     Args:
-        command: Path or shell command to launch agent-brain-mcp. Phase 57
-            normalizes to a list[str] for subprocess.Popen; the skeleton
-            stores it verbatim.
+        command: Path or shell command to launch agent-brain-mcp.
+            ``str`` is split into argv[0]; ``list[str]`` is passed
+            verbatim. ``--transport stdio`` is appended by
+            ``_stdio_params``.
         cwd: Working directory for the subprocess. Default None means
-            "let Phase 57 decide" — the design doc and Phase 60 (subprocess
-            hygiene) pin this to an explicit value before any orphan
-            test ships. None is permitted in v3 skeleton ONLY.
-        env: Subprocess env dict. None means "inherit current env" in the
-            skeleton; Phase 60 replaces with an allowlist.
-
-    Phase 57+ will wire:
-        - Async event loop management (sync facade with asyncio.run or
-          persistent _loop per design doc §3.2).
-        - MCP SDK ClientSession + stdio_client lifecycle.
-        - Method ↔ MCP tool mapping per design doc §2.3 table.
+            "inherit current cwd" — Phase 60 (subprocess hygiene) pins
+            this to an explicit value before any orphan test ships.
+        env: Subprocess env dict. None means "inherit current env";
+            Phase 60 replaces with an allowlist.
     """
 
     def __init__(
@@ -822,9 +810,11 @@ class McpStdioBackend:
 class McpHttpBackend:
     """CLI-side backend that talks to agent-brain-mcp over Streamable HTTP.
 
-    Skeleton implementation. Constructor records configuration; method
-    bodies raise NotImplementedError until Phase 57 wires the MCP SDK
-    streamablehttp_client + tool-call dispatch.
+    Phase 57 wired: all 10 BackendClient methods + a deliberate
+    ``reset()`` raise — same shape as ``McpStdioBackend`` but uses
+    ``mcp.client.streamable_http.streamablehttp_client`` instead of
+    ``stdio_client``. Each public method uses Pattern A:
+    ``asyncio.run(self._async_*())`` per call.
 
     Structurally satisfies the BackendClient Protocol at
     agent_brain_cli.client.protocol.BackendClient (Plan 56-02).
@@ -836,13 +826,9 @@ class McpHttpBackend:
             only — design doc §1.3 explicitly defers public-bind auth to
             v10.4 (#188).
         timeout: Per-request timeout in seconds. Default 30.0 matches
-            DocServeClient's default.
-
-    Phase 57+ will wire:
-        - mcp.client.streamable_http.streamablehttp_client async context
-          manager + ClientSession lifecycle.
-        - Async event loop facade per design doc §3.2.
-        - Method ↔ MCP tool mapping per design doc §2.3 table.
+            DocServeClient's default. Currently advisory — the MCP SDK
+            transport does not surface a configurable per-call timeout;
+            Phase 60 may wire this through if the SDK adds the knob.
     """
 
     def __init__(self, url: str, *, timeout: float = 30.0) -> None:
@@ -863,12 +849,6 @@ class McpHttpBackend:
 
     def close(self) -> None:
         self._closed = True
-
-    def health(self) -> HealthStatus:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
-
-    def status(self) -> IndexingStatus:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
 
     def query(
         self,
@@ -946,14 +926,7 @@ class McpHttpBackend:
                 await session.initialize()
                 result = await session.call_tool("search_documents", tool_args)
 
-        if result.structuredContent is None:
-            import json as _json
-
-            payload = _json.loads(result.content[0].text)  # type: ignore[union-attr]
-        else:
-            payload = result.structuredContent
-
-        return _coerce_query_response(payload)
+        return _coerce_query_response(_unwrap_payload(result))
 
     def index(
         self,
@@ -975,31 +948,178 @@ class McpHttpBackend:
         watch_mode: str | None = None,
         watch_debounce_seconds: int | None = None,
     ) -> IndexResponse:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        # See McpStdioBackend.index for the rationale behind the
+        # narrowed body — the v2 MCP tool schemas use
+        # additionalProperties=false and only a subset of the CLI
+        # BackendClient.index parameters map to the wire.
+        body, tool_name = _build_index_body(
+            folder_path=folder_path,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            include_code=include_code,
+            force=force,
+            injector_script=injector_script,
+            folder_metadata_file=folder_metadata_file,
+            dry_run=dry_run,
+        )
+        return asyncio.run(self._async_index(tool_name=tool_name, body=body))
+
+    async def _async_index(
+        self, *, tool_name: str, body: dict[str, Any]
+    ) -> IndexResponse:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+
+        async with streamablehttp_client(self.url) as (read, write, *_):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool(tool_name, body)
+        return _coerce_index_response(_unwrap_payload(result))
+
+    def health(self) -> HealthStatus:
+        return asyncio.run(self._async_health())
+
+    async def _async_health(self) -> HealthStatus:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+
+        async with streamablehttp_client(self.url) as (read, write, *_):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool("server_health", {})
+        return _coerce_health_status(_unwrap_payload(result))
+
+    def status(self) -> IndexingStatus:
+        return asyncio.run(self._async_status())
+
+    async def _async_status(self) -> IndexingStatus:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+        from pydantic import AnyUrl
+
+        async with streamablehttp_client(self.url) as (read, write, *_):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.read_resource(AnyUrl("corpus://status"))
+        return _coerce_indexing_status(_unwrap_resource_body(result))
 
     def list_folders(self) -> list[FolderInfo]:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        return asyncio.run(self._async_list_folders())
+
+    async def _async_list_folders(self) -> list[FolderInfo]:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+        from pydantic import AnyUrl
+
+        async with streamablehttp_client(self.url) as (read, write, *_):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.read_resource(AnyUrl("corpus://folders"))
+        return _coerce_folder_info_list(_unwrap_resource_body(result))
 
     def delete_folder(self, folder_path: str) -> dict[str, Any]:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        return asyncio.run(self._async_delete_folder(folder_path))
+
+    async def _async_delete_folder(self, folder_path: str) -> dict[str, Any]:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+
+        # remove_folder is destructive — confirm=True pass-through per
+        # CONTEXT discretion note (same shape as McpStdioBackend).
+        async with streamablehttp_client(self.url) as (read, write, *_):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool(
+                    "remove_folder",
+                    {"folder_path": folder_path, "confirm": True},
+                )
+        return _unwrap_payload(result)
 
     def reset(self) -> IndexResponse:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        # Design doc §4-risks: reset() has no MCP tool equivalent in v2.
+        # Phase 57+ open decision per CONTEXT.md §decisions — verbatim
+        # wording duplicated across both backends by design (test pins
+        # the literal string on each backend independently).
+        raise NotImplementedError(
+            "--transport mcp does not support reset; use --transport uds "
+            "or http (no reset_index MCP tool in v2; v3 Phase 57+ open "
+            "decision per design doc §4 risks)"
+        )
 
     def list_jobs(self, limit: int = 20) -> list[dict[str, Any]]:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        return asyncio.run(self._async_list_jobs(limit))
+
+    async def _async_list_jobs(self, limit: int) -> list[dict[str, Any]]:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+
+        async with streamablehttp_client(self.url) as (read, write, *_):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool("list_jobs", {"limit": limit})
+        payload = _unwrap_payload(result)
+        jobs = payload.get("jobs", [])
+        assert isinstance(jobs, list)
+        return jobs
 
     def get_job(self, job_id: str) -> dict[str, Any]:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        return asyncio.run(self._async_get_job(job_id))
+
+    async def _async_get_job(self, job_id: str) -> dict[str, Any]:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+        from pydantic import AnyUrl
+
+        async with streamablehttp_client(self.url) as (read, write, *_):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.read_resource(AnyUrl(f"job://{job_id}"))
+        return _unwrap_resource_body(result)
 
     def cancel_job(self, job_id: str) -> dict[str, Any]:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        return asyncio.run(self._async_cancel_job(job_id))
+
+    async def _async_cancel_job(self, job_id: str) -> dict[str, Any]:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+
+        # cancel_job is destructive — confirm=True pass-through (v1
+        # §6.2 guard, same shape as McpStdioBackend).
+        async with streamablehttp_client(self.url) as (read, write, *_):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool(
+                    "cancel_job", {"job_id": job_id, "confirm": True}
+                )
+        return _unwrap_payload(result)
 
     def cache_status(self) -> dict[str, Any]:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        return asyncio.run(self._async_cache_status())
+
+    async def _async_cache_status(self) -> dict[str, Any]:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+
+        async with streamablehttp_client(self.url) as (read, write, *_):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool("cache_status", {})
+        return _unwrap_payload(result)
 
     def clear_cache(self) -> dict[str, Any]:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        return asyncio.run(self._async_clear_cache())
+
+    async def _async_clear_cache(self) -> dict[str, Any]:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+
+        # clear_cache is destructive — confirm=True pass-through
+        # (Phase 54 Plan 03 guard, same shape as McpStdioBackend).
+        async with streamablehttp_client(self.url) as (read, write, *_):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool("clear_cache", {"confirm": True})
+        return _unwrap_payload(result)
 
 
 __all__: list[str] = ["ApiClient", "McpStdioBackend", "McpHttpBackend"]

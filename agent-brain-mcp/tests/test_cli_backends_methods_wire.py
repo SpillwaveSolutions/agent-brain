@@ -847,7 +847,10 @@ def test_http_index_routes_to_inject_documents_when_injector_set(
     post_index = [e for e in log if e["method"] == "POST" and e["path"] == "/index/"]
     assert post_index, "inject_documents tool must POST /index/"
     body = _json.loads(post_index[0]["body"])
-    assert body["injector_script"] == "enrich.py"
+    # MCP inject_documents handler resolves injector_script via
+    # Path(...).expanduser().resolve() (tools/inject.py:94) — accept
+    # either the literal name or the resolved absolute path.
+    assert body["injector_script"].endswith("enrich.py")
 
 
 @pytest.mark.e2e_http
