@@ -11,6 +11,7 @@ the MCP process free of Click / Rich. ~80 LOC bound.
 
 from __future__ import annotations
 
+import asyncio
 from types import TracebackType
 from typing import TYPE_CHECKING, Any
 
@@ -263,6 +264,33 @@ if TYPE_CHECKING:
 _PHASE_57_NOT_WIRED = "Wired in Phase 57+"
 
 
+def _coerce_query_response(payload: dict[str, Any]) -> QueryResponse:
+    """Translate a ``search_documents`` MCP tool payload into ``QueryResponse``.
+
+    The MCP tool's structuredContent has the same shape as the
+    ``agent-brain-server`` ``POST /query/`` response, so we delegate to
+    ``api_client._parse_query_result`` for each result entry.
+
+    Late-imports the agent_brain_cli dataclasses to avoid a module-load
+    cycle with agent_brain_cli (the CLI's BackendClient Protocol uses
+    forward string references to these dataclasses for the same
+    reason).
+    """
+    # Late import — avoids a top-level dep on agent_brain_cli for
+    # consumers of agent_brain_mcp.client that never touch the v3
+    # backends (e.g. the v1 ApiClient code path).
+    from agent_brain_cli.client import api_client as _api_client
+
+    results = [
+        _api_client._parse_query_result(r) for r in payload.get("results", [])
+    ]
+    return _api_client.QueryResponse(
+        results=results,
+        query_time_ms=float(payload.get("query_time_ms", 0.0)),
+        total_results=int(payload.get("total_results", len(results))),
+    )
+
+
 class McpStdioBackend:
     """CLI-side backend that talks to agent-brain-mcp over stdio.
 
@@ -344,7 +372,91 @@ class McpStdioBackend:
         file_paths: list[str] | None = None,
         explain: bool = False,
     ) -> QueryResponse:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        return asyncio.run(
+            self._async_query(
+                query_text=query_text,
+                top_k=top_k,
+                similarity_threshold=similarity_threshold,
+                mode=mode,
+                alpha=alpha,
+                source_types=source_types,
+                languages=languages,
+                file_paths=file_paths,
+                explain=explain,
+            )
+        )
+
+    async def _async_query(
+        self,
+        *,
+        query_text: str,
+        top_k: int,
+        similarity_threshold: float,
+        mode: str,
+        alpha: float,
+        source_types: list[str] | None,
+        languages: list[str] | None,
+        file_paths: list[str] | None,
+        explain: bool,
+    ) -> QueryResponse:
+        """Async helper for :meth:`query` (Pattern A sync facade — Phase
+        57 CONTEXT decision).
+
+        Each call spawns a fresh ``agent-brain-mcp --transport stdio``
+        subprocess via the MCP SDK's ``stdio_client``, opens a
+        ``ClientSession``, calls the ``search_documents`` tool, then
+        tears the subprocess down. Phase 60 owns the persistent-
+        subprocess hygiene refinement; Phase 57 ships the simplest
+        correct code path.
+        """
+        # Late import — keeps the MCP SDK dep contained to the wire
+        # path; consumers of the McpStdioBackend constructor that
+        # never call query() do not pay the import cost.
+        from mcp import ClientSession
+        from mcp.client.stdio import StdioServerParameters, stdio_client
+
+        if isinstance(self.command, str):
+            command_str = self.command
+            extra_args: list[str] = []
+        else:
+            command_str = self.command[0]
+            extra_args = list(self.command[1:])
+
+        params = StdioServerParameters(
+            command=command_str,
+            args=[*extra_args, "--transport", "stdio"],
+            cwd=self.cwd,
+            env=self.env,
+        )
+
+        tool_args: dict[str, Any] = {
+            "query": query_text,
+            "top_k": top_k,
+            "similarity_threshold": similarity_threshold,
+            "mode": mode,
+            "alpha": alpha,
+            "explain": explain,
+        }
+        if source_types is not None:
+            tool_args["source_types"] = source_types
+        if languages is not None:
+            tool_args["languages"] = languages
+        if file_paths is not None:
+            tool_args["file_paths"] = file_paths
+
+        async with stdio_client(params) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool("search_documents", tool_args)
+
+        if result.structuredContent is None:
+            import json as _json
+
+            payload = _json.loads(result.content[0].text)  # type: ignore[union-attr]
+        else:
+            payload = result.structuredContent
+
+        return _coerce_query_response(payload)
 
     def index(
         self,

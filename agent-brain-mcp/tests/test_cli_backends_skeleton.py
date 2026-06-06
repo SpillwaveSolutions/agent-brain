@@ -15,13 +15,10 @@ api_client.py instead of leaving it alone.
 
 from __future__ import annotations
 
-import pytest
 from agent_brain_cli.client import DocServeClient
 from agent_brain_cli.client.protocol import BackendClient
 
 from agent_brain_mcp.client import McpHttpBackend, McpStdioBackend
-
-_PHASE_57_SENTINEL = "Wired in Phase 57+"
 
 
 def test_mcp_stdio_backend_satisfies_backend_client_protocol() -> None:
@@ -36,20 +33,6 @@ def test_mcp_http_backend_satisfies_backend_client_protocol() -> None:
     assert isinstance(backend, BackendClient), (
         "McpHttpBackend must structurally satisfy BackendClient — " "Plan 02 contract."
     )
-
-
-def test_mcp_stdio_query_raises_phase_57_sentinel() -> None:
-    """Skeleton .query() raises NotImplementedError with the load-bearing
-    sentinel string so Phase 57 transport-selector tests can grep for it."""
-    backend = McpStdioBackend(command="agent-brain-mcp")
-    with pytest.raises(NotImplementedError, match=_PHASE_57_SENTINEL):
-        backend.query("anything")
-
-
-def test_mcp_http_query_raises_phase_57_sentinel() -> None:
-    backend = McpHttpBackend(url="http://127.0.0.1:9999/mcp")
-    with pytest.raises(NotImplementedError, match=_PHASE_57_SENTINEL):
-        backend.query("anything")
 
 
 def test_doc_serve_client_still_satisfies_backend_client_protocol() -> None:
