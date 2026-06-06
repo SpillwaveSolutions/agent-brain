@@ -536,3 +536,67 @@ def resolve_transport(
     except ImportError:
         # agent_brain_uds not installed — HTTP is the only option.
         return ("http", _resolve_http_target())
+
+
+def resolve_mcp_transport(
+    *,
+    mcp_transport_hint: str | None = None,
+    mcp_url_override: str | None = None,
+) -> tuple[Literal["stdio", "http"], str | None]:
+    """Resolve the MCP-axis transport when ``--transport mcp`` is active.
+
+    Sibling to :func:`resolve_transport` — that helper handles the
+    HTTP/UDS axis (the v1/v2 ``cli_listen_transport``); this helper
+    handles the MCP axis (the v3 ``cli_backend_transport``, per design
+    doc §2.1).
+
+    Precedence (per Phase 57 CONTEXT §decisions / design doc §3.5):
+
+      1. ``mcp_transport_hint`` argument (CLI ``--mcp-transport`` flag)
+      2. ``AGENT_BRAIN_MCP_TRANSPORT`` environment variable
+      3. Default: ``"stdio"``
+
+    URL precedence for ``http``:
+
+      1. ``mcp_url_override`` argument (CLI ``--mcp-url`` flag)
+      2. ``AGENT_BRAIN_MCP_URL`` environment variable
+      3. Hard error — ``mcp.runtime.json`` discovery lands in Phase 58.
+
+    Returns:
+        A ``(transport, target)`` tuple. ``transport`` is ``"stdio"``
+        or ``"http"``. ``target`` is the MCP URL for ``http``, or
+        ``None`` for ``stdio`` (stdio backends spawn a subprocess, not
+        a URL connection).
+
+    Raises:
+        click.UsageError: When ``http`` is selected but no URL is
+            resolvable. Exits the CLI with code 2 per the v10.2
+            HTTP-03 no-silent-fallback contract.
+    """
+    chosen = (
+        mcp_transport_hint or os.environ.get("AGENT_BRAIN_MCP_TRANSPORT") or "stdio"
+    ).lower()
+    if chosen == "stdio":
+        return ("stdio", None)
+    if chosen == "http":
+        url = mcp_url_override or os.environ.get("AGENT_BRAIN_MCP_URL")
+        if not url:
+            # Late `import click as _click` keeps config.py free of a
+            # top-level Click dependency (today config.py imports only
+            # yaml + pydantic). The error surfaces with Click's
+            # standard exit code 2 — v10.2 HTTP-03 carry-forward.
+            import click as _click
+
+            raise _click.UsageError(
+                "discovery file support lands in Phase 58; "
+                "pass --mcp-url explicitly in Phase 57"
+            )
+        return ("http", url)
+    # Unknown value — Click.Choice on the flag already filters this at
+    # parse time, but defend against the env-only path.
+    import click as _click
+
+    raise _click.UsageError(
+        f"AGENT_BRAIN_MCP_TRANSPORT={chosen!r} is not a known MCP "
+        "transport; expected 'stdio' or 'http'"
+    )
