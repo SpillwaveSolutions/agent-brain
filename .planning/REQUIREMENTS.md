@@ -18,7 +18,7 @@ Requirements for v10.3. Each maps to a roadmap phase.
 - [x] **CLI-MCP-01**: New `McpStdioBackend` in `agent_brain_mcp/client.py` (or `agent_brain_cli/client/mcp_backend.py`) satisfying the same shape `DocServeClient` exposes today (query, list_folders, etc.) — caller cannot distinguish via the interface.
 - [x] **CLI-MCP-02**: New `McpHttpBackend` parallel to `McpStdioBackend` but driving `streamablehttp_client` against a live `agent-brain-mcp --transport http` listener.
 - [x] **CLI-MCP-03**: `agent-brain --transport mcp` selector + `--mcp-transport stdio|http` sub-selector wired into the CLI; explicit selection, no silent fallback (mirrors v10.2 HTTP-03).
-- [ ] **CLI-MCP-04**: `agent-brain --transport mcp query "X"` returns byte-identical results to `--transport uds` for the same backend state (modulo timestamps/elapsed) — the v3 DoD anchor.
+- [x] **CLI-MCP-04**: `agent-brain --transport mcp query "X"` returns byte-identical results to `--transport uds` for the same backend state (modulo timestamps/elapsed) — the v3 DoD anchor.
 
 ### CLI Surface for Prompts + Resources
 
@@ -98,7 +98,7 @@ Which phases cover which requirements. Filled by roadmap creation 2026-06-05.
 | CLI-MCP-01 | Phase 56 | Complete |
 | CLI-MCP-02 | Phase 56 | Complete |
 | CLI-MCP-03 | Phase 57 | Complete (selector + dispatcher + 3 §3.5 cases in Plan 57-01; method wiring closes in Plan 57-03) |
-| CLI-MCP-04 | Phase 57 | Pending |
+| CLI-MCP-04 | Phase 57 | Complete |
 | CLI-MCP-05 | Phase 59 | Pending |
 | CLI-MCP-06 | Phase 59 | Pending |
 | CLI-MCP-07 | Phase 59 | Pending |
