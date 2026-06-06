@@ -172,7 +172,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 | 53. Streamable HTTP transport                               | v10.2     | 3/3            | Complete    | 2026-06-03 |
 | 54. 9 remaining MCP tools                                   | v10.2     | 4/4            | Complete    | 2026-06-03 |
 | 55. Validation, contract tests & QA gate                    | v10.2     | 5/5            | Complete    | 2026-06-03 |
-| 56. Design doc + CLI backend skeleton                       | 3/3 | Complete   | 2026-06-06 | -          |
+| 56. Design doc + CLI backend skeleton                       | 3/3 | Complete    | 2026-06-06 | -          |
 | 57. CLI transport selector + byte-identical equivalence     | v10.3     | 0/TBD          | Not started | -          |
 | 58. Runtime discovery + helper commands                     | v10.3     | 0/TBD          | Not started | -          |
 | 59. CLI prompts + resources commands                        | v10.3     | 0/TBD          | Not started | -          |
