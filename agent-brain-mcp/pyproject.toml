@@ -52,6 +52,22 @@ mypy = "^1.13.0"
 # to inspect the bound socket interface of an agent-brain-mcp HTTP subprocess.
 # Dev-only — psutil is NOT a runtime dependency of agent-brain-mcp.
 psutil = "^6.0"
+# Phase 56 Plan 03 (CLI-MCP-01, CLI-MCP-02): McpStdioBackend + McpHttpBackend
+# skeletons in agent_brain_mcp/client.py structurally satisfy the BackendClient
+# Protocol declared at agent_brain_cli/client/protocol.py (Plan 56-02). The
+# Protocol is only needed for mypy strict + pytest isinstance assertions —
+# @runtime_checkable means runtime conformance is structural and requires no
+# hard dep. Path dep here keeps the MCP package's PyPI install surface clean
+# (CLI users who never touch --transport mcp will not pull agent-brain-cli).
+#
+# develop = false (NOT develop = true): a develop=true install drops a .pth
+# file that puts `../agent-brain-cli` on sys.path, which makes the CLI's
+# tests/ directory shadow agent-brain-mcp's own tests/ package. pytest then
+# fails to import `tests.conftest` and `tests.contract._tool_matrix` from
+# agent-brain-mcp's suite. develop=false also matches the precedent in
+# agent-brain-mcp/Taskfile.yml's `install` task which writes path deps for
+# agent-brain-rag / agent-brain-uds with `develop = false`.
+agent-brain-cli = { path = "../agent-brain-cli", develop = false }
 
 [build-system]
 requires = ["poetry-core"]

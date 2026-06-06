@@ -12,7 +12,7 @@ the MCP process free of Click / Rich. ~80 LOC bound.
 from __future__ import annotations
 
 from types import TracebackType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -223,3 +223,289 @@ class ApiClient:
         existing pipeline.
         """
         return self._delete("/index/folders/", json=body)
+
+
+# =============================================================================
+# v3 CLI-via-MCP backends (Phase 56 Plan 03 — skeletons; wired in Phase 57+)
+# =============================================================================
+#
+# These two classes structurally satisfy the BackendClient Protocol declared
+# at agent_brain_cli/client/protocol.py (Plan 56-02). They expose the same
+# 12-public-method + ctx-mgr surface as agent_brain_cli.client.DocServeClient
+# so a CLI command coded against DocServeClient can be transparently
+# rerouted through an MCP transport in Phase 57.
+#
+# Method bodies (except __init__, __enter__, __exit__, close) raise
+# NotImplementedError with the literal message "Wired in Phase 57+". The
+# message is load-bearing — Phase 57's transport selector tests grep for it
+# to confirm "I got the skeleton, not a stale stub left behind by a botched
+# refactor." See ROADMAP Phase 56 success criteria #5.
+#
+# Both classes inherit MIN_BACKEND_VERSION = "10.2.0" verbatim from
+# agent_brain_mcp.server. Bump to "10.3.0" at v3 release per design doc §3.4.
+#
+# IMPORTANT: this block deliberately does NOT re-import the deferred-
+# annotations future. The module-header import already covers this file.
+# Python forbids those imports anywhere except the file header —
+# re-importing here (even with an alias) is a SyntaxError.
+# =============================================================================
+
+if TYPE_CHECKING:
+    from agent_brain_cli.client.api_client import (
+        FolderInfo,
+        HealthStatus,
+        IndexingStatus,
+        IndexResponse,
+        QueryResponse,
+    )
+
+
+_PHASE_57_NOT_WIRED = "Wired in Phase 57+"
+
+
+class McpStdioBackend:
+    """CLI-side backend that talks to agent-brain-mcp over stdio.
+
+    Skeleton implementation. Constructor records configuration; method
+    bodies raise NotImplementedError until Phase 57 wires the MCP SDK
+    subprocess + tool-call dispatch.
+
+    Structurally satisfies the BackendClient Protocol at
+    agent_brain_cli.client.protocol.BackendClient (Plan 56-02). Verified
+    by tests/test_cli_backends_skeleton.py via isinstance() at runtime
+    and by mypy strict structural conformance.
+
+    Args:
+        command: Path or shell command to launch agent-brain-mcp. Phase 57
+            normalizes to a list[str] for subprocess.Popen; the skeleton
+            stores it verbatim.
+        cwd: Working directory for the subprocess. Default None means
+            "let Phase 57 decide" — the design doc and Phase 60 (subprocess
+            hygiene) pin this to an explicit value before any orphan
+            test ships. None is permitted in v3 skeleton ONLY.
+        env: Subprocess env dict. None means "inherit current env" in the
+            skeleton; Phase 60 replaces with an allowlist.
+
+    Phase 57+ will wire:
+        - Async event loop management (sync facade with asyncio.run or
+          persistent _loop per design doc §3.2).
+        - MCP SDK ClientSession + stdio_client lifecycle.
+        - Method ↔ MCP tool mapping per design doc §2.3 table.
+    """
+
+    def __init__(
+        self,
+        command: str | list[str],
+        *,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+    ) -> None:
+        self.command = command
+        self.cwd = cwd
+        self.env = env
+        self._closed = False
+
+    def __enter__(self) -> McpStdioBackend:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        self.close()
+
+    def close(self) -> None:
+        """Tear down the MCP subprocess. Idempotent.
+
+        Skeleton: marks the instance closed; Phase 57 implements SIGTERM
+        ->SIGKILL escalation per design doc §4.5 (Phase 60 hygiene).
+        """
+        self._closed = True
+
+    # --- BackendClient surface (12 methods — all raise NotImplementedError) ---
+
+    def health(self) -> HealthStatus:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def status(self) -> IndexingStatus:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def query(
+        self,
+        query_text: str,
+        top_k: int = 5,
+        similarity_threshold: float = 0.7,
+        mode: str = "hybrid",
+        alpha: float = 0.5,
+        source_types: list[str] | None = None,
+        languages: list[str] | None = None,
+        file_paths: list[str] | None = None,
+        explain: bool = False,
+    ) -> QueryResponse:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def index(
+        self,
+        folder_path: str,
+        chunk_size: int = 512,
+        chunk_overlap: int = 50,
+        recursive: bool = True,
+        include_code: bool = False,
+        supported_languages: list[str] | None = None,
+        code_chunk_strategy: str = "ast_aware",
+        include_patterns: list[str] | None = None,
+        exclude_patterns: list[str] | None = None,
+        include_types: list[str] | None = None,
+        generate_summaries: bool = False,
+        force: bool = False,
+        injector_script: str | None = None,
+        folder_metadata_file: str | None = None,
+        dry_run: bool = False,
+        watch_mode: str | None = None,
+        watch_debounce_seconds: int | None = None,
+    ) -> IndexResponse:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def list_folders(self) -> list[FolderInfo]:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def delete_folder(self, folder_path: str) -> dict[str, Any]:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def reset(self) -> IndexResponse:
+        # Design doc §5 risk: reset() has no MCP tool equivalent in v2.
+        # Phase 57+ decides whether to add a `reset_index` tool or hold
+        # for v4. Skeleton raises the standard sentinel.
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def list_jobs(self, limit: int = 20) -> list[dict[str, Any]]:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def get_job(self, job_id: str) -> dict[str, Any]:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def cancel_job(self, job_id: str) -> dict[str, Any]:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def cache_status(self) -> dict[str, Any]:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def clear_cache(self) -> dict[str, Any]:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+
+class McpHttpBackend:
+    """CLI-side backend that talks to agent-brain-mcp over Streamable HTTP.
+
+    Skeleton implementation. Constructor records configuration; method
+    bodies raise NotImplementedError until Phase 57 wires the MCP SDK
+    streamablehttp_client + tool-call dispatch.
+
+    Structurally satisfies the BackendClient Protocol at
+    agent_brain_cli.client.protocol.BackendClient (Plan 56-02).
+
+    Args:
+        url: Full HTTP URL of the MCP listener including the mount path,
+            e.g. "http://127.0.0.1:9999/mcp" (the v2 default mount path
+            is /mcp per agent_brain_mcp.http.MCP_MOUNT_PATH). Loopback
+            only — design doc §1.3 explicitly defers public-bind auth to
+            v10.4 (#188).
+        timeout: Per-request timeout in seconds. Default 30.0 matches
+            DocServeClient's default.
+
+    Phase 57+ will wire:
+        - mcp.client.streamable_http.streamablehttp_client async context
+          manager + ClientSession lifecycle.
+        - Async event loop facade per design doc §3.2.
+        - Method ↔ MCP tool mapping per design doc §2.3 table.
+    """
+
+    def __init__(self, url: str, *, timeout: float = 30.0) -> None:
+        self.url = url
+        self.timeout = timeout
+        self._closed = False
+
+    def __enter__(self) -> McpHttpBackend:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        self.close()
+
+    def close(self) -> None:
+        self._closed = True
+
+    def health(self) -> HealthStatus:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def status(self) -> IndexingStatus:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def query(
+        self,
+        query_text: str,
+        top_k: int = 5,
+        similarity_threshold: float = 0.7,
+        mode: str = "hybrid",
+        alpha: float = 0.5,
+        source_types: list[str] | None = None,
+        languages: list[str] | None = None,
+        file_paths: list[str] | None = None,
+        explain: bool = False,
+    ) -> QueryResponse:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def index(
+        self,
+        folder_path: str,
+        chunk_size: int = 512,
+        chunk_overlap: int = 50,
+        recursive: bool = True,
+        include_code: bool = False,
+        supported_languages: list[str] | None = None,
+        code_chunk_strategy: str = "ast_aware",
+        include_patterns: list[str] | None = None,
+        exclude_patterns: list[str] | None = None,
+        include_types: list[str] | None = None,
+        generate_summaries: bool = False,
+        force: bool = False,
+        injector_script: str | None = None,
+        folder_metadata_file: str | None = None,
+        dry_run: bool = False,
+        watch_mode: str | None = None,
+        watch_debounce_seconds: int | None = None,
+    ) -> IndexResponse:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def list_folders(self) -> list[FolderInfo]:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def delete_folder(self, folder_path: str) -> dict[str, Any]:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def reset(self) -> IndexResponse:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def list_jobs(self, limit: int = 20) -> list[dict[str, Any]]:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def get_job(self, job_id: str) -> dict[str, Any]:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def cancel_job(self, job_id: str) -> dict[str, Any]:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def cache_status(self) -> dict[str, Any]:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+    def clear_cache(self) -> dict[str, Any]:
+        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+
+
+__all__: list[str] = ["ApiClient", "McpStdioBackend", "McpHttpBackend"]
