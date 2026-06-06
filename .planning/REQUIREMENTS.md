@@ -11,7 +11,7 @@ Requirements for v10.3. Each maps to a roadmap phase.
 
 ### Design
 
-- [ ] **DESIGN-V3-01**: v3 design doc filed at `docs/plans/2026-06-<dd>-mcp-v3-cli-via-mcp.md` covering CLI backend abstraction, runtime discovery, and framework matrix scope before MCP-layer code lands.
+- [x] **DESIGN-V3-01**: v3 design doc filed at `docs/plans/2026-06-<dd>-mcp-v3-cli-via-mcp.md` covering CLI backend abstraction, runtime discovery, and framework matrix scope before MCP-layer code lands.
 
 ### CLI-via-MCP Backend Clients
 
@@ -94,7 +94,7 @@ Which phases cover which requirements. Filled by roadmap creation 2026-06-05.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DESIGN-V3-01 | Phase 56 | Pending |
+| DESIGN-V3-01 | Phase 56 | Complete |
 | CLI-MCP-01 | Phase 56 | Pending |
 | CLI-MCP-02 | Phase 56 | Pending |
 | CLI-MCP-03 | Phase 57 | Pending |
