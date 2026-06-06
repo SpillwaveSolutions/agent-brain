@@ -86,7 +86,10 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
   2. `agent-brain --transport mcp --mcp-transport http query "X"` succeeds and routes through `McpHttpBackend`
   3. Invalid combinations (e.g., `--mcp-transport http` without an `--mcp-url` and no `mcp.runtime.json`) fail with a clear error and a non-zero exit code; NO silent fallback to stdio or UDS
   4. Contract test asserts the JSON output of `agent-brain --transport mcp query "X"` equals the output of `agent-brain --transport uds query "X"` byte-for-byte after stripping timestamps + elapsed fields
-**Plans:** TBD
+**Plans:** 3 plans
+- [ ] 57-01-PLAN.md — Wire `--transport mcp` + `--mcp-transport stdio|http` + `--mcp-url` flags, `resolve_mcp_transport` config helper, `open_backend` dispatcher rename + 20-callsite swap (CLI-MCP-03)
+- [ ] 57-02-PLAN.md — Wire `query()` on both McpStdioBackend + McpHttpBackend via `stdio_client` / `streamablehttp_client` + the byte-identical-equivalence DoD anchor contract test (CLI-MCP-04)
+- [ ] 57-03-PLAN.md — Wire remaining 10 BackendClient methods on both backends per design doc §2.3 mapping table; `reset()` stays NotImplementedError with the verbatim §3.5 wording (CLI-MCP-03 close)
 
 ### Phase 58: Runtime discovery + helper commands
 **Goal:** Make the MCP HTTP listener self-advertising: define the `mcp.runtime.json` schema, land `agent-brain mcp start` (loopback bind, port auto-allocation, psutil socket-bind verification — reuses v10.2 HTTP-02 pattern), and `agent-brain mcp stop` (SIGTERM/SIGKILL escalation, runtime file cleanup).
@@ -173,7 +176,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 | 54. 9 remaining MCP tools                                   | v10.2     | 4/4            | Complete    | 2026-06-03 |
 | 55. Validation, contract tests & QA gate                    | v10.2     | 5/5            | Complete    | 2026-06-03 |
 | 56. Design doc + CLI backend skeleton                       | 3/3 | Complete    | 2026-06-06 | -          |
-| 57. CLI transport selector + byte-identical equivalence     | v10.3     | 0/TBD          | Not started | -          |
+| 57. CLI transport selector + byte-identical equivalence     | v10.3     | 0/3            | Planned     | -          |
 | 58. Runtime discovery + helper commands                     | v10.3     | 0/TBD          | Not started | -          |
 | 59. CLI prompts + resources commands                        | v10.3     | 0/TBD          | Not started | -          |
 | 60. Subprocess hygiene + 1000-invocation orphan test        | v10.3     | 0/TBD          | Not started | -          |
@@ -183,4 +186,4 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-06-05 — Phase 56 planned (3 plans: design doc + Protocol + backend skeletons). Next: `/gsd:execute-phase 56` to ship Wave 1 (56-01 design doc).*
+*Last updated: 2026-06-06 — Phase 57 planned (3 plans: flag wiring + dispatcher rename, query + byte-identical-equivalence DoD anchor, remaining 10 methods). Next: `/gsd:execute-phase 57` to ship Wave 1 (57-01 flags + dispatcher).*
