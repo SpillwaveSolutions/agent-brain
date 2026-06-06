@@ -8,7 +8,7 @@ from rich.text import Text
 
 from ..client import ConnectionError, ServerError
 from ..client.api_client import ResultExplanation
-from ..client.transport import open_client
+from ..client.transport import open_backend
 from ..diagnostics import doctor_hint_message
 
 console = Console()
@@ -160,7 +160,7 @@ def query_command(
     )
 
     try:
-        with open_client(ctx) as client:
+        with open_backend(ctx) as client:
             response = client.query(
                 query_text=query_text,
                 top_k=top_k,

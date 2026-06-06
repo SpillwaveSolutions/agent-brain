@@ -38,6 +38,14 @@ black = "^24.10.0"
 ruff = "^0.8.0"
 mypy = "^1.13.0"
 types-PyYAML = "^6.0.0"
+# Phase 57-01: agent-brain-mcp is a soft runtime dep (lazy-imported by
+# transport.py only on the --transport mcp branch), but the test suite
+# exercises the dispatcher's MCP routing + §3.5 case 3 PATH precheck.
+# develop=false mirrors the Phase 56-03 precedent for path deps — install
+# as a built package (only agent_brain_mcp/, not tests/) to avoid the
+# .pth-injection that would let agent-brain-mcp's tests/ collide with
+# agent-brain-cli's tests/__init__.py.
+agent-brain-ag-mcp = { path = "../agent-brain-mcp", develop = false }
 
 [tool.poetry.scripts]
 agent-brain = "agent_brain_cli.cli:cli"

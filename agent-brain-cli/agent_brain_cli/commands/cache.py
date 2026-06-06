@@ -6,7 +6,7 @@ from rich.prompt import Confirm
 from rich.table import Table
 
 from ..client import ConnectionError, ServerError
-from ..client.transport import open_client
+from ..client.transport import open_backend
 
 console = Console()
 
@@ -33,7 +33,7 @@ def cache_status(ctx: click.Context, url: str | None, json_output: bool) -> None
         ctx.obj["base_url_override"] = url
         ctx.obj["transport_hint"] = "http"
     try:
-        with open_client(ctx) as client:
+        with open_backend(ctx) as client:
             data = client.cache_status()
 
             if json_output:
@@ -106,7 +106,7 @@ def cache_clear(ctx: click.Context, url: str | None, yes: bool) -> None:
         ctx.obj["base_url_override"] = url
         ctx.obj["transport_hint"] = "http"
     try:
-        with open_client(ctx) as client:
+        with open_backend(ctx) as client:
             if not yes:
                 # Get current count before asking
                 try:

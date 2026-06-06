@@ -8,7 +8,7 @@ from rich.console import Console
 from rich.table import Table
 
 from ..client import ConnectionError, ServerError
-from ..client.transport import open_client
+from ..client.transport import open_backend
 
 console = Console()
 
@@ -49,7 +49,7 @@ def list_folders_cmd(ctx: click.Context, url: str | None, json_output: bool) -> 
         ctx.obj["transport_hint"] = "http"
 
     try:
-        with open_client(ctx) as client:
+        with open_backend(ctx) as client:
             folders = client.list_folders()
 
             if json_output:
@@ -170,7 +170,7 @@ def add_folder_cmd(
     folder = Path(folder_path).resolve()
 
     try:
-        with open_client(ctx) as client:
+        with open_backend(ctx) as client:
             response = client.index(
                 folder_path=str(folder),
                 include_code=include_code,
@@ -258,7 +258,7 @@ def remove_folder_cmd(
         )
 
     try:
-        with open_client(ctx) as client:
+        with open_backend(ctx) as client:
             result = client.delete_folder(folder_path=resolved_path)
 
             chunks_deleted = result.get("chunks_deleted", 0)

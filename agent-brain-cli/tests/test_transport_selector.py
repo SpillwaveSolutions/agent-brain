@@ -1,4 +1,4 @@
-"""Phase 3 TDD: ``agent_brain_cli.client.transport.open_client``.
+"""Phase 3 TDD: ``agent_brain_cli.client.transport.open_backend``.
 
 The selector is a 3-line dispatcher: reads transport choice off the
 Click context, calls ``resolve_transport``, then constructs either
@@ -56,18 +56,18 @@ def _make_ctx(**obj: Any) -> click.Context:
 
 
 class TestOpenClientHttp:
-    """``open_client(ctx)`` → HTTP path returns ``DocServeClient``
+    """``open_backend(ctx)`` → HTTP path returns ``DocServeClient``
     pointed at the resolved URL."""
 
     def test_http_transport_uses_base_url(self, clean_env: None) -> None:
         from agent_brain_cli.client.api_client import DocServeClient
-        from agent_brain_cli.client.transport import open_client
+        from agent_brain_cli.client.transport import open_backend
 
         ctx = _make_ctx(
             transport_hint="http",
             base_url_override="http://127.0.0.1:9001",
         )
-        client = open_client(ctx)
+        client = open_backend(ctx)
         try:
             assert isinstance(client, DocServeClient)
             assert client.base_url == "http://127.0.0.1:9001"
@@ -78,14 +78,14 @@ class TestOpenClientHttp:
         self, clean_env: None, short_state_dir: Path
     ) -> None:
         from agent_brain_cli.client.api_client import DocServeClient
-        from agent_brain_cli.client.transport import open_client
+        from agent_brain_cli.client.transport import open_backend
 
         ctx = _make_ctx(
             transport_hint="auto",
             socket_path_override=short_state_dir / "no-socket-here.sock",
             base_url_override="http://127.0.0.1:8000",
         )
-        client = open_client(ctx)
+        client = open_backend(ctx)
         try:
             assert isinstance(client, DocServeClient)
             assert client.base_url == "http://127.0.0.1:8000"
@@ -94,14 +94,14 @@ class TestOpenClientHttp:
 
 
 class TestOpenClientUds:
-    """``open_client(ctx)`` → UDS path returns a wrapper with a
+    """``open_backend(ctx)`` → UDS path returns a wrapper with a
     UDS-backed inner httpx.Client."""
 
     def test_uds_transport_uses_socket(
         self, clean_env: None, short_state_dir: Path
     ) -> None:
         from agent_brain_cli.client.api_client import DocServeClient
-        from agent_brain_cli.client.transport import open_client
+        from agent_brain_cli.client.transport import open_backend
 
         socket_path = short_state_dir / "agent-brain.sock"
         s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -110,7 +110,7 @@ class TestOpenClientUds:
         os.chmod(short_state_dir, 0o700)
         try:
             ctx = _make_ctx(transport_hint="uds", socket_path_override=socket_path)
-            client = open_client(ctx)
+            client = open_backend(ctx)
             try:
                 assert isinstance(client, DocServeClient)
                 # Inner httpx.Client base_url is the UDS sentinel.
@@ -125,19 +125,19 @@ class TestOpenClientUds:
 
 
 class TestOpenClientEmptyContext:
-    """``open_client(ctx)`` must tolerate ``ctx.obj is None`` —
+    """``open_backend(ctx)`` must tolerate ``ctx.obj is None`` —
     that's the state when no subcommand has populated it yet."""
 
     def test_none_ctx_obj_falls_back_to_defaults(self, clean_env: None) -> None:
         from agent_brain_cli.client.api_client import DocServeClient
-        from agent_brain_cli.client.transport import open_client
+        from agent_brain_cli.client.transport import open_backend
 
         cmd = click.Command("test")
         ctx = click.Context(cmd)
-        # ctx.obj defaults to None — open_client must handle this.
+        # ctx.obj defaults to None — open_backend must handle this.
         os.environ["AGENT_BRAIN_URL"] = "http://127.0.0.1:8000"
         os.environ["AGENT_BRAIN_TRANSPORT"] = "http"
-        client = open_client(ctx)
+        client = open_backend(ctx)
         try:
             assert isinstance(client, DocServeClient)
             assert client.base_url == "http://127.0.0.1:8000"

@@ -6,7 +6,7 @@ Covers three independent surfaces:
 2. ``DocServeClient.from_httpx(client, api_key=...)`` — header injected into
    a pre-built UDS client.
 3. ``resolve_api_key`` — env > runtime.json > None precedence chain.
-4. ``open_client(ctx)`` — end-to-end: env-provided key reaches the client's
+4. ``open_backend(ctx)`` — end-to-end: env-provided key reaches the client's
    default headers.
 """
 
@@ -133,13 +133,13 @@ class TestResolveApiKeyPrecedence:
 
 
 # ---------------------------------------------------------------------------
-# End-to-end through open_client
+# End-to-end through open_backend
 # ---------------------------------------------------------------------------
 
 
-class TestOpenClientEndToEnd:
+class TestOpenBackendEndToEnd:
     def test_env_api_key_reaches_http_client(self, clean_env: None) -> None:
-        from agent_brain_cli.client.transport import open_client
+        from agent_brain_cli.client.transport import open_backend
 
         os.environ["AGENT_BRAIN_API_KEY"] = "e2e-secret"
         cmd = click.Command("test")
@@ -148,7 +148,7 @@ class TestOpenClientEndToEnd:
             "transport_hint": "http",
             "base_url_override": "http://127.0.0.1:9001",
         }
-        client = open_client(ctx)
+        client = open_backend(ctx)
         try:
             assert client._client.headers["X-API-Key"] == "e2e-secret"
         finally:

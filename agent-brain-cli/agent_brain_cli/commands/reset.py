@@ -5,7 +5,7 @@ from rich.console import Console
 from rich.prompt import Confirm
 
 from ..client import ConnectionError, ServerError
-from ..client.transport import open_client
+from ..client.transport import open_backend
 from ..diagnostics import doctor_hint_message
 
 console = Console()
@@ -48,7 +48,7 @@ def reset_command(
             return
 
     try:
-        with open_client(ctx) as client:
+        with open_backend(ctx) as client:
             response = client.reset()
 
             if json_output:

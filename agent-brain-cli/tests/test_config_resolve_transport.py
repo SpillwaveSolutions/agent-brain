@@ -5,7 +5,7 @@ socket validates, HTTP otherwise; clear error when neither is reachable).
 
 The function is the *pure* resolver — returns a ``("http"|"uds", target)``
 tuple. The live ``httpx.Client`` construction lives in
-``agent_brain_cli.client.transport.open_client`` (see test_transport_selector).
+``agent_brain_cli.client.transport.open_backend`` (see test_transport_selector).
 
 RED until Phase 3 ships ``resolve_transport()`` next to ``get_server_url()``
 in ``agent_brain_cli/config.py``.
