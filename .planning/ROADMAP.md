@@ -52,7 +52,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 ### Phases (summary checklist)
 
 - [x] **Phase 56: Design doc + CLI backend skeleton** — File the v3 design doc first; land `McpStdioBackend` + `McpHttpBackend` against the `DocServeClient` shape (completed 2026-06-06)
-- [ ] **Phase 57: CLI transport selector + byte-identical equivalence** — `--transport mcp` + `--mcp-transport stdio|http` wired; results match `--transport uds` byte-for-byte
+- [x] **Phase 57: CLI transport selector + byte-identical equivalence** — `--transport mcp` + `--mcp-transport stdio|http` wired; results match `--transport uds` byte-for-byte (completed 2026-06-06)
 - [ ] **Phase 58: Runtime discovery + helper commands** — `mcp.runtime.json` schema + `agent-brain mcp start/stop` with loopback bind, port auto-allocation, psutil verification
 - [ ] **Phase 59: CLI prompts + resources commands** — `agent-brain prompt <name>`, `agent-brain resources list/read <uri>` with sandbox + binary/JSON content handling
 - [ ] **Phase 60: Subprocess hygiene + 1000-invocation orphan test** — Pinned cwd, env allowlist, SIGTERM/SIGKILL escalation, opt-in stress test
@@ -86,7 +86,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
   2. `agent-brain --transport mcp --mcp-transport http query "X"` succeeds and routes through `McpHttpBackend`
   3. Invalid combinations (e.g., `--mcp-transport http` without an `--mcp-url` and no `mcp.runtime.json`) fail with a clear error and a non-zero exit code; NO silent fallback to stdio or UDS
   4. Contract test asserts the JSON output of `agent-brain --transport mcp query "X"` equals the output of `agent-brain --transport uds query "X"` byte-for-byte after stripping timestamps + elapsed fields
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 - [ ] 57-01-PLAN.md — Wire `--transport mcp` + `--mcp-transport stdio|http` + `--mcp-url` flags, `resolve_mcp_transport` config helper, `open_backend` dispatcher rename + 20-callsite swap (CLI-MCP-03)
 - [ ] 57-02-PLAN.md — Wire `query()` on both McpStdioBackend + McpHttpBackend via `stdio_client` / `streamablehttp_client` + the byte-identical-equivalence DoD anchor contract test (CLI-MCP-04)
 - [ ] 57-03-PLAN.md — Wire remaining 10 BackendClient methods on both backends per design doc §2.3 mapping table; `reset()` stays NotImplementedError with the verbatim §3.5 wording (CLI-MCP-03 close)
@@ -176,7 +176,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 | 54. 9 remaining MCP tools                                   | v10.2     | 4/4            | Complete    | 2026-06-03 |
 | 55. Validation, contract tests & QA gate                    | v10.2     | 5/5            | Complete    | 2026-06-03 |
 | 56. Design doc + CLI backend skeleton                       | 3/3 | Complete    | 2026-06-06 | -          |
-| 57. CLI transport selector + byte-identical equivalence     | 2/3 | In Progress|  | -          |
+| 57. CLI transport selector + byte-identical equivalence     | 3/3 | Complete   | 2026-06-06 | -          |
 | 58. Runtime discovery + helper commands                     | v10.3     | 0/TBD          | Not started | -          |
 | 59. CLI prompts + resources commands                        | v10.3     | 0/TBD          | Not started | -          |
 | 60. Subprocess hygiene + 1000-invocation orphan test        | v10.3     | 0/TBD          | Not started | -          |

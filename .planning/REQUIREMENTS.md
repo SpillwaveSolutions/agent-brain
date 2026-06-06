@@ -97,7 +97,7 @@ Which phases cover which requirements. Filled by roadmap creation 2026-06-05.
 | DESIGN-V3-01 | Phase 56 | Complete |
 | CLI-MCP-01 | Phase 56 | Complete |
 | CLI-MCP-02 | Phase 56 | Complete |
-| CLI-MCP-03 | Phase 57 | Complete (selector + dispatcher + 3 §3.5 cases in Plan 57-01; method wiring closes in Plan 57-03) |
+| CLI-MCP-03 | Phase 57 | Complete (selector + dispatcher + 3 §3.5 cases in Plan 57-01; query() wiring + CLI-MCP-04 DoD anchor in Plan 57-02; remaining 10 BackendClient methods + verbatim reset() on both backends in Plan 57-03) |
 | CLI-MCP-04 | Phase 57 | Complete |
 | CLI-MCP-05 | Phase 59 | Pending |
 | CLI-MCP-06 | Phase 59 | Pending |

@@ -4,13 +4,13 @@ milestone: v10.3
 milestone_name: MCP v3 — CLI-via-MCP + Framework Matrix
 current_phase: 57
 status: executing
-stopped_at: Completed 57-02-PLAN.md (McpStdioBackend/McpHttpBackend query wiring + byte-identical-equivalence DoD anchor)
-last_updated: "2026-06-06T23:32:14.943Z"
+stopped_at: Completed 57-03-PLAN.md (10 BackendClient methods wired on both MCP backends + reset() verbatim NotImplementedError — Phase 57 complete; CLI-MCP-03 closed)
+last_updated: "2026-06-06T23:57:31.131Z"
 progress:
   total_phases: 8
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Agent Brain — Project State
@@ -22,8 +22,10 @@ progress:
 
 ## Current Position
 
-Phase: 57 (cli-transport-selector-byte-identical-equivalence) — EXECUTING
-Plan: 3 of 3 (Plan 57-01 complete — selector flags + dispatcher + 3 §3.5 misuse cases shipped; Plan 57-02 complete — query() wired on both MCP backends + CLI-MCP-04 DoD anchor; Plan 57-03 wires remaining BackendClient methods)
+Phase: 57 (cli-transport-selector-byte-identical-equivalence) — COMPLETE
+Plan: 3 of 3 done (Plan 57-01 — selector flags + dispatcher + 3 §3.5 misuse cases; Plan 57-02 — query() wired on both MCP backends + CLI-MCP-04 byte-equivalence DoD anchor; Plan 57-03 — remaining 10 BackendClient methods wired on both McpStdioBackend + McpHttpBackend; reset() raises NotImplementedError verbatim per CONTEXT.md §decisions. CLI-MCP-03 fully closed.)
+
+Next phase: 58 (mcp.runtime.json discovery + agent-brain mcp start|stop helper commands)
 
 ## Project Reference
 
@@ -95,6 +97,11 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 
 ### Decisions from Prior Milestones (still load-bearing)
 
+- **Decision (2026-06-06, Plan 57-03):** Pattern A confirmed across the full 10-method × 2-backend surface. No overhead concern surfaced in the 22-test fast wire suite (~7s) or 11-test e2e_http opt-in suite (~8s). Phase 60 owns the persistent-subprocess refinement target unchanged. Each public method is a 1-line `asyncio.run(self._async_*())` facade; the matching `_async_*` helper opens `stdio_client` / `streamablehttp_client`, opens `ClientSession`, calls one MCP wire method, then unwraps and translates.
+- **Decision (2026-06-06, Plan 57-03):** 5 translator helpers + 2 unwrap helpers + 1 body-builder. `_coerce_query_response` (Plan 57-02), `_coerce_health_status`, `_coerce_indexing_status`, `_coerce_folder_info_list`, `_coerce_index_response`. Plus `_unwrap_payload` (call_tool results: structuredContent or content[0].text JSON fallback) and `_unwrap_resource_body` (read_resource results: contents[0].text JSON). Plus `_build_index_body(folder_path, ..., injector_script, folder_metadata_file, dry_run) -> (body, tool_name)` for the index/inject branching. Methods that return `dict[str, Any]` verbatim (list_jobs, get_job, cancel_job, cache_status, clear_cache, delete_folder) use `_unwrap_*` directly with no per-method coerce. Phase 58/59 should follow this shape.
+- **Decision (2026-06-06, Plan 57-03):** Destructive-op guard pass-through (CONTEXT discretion note honored). `cancel_job`, `remove_folder`, AND `clear_cache` all carry `confirm: True` in the `call_tool` body — the CONTEXT note flagged only `clear_cache` explicitly; the same Phase 54 Plan 03 destructive-op guard applies to all three. No CLI-side confirmation prompt added — runtime behavior matches `--transport uds` verbatim.
+- **Decision (2026-06-06, Plan 57-03):** `_build_index_body` drops 9 CLI-only fields with no v2 MCP wire equivalent (recursive, supported_languages, code_chunk_strategy, include_patterns, exclude_patterns, include_types, generate_summaries, watch_mode, watch_debounce_seconds). The v2 MCP tool input schemas use `additionalProperties=false`; forwarding these would fail SDK-level validation. Phase 58+ planners weigh schema widening vs holding for v4 if any becomes load-bearing on `--transport mcp`.
+- **Decision (2026-06-06, Plan 57-03):** `reset()` raises NotImplementedError with the verbatim CONTEXT.md §decisions wording on BOTH backends — string literal duplicated by design (each backend independently unit-tested for byte-equality of the runtime message). The `_RESET_NOT_SUPPORTED` constant was introduced then removed; duplicating the literal is the simpler, more grep-friendly shape. `_PHASE_57_NOT_WIRED` constant deleted now that zero raise sites use it (Task 3 acceptance criterion: exactly 0 sentinel raises; exactly 2 NotImplementedError raises — only `reset()` on each backend).
 - **Decision (2026-06-06, Plan 57-02):** Sync facade Pattern A CONFIRMED — `asyncio.run(self._async_query(...))` per public method call on both McpStdioBackend and McpHttpBackend. No overhead concern surfaced for the single-query CLI paths (5 stdio + 3 HTTP wire tests complete in <3s combined; ~600ms per stdio subprocess spawn including agent-brain-mcp child boot). Pattern B (persistent `_loop` + persistent subprocess) deferred to Phase 60 measurement against `agent-brain jobs --watch` (3s polling). Plan 57-03 should mirror this Pattern A shape for the remaining 10 BackendClient methods.
 - **Decision (2026-06-06, Plan 57-02):** Byte-equivalence DoD anchor (CLI-MCP-04) SKIPS gracefully when OPENAI_API_KEY is missing — NO stub fallback. Translator-shape equality would only prove the `_coerce_query_response` helper agrees with itself, not WIRE equality (ROADMAP SC4 byte-for-byte). When prereqs are present (real keys + binaries), the test (`agent-brain-cli/tests/contract/test_transport_equivalence.py`) is the unambiguous DoD anchor: two real `python -m agent_brain_cli --transport ... query echo --json` subprocesses against a real seeded UDS-backed corpus, JSON outputs stripped of volatile fields (`elapsed_seconds`, `query_time_ms`, per-chunk `indexed_at`/`updated_at`/`elapsed_ms`) and byte-compared. When absent, `pytest.skip(reason)` logs the exact missing prereq. False-PASS path does not exist.
 - **Decision (2026-06-06, Plan 57-02):** Shared corpus seeder hoisted to `agent-brain-cli/tests/integration/_corpus.py`. The Plan 57-02 read_first cited `agent-brain-cli/tests/integration/test_smoke_uds.py` as the seeder pattern to clone — that file did NOT exist in the repo. Built `start_seeded_server(state_dir, corpus) -> contextmanager` from scratch following the Popen+poll+yield shape from `e2e/integration/conftest.py`. Phase 58 (mcp.runtime.json discovery → HTTP-leg equivalence) and Phase 59 (prompt + resources cross-transport pins) can reuse this module unchanged.
@@ -216,8 +223,8 @@ Feature backlog (#152, #154, #155, #156, #157, #158, #160, #162, #163, #164) and
 
 ## Session Continuity
 
-**Last Session:** 2026-06-06T23:32:14.939Z
-**Stopped At:** Completed 57-02-PLAN.md (McpStdioBackend/McpHttpBackend query wiring + byte-identical-equivalence DoD anchor)
+**Last Session:** 2026-06-06T23:57:31.127Z
+**Stopped At:** Completed 57-03-PLAN.md (10 BackendClient methods wired on both MCP backends + reset() verbatim NotImplementedError — Phase 57 complete; CLI-MCP-03 closed)
 
 **Stopped At (Plan 55-01 — prior, for reference):** SDK-driven contract test scaffolding shipped. New `agent-brain-mcp/tests/contract/` directory + `mcp_stdio_session` fixture (callable returning async context manager — dodging anyio's exit-cancel-scope-in-different-task trap that bites async-generator fixtures wrapping `stdio_client` per Phase 52 Plan 02 Decision precedent) + autouse D-17 orphan-scan fixture (script-name-scoped `pgrep -f fake_contract_server.py` runs after EVERY contract test, fails the test if any subprocess survived, SIGKILLs them so subsequent tests don't inherit). Bundled fake-server script template (`_DEFAULT_CONTRACT_SERVER_SCRIPT`) wires `build_server + run_stdio` against `httpx.MockTransport` backend per CONTEXT D-04 (NOT a real `agent-brain-serve` subprocess). Backend responses passed to the subprocess via `AGENT_BRAIN_MCP_CONTRACT_RESPONSES_JSON` env var (JSON-serialized METHOD-path -> body table); Plans 02/03/04 inject per-test `response_overrides` without rewriting the script. `_DEFAULT_RESPONSES` extended with 8 v2 endpoint stubs (`DELETE /index/folders/`, `GET/DELETE /index/cache/`, `POST /index/add`, 3 terminal JobRecord variants `job_done/job_failed/job_cancelled` for `wait_for_job` contract assertions) — strictly additive, no existing v1 entries modified. `contract` pytest marker registered in `pyproject.toml` + `addopts` extended to exclude contract from default fast path (alongside `e2e + e2e_http`). `agent-brain-mcp/Taskfile.yml::contract` replaces Phase 4 placeholder echo with `poetry run pytest tests/contract -v -m contract`. ONE smoke test asserting `initialize()` over stdio returns `serverInfo.name == 'agent-brain'` — proves the fixture chain end-to-end (0.46s, 0 orphans, 0 anyio errors). Entry point: `sys.executable + bundled script path` (NOT `python -m agent_brain_mcp` against a real backend — `agent_brain_mcp` has no `__main__.py` and `main_async` needs a live backend; bundled script bypasses both per the Phase 4 / Phase 52 fake-server pattern). 3 atomic commits on `main`: `f0b5966` test (8 `_DEFAULT_RESPONSES` additions), `fb24ab9` test (contract dir + conftest + smoke + marker), `2e92dcc` chore (task contract wiring). TWO deviations auto-applied: Rule 1 — anyio task ownership forced `mcp_stdio_session` shape from yielding-generator to callable-returning-async-context-manager (consumed as `async with mcp_stdio_session() as session:`; public fixture name preserved so Plans 02/03/04 inherit verbatim); Rule 2 — autouse orphan-scan fixture moved OUT of `mcp_stdio_session` into independent autouse fixture so future direct-subprocess tests (Plan 04 HTTP) get the D-17 safety net without coupling to session consumption. +1 smoke test on contract suite (`-m contract` opt-in); fast-path 451 tests unchanged (no regression from `_DEFAULT_RESPONSES` additions); `task contract` exit 0; `task check:layering` 3/3 contracts kept (164 files, 414 deps); `task before-push` exit 0 (416 monorepo CLI tests, 80% coverage gate honored, all 1685 cross-package tests passing). 20/24 plans complete across v10.2 milestone. Phase 55 plan 1/5 done.
 **Resume File:** None
@@ -269,3 +276,4 @@ Per workflow summarizer (verified ready_to_execute: true):
 | Phase 56 P03 | 15m | 3 tasks | 4 files |
 | Phase 57 P01 | 12m | 4 tasks | 23 files |
 | Phase 57 P02 | 13min | 4 tasks | 8 files |
+| Phase 57 P03 | 17 min | 4 tasks | 2 files |
