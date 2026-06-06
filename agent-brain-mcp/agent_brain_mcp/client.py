@@ -404,6 +404,51 @@ def _unwrap_resource_body(result: Any) -> dict[str, Any]:
     return parsed
 
 
+def _build_index_body(
+    *,
+    folder_path: str,
+    chunk_size: int,
+    chunk_overlap: int,
+    include_code: bool,
+    force: bool,
+    injector_script: str | None,
+    folder_metadata_file: str | None,
+    dry_run: bool,
+) -> tuple[dict[str, Any], str]:
+    """Build the call_tool body for ``index_folder`` or ``inject_documents``.
+
+    The v2 MCP tool input schemas use additionalProperties=false; CLI-
+    only fields (``recursive``, ``supported_languages``,
+    ``code_chunk_strategy``, ``include_patterns``, ``exclude_patterns``,
+    ``include_types``, ``generate_summaries``, ``watch_mode``,
+    ``watch_debounce_seconds``) have no v2 wire equivalent and are
+    dropped here. Phase 58+ may widen the tool schemas; for v3 the
+    closing constraint is the JSON-Schema validator inside the MCP SDK.
+
+    Returns:
+        Tuple of (body, tool_name). ``tool_name`` is ``inject_documents``
+        when ``injector_script`` or ``folder_metadata_file`` is set, else
+        ``index_folder``. ``include_code`` is forwarded to both tools
+        (their schemas both accept it).
+    """
+    body: dict[str, Any] = {
+        "folder_path": folder_path,
+        "force": force,
+        "include_code": include_code,
+        "chunk_size": chunk_size,
+        "chunk_overlap": chunk_overlap,
+    }
+    if injector_script is not None or folder_metadata_file is not None:
+        if injector_script is not None:
+            body["injector_script"] = injector_script
+        if folder_metadata_file is not None:
+            body["folder_metadata_file"] = folder_metadata_file
+        if dry_run:
+            body["dry_run"] = True
+        return body, "inject_documents"
+    return body, "index_folder"
+
+
 class McpStdioBackend:
     """CLI-side backend that talks to agent-brain-mcp over stdio.
 
@@ -614,36 +659,27 @@ class McpStdioBackend:
         watch_mode: str | None = None,
         watch_debounce_seconds: int | None = None,
     ) -> IndexResponse:
-        body: dict[str, Any] = {
-            "folder_path": folder_path,
-            "chunk_size": chunk_size,
-            "chunk_overlap": chunk_overlap,
-            "recursive": recursive,
-            "include_code": include_code,
-            "code_chunk_strategy": code_chunk_strategy,
-            "generate_summaries": generate_summaries,
-            "force": force,
-            "dry_run": dry_run,
-        }
-        if supported_languages is not None:
-            body["supported_languages"] = supported_languages
-        if include_patterns is not None:
-            body["include_patterns"] = include_patterns
-        if exclude_patterns is not None:
-            body["exclude_patterns"] = exclude_patterns
-        if include_types is not None:
-            body["include_types"] = include_types
-        if folder_metadata_file is not None:
-            body["folder_metadata_file"] = folder_metadata_file
-        if watch_mode is not None:
-            body["watch_mode"] = watch_mode
-        if watch_debounce_seconds is not None:
-            body["watch_debounce_seconds"] = watch_debounce_seconds
-        if injector_script is not None:
-            body["injector_script"] = injector_script
-            tool_name = "inject_documents"
-        else:
-            tool_name = "index_folder"
+        # The MCP v2 tool input schemas (IndexFolderInput,
+        # InjectDocumentsInput) use additionalProperties=false. They
+        # accept a strict subset of the CLI BackendClient.index()
+        # parameter set. CLI-only parameters that have no v2 MCP
+        # equivalent (recursive, supported_languages, code_chunk_strategy,
+        # include_patterns, exclude_patterns, include_types,
+        # generate_summaries, watch_mode, watch_debounce_seconds) are
+        # dropped here rather than forwarded — forwarding them would
+        # fail JSON Schema validation in the SDK. Phase 58+ may widen
+        # the MCP tool schemas to add these; for v3 the wire layer is
+        # the closing constraint.
+        body, tool_name = _build_index_body(
+            folder_path=folder_path,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            include_code=include_code,
+            force=force,
+            injector_script=injector_script,
+            folder_metadata_file=folder_metadata_file,
+            dry_run=dry_run,
+        )
         return asyncio.run(self._async_index(tool_name=tool_name, body=body))
 
     async def _async_index(
@@ -679,11 +715,16 @@ class McpStdioBackend:
         from mcp import ClientSession
         from mcp.client.stdio import stdio_client
 
+        # remove_folder is destructive — Phase 54 Plan 03 schema
+        # requires confirm=True (RemoveFolderInput.confirm: Literal[True]).
+        # CONTEXT.md Claude's-discretion note: pass-through for parity
+        # with --transport uds; no CLI-side confirmation prompt.
         async with stdio_client(self._stdio_params()) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.call_tool(
-                    "remove_folder", {"folder_path": folder_path}
+                    "remove_folder",
+                    {"folder_path": folder_path, "confirm": True},
                 )
         return _unwrap_payload(result)
 
@@ -735,10 +776,16 @@ class McpStdioBackend:
         from mcp import ClientSession
         from mcp.client.stdio import stdio_client
 
+        # cancel_job is destructive — v1's destructive-op guard requires
+        # confirm=True (CancelJobInput.confirm: Literal[True], v1 §6.2).
+        # CONTEXT.md Claude's-discretion note: pass-through for parity
+        # with --transport uds.
         async with stdio_client(self._stdio_params()) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
-                result = await session.call_tool("cancel_job", {"job_id": job_id})
+                result = await session.call_tool(
+                    "cancel_job", {"job_id": job_id, "confirm": True}
+                )
         return _unwrap_payload(result)
 
     def cache_status(self) -> dict[str, Any]:

@@ -400,7 +400,13 @@ def test_stdio_index_routes_to_inject_documents_when_injector_set(
 
     body = _json.loads(post_index[0]["body"])
     assert body["folder_path"] == "/path/to/folder"
-    assert body["injector_script"] == "enrich.py"
+    # The MCP inject_documents handler resolves injector_script via
+    # Path(...).expanduser().resolve() to mirror the CLI's behavior
+    # (tools/inject.py:94). The relative path 'enrich.py' is therefore
+    # turned into an absolute path under the subprocess cwd before the
+    # server sees the body. Wire-level proof: injector_script ends with
+    # 'enrich.py' AND is present in the request body.
+    assert body["injector_script"].endswith("enrich.py")
 
 
 def test_stdio_delete_folder_routes_to_remove_folder_tool(
