@@ -263,6 +263,16 @@ if TYPE_CHECKING:
 
 _PHASE_57_NOT_WIRED = "Wired in Phase 57+"
 
+# Verbatim NotImplementedError wording for `reset()` on both backends
+# (Phase 57 CONTEXT.md §decisions — DO NOT paraphrase). Duplicated as a
+# string literal in each backend's `reset()` body so a grep for the
+# message returns exactly 2 hits.
+_RESET_NOT_SUPPORTED = (
+    "--transport mcp does not support reset; use --transport uds "
+    "or http (no reset_index MCP tool in v2; v3 Phase 57+ open "
+    "decision per design doc §4 risks)"
+)
+
 
 def _coerce_query_response(payload: dict[str, Any]) -> QueryResponse:
     """Translate a ``search_documents`` MCP tool payload into ``QueryResponse``.
@@ -287,6 +297,111 @@ def _coerce_query_response(payload: dict[str, Any]) -> QueryResponse:
         query_time_ms=float(payload.get("query_time_ms", 0.0)),
         total_results=int(payload.get("total_results", len(results))),
     )
+
+
+def _coerce_health_status(payload: dict[str, Any]) -> HealthStatus:
+    """Translate a ``server_health`` MCP tool payload into ``HealthStatus``.
+
+    Mirrors ``DocServeClient.health()``'s parse logic so both transports
+    produce identical dataclass shapes. Late-imports the dataclass per
+    the same module-load cycle rationale as ``_coerce_query_response``.
+    """
+    from agent_brain_cli.client import api_client as _api_client
+
+    return _api_client.HealthStatus(
+        status=payload.get("status", ""),
+        message=payload.get("message"),
+        version=payload.get("version", "unknown"),
+        timestamp=payload.get("timestamp", ""),
+    )
+
+
+def _coerce_indexing_status(payload: dict[str, Any]) -> IndexingStatus:
+    """Translate a ``corpus://status`` MCP resource body into ``IndexingStatus``.
+
+    Mirrors ``DocServeClient.status()``'s parse logic.
+    """
+    from agent_brain_cli.client import api_client as _api_client
+
+    return _api_client.IndexingStatus(
+        total_documents=int(payload.get("total_documents", 0)),
+        total_chunks=int(payload.get("total_chunks", 0)),
+        indexing_in_progress=bool(payload.get("indexing_in_progress", False)),
+        current_job_id=payload.get("current_job_id"),
+        progress_percent=float(payload.get("progress_percent", 0.0)),
+        last_indexed_at=payload.get("last_indexed_at"),
+        indexed_folders=list(payload.get("indexed_folders", [])),
+        file_watcher=payload.get("file_watcher"),
+        embedding_cache=payload.get("embedding_cache"),
+    )
+
+
+def _coerce_folder_info_list(payload: dict[str, Any]) -> list[FolderInfo]:
+    """Translate a ``corpus://folders`` MCP resource body into ``list[FolderInfo]``.
+
+    Mirrors ``DocServeClient.list_folders()``'s parse logic.
+    """
+    from agent_brain_cli.client import api_client as _api_client
+
+    return [
+        _api_client.FolderInfo(
+            folder_path=f["folder_path"],
+            chunk_count=int(f.get("chunk_count", 0)),
+            last_indexed=f.get("last_indexed", ""),
+            watch_mode=f.get("watch_mode", "off"),
+            watch_debounce_seconds=f.get("watch_debounce_seconds"),
+        )
+        for f in payload.get("folders", [])
+    ]
+
+
+def _coerce_index_response(payload: dict[str, Any]) -> IndexResponse:
+    """Translate an ``index_folder`` / ``inject_documents`` MCP tool payload
+    into ``IndexResponse``.
+
+    Mirrors ``DocServeClient.index()``'s parse logic.
+    """
+    from agent_brain_cli.client import api_client as _api_client
+
+    return _api_client.IndexResponse(
+        job_id=payload.get("job_id", ""),
+        status=payload.get("status", ""),
+        message=payload.get("message"),
+    )
+
+
+def _unwrap_payload(result: Any) -> dict[str, Any]:
+    """Extract a dict payload from an MCP tool result.
+
+    Prefer ``structuredContent`` (the SDK's typed channel). Fall back to
+    parsing ``content[0].text`` as JSON when ``structuredContent`` is
+    None (the SDK behavior when the tool's output_schema is not
+    declared).
+    """
+    if result.structuredContent is not None:
+        payload = result.structuredContent
+        assert isinstance(payload, dict)
+        return payload
+    import json as _json
+
+    text = result.content[0].text
+    parsed = _json.loads(text)
+    assert isinstance(parsed, dict)
+    return parsed
+
+
+def _unwrap_resource_body(result: Any) -> dict[str, Any]:
+    """Extract a dict payload from an MCP read_resource result.
+
+    ``result.contents[0].text`` is a JSON string for the corpus:// and
+    job:// schemes (Plan 51).
+    """
+    import json as _json
+
+    text = result.contents[0].text
+    parsed = _json.loads(text)
+    assert isinstance(parsed, dict)
+    return parsed
 
 
 class McpStdioBackend:
@@ -350,13 +465,57 @@ class McpStdioBackend:
         """
         self._closed = True
 
-    # --- BackendClient surface (12 methods — all raise NotImplementedError) ---
+    # --- Shared helpers (Pattern A — asyncio.run per call) ---
+
+    def _stdio_params(self) -> Any:
+        """Build StdioServerParameters from ``self.command`` / cwd / env.
+
+        Shared by every async helper so the subprocess spec stays
+        consistent across all 11 wired methods.
+        """
+        from mcp.client.stdio import StdioServerParameters
+
+        if isinstance(self.command, str):
+            command_str = self.command
+            extra_args: list[str] = []
+        else:
+            command_str = self.command[0]
+            extra_args = list(self.command[1:])
+        return StdioServerParameters(
+            command=command_str,
+            args=[*extra_args, "--transport", "stdio"],
+            cwd=self.cwd,
+            env=self.env,
+        )
+
+    # --- BackendClient surface (12 methods) ---
 
     def health(self) -> HealthStatus:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        return asyncio.run(self._async_health())
+
+    async def _async_health(self) -> HealthStatus:
+        from mcp import ClientSession
+        from mcp.client.stdio import stdio_client
+
+        async with stdio_client(self._stdio_params()) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool("server_health", {})
+        return _coerce_health_status(_unwrap_payload(result))
 
     def status(self) -> IndexingStatus:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        return asyncio.run(self._async_status())
+
+    async def _async_status(self) -> IndexingStatus:
+        from mcp import ClientSession
+        from mcp.client.stdio import stdio_client
+        from pydantic import AnyUrl
+
+        async with stdio_client(self._stdio_params()) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.read_resource(AnyUrl("corpus://status"))
+        return _coerce_indexing_status(_unwrap_resource_body(result))
 
     def query(
         self,
@@ -411,21 +570,7 @@ class McpStdioBackend:
         # path; consumers of the McpStdioBackend constructor that
         # never call query() do not pay the import cost.
         from mcp import ClientSession
-        from mcp.client.stdio import StdioServerParameters, stdio_client
-
-        if isinstance(self.command, str):
-            command_str = self.command
-            extra_args: list[str] = []
-        else:
-            command_str = self.command[0]
-            extra_args = list(self.command[1:])
-
-        params = StdioServerParameters(
-            command=command_str,
-            args=[*extra_args, "--transport", "stdio"],
-            cwd=self.cwd,
-            env=self.env,
-        )
+        from mcp.client.stdio import stdio_client
 
         tool_args: dict[str, Any] = {
             "query": query_text,
@@ -442,19 +587,12 @@ class McpStdioBackend:
         if file_paths is not None:
             tool_args["file_paths"] = file_paths
 
-        async with stdio_client(params) as (read, write):
+        async with stdio_client(self._stdio_params()) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.call_tool("search_documents", tool_args)
 
-        if result.structuredContent is None:
-            import json as _json
-
-            payload = _json.loads(result.content[0].text)  # type: ignore[union-attr]
-        else:
-            payload = result.structuredContent
-
-        return _coerce_query_response(payload)
+        return _coerce_query_response(_unwrap_payload(result))
 
     def index(
         self,
@@ -476,34 +614,162 @@ class McpStdioBackend:
         watch_mode: str | None = None,
         watch_debounce_seconds: int | None = None,
     ) -> IndexResponse:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        body: dict[str, Any] = {
+            "folder_path": folder_path,
+            "chunk_size": chunk_size,
+            "chunk_overlap": chunk_overlap,
+            "recursive": recursive,
+            "include_code": include_code,
+            "code_chunk_strategy": code_chunk_strategy,
+            "generate_summaries": generate_summaries,
+            "force": force,
+            "dry_run": dry_run,
+        }
+        if supported_languages is not None:
+            body["supported_languages"] = supported_languages
+        if include_patterns is not None:
+            body["include_patterns"] = include_patterns
+        if exclude_patterns is not None:
+            body["exclude_patterns"] = exclude_patterns
+        if include_types is not None:
+            body["include_types"] = include_types
+        if folder_metadata_file is not None:
+            body["folder_metadata_file"] = folder_metadata_file
+        if watch_mode is not None:
+            body["watch_mode"] = watch_mode
+        if watch_debounce_seconds is not None:
+            body["watch_debounce_seconds"] = watch_debounce_seconds
+        if injector_script is not None:
+            body["injector_script"] = injector_script
+            tool_name = "inject_documents"
+        else:
+            tool_name = "index_folder"
+        return asyncio.run(self._async_index(tool_name=tool_name, body=body))
+
+    async def _async_index(
+        self, *, tool_name: str, body: dict[str, Any]
+    ) -> IndexResponse:
+        from mcp import ClientSession
+        from mcp.client.stdio import stdio_client
+
+        async with stdio_client(self._stdio_params()) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool(tool_name, body)
+        return _coerce_index_response(_unwrap_payload(result))
 
     def list_folders(self) -> list[FolderInfo]:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        return asyncio.run(self._async_list_folders())
+
+    async def _async_list_folders(self) -> list[FolderInfo]:
+        from mcp import ClientSession
+        from mcp.client.stdio import stdio_client
+        from pydantic import AnyUrl
+
+        async with stdio_client(self._stdio_params()) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.read_resource(AnyUrl("corpus://folders"))
+        return _coerce_folder_info_list(_unwrap_resource_body(result))
 
     def delete_folder(self, folder_path: str) -> dict[str, Any]:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        return asyncio.run(self._async_delete_folder(folder_path))
+
+    async def _async_delete_folder(self, folder_path: str) -> dict[str, Any]:
+        from mcp import ClientSession
+        from mcp.client.stdio import stdio_client
+
+        async with stdio_client(self._stdio_params()) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool(
+                    "remove_folder", {"folder_path": folder_path}
+                )
+        return _unwrap_payload(result)
 
     def reset(self) -> IndexResponse:
-        # Design doc §5 risk: reset() has no MCP tool equivalent in v2.
-        # Phase 57+ decides whether to add a `reset_index` tool or hold
-        # for v4. Skeleton raises the standard sentinel.
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        # Design doc §4-risks: reset() has no MCP tool equivalent in v2.
+        # Phase 57+ open decision per CONTEXT.md §decisions — explicit
+        # NotImplementedError pointer rather than a silent fallback or a
+        # not-yet-existing tool call.
+        raise NotImplementedError(
+            "--transport mcp does not support reset; use --transport uds "
+            "or http (no reset_index MCP tool in v2; v3 Phase 57+ open "
+            "decision per design doc §4 risks)"
+        )
 
     def list_jobs(self, limit: int = 20) -> list[dict[str, Any]]:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        return asyncio.run(self._async_list_jobs(limit))
+
+    async def _async_list_jobs(self, limit: int) -> list[dict[str, Any]]:
+        from mcp import ClientSession
+        from mcp.client.stdio import stdio_client
+
+        async with stdio_client(self._stdio_params()) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool("list_jobs", {"limit": limit})
+        payload = _unwrap_payload(result)
+        jobs = payload.get("jobs", [])
+        assert isinstance(jobs, list)
+        return jobs
 
     def get_job(self, job_id: str) -> dict[str, Any]:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        return asyncio.run(self._async_get_job(job_id))
+
+    async def _async_get_job(self, job_id: str) -> dict[str, Any]:
+        from mcp import ClientSession
+        from mcp.client.stdio import stdio_client
+        from pydantic import AnyUrl
+
+        async with stdio_client(self._stdio_params()) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.read_resource(AnyUrl(f"job://{job_id}"))
+        return _unwrap_resource_body(result)
 
     def cancel_job(self, job_id: str) -> dict[str, Any]:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        return asyncio.run(self._async_cancel_job(job_id))
+
+    async def _async_cancel_job(self, job_id: str) -> dict[str, Any]:
+        from mcp import ClientSession
+        from mcp.client.stdio import stdio_client
+
+        async with stdio_client(self._stdio_params()) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool("cancel_job", {"job_id": job_id})
+        return _unwrap_payload(result)
 
     def cache_status(self) -> dict[str, Any]:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        return asyncio.run(self._async_cache_status())
+
+    async def _async_cache_status(self) -> dict[str, Any]:
+        from mcp import ClientSession
+        from mcp.client.stdio import stdio_client
+
+        async with stdio_client(self._stdio_params()) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool("cache_status", {})
+        return _unwrap_payload(result)
 
     def clear_cache(self) -> dict[str, Any]:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        return asyncio.run(self._async_clear_cache())
+
+    async def _async_clear_cache(self) -> dict[str, Any]:
+        from mcp import ClientSession
+        from mcp.client.stdio import stdio_client
+
+        # confirm=True is REQUIRED by the clear_cache tool's
+        # Pydantic schema (Phase 54 Plan 03 destructive-op guard).
+        # CONTEXT.md Claude's-discretion note: pass-through for parity
+        # with --transport uds; no CLI-side confirmation prompt.
+        async with stdio_client(self._stdio_params()) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool("clear_cache", {"confirm": True})
+        return _unwrap_payload(result)
 
 
 class McpHttpBackend:
