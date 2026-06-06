@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -327,42 +326,240 @@ def test_stdio_query_spawns_fresh_subprocess_per_call(
 # HTTP backend tests (opt-in via -m e2e_http — needs subprocess fixture)
 # ---------------------------------------------------------------------------
 
+# Custom HTTP fake-server script that DOES register POST /query/ — the
+# conftest.py's _FAKE_HTTP_SERVER_SCRIPT is GET-only by design (it's
+# wired for the v1 surface smoke tests). For these wire tests we need
+# the query path to actually answer with a populated response.
+_FAKE_HTTP_QUERY_SERVER_SCRIPT = r"""
+import asyncio
+import os
+import sys
+
+import httpx
+
+from agent_brain_mcp.http import run_http
+from agent_brain_mcp.server import build_server
+
+_QUERY_RESPONSE = {
+    "query": "echo",
+    "mode": "hybrid",
+    "total_results": 1,
+    "query_time_ms": 12.3,
+    "results": [
+        {
+            "text": "hit",
+            "source": "/tmp/seed/a.md",
+            "score": 0.95,
+            "chunk_id": "chunk-a",
+            "metadata": {"language": "md"},
+        },
+    ],
+}
+
+_RESPONSES = {
+    ("GET", "/health/"): {
+        "status": "healthy", "version": "10.2.0",
+        "message": "ok", "mode": "project", "instance_id": "wire-http",
+    },
+    ("GET", "/health/status"): {
+        "total_documents": 1, "total_chunks": 1,
+        "indexing_in_progress": False, "current_job_id": None,
+        "progress_percent": 0.0, "indexed_folders": [],
+    },
+    ("GET", "/health/config"): {
+        "storage_backend": "chroma",
+        "stores": {"vector": True, "bm25": True, "graph": False},
+        "reranker_enabled": False,
+        "embedding_model": "text-embedding-3-large",
+        "rerank_model": None, "graph_extractor": None,
+        "watcher_running": False,
+    },
+    ("GET", "/health/providers"): {
+        "config_source": None, "strict_mode": False,
+        "validation_errors": [], "providers": [],
+        "timestamp": "2026-06-06T00:00:00Z",
+    },
+    ("GET", "/query/count"): {"total_documents": 1, "total_chunks": 1},
+    ("POST", "/query/"): _QUERY_RESPONSE,
+    ("GET", "/index/folders/"): {
+        "folders": [{"folder_path": "/tmp/seed", "chunk_count": 1,
+                     "last_indexed": "2026-06-06", "watch_mode": "off",
+                     "watch_debounce_seconds": 30}],
+    },
+}
+
+
+def _handler(request):
+    key = (request.method, request.url.path)
+    body = _RESPONSES.get(key, {"detail": "not configured: " + str(key)})
+    return httpx.Response(200, json=body)
+
+
+async def main():
+    host = os.environ["AGENT_BRAIN_MCP_E2E_HOST"]
+    port = int(os.environ["AGENT_BRAIN_MCP_E2E_PORT"])
+    client = httpx.Client(
+        transport=httpx.MockTransport(_handler),
+        base_url="http://wire-http",
+    )
+    server, manager = build_server(
+        client, backend_transport="http", listen_transport="http"
+    )
+    try:
+        await run_http(server, manager, host=host, port=port)
+    finally:
+        client.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+"""
+
+
+@pytest.fixture
+def fake_http_query_server_script(tmp_path: Path) -> Path:
+    script = tmp_path / "fake_http_query_server.py"
+    script.write_text(_FAKE_HTTP_QUERY_SERVER_SCRIPT)
+    return script
+
 
 @pytest.mark.e2e_http
 def test_http_query_returns_populated_query_response(
-    mcp_http_subprocess: Any,
+    fake_http_query_server_script: Path,
     free_loopback_port: int,
 ) -> None:
-    """McpHttpBackend.query('test') returns a real QueryResponse — NOT
-    NotImplementedError.
+    """McpHttpBackend.query('echo') returns a real QueryResponse — NOT
+    NotImplementedError."""
+    # Reuse the same subprocess pattern as conftest's mcp_http_subprocess,
+    # but point it at our wire-test fake server.
+    import os
+    import signal
+    import subprocess
+    import sys
+    import time
 
-    Uses the existing ``mcp_http_subprocess`` fixture from conftest.py
-    which spins up a fake-backend MCP server on a loopback port.
-    """
-    with mcp_http_subprocess():
+    project_root = Path(__file__).resolve().parent.parent
+    env = {
+        **os.environ,
+        "PYTHONPATH": str(project_root),
+        "AGENT_BRAIN_MCP_E2E_HOST": "127.0.0.1",
+        "AGENT_BRAIN_MCP_E2E_PORT": str(free_loopback_port),
+    }
+    proc = subprocess.Popen(
+        [sys.executable, str(fake_http_query_server_script)],
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=str(project_root),
+    )
+    try:
+        # Wait for /healthz
+        import httpx as _httpx
+
+        url_health = f"http://127.0.0.1:{free_loopback_port}/healthz"
+        deadline = time.time() + 10.0
+        while time.time() < deadline:
+            if proc.poll() is not None:
+                stderr = proc.stderr.read() if proc.stderr else b""
+                raise RuntimeError(
+                    f"HTTP server died before ready: "
+                    f"{stderr.decode(errors='replace')}"
+                )
+            try:
+                r = _httpx.get(url_health, timeout=0.5)
+                if r.status_code == 200:
+                    break
+            except _httpx.HTTPError:
+                pass
+            time.sleep(0.1)
+        else:
+            proc.terminate()
+            raise RuntimeError("HTTP server did not become ready")
+
         url = f"http://127.0.0.1:{free_loopback_port}/mcp"
         backend = McpHttpBackend(url=url)
-        response = backend.query("test")
+        response = backend.query("echo")
+    finally:
+        if proc.poll() is None:
+            proc.send_signal(signal.SIGINT)
+            try:
+                proc.wait(timeout=3.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+
     assert isinstance(response, QueryResponse)
-    # The conftest fixture's POST /query/ returns total_results=1.
     assert response.total_results == 1
+    assert len(response.results) == 1
+    assert response.results[0].chunk_id == "chunk-a"
 
 
 @pytest.mark.e2e_http
 def test_http_query_routes_to_search_documents_tool(
-    mcp_http_subprocess: Any,
+    fake_http_query_server_script: Path,
     free_loopback_port: int,
 ) -> None:
     """The HTTP backend uses the same ``search_documents`` tool as stdio.
 
-    This is an indirect proof — if the wrong tool name were used, the
-    MCP server would return a tool-not-found error rather than a
-    populated QueryResponse.
+    Indirect proof — if the wrong tool name were used, the MCP server
+    would return a tool-not-found error rather than a populated
+    QueryResponse.
     """
-    with mcp_http_subprocess():
+    import os
+    import signal
+    import subprocess
+    import sys
+    import time
+
+    project_root = Path(__file__).resolve().parent.parent
+    env = {
+        **os.environ,
+        "PYTHONPATH": str(project_root),
+        "AGENT_BRAIN_MCP_E2E_HOST": "127.0.0.1",
+        "AGENT_BRAIN_MCP_E2E_PORT": str(free_loopback_port),
+    }
+    proc = subprocess.Popen(
+        [sys.executable, str(fake_http_query_server_script)],
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=str(project_root),
+    )
+    try:
+        import httpx as _httpx
+
+        url_health = f"http://127.0.0.1:{free_loopback_port}/healthz"
+        deadline = time.time() + 10.0
+        while time.time() < deadline:
+            if proc.poll() is not None:
+                stderr = proc.stderr.read() if proc.stderr else b""
+                raise RuntimeError(
+                    f"HTTP server died before ready: "
+                    f"{stderr.decode(errors='replace')}"
+                )
+            try:
+                r = _httpx.get(url_health, timeout=0.5)
+                if r.status_code == 200:
+                    break
+            except _httpx.HTTPError:
+                pass
+            time.sleep(0.1)
+        else:
+            proc.terminate()
+            raise RuntimeError("HTTP server did not become ready")
+
         url = f"http://127.0.0.1:{free_loopback_port}/mcp"
         backend = McpHttpBackend(url=url)
-        response = backend.query("test", top_k=3)
+        response = backend.query("echo", top_k=3)
+    finally:
+        if proc.poll() is None:
+            proc.send_signal(signal.SIGINT)
+            try:
+                proc.wait(timeout=3.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+
     assert isinstance(response, QueryResponse)
     assert response.results, "search_documents must return at least one result"
 

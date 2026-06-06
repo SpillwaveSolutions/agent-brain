@@ -281,9 +281,7 @@ def _coerce_query_response(payload: dict[str, Any]) -> QueryResponse:
     # backends (e.g. the v1 ApiClient code path).
     from agent_brain_cli.client import api_client as _api_client
 
-    results = [
-        _api_client._parse_query_result(r) for r in payload.get("results", [])
-    ]
+    results = [_api_client._parse_query_result(r) for r in payload.get("results", [])]
     return _api_client.QueryResponse(
         results=results,
         query_time_ms=float(payload.get("query_time_ms", 0.0)),
@@ -571,7 +569,78 @@ class McpHttpBackend:
         file_paths: list[str] | None = None,
         explain: bool = False,
     ) -> QueryResponse:
-        raise NotImplementedError(_PHASE_57_NOT_WIRED)
+        return asyncio.run(
+            self._async_query(
+                query_text=query_text,
+                top_k=top_k,
+                similarity_threshold=similarity_threshold,
+                mode=mode,
+                alpha=alpha,
+                source_types=source_types,
+                languages=languages,
+                file_paths=file_paths,
+                explain=explain,
+            )
+        )
+
+    async def _async_query(
+        self,
+        *,
+        query_text: str,
+        top_k: int,
+        similarity_threshold: float,
+        mode: str,
+        alpha: float,
+        source_types: list[str] | None,
+        languages: list[str] | None,
+        file_paths: list[str] | None,
+        explain: bool,
+    ) -> QueryResponse:
+        """Async helper for :meth:`query` (Pattern A sync facade — Phase
+        57 CONTEXT decision).
+
+        Each call opens a fresh ``streamablehttp_client`` against
+        ``self.url``, opens a ``ClientSession``, calls the
+        ``search_documents`` tool, then tears down. Phase 60 owns the
+        persistent-connection hygiene refinement; Phase 57 ships the
+        simplest correct code path. Mirrors :meth:`McpStdioBackend.
+        _async_query` exactly except for the transport call.
+        """
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+
+        tool_args: dict[str, Any] = {
+            "query": query_text,
+            "top_k": top_k,
+            "similarity_threshold": similarity_threshold,
+            "mode": mode,
+            "alpha": alpha,
+            "explain": explain,
+        }
+        if source_types is not None:
+            tool_args["source_types"] = source_types
+        if languages is not None:
+            tool_args["languages"] = languages
+        if file_paths is not None:
+            tool_args["file_paths"] = file_paths
+
+        # The SDK's streamablehttp_client yields (read, write,
+        # session_id_factory) in mcp 1.12.x; use *_ to absorb any
+        # future trailing tuple elements per the Phase 53
+        # test_transport_selection.py precedent (lines 67-71).
+        async with streamablehttp_client(self.url) as (read, write, *_):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool("search_documents", tool_args)
+
+        if result.structuredContent is None:
+            import json as _json
+
+            payload = _json.loads(result.content[0].text)  # type: ignore[union-attr]
+        else:
+            payload = result.structuredContent
+
+        return _coerce_query_response(payload)
 
     def index(
         self,
