@@ -4,13 +4,13 @@ milestone: v10.3
 milestone_name: MCP v3 — CLI-via-MCP + Framework Matrix
 current_phase: 56
 status: executing
-stopped_at: Completed 56-01-PLAN.md
-last_updated: "2026-06-06T21:38:41.886Z"
+stopped_at: Completed 56-02-PLAN.md
+last_updated: "2026-06-06T21:48:38.435Z"
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Agent Brain — Project State
@@ -23,7 +23,7 @@ progress:
 ## Current Position
 
 Phase: 56 (design-doc-cli-backend-skeleton) — EXECUTING
-Plan: 2 of 3 (Plan 01 complete — v3 design doc filed)
+Plan: 3 of 3 (Plans 01 + 02 complete — v3 design doc + BackendClient Protocol contract filed; next: Plan 03 McpStdioBackend + McpHttpBackend skeletons)
 
 ## Project Reference
 
@@ -179,6 +179,10 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 - **Decision (2026-06-06, Plan 56-01):** No silent fallback for v3 transport selection (v10.2 HTTP-03 carry-forward). `--transport mcp` without `agent-brain-mcp` installed fails loudly; `--mcp-transport http` without `mcp.runtime.json` AND no `--mcp-url` fails loudly; `--mcp-transport stdio` without `agent-brain-mcp` reachable on PATH fails loudly. NO fallback to UDS/HTTP transport on MCP unavailability — CLI must surface the failure so operator knows their `--transport` flag was honored.
 - **Decision (2026-06-06, Plan 56-01):** `reset()` on `BackendClient` Protocol has no MCP tool equivalent in v2 (v2 did not ship `reset_index` as an MCP tool — destructive op + cache invalidation makes it dangerous over MCP). Plan 56-03 skeleton will `raise NotImplementedError("`reset_index` MCP tool not exposed in v2; tracked for Phase 57+ decision")`; Phase 57+ decides whether to add a `reset_index` tool or hold for v4. The Protocol still declares `reset()` for structural conformance with `DocServeClient`.
 - **Decision (2026-06-06, Plan 56-01):** Design doc scope locked to CLI-via-MCP ONLY (DESIGN-V3-01, CLI-MCP-01, CLI-MCP-02). Framework adapter matrix (Phases 61-62) gets its own lighter scoping doc filed when Phase 61 starts — keeps REQUIREMENTS.md framework-matrix entries audit-trail-clean against CONTEXT.md scope boundary. v9.6.0 Runtime Parity unpark decision routed to `/gsd:discuss-phase 61` (NOT pre-decided here). Async-first `AsyncBackendClient` Protocol variant deferred to v10.4+.
+- **Decision (2026-06-06, Plan 56-02):** `BackendClient` `@runtime_checkable typing.Protocol` lives in `agent-brain-cli/agent_brain_cli/client/protocol.py` (131 lines) declaring exactly 15 attributes — 12 endpoint methods + 3 ctx-mgr methods (`__enter__`, `__exit__`, `close`). Signatures + defaults match `DocServeClient` byte-for-byte (`top_k=5`, `similarity_threshold=0.7`, `mode="hybrid"`, `alpha=0.5`, `chunk_size=512`, `chunk_overlap=50`, `recursive=True`, `code_chunk_strategy="ast_aware"`, `limit=20`). Pinned by 3-test regression suite (`test_doc_serve_client_satisfies_backend_client_protocol`, `test_backend_client_protocol_declares_expected_methods`, `test_stub_missing_query_fails_isinstance`). `DocServeClient` satisfies structurally without any inheritance edit — Plan 56-03 can swap in MCP backends with no Click-command churn.
+- **Decision (2026-06-06, Plan 56-02):** `__enter__` Protocol return type is `BackendClient` (the Protocol itself), NOT `DocServeClient`. Protocol return is covariant — DocServeClient's `__enter__ -> "DocServeClient"` still satisfies the Protocol because `DocServeClient` IS a `BackendClient` structurally. Most subtle of the 15 signatures; pinned by the runtime isinstance test.
+- **Decision (2026-06-06, Plan 56-02):** TYPE_CHECKING import of `api_client` dataclasses (`HealthStatus`, `IndexingStatus`, `QueryResponse`, `FolderInfo`, `IndexResponse`) in `protocol.py` avoids runtime cycle once Plan 56-03's MCP backends import the Protocol from this module. Forward-string references in method signatures; runtime cost zero.
+- **Decision (2026-06-06, Plan 56-02):** Two atomic per-task commits (`286bef7` `feat(56-02): add BackendClient @runtime_checkable Protocol` + `ab93bb2` `test(56-02): re-export BackendClient + protocol conformance tests`) rather than single squashed Task 3 commit. `tdd="true"` markers on Tasks 1 + 2 drove RED-GREEN-COMMIT atomicity per task; Plan 56-03 + Phase 57 reviewers get finer-grained audit trail on the BackendClient contract boundary. Task 3 served as pre-push quality gate (`task before-push` exit 0), not as a third squash commit.
 
 ### Blockers/Concerns
 
@@ -200,8 +204,8 @@ Feature backlog (#152, #154, #155, #156, #157, #158, #160, #162, #163, #164) and
 
 ## Session Continuity
 
-**Last Session:** 2026-06-06T21:38:41.883Z
-**Stopped At:** Completed 56-01-PLAN.md
+**Last Session:** 2026-06-06T21:48:38.432Z
+**Stopped At:** Completed 56-02-PLAN.md
 
 **Stopped At (Plan 55-01 — prior, for reference):** SDK-driven contract test scaffolding shipped. New `agent-brain-mcp/tests/contract/` directory + `mcp_stdio_session` fixture (callable returning async context manager — dodging anyio's exit-cancel-scope-in-different-task trap that bites async-generator fixtures wrapping `stdio_client` per Phase 52 Plan 02 Decision precedent) + autouse D-17 orphan-scan fixture (script-name-scoped `pgrep -f fake_contract_server.py` runs after EVERY contract test, fails the test if any subprocess survived, SIGKILLs them so subsequent tests don't inherit). Bundled fake-server script template (`_DEFAULT_CONTRACT_SERVER_SCRIPT`) wires `build_server + run_stdio` against `httpx.MockTransport` backend per CONTEXT D-04 (NOT a real `agent-brain-serve` subprocess). Backend responses passed to the subprocess via `AGENT_BRAIN_MCP_CONTRACT_RESPONSES_JSON` env var (JSON-serialized METHOD-path -> body table); Plans 02/03/04 inject per-test `response_overrides` without rewriting the script. `_DEFAULT_RESPONSES` extended with 8 v2 endpoint stubs (`DELETE /index/folders/`, `GET/DELETE /index/cache/`, `POST /index/add`, 3 terminal JobRecord variants `job_done/job_failed/job_cancelled` for `wait_for_job` contract assertions) — strictly additive, no existing v1 entries modified. `contract` pytest marker registered in `pyproject.toml` + `addopts` extended to exclude contract from default fast path (alongside `e2e + e2e_http`). `agent-brain-mcp/Taskfile.yml::contract` replaces Phase 4 placeholder echo with `poetry run pytest tests/contract -v -m contract`. ONE smoke test asserting `initialize()` over stdio returns `serverInfo.name == 'agent-brain'` — proves the fixture chain end-to-end (0.46s, 0 orphans, 0 anyio errors). Entry point: `sys.executable + bundled script path` (NOT `python -m agent_brain_mcp` against a real backend — `agent_brain_mcp` has no `__main__.py` and `main_async` needs a live backend; bundled script bypasses both per the Phase 4 / Phase 52 fake-server pattern). 3 atomic commits on `main`: `f0b5966` test (8 `_DEFAULT_RESPONSES` additions), `fb24ab9` test (contract dir + conftest + smoke + marker), `2e92dcc` chore (task contract wiring). TWO deviations auto-applied: Rule 1 — anyio task ownership forced `mcp_stdio_session` shape from yielding-generator to callable-returning-async-context-manager (consumed as `async with mcp_stdio_session() as session:`; public fixture name preserved so Plans 02/03/04 inherit verbatim); Rule 2 — autouse orphan-scan fixture moved OUT of `mcp_stdio_session` into independent autouse fixture so future direct-subprocess tests (Plan 04 HTTP) get the D-17 safety net without coupling to session consumption. +1 smoke test on contract suite (`-m contract` opt-in); fast-path 451 tests unchanged (no regression from `_DEFAULT_RESPONSES` additions); `task contract` exit 0; `task check:layering` 3/3 contracts kept (164 files, 414 deps); `task before-push` exit 0 (416 monorepo CLI tests, 80% coverage gate honored, all 1685 cross-package tests passing). 20/24 plans complete across v10.2 milestone. Phase 55 plan 1/5 done.
 **Resume File:** None
@@ -249,3 +253,4 @@ Per workflow summarizer (verified ready_to_execute: true):
 
 *State updated: 2026-06-05 — v10.3 ROADMAP CREATED. 8 phases (56-63) defined; 23/23 v1 requirements mapped to phases (Phase 56: DESIGN-V3-01 + CLI-MCP-01 + CLI-MCP-02; Phase 57: CLI-MCP-03 + CLI-MCP-04; Phase 58: CLI-MCP-08 + CLI-MCP-09 + CLI-MCP-10; Phase 59: CLI-MCP-05 + CLI-MCP-06 + CLI-MCP-07; Phase 60: MCPHYG-01 + MCPHYG-02; Phase 61: FRAME-01..05; Phase 62: FRAME-06 + FRAME-07; Phase 63: TOOLING-V3-01 + TOOLING-V3-02 + DOCS-V3-01). No orphans, no duplicates. Granularity: standard. Phase ordering enforces 3 hard dependencies — (1) Phase 56 design doc lands BEFORE Phase 57+ MCP code (v2 Phase 50 design-first precedent); (2) Phase 60 subprocess hygiene lands BEFORE Phase 61 framework matrix so every framework smoke test inherits the hygiene contract through McpStdioBackend rather than re-discovering orphan-process bugs; (3) Phase 63 tooling+docs lands AFTER Phases 61+62 since `task mcp:framework-matrix` and `docs/INTEGRATIONS.md` need the actual smoke tests to wire in. Open scope question deferred to /gsd:discuss-phase 61: whether to fold v9.6.0 Runtime Parity Phases 47-49 (headless Codex/OpenCode/Gemini execution verification) into v10.3 as a parallel track — the framework matrix surface overlaps; decision NOT pre-decided here. Framework SDK churn risk mitigated by pinning versions in `framework-matrix/requirements.txt` (Python) and `framework-matrix/ts/package.json` (TS); nightly CI is advisory only (TOOLING-V3-02). Files written: .planning/ROADMAP.md (appended v10.3 section after v10.2 details block — milestone history preserved), .planning/REQUIREMENTS.md (traceability table 23/23 mapped), .planning/STATE.md (Milestone Summary v10.3 row added with [          ] 0% (0/8 phases); frontmatter total_phases bumped 0 → 8). Next action: /gsd:discuss-phase 56 to begin v3 design doc planning.*
 | Phase 56 P01 | 7m | 3 tasks | 2 files |
+| Phase 56-design-doc-cli-backend-skeleton P02 | ~4 min | 3 tasks | 3 files |

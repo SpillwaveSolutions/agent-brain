@@ -72,7 +72,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
   3. `McpHttpBackend` declares the BackendClient Protocol surface for `streamablehttp_client` against a future `agent-brain-mcp --transport http` listener (skeleton; Phase 57 wires real SDK calls)
   4. Both backends pass an `isinstance(backend, BackendClient)` parity assertion against the runtime_checkable Protocol shipped in Plan 02
   5. Skeleton stubs raise NotImplementedError with the literal sentinel "Wired in Phase 57+" so Phase 57 tests can grep for it
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 - [ ] 56-01-PLAN.md — File v3 design doc at docs/plans/2026-06-05-mcp-v3-cli-via-mcp.md mirroring v2 doc structure (DESIGN-V3-01; docs-only; design-first gate)
 - [ ] 56-02-PLAN.md — Land BackendClient runtime_checkable Protocol in agent_brain_cli/client/protocol.py + isinstance regression test asserting DocServeClient conformance
 - [ ] 56-03-PLAN.md — Land McpStdioBackend + McpHttpBackend skeletons in agent_brain_mcp/client.py satisfying BackendClient (CLI-MCP-01, CLI-MCP-02); non-trivial methods raise NotImplementedError("Wired in Phase 57+")
@@ -172,7 +172,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 | 53. Streamable HTTP transport                               | v10.2     | 3/3            | Complete    | 2026-06-03 |
 | 54. 9 remaining MCP tools                                   | v10.2     | 4/4            | Complete    | 2026-06-03 |
 | 55. Validation, contract tests & QA gate                    | v10.2     | 5/5            | Complete    | 2026-06-03 |
-| 56. Design doc + CLI backend skeleton                       | 1/3 | In Progress|  | -          |
+| 56. Design doc + CLI backend skeleton                       | 2/3 | In Progress|  | -          |
 | 57. CLI transport selector + byte-identical equivalence     | v10.3     | 0/TBD          | Not started | -          |
 | 58. Runtime discovery + helper commands                     | v10.3     | 0/TBD          | Not started | -          |
 | 59. CLI prompts + resources commands                        | v10.3     | 0/TBD          | Not started | -          |
