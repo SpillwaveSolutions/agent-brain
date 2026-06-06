@@ -129,6 +129,9 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 - ✓ **VAL-03**: Streamable HTTP contract via `mcp.client.streamable_http.streamablehttp_client` (first repo usage); 6 SDK tests over the real `--transport http` subprocess + free-port allocation; reuses Phase 53's `fake_http_server_module` — v10.2 (Phase 55, Plan 04)
 - ✓ **VAL-04**: `agent-brain-mcp` and `agent-brain-uds` folded into root `task before-push` + `task pr-qa-gate` (closes DR-5 from v1 design §14 #5); +60-90s local pre-push cost (162s wall-clock); CHANGELOG `[10.2.0]` entry shipped — v10.2 (Phase 55, Plan 05)
 - ✓ **SECURITY-01**: REST API key auth on data routers (`/index`, `/query`, `/graph`, etc.) via `X-API-Key` header + `verify_api_key` FastAPI dep; startup gate refuses non-loopback bind without key (exit 2); `AGENT_BRAIN_API_KEY` propagated CLI → server → MCP backend; `agent-brain init` auto-generates key into `.agent-brain/config.json` (chmod 0o600); 60 new tests — v10.2.1 (issue #179)
+- ✓ **DESIGN-V3-01**: v3 design doc filed at `docs/plans/2026-06-05-mcp-v3-cli-via-mcp.md` (323 lines, 7 numbered sections) and linked from `docs/roadmaps/mcp/v3-cli-via-mcp-and-frameworks.md` — v10.3 (Phase 56, Plan 01) — mirrors v10.2 Phase 50 design-first precedent
+- ✓ **CLI-MCP-01**: `BackendClient` `@runtime_checkable typing.Protocol` at `agent-brain-cli/agent_brain_cli/client/protocol.py` (131 lines, 15 declared methods/attrs); existing `DocServeClient` structurally satisfies it (`isinstance(...)` True) without source modification — v10.3 (Phase 56, Plan 02)
+- ✓ **CLI-MCP-02**: `McpStdioBackend` + `McpHttpBackend` skeletons in `agent-brain-mcp/agent_brain_mcp/client.py` alongside unchanged `ApiClient`; both structurally satisfy `BackendClient`; 24 method bodies (12×2) raise `NotImplementedError("Wired in Phase 57+")` — load-bearing sentinel string for Phase 57 transport-selector tests — v10.3 (Phase 56, Plan 03)
 
 ## Current Milestone: v10.3 MCP v3 — CLI-via-MCP + Framework Matrix
 
@@ -149,12 +152,11 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ### Active
 
-- [ ] **CLI-MCP-01..06**: CLI-via-MCP backend clients, transport selectors, prompts, resources, auto-discovery, helper
+- [ ] **CLI-MCP-03..06**: CLI transport selectors, prompts, resources, auto-discovery, helper (CLI-MCP-01 + CLI-MCP-02 validated in Phase 56)
 - [ ] **FRAME-01..07**: Framework adapter smoke tests (OpenAI Agents, LangChain, LlamaIndex, Pydantic AI, Mastra, Vercel AI SDK, Autogen)
 - [ ] **MCPHYG-01**: MCP stdio subprocess hygiene + 1000-invocation orphan test
 - [ ] **TOOLING-V3-01**: `task mcp:framework-matrix` opt-in nightly CI gate
 - [ ] **DOCS-V3-01**: `docs/INTEGRATIONS.md` framework guide
-- [ ] **DESIGN-V3-01**: v3 design doc filed at `docs/plans/<date>-mcp-v3-cli-via-mcp.md`
 
 ### Out of Scope
 
@@ -276,4 +278,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-05 — MILESTONE v10.3 (MCP v3 — CLI-via-MCP + Framework Matrix) STARTED. v10.2 shipped 2026-06-03; v10.2.1 patch in flight for SECURITY-01 (#179 API key auth). v10.3 scope per [#187](https://github.com/SpillwaveSolutions/agent-brain/issues/187): CLI-via-MCP backend clients, framework adapter matrix (7 frameworks), `docs/INTEGRATIONS.md`, MCP stdio subprocess hygiene. Roadmap meta-issue [#189](https://github.com/SpillwaveSolutions/agent-brain/issues/189) sequences v3 → v4 (OAuth 2.1).*
+*Last updated: 2026-06-06 — Phase 56 (Design doc + CLI backend skeleton) COMPLETE. Validated DESIGN-V3-01, CLI-MCP-01, CLI-MCP-02 (3/3 plans, 11/11 must-haves). v3 design doc filed; `BackendClient` Protocol + `McpStdioBackend`/`McpHttpBackend` skeletons landed (24× NotImplementedError sentinels for Phase 57+ wiring). Next: Phase 57 (CLI transport selector + byte-identical equivalence) — CLI-MCP-03..04 wire `--transport mcp` against the new backends.*
