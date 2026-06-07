@@ -4,13 +4,13 @@ milestone: v10.3
 milestone_name: MCP v3 — CLI-via-MCP + Framework Matrix
 current_phase: 58
 status: executing
-stopped_at: Completed 58-01-PLAN.md — mcp_runtime.py foundation landed
-last_updated: "2026-06-07T02:17:54.250Z"
+stopped_at: Completed 58-02-PLAN.md — agent-brain mcp start subcommand landed (CLI-MCP-09)
+last_updated: "2026-06-07T02:27:42.901Z"
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 9
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Agent Brain — Project State
@@ -23,7 +23,7 @@ progress:
 ## Current Position
 
 Phase: 58 (runtime-discovery-helper-commands) — EXECUTING
-Plan: 2 of 3 (Plan 58-01 complete; Plan 58-02 next — `agent-brain mcp start` Click command)
+Plan: 3 of 3 (Plans 58-01 + 58-02 complete; Plan 58-03 next — `agent-brain mcp stop` + McpHttpBackend discovery integration)
 
 ## Project Reference
 
@@ -95,6 +95,8 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 
 ### Decisions from Prior Milestones (still load-bearing)
 
+- **Decision (2026-06-07, Plan 58-02):** `agent-brain mcp start` Click sub-group landed at `agent-brain-cli/agent_brain_cli/commands/mcp.py` (302 lines after Black). Module exports `mcp_group` (Click group named "mcp") with `start` subcommand. Public constants: `MCP_DEFAULT_PORT = 8765`, `MCP_DEFAULT_START_TIMEOUT = 10`, `MCP_LOOPBACK_HOST = "127.0.0.1"`, `MCP_STDOUT_LOG = "mcp.stdout.log"`, `MCP_STDERR_LOG = "mcp.stderr.log"`. Module-level helpers: `_resolve_state_dir`, `_resolve_preferred_port` (--port flag > AGENT_BRAIN_MCP_PORT env > 8765 default; invalid env raises click.UsageError), `_allocate_port` (--port 0 always asks OS; preferred-port try with EADDRINUSE fallback on errno 48 macOS / 98 Linux), `_tail_log` (best-effort last-N stderr lines for error messages). `start_command` flow: acquire_lock → port resolve/alloc → Popen([sys.executable, "-m", "agent_brain_mcp", "--transport", "http", "--host", "127.0.0.1", "--port", str(resolved_port)], stdout=stdout_log, stderr=stderr_log, start_new_session=True) → is_listening(pid, host, port, timeout) → write_mcp_runtime({host, port, pid, started_at: ISO8601 UTC, transport: "http"}) → success. On listener timeout or Popen failure: process.terminate() best-effort + release_lock + raise SystemExit(1) with stderr-log path + last 20 lines. The `start_new_session=True` kwarg is load-bearing for Plan 58-03's `os.killpg`. Registered in `agent-brain-cli/agent_brain_cli/cli.py` via `cli.add_command(mcp_group, name="mcp")`. 12 unit tests pass (11 plan-required + 1 JSON sanity: port resolution precedence, EADDRINUSE fallback, --port 0 escape, invalid env-port UsageError, lock collision exit-1 with verbatim wording, runtime schema with 0o600 perms, runtime NOT written on timeout + lock released, Popen verbatim args, start_new_session=True kwarg, --state-dir override, mcp_group --help registration). Patched at `agent_brain_cli.commands.mcp.subprocess.Popen` + `agent_brain_cli.commands.mcp.is_listening` (NOT mcp_runtime.is_listening — module-level rebound name) so tests are deterministic with no real subprocess. Single atomic plan-level commit `152c305`. **CLI-MCP-09 fully closed by this plan.**
+- **Decision (2026-06-07, Plan 58-02):** `subprocess.Popen[bytes]` explicit type annotation added in `start_command` to satisfy mypy strict (`subprocess.Popen` is a `Generic[AnyStr]` and defaults to `Any` under `ignore_missing_imports = true`). The default bufsize matches binary IO behavior even though stdout/stderr handles are opened with mode `"a"` (text-append) — Popen treats the file objects as opaque writable handles. Plan 58-03's `stop` subcommand uses `read_mcp_runtime` (no Popen reuse), so this annotation only applies to the start path.
 - **Decision (2026-06-07, Plan 58-01):** `agent_brain_cli.mcp_runtime` module landed at `agent-brain-cli/agent_brain_cli/mcp_runtime.py` (282 lines) with 6 helpers + 4 public constants + 1 exception. Constants: `MCP_RUNTIME_FILE = "mcp.runtime.json"`, `MCP_LOCK_FILE = "agent-brain-mcp.lock"`, `MCP_DEFAULT_PORT = 8765`, `MCP_DEFAULT_START_TIMEOUT = 10.0`. File IO: `read_mcp_runtime` (None on missing/malformed), `write_mcp_runtime` (creates state_dir + chmod 0o600 per issue #179), `delete_mcp_runtime` (idempotent). Lock: `acquire_lock` (atomic `os.open` with `O_CREAT|O_EXCL|O_WRONLY|0o600`, stale-pid reclamation via `psutil.pid_exists` with single retry, raises `LockAcquisitionError` with verbatim "agent-brain mcp already running on port {port} (pid {pid}); run 'agent-brain mcp stop' first" wording — wording pinned by regex test for Plan 58-02 grep) + `release_lock` (idempotent). Kernel-bind verifier: `is_listening(pid, host, port, timeout=10.0, poll_interval=0.1)` polls `psutil.Process(pid).net_connections(kind="inet")` filtered to `CONN_LISTEN` + matching IP + port; returns False on every error edge case (NoSuchProcess, AccessDenied, timeout). Pattern cloned verbatim from `agent-brain-mcp/tests/test_http_loopback.py` lines 48-67. 19 unit tests pass; integration coverage (real subprocess) lands in Plan 58-03's end-to-end test. `task before-push` exits 0. Single atomic plan-level commit `da37239` (mirrors Plan 56-03 commit-grouping pattern). **CLI-MCP-08 is INTRODUCED here; closed at Plan 58-03 when `McpHttpBackend.__init__` discovery integration wires it end-to-end.**
 - **Decision (2026-06-07, Plan 58-01):** `psutil = "^5.9"` added to `agent-brain-cli/pyproject.toml` as a runtime dep (was previously only pinned in agent-brain-mcp). Dep family intentionally identical to keep poetry resolver friendly when both packages share a venv. **+1 transitive dep across CLI package** — operators upgrading to v10.3.0 will pull psutil 5.9.8 (already a transitive via agent-brain-mcp for users of `--transport mcp`).
 - **Decision (2026-06-07, Plan 58-01):** Poetry 2.x dropped `--no-update` flag — the plan's literal `poetry lock --no-update` command failed in this venv (Poetry 2.3.2). Used plain `poetry lock` which is non-destructive by default in 2.x. Documented for downstream plans that may try the same command.
@@ -224,8 +226,8 @@ Feature backlog (#152, #154, #155, #156, #157, #158, #160, #162, #163, #164) and
 
 ## Session Continuity
 
-**Last Session:** 2026-06-07T02:17:54.246Z
-**Stopped At:** Completed 58-01-PLAN.md — mcp_runtime.py foundation landed
+**Last Session:** 2026-06-07T02:27:42.897Z
+**Stopped At:** Completed 58-02-PLAN.md — agent-brain mcp start subcommand landed (CLI-MCP-09)
 
 **Stopped At (Plan 55-01 — prior, for reference):** SDK-driven contract test scaffolding shipped. New `agent-brain-mcp/tests/contract/` directory + `mcp_stdio_session` fixture (callable returning async context manager — dodging anyio's exit-cancel-scope-in-different-task trap that bites async-generator fixtures wrapping `stdio_client` per Phase 52 Plan 02 Decision precedent) + autouse D-17 orphan-scan fixture (script-name-scoped `pgrep -f fake_contract_server.py` runs after EVERY contract test, fails the test if any subprocess survived, SIGKILLs them so subsequent tests don't inherit). Bundled fake-server script template (`_DEFAULT_CONTRACT_SERVER_SCRIPT`) wires `build_server + run_stdio` against `httpx.MockTransport` backend per CONTEXT D-04 (NOT a real `agent-brain-serve` subprocess). Backend responses passed to the subprocess via `AGENT_BRAIN_MCP_CONTRACT_RESPONSES_JSON` env var (JSON-serialized METHOD-path -> body table); Plans 02/03/04 inject per-test `response_overrides` without rewriting the script. `_DEFAULT_RESPONSES` extended with 8 v2 endpoint stubs (`DELETE /index/folders/`, `GET/DELETE /index/cache/`, `POST /index/add`, 3 terminal JobRecord variants `job_done/job_failed/job_cancelled` for `wait_for_job` contract assertions) — strictly additive, no existing v1 entries modified. `contract` pytest marker registered in `pyproject.toml` + `addopts` extended to exclude contract from default fast path (alongside `e2e + e2e_http`). `agent-brain-mcp/Taskfile.yml::contract` replaces Phase 4 placeholder echo with `poetry run pytest tests/contract -v -m contract`. ONE smoke test asserting `initialize()` over stdio returns `serverInfo.name == 'agent-brain'` — proves the fixture chain end-to-end (0.46s, 0 orphans, 0 anyio errors). Entry point: `sys.executable + bundled script path` (NOT `python -m agent_brain_mcp` against a real backend — `agent_brain_mcp` has no `__main__.py` and `main_async` needs a live backend; bundled script bypasses both per the Phase 4 / Phase 52 fake-server pattern). 3 atomic commits on `main`: `f0b5966` test (8 `_DEFAULT_RESPONSES` additions), `fb24ab9` test (contract dir + conftest + smoke + marker), `2e92dcc` chore (task contract wiring). TWO deviations auto-applied: Rule 1 — anyio task ownership forced `mcp_stdio_session` shape from yielding-generator to callable-returning-async-context-manager (consumed as `async with mcp_stdio_session() as session:`; public fixture name preserved so Plans 02/03/04 inherit verbatim); Rule 2 — autouse orphan-scan fixture moved OUT of `mcp_stdio_session` into independent autouse fixture so future direct-subprocess tests (Plan 04 HTTP) get the D-17 safety net without coupling to session consumption. +1 smoke test on contract suite (`-m contract` opt-in); fast-path 451 tests unchanged (no regression from `_DEFAULT_RESPONSES` additions); `task contract` exit 0; `task check:layering` 3/3 contracts kept (164 files, 414 deps); `task before-push` exit 0 (416 monorepo CLI tests, 80% coverage gate honored, all 1685 cross-package tests passing). 20/24 plans complete across v10.2 milestone. Phase 55 plan 1/5 done.
 **Resume File:** None
@@ -279,3 +281,4 @@ Per workflow summarizer (verified ready_to_execute: true):
 | Phase 57 P02 | 13min | 4 tasks | 8 files |
 | Phase 57 P03 | 17 min | 4 tasks | 2 files |
 | Phase 58 P01 | 6min | 3 tasks | 4 files |
+| Phase 58 P02 | 4min | 2 tasks | 4 files |

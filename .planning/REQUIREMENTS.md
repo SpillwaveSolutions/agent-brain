@@ -29,7 +29,7 @@ Requirements for v10.3. Each maps to a roadmap phase.
 ### Runtime Discovery & Helper
 
 - [ ] **CLI-MCP-08**: `<state_dir>/mcp.runtime.json` written by `agent-brain mcp start`, read by CLI when `--transport mcp --mcp-transport http` is set without an explicit `--mcp-url`. Schema matches `runtime.json` style (host, port, pid, started_at, transport).
-- [ ] **CLI-MCP-09**: `agent-brain mcp start` helper that launches `agent-brain-mcp --transport http` as a background process with loopback bind, port auto-allocation, and `mcp.runtime.json` write on listener-ready (uses the same psutil socket-bind verification path as v10.2 HTTP-02).
+- [x] **CLI-MCP-09**: `agent-brain mcp start` helper that launches `agent-brain-mcp --transport http` as a background process with loopback bind, port auto-allocation, and `mcp.runtime.json` write on listener-ready (uses the same psutil socket-bind verification path as v10.2 HTTP-02).
 - [ ] **CLI-MCP-10**: `agent-brain mcp stop` companion command that reads `mcp.runtime.json`, sends SIGTERM, escalates to SIGKILL after grace period, removes `mcp.runtime.json` on clean exit.
 
 ### Subprocess Hygiene
@@ -103,7 +103,7 @@ Which phases cover which requirements. Filled by roadmap creation 2026-06-05.
 | CLI-MCP-06 | Phase 59 | Pending |
 | CLI-MCP-07 | Phase 59 | Pending |
 | CLI-MCP-08 | Phase 58 | In Progress (foundation landed in Plan 58-01: mcp_runtime.py helpers + schema constants + 0o600 perms; McpHttpBackend.__init__ discovery integration closes the requirement in Plan 58-03) |
-| CLI-MCP-09 | Phase 58 | Pending |
+| CLI-MCP-09 | Phase 58 | Complete |
 | CLI-MCP-10 | Phase 58 | Pending |
 | MCPHYG-01 | Phase 60 | Pending |
 | MCPHYG-02 | Phase 60 | Pending |
