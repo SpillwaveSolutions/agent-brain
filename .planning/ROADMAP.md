@@ -53,7 +53,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 
 - [x] **Phase 56: Design doc + CLI backend skeleton** — File the v3 design doc first; land `McpStdioBackend` + `McpHttpBackend` against the `DocServeClient` shape (completed 2026-06-06)
 - [x] **Phase 57: CLI transport selector + byte-identical equivalence** — `--transport mcp` + `--mcp-transport stdio|http` wired; results match `--transport uds` byte-for-byte (completed 2026-06-06)
-- [ ] **Phase 58: Runtime discovery + helper commands** — `mcp.runtime.json` schema + `agent-brain mcp start/stop` with loopback bind, port auto-allocation, psutil verification
+- [x] **Phase 58: Runtime discovery + helper commands** — `mcp.runtime.json` schema + `agent-brain mcp start/stop` with loopback bind, port auto-allocation, psutil verification (completed 2026-06-07)
 - [ ] **Phase 59: CLI prompts + resources commands** — `agent-brain prompt <name>`, `agent-brain resources list/read <uri>` with sandbox + binary/JSON content handling
 - [ ] **Phase 60: Subprocess hygiene + 1000-invocation orphan test** — Pinned cwd, env allowlist, SIGTERM/SIGKILL escalation, opt-in stress test
 - [ ] **Phase 61: Python framework adapter matrix** — Smoke tests for OpenAI Agents SDK, LangChain, LlamaIndex, Pydantic AI, Autogen
@@ -100,7 +100,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
   2. `agent-brain --transport mcp --mcp-transport http query "X"` with no `--mcp-url` reads `mcp.runtime.json` and connects successfully
   3. `agent-brain mcp stop` reads `mcp.runtime.json`, sends SIGTERM, escalates to SIGKILL after a configurable grace period, and removes `mcp.runtime.json` on clean exit (or after SIGKILL)
   4. Concurrent `agent-brain mcp start` invocations against an already-running instance fail fast with a clear "already running on port N" error and a non-zero exit code (no double-bind, no orphan)
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 - [ ] 58-01-PLAN.md — mcp_runtime.py shared helpers + psutil verifier + 0o600 perms + psutil dep added to agent-brain-cli (CLI-MCP-08 prereq foundation)
 - [ ] 58-02-PLAN.md — agent-brain mcp start Click sub-group: port allocation, lock acquisition, detached Popen with start_new_session=True, psutil-verified write of mcp.runtime.json (CLI-MCP-09)
 - [ ] 58-03-PLAN.md — agent-brain mcp stop (os.killpg SIGTERM grace SIGKILL cleanup) + McpHttpBackend.__init__ discovery + resolve_mcp_transport section 3.5 wording swap + end-to-end integration test (CLI-MCP-08 close + CLI-MCP-10)
@@ -180,7 +180,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 | 55. Validation, contract tests & QA gate                    | v10.2     | 5/5            | Complete    | 2026-06-03 |
 | 56. Design doc + CLI backend skeleton                       | 3/3 | Complete    | 2026-06-06 | -          |
 | 57. CLI transport selector + byte-identical equivalence     | 3/3 | Complete    | 2026-06-07 | -          |
-| 58. Runtime discovery + helper commands                     | 2/3 | In Progress|  | -          |
+| 58. Runtime discovery + helper commands                     | 3/3 | Complete   | 2026-06-07 | -          |
 | 59. CLI prompts + resources commands                        | v10.3     | 0/TBD          | Not started | -          |
 | 60. Subprocess hygiene + 1000-invocation orphan test        | v10.3     | 0/TBD          | Not started | -          |
 | 61. Python framework adapter matrix                         | v10.3     | 0/TBD          | Not started | -          |
