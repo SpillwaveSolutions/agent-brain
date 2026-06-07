@@ -4,8 +4,9 @@ Subcommands:
     start — spawn `agent-brain-mcp --transport http` as a detached background
             subprocess on a free loopback port, write mcp.runtime.json after
             psutil-verified listener-ready. (CLI-MCP-09)
-    stop  — read mcp.runtime.json, SIGTERM → grace → SIGKILL → cleanup.
-            (CLI-MCP-10; lands in Plan 58-03)
+    stop  — read mcp.runtime.json, os.killpg(pgid, SIGTERM) → grace poll →
+            os.killpg(pgid, SIGKILL) → delete runtime + release lock.
+            Idempotent (no-op exit 0 if not running). (CLI-MCP-10)
 
 The schema written to mcp.runtime.json is locked by the v3 design doc §2.4
 (lines 176-188): {host, port, pid, started_at, transport}. All five fields
@@ -20,13 +21,16 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import socket
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 import click
+import psutil
 from rich.console import Console
 
 from agent_brain_cli.config import resolve_project_root
@@ -34,7 +38,9 @@ from agent_brain_cli.mcp_runtime import (
     MCP_RUNTIME_FILE,
     LockAcquisitionError,
     acquire_lock,
+    delete_mcp_runtime,
     is_listening,
+    read_mcp_runtime,
     release_lock,
     write_mcp_runtime,
 )
@@ -45,6 +51,8 @@ console = Console()
 
 MCP_DEFAULT_PORT = 8765
 MCP_DEFAULT_START_TIMEOUT = 10
+MCP_DEFAULT_STOP_GRACE = 5
+MCP_SIGKILL_WAIT = 1.0
 MCP_LOOPBACK_HOST = "127.0.0.1"
 MCP_STDOUT_LOG = "mcp.stdout.log"
 MCP_STDERR_LOG = "mcp.stderr.log"
@@ -296,6 +304,164 @@ def start_command(
             f"(pid {process.pid})[/]"
         )
         console.print(f"[dim]runtime: {runtime_path}[/]")
+
+
+def _wait_for_pid_exit(
+    pid: int, timeout: float, poll_interval: float = 0.1
+) -> bool:
+    """Poll psutil.pid_exists until False or timeout.
+
+    Returns True if the process exited within ``timeout`` seconds, False
+    otherwise. ``timeout == 0`` performs a single check with no sleep.
+    """
+    deadline = time.monotonic() + max(0.0, timeout)
+    while True:
+        if not psutil.pid_exists(pid):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(poll_interval)
+
+
+@mcp_group.command("stop")
+@click.option(
+    "--grace",
+    type=int,
+    default=MCP_DEFAULT_STOP_GRACE,
+    envvar="AGENT_BRAIN_MCP_STOP_GRACE",
+    help=(
+        f"Grace period in seconds before SIGKILL "
+        f"(default {MCP_DEFAULT_STOP_GRACE})."
+    ),
+)
+@click.option(
+    "--state-dir",
+    "state_dir_override",
+    type=click.Path(),
+    default=None,
+    help="Override state directory (default: auto-detect via project root)",
+)
+@click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+def stop_command(
+    grace: int, state_dir_override: str | None, json_output: bool
+) -> None:
+    """Stop the agent-brain-mcp HTTP listener for this project.
+
+    Reads mcp.runtime.json, sends SIGTERM to the process group, waits
+    --grace seconds, escalates to SIGKILL if needed, deletes the runtime
+    file + releases the lock. Idempotent: a no-op exit 0 if not running.
+
+    \b
+    Examples:
+      agent-brain mcp stop                  # Graceful stop with 5s grace
+      agent-brain mcp stop --grace 10       # Override grace period
+      agent-brain mcp stop --json           # Machine-readable output
+    """
+    state_dir = _resolve_state_dir(state_dir_override)
+    runtime = read_mcp_runtime(state_dir)
+
+    # Path 1: nothing to stop (idempotent).
+    if runtime is None:
+        release_lock(state_dir)
+        if json_output:
+            click.echo(
+                json.dumps({"status": "not_running", "state_dir": str(state_dir)})
+            )
+        else:
+            console.print("[yellow]agent-brain mcp not running.[/]")
+        return
+
+    # Path 2: runtime present but missing pid (malformed).
+    pid = runtime.get("pid")
+    if not isinstance(pid, int):
+        delete_mcp_runtime(state_dir)
+        release_lock(state_dir)
+        if json_output:
+            click.echo(
+                json.dumps({"status": "not_running", "reason": "no pid"})
+            )
+        else:
+            console.print(
+                "[yellow]No pid in mcp.runtime.json; cleaned up.[/]"
+            )
+        return
+
+    # Path 3: pid in runtime but process is dead.
+    if not psutil.pid_exists(pid):
+        delete_mcp_runtime(state_dir)
+        release_lock(state_dir)
+        if json_output:
+            click.echo(
+                json.dumps(
+                    {
+                        "status": "already_stopped",
+                        "pid": pid,
+                        "message": (
+                            "process already exited; cleaned up state files"
+                        ),
+                    }
+                )
+            )
+        else:
+            console.print(
+                f"[yellow]agent-brain mcp (pid {pid}) already stopped; "
+                f"cleaned up state files.[/]"
+            )
+        return
+
+    # Path 4: pid alive — signal the process group with SIGTERM.
+    try:
+        pgid = os.getpgid(pid)
+        os.killpg(pgid, signal.SIGTERM)
+    except ProcessLookupError:
+        # Race: process died between pid_exists and getpgid/killpg.
+        delete_mcp_runtime(state_dir)
+        release_lock(state_dir)
+        if json_output:
+            click.echo(json.dumps({"status": "already_stopped", "pid": pid}))
+        else:
+            console.print(
+                f"[yellow]agent-brain mcp (pid {pid}) already stopped.[/]"
+            )
+        return
+    except PermissionError as exc:
+        msg = f"Permission denied: cannot signal pid {pid}"
+        if json_output:
+            click.echo(json.dumps({"error": msg}))
+        else:
+            console.print(f"[red]{msg}[/]")
+        raise SystemExit(1) from exc
+
+    # Path 4a: process exits within grace period — SIGTERM was enough.
+    if _wait_for_pid_exit(pid, float(grace)):
+        delete_mcp_runtime(state_dir)
+        release_lock(state_dir)
+        if json_output:
+            click.echo(
+                json.dumps({"status": "stopped", "pid": pid, "method": "sigterm"})
+            )
+        else:
+            console.print(f"[green]agent-brain mcp stopped (pid {pid}).[/]")
+        return
+
+    # Path 4b: process refused to die — escalate to SIGKILL.
+    try:
+        os.killpg(pgid, signal.SIGKILL)
+    except ProcessLookupError:
+        # Vanished mid-escalation; treat as success.
+        pass
+    _wait_for_pid_exit(pid, MCP_SIGKILL_WAIT)
+    delete_mcp_runtime(state_dir)
+    release_lock(state_dir)
+    if json_output:
+        click.echo(
+            json.dumps({"status": "killed", "pid": pid, "method": "sigkill"})
+        )
+    else:
+        console.print(
+            f"[yellow]agent-brain mcp (pid {pid}) did not exit within "
+            f"{grace}s; sent SIGKILL.[/]"
+        )
 
 
 __all__ = ["mcp_group"]
