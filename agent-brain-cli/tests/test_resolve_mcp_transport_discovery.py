@@ -114,9 +114,7 @@ def test_resolve_mcp_transport_env_url_beats_discovery(
 def test_phase_57_placeholder_wording_removed_from_config_py() -> None:
     """The Phase 57 placeholder string is GONE from config.py."""
     config_path = (
-        Path(__file__).resolve().parent.parent
-        / "agent_brain_cli"
-        / "config.py"
+        Path(__file__).resolve().parent.parent / "agent_brain_cli" / "config.py"
     )
     source = config_path.read_text()
     assert source.count("discovery file support lands in Phase 58") == 0, (

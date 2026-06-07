@@ -42,12 +42,16 @@ def _require_psutil() -> None:
 
 
 def _run(
-    cmd: list[str], env: dict[str, str], timeout: float = 30.0
-) -> "subprocess.CompletedProcess[str]":
+    cmd: list[str],
+    env: dict[str, str],
+    timeout: float = 30.0,
+    cwd: str | Path | None = None,
+) -> subprocess.CompletedProcess[str]:
     """Wrap subprocess.run with a useful failure message."""
     return subprocess.run(
         cmd,
         env=env,
+        cwd=cwd,
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -181,8 +185,7 @@ def test_mcp_stop_idempotent_when_nothing_running(tmp_path: Path) -> None:
         env=env,
     )
     assert proc.returncode == 0, (
-        f"stop should be idempotent: stdout={proc.stdout!r} "
-        f"stderr={proc.stderr!r}"
+        f"stop should be idempotent: stdout={proc.stdout!r} " f"stderr={proc.stderr!r}"
     )
     payload = json.loads(proc.stdout)
     assert payload["status"] == "not_running"
@@ -193,13 +196,31 @@ def test_discovery_error_wording_matches_section_3_5(tmp_path: Path) -> None:
 
     Cheap to run (no OPENAI_API_KEY, no real server) — proves the
     no-silent-fallback contract from outside the process.
+
+    Runs with cwd=tmp_path so the dispatcher's state-dir resolution
+    chain lands inside the clean tmp_path (the developer machine may
+    have its own ``.agent-brain/mcp.runtime.json`` higher up — that
+    would defeat the §3.5 wording assertion). Also strips
+    AGENT_BRAIN_MCP_URL and AGENT_BRAIN_MCP_TRANSPORT env vars so the
+    test is hermetic.
     """
     state_dir = tmp_path / ".agent-brain"
     state_dir.mkdir()
-    env = {
-        **{k: v for k, v in os.environ.items() if k != "AGENT_BRAIN_MCP_URL"},
-        "AGENT_BRAIN_STATE_DIR": str(state_dir),
+    # Strip every var that would route the query around the MCP dispatcher.
+    # AGENT_BRAIN_URL is honored by query's --url envvar — leaving it set
+    # silently routes through the HTTP path and defeats the §3.5 check.
+    stripped_env = {
+        k: v
+        for k, v in os.environ.items()
+        if k
+        not in {
+            "AGENT_BRAIN_MCP_URL",
+            "AGENT_BRAIN_MCP_TRANSPORT",
+            "AGENT_BRAIN_URL",
+            "AGENT_BRAIN_TRANSPORT",
+        }
     }
+    env = {**stripped_env, "AGENT_BRAIN_STATE_DIR": str(state_dir)}
     proc = _run(
         [
             sys.executable,
@@ -214,15 +235,16 @@ def test_discovery_error_wording_matches_section_3_5(tmp_path: Path) -> None:
         ],
         env=env,
         timeout=15.0,
+        cwd=tmp_path,
     )
     assert proc.returncode == 2, (
         f"expected exit 2 (UsageError); got {proc.returncode}. "
         f"stdout={proc.stdout!r} stderr={proc.stderr!r}"
     )
     combined = proc.stdout + proc.stderr
-    assert "discovery file not found at" in combined, (
-        f"§3.5 wording missing from CLI output: {combined!r}"
-    )
-    assert "run 'agent-brain mcp start' or pass --mcp-url" in combined, (
-        f"§3.5 hint missing from CLI output: {combined!r}"
-    )
+    assert (
+        "discovery file not found at" in combined
+    ), f"§3.5 wording missing from CLI output: {combined!r}"
+    assert (
+        "run 'agent-brain mcp start' or pass --mcp-url" in combined
+    ), f"§3.5 hint missing from CLI output: {combined!r}"

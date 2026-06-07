@@ -306,9 +306,7 @@ def start_command(
         console.print(f"[dim]runtime: {runtime_path}[/]")
 
 
-def _wait_for_pid_exit(
-    pid: int, timeout: float, poll_interval: float = 0.1
-) -> bool:
+def _wait_for_pid_exit(pid: int, timeout: float, poll_interval: float = 0.1) -> bool:
     """Poll psutil.pid_exists until False or timeout.
 
     Returns True if the process exited within ``timeout`` seconds, False
@@ -342,9 +340,7 @@ def _wait_for_pid_exit(
     help="Override state directory (default: auto-detect via project root)",
 )
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
-def stop_command(
-    grace: int, state_dir_override: str | None, json_output: bool
-) -> None:
+def stop_command(grace: int, state_dir_override: str | None, json_output: bool) -> None:
     """Stop the agent-brain-mcp HTTP listener for this project.
 
     Reads mcp.runtime.json, sends SIGTERM to the process group, waits
@@ -377,13 +373,9 @@ def stop_command(
         delete_mcp_runtime(state_dir)
         release_lock(state_dir)
         if json_output:
-            click.echo(
-                json.dumps({"status": "not_running", "reason": "no pid"})
-            )
+            click.echo(json.dumps({"status": "not_running", "reason": "no pid"}))
         else:
-            console.print(
-                "[yellow]No pid in mcp.runtime.json; cleaned up.[/]"
-            )
+            console.print("[yellow]No pid in mcp.runtime.json; cleaned up.[/]")
         return
 
     # Path 3: pid in runtime but process is dead.
@@ -396,9 +388,7 @@ def stop_command(
                     {
                         "status": "already_stopped",
                         "pid": pid,
-                        "message": (
-                            "process already exited; cleaned up state files"
-                        ),
+                        "message": ("process already exited; cleaned up state files"),
                     }
                 )
             )
@@ -420,9 +410,7 @@ def stop_command(
         if json_output:
             click.echo(json.dumps({"status": "already_stopped", "pid": pid}))
         else:
-            console.print(
-                f"[yellow]agent-brain mcp (pid {pid}) already stopped.[/]"
-            )
+            console.print(f"[yellow]agent-brain mcp (pid {pid}) already stopped.[/]")
         return
     except PermissionError as exc:
         msg = f"Permission denied: cannot signal pid {pid}"
@@ -454,9 +442,7 @@ def stop_command(
     delete_mcp_runtime(state_dir)
     release_lock(state_dir)
     if json_output:
-        click.echo(
-            json.dumps({"status": "killed", "pid": pid, "method": "sigkill"})
-        )
+        click.echo(json.dumps({"status": "killed", "pid": pid, "method": "sigkill"}))
     else:
         console.print(
             f"[yellow]agent-brain mcp (pid {pid}) did not exit within "

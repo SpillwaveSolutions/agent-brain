@@ -65,9 +65,7 @@ def _touch_lock(state_dir: Path) -> None:
 def test_stop_when_runtime_missing_exits_zero(tmp_path: Path) -> None:
     """No runtime file → exit 0 informational message (idempotent)."""
     runner = CliRunner()
-    result = runner.invoke(
-        mcp_group, ["stop", "--state-dir", str(tmp_path)]
-    )
+    result = runner.invoke(mcp_group, ["stop", "--state-dir", str(tmp_path)])
     assert result.exit_code == 0, result.output
     assert "not running" in result.output.lower()
 
@@ -77,13 +75,11 @@ def test_stop_releases_lock_when_runtime_missing(tmp_path: Path) -> None:
     _touch_lock(tmp_path)
     assert (tmp_path / MCP_LOCK_FILE).exists()
     runner = CliRunner()
-    result = runner.invoke(
-        mcp_group, ["stop", "--state-dir", str(tmp_path)]
-    )
+    result = runner.invoke(mcp_group, ["stop", "--state-dir", str(tmp_path)])
     assert result.exit_code == 0, result.output
-    assert not (tmp_path / MCP_LOCK_FILE).exists(), (
-        "release_lock should be called when runtime file is missing"
-    )
+    assert not (
+        tmp_path / MCP_LOCK_FILE
+    ).exists(), "release_lock should be called when runtime file is missing"
 
 
 # ---------------------------------------------------------------------------
@@ -100,9 +96,7 @@ def test_stop_when_pid_dead_cleans_up_and_exits_zero(tmp_path: Path) -> None:
         "agent_brain_cli.commands.mcp.psutil.pid_exists",
         return_value=False,
     ):
-        result = runner.invoke(
-            mcp_group, ["stop", "--state-dir", str(tmp_path)]
-        )
+        result = runner.invoke(mcp_group, ["stop", "--state-dir", str(tmp_path)])
     assert result.exit_code == 0, result.output
     assert not (tmp_path / MCP_RUNTIME_FILE).exists()
     assert not (tmp_path / MCP_LOCK_FILE).exists()
@@ -115,16 +109,17 @@ def test_stop_process_lookup_race_treated_as_already_stopped(
     _write_runtime(tmp_path, pid=12345)
     _touch_lock(tmp_path)
     runner = CliRunner()
-    with patch(
-        "agent_brain_cli.commands.mcp.psutil.pid_exists",
-        return_value=True,
-    ), patch(
-        "agent_brain_cli.commands.mcp.os.getpgid",
-        side_effect=ProcessLookupError(),
+    with (
+        patch(
+            "agent_brain_cli.commands.mcp.psutil.pid_exists",
+            return_value=True,
+        ),
+        patch(
+            "agent_brain_cli.commands.mcp.os.getpgid",
+            side_effect=ProcessLookupError(),
+        ),
     ):
-        result = runner.invoke(
-            mcp_group, ["stop", "--state-dir", str(tmp_path)]
-        )
+        result = runner.invoke(mcp_group, ["stop", "--state-dir", str(tmp_path)])
     assert result.exit_code == 0, result.output
     # Cleanup still happens
     assert not (tmp_path / MCP_RUNTIME_FILE).exists()
@@ -150,15 +145,19 @@ def test_stop_sigterm_path_succeeds_within_grace(tmp_path: Path) -> None:
 
     killpg_mock = MagicMock()
     runner = CliRunner()
-    with patch(
-        "agent_brain_cli.commands.mcp.psutil.pid_exists",
-        side_effect=fake_pid_exists,
-    ), patch(
-        "agent_brain_cli.commands.mcp.os.getpgid",
-        return_value=54321,
-    ), patch(
-        "agent_brain_cli.commands.mcp.os.killpg",
-        killpg_mock,
+    with (
+        patch(
+            "agent_brain_cli.commands.mcp.psutil.pid_exists",
+            side_effect=fake_pid_exists,
+        ),
+        patch(
+            "agent_brain_cli.commands.mcp.os.getpgid",
+            return_value=54321,
+        ),
+        patch(
+            "agent_brain_cli.commands.mcp.os.killpg",
+            killpg_mock,
+        ),
     ):
         result = runner.invoke(
             mcp_group,
@@ -192,18 +191,23 @@ def test_stop_sigkill_escalates_after_grace(tmp_path: Path) -> None:
     _touch_lock(tmp_path)
     killpg_mock = MagicMock()
     runner = CliRunner()
-    with patch(
-        "agent_brain_cli.commands.mcp.psutil.pid_exists",
-        return_value=True,  # always alive
-    ), patch(
-        "agent_brain_cli.commands.mcp.os.getpgid",
-        return_value=54321,
-    ), patch(
-        "agent_brain_cli.commands.mcp.os.killpg",
-        killpg_mock,
-    ), patch(
-        "agent_brain_cli.commands.mcp.time.sleep",
-        return_value=None,
+    with (
+        patch(
+            "agent_brain_cli.commands.mcp.psutil.pid_exists",
+            return_value=True,  # always alive
+        ),
+        patch(
+            "agent_brain_cli.commands.mcp.os.getpgid",
+            return_value=54321,
+        ),
+        patch(
+            "agent_brain_cli.commands.mcp.os.killpg",
+            killpg_mock,
+        ),
+        patch(
+            "agent_brain_cli.commands.mcp.time.sleep",
+            return_value=None,
+        ),
     ):
         result = runner.invoke(
             mcp_group,
@@ -236,15 +240,19 @@ def test_stop_uses_killpg_with_process_group_id(tmp_path: Path) -> None:
         return pid_exists_calls["n"] <= 1
 
     runner = CliRunner()
-    with patch(
-        "agent_brain_cli.commands.mcp.psutil.pid_exists",
-        side_effect=fake_pid_exists,
-    ), patch(
-        "agent_brain_cli.commands.mcp.os.getpgid",
-        return_value=pgid_value,
-    ), patch(
-        "agent_brain_cli.commands.mcp.os.killpg",
-        killpg_mock,
+    with (
+        patch(
+            "agent_brain_cli.commands.mcp.psutil.pid_exists",
+            side_effect=fake_pid_exists,
+        ),
+        patch(
+            "agent_brain_cli.commands.mcp.os.getpgid",
+            return_value=pgid_value,
+        ),
+        patch(
+            "agent_brain_cli.commands.mcp.os.killpg",
+            killpg_mock,
+        ),
     ):
         result = runner.invoke(
             mcp_group,
@@ -253,9 +261,9 @@ def test_stop_uses_killpg_with_process_group_id(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     assert killpg_mock.call_count >= 1
     first_call = killpg_mock.call_args_list[0]
-    assert first_call.args[0] == pgid_value, (
-        f"expected pgid {pgid_value}, got {first_call.args[0]}"
-    )
+    assert (
+        first_call.args[0] == pgid_value
+    ), f"expected pgid {pgid_value}, got {first_call.args[0]}"
     assert first_call.args[1] == signal.SIGTERM
 
 
@@ -278,15 +286,19 @@ def test_stop_grace_flag_overrides_env(
 
     killpg_mock = MagicMock()
     runner = CliRunner()
-    with patch(
-        "agent_brain_cli.commands.mcp.psutil.pid_exists",
-        side_effect=fake_pid_exists,
-    ), patch(
-        "agent_brain_cli.commands.mcp.os.getpgid",
-        return_value=54321,
-    ), patch(
-        "agent_brain_cli.commands.mcp.os.killpg",
-        killpg_mock,
+    with (
+        patch(
+            "agent_brain_cli.commands.mcp.psutil.pid_exists",
+            side_effect=fake_pid_exists,
+        ),
+        patch(
+            "agent_brain_cli.commands.mcp.os.getpgid",
+            return_value=54321,
+        ),
+        patch(
+            "agent_brain_cli.commands.mcp.os.killpg",
+            killpg_mock,
+        ),
     ):
         result = runner.invoke(
             mcp_group,
@@ -304,19 +316,21 @@ def test_stop_permission_error_exits_one(tmp_path: Path) -> None:
     """os.killpg raising PermissionError → exit 1 with verbatim wording."""
     _write_runtime(tmp_path, pid=12345)
     runner = CliRunner()
-    with patch(
-        "agent_brain_cli.commands.mcp.psutil.pid_exists",
-        return_value=True,
-    ), patch(
-        "agent_brain_cli.commands.mcp.os.getpgid",
-        return_value=54321,
-    ), patch(
-        "agent_brain_cli.commands.mcp.os.killpg",
-        side_effect=PermissionError(),
+    with (
+        patch(
+            "agent_brain_cli.commands.mcp.psutil.pid_exists",
+            return_value=True,
+        ),
+        patch(
+            "agent_brain_cli.commands.mcp.os.getpgid",
+            return_value=54321,
+        ),
+        patch(
+            "agent_brain_cli.commands.mcp.os.killpg",
+            side_effect=PermissionError(),
+        ),
     ):
-        result = runner.invoke(
-            mcp_group, ["stop", "--state-dir", str(tmp_path)]
-        )
+        result = runner.invoke(mcp_group, ["stop", "--state-dir", str(tmp_path)])
     assert result.exit_code == 1
     assert "Permission denied: cannot signal pid 12345" in result.output
 
@@ -329,9 +343,7 @@ def test_stop_permission_error_exits_one(tmp_path: Path) -> None:
 def test_stop_json_output_format(tmp_path: Path) -> None:
     """--json emits a parseable status payload on the not-running path."""
     runner = CliRunner()
-    result = runner.invoke(
-        mcp_group, ["stop", "--state-dir", str(tmp_path), "--json"]
-    )
+    result = runner.invoke(mcp_group, ["stop", "--state-dir", str(tmp_path), "--json"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output.strip())
     assert payload.get("status") == "not_running"

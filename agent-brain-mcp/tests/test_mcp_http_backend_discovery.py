@@ -16,7 +16,9 @@ import pytest
 from agent_brain_mcp.client import McpHttpBackend
 
 
-def _write_runtime(state_dir: Path, *, host: str = "127.0.0.1", port: int = 9000) -> None:
+def _write_runtime(
+    state_dir: Path, *, host: str = "127.0.0.1", port: int = 9000
+) -> None:
     """Write a 5-field §2.4 mcp.runtime.json into state_dir."""
     state_dir.mkdir(parents=True, exist_ok=True)
     runtime = {
@@ -80,7 +82,7 @@ def test_mcp_http_backend_raises_when_discovery_file_malformed(
 
 
 def test_mcp_http_backend_error_contains_state_dir_path(tmp_path: Path) -> None:
-    """The actual state_dir path appears in the error (no <state_dir> placeholder leak)."""
+    """The actual state_dir path appears in the error message (no placeholder leak)."""
     with pytest.raises(RuntimeError) as exc_info:
         McpHttpBackend(url=None, state_dir=tmp_path)
     msg = str(exc_info.value)
