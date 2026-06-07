@@ -132,6 +132,8 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 - ✓ **DESIGN-V3-01**: v3 design doc filed at `docs/plans/2026-06-05-mcp-v3-cli-via-mcp.md` (323 lines, 7 numbered sections) and linked from `docs/roadmaps/mcp/v3-cli-via-mcp-and-frameworks.md` — v10.3 (Phase 56, Plan 01) — mirrors v10.2 Phase 50 design-first precedent
 - ✓ **CLI-MCP-01**: `BackendClient` `@runtime_checkable typing.Protocol` at `agent-brain-cli/agent_brain_cli/client/protocol.py` (131 lines, 15 declared methods/attrs); existing `DocServeClient` structurally satisfies it (`isinstance(...)` True) without source modification — v10.3 (Phase 56, Plan 02)
 - ✓ **CLI-MCP-02**: `McpStdioBackend` + `McpHttpBackend` skeletons in `agent-brain-mcp/agent_brain_mcp/client.py` alongside unchanged `ApiClient`; both structurally satisfy `BackendClient`; 24 method bodies (12×2) raise `NotImplementedError("Wired in Phase 57+")` — load-bearing sentinel string for Phase 57 transport-selector tests — v10.3 (Phase 56, Plan 03)
+- ✓ **CLI-MCP-03**: `--transport mcp` + `--mcp-transport stdio|http` + `--mcp-url` top-level Click flags wired; `resolve_mcp_transport()` precedence helper; `open_backend(ctx) -> BackendClient` dispatcher (renamed from `open_client`); 20 callsites swapped atomically across 8 command modules; all 3 §3.5 misuse cases produce `exit code 2` with verbatim design-doc wording (incl. `shutil.which("agent-brain-mcp")` precheck for stdio + missing PATH); all 10 remaining `BackendClient` methods wired on both MCP backends per §2.3 mapping (`health`/`status`/`index`/`list_folders`/`delete_folder`/`list_jobs`/`get_job`/`cancel_job`/`cache_status`/`clear_cache`); `reset()` retains `NotImplementedError` with verbatim §3.5 wording (deferred Phase 57+ open decision per design doc §4 risks); v2 strict-schema gotcha surfaced (`_build_index_body` drops 9 CLI-only fields; `confirm: True` extends to `cancel_job` + `remove_folder` beyond `clear_cache`) — v10.3 (Phase 57, Plans 01 + 03)
+- ✓ **CLI-MCP-04**: v3 Definition-of-Done anchor — `agent-brain-cli/tests/contract/test_transport_equivalence.py` proves byte-identical JSON output across `--transport uds` and `--transport mcp --mcp-transport stdio` after stripping `elapsed_seconds` + `indexed_at` via `_normalize.strip_volatile_fields`; **REAL** subprocess + **REAL** seeded UDS-backed corpus (NO stub fallback); shared corpus seeder hoisted to `tests/integration/_corpus.py` for Phase 58+ reuse; `_coerce_query_response` translator + late-imported `_parse_query_result` ensure both backends produce identical chunk ordering through the same translation layer — v10.3 (Phase 57, Plan 02)
 
 ## Current Milestone: v10.3 MCP v3 — CLI-via-MCP + Framework Matrix
 
@@ -152,7 +154,7 @@ Agent Brain is a local-first RAG (Retrieval-Augmented Generation) service that i
 
 ### Active
 
-- [ ] **CLI-MCP-03..06**: CLI transport selectors, prompts, resources, auto-discovery, helper (CLI-MCP-01 + CLI-MCP-02 validated in Phase 56)
+- [ ] **CLI-MCP-05..10**: CLI prompts (`agent-brain prompt <name>`), resources (`agent-brain resources list|read <uri>`), runtime discovery (`mcp.runtime.json`), helper commands (`agent-brain mcp start|stop`) — Phases 58-59 (CLI-MCP-01..04 validated in Phases 56-57)
 - [ ] **FRAME-01..07**: Framework adapter smoke tests (OpenAI Agents, LangChain, LlamaIndex, Pydantic AI, Mastra, Vercel AI SDK, Autogen)
 - [ ] **MCPHYG-01**: MCP stdio subprocess hygiene + 1000-invocation orphan test
 - [ ] **TOOLING-V3-01**: `task mcp:framework-matrix` opt-in nightly CI gate
@@ -278,4 +280,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-06 — Phase 56 (Design doc + CLI backend skeleton) COMPLETE. Validated DESIGN-V3-01, CLI-MCP-01, CLI-MCP-02 (3/3 plans, 11/11 must-haves). v3 design doc filed; `BackendClient` Protocol + `McpStdioBackend`/`McpHttpBackend` skeletons landed (24× NotImplementedError sentinels for Phase 57+ wiring). Next: Phase 57 (CLI transport selector + byte-identical equivalence) — CLI-MCP-03..04 wire `--transport mcp` against the new backends.*
+*Last updated: 2026-06-07 — Phase 57 (CLI transport selector + byte-identical equivalence) COMPLETE. Validated CLI-MCP-03, CLI-MCP-04 (3/3 plans, 7/7 must-haves). Click flags + dispatcher + all 10 BackendClient methods wired on both MCP backends; byte-identical DoD anchor proves wire-level (not just translator-level) equivalence with REAL subprocess + REAL seeded corpus. Only `reset()` retains `NotImplementedError` per design-doc Phase 57+ deferred decision. Next: Phase 58 (Runtime discovery + helper commands) — `mcp.runtime.json` schema + `agent-brain mcp start|stop` so `--mcp-url` becomes optional under `--mcp-transport http`.*
