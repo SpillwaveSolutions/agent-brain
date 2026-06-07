@@ -100,7 +100,10 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
   2. `agent-brain --transport mcp --mcp-transport http query "X"` with no `--mcp-url` reads `mcp.runtime.json` and connects successfully
   3. `agent-brain mcp stop` reads `mcp.runtime.json`, sends SIGTERM, escalates to SIGKILL after a configurable grace period, and removes `mcp.runtime.json` on clean exit (or after SIGKILL)
   4. Concurrent `agent-brain mcp start` invocations against an already-running instance fail fast with a clear "already running on port N" error and a non-zero exit code (no double-bind, no orphan)
-**Plans:** TBD
+**Plans:** 1/3 plans executed
+- [ ] 58-01-PLAN.md — mcp_runtime.py shared helpers + psutil verifier + 0o600 perms + psutil dep added to agent-brain-cli (CLI-MCP-08 prereq foundation)
+- [ ] 58-02-PLAN.md — agent-brain mcp start Click sub-group: port allocation, lock acquisition, detached Popen with start_new_session=True, psutil-verified write of mcp.runtime.json (CLI-MCP-09)
+- [ ] 58-03-PLAN.md — agent-brain mcp stop (os.killpg SIGTERM grace SIGKILL cleanup) + McpHttpBackend.__init__ discovery + resolve_mcp_transport section 3.5 wording swap + end-to-end integration test (CLI-MCP-08 close + CLI-MCP-10)
 
 ### Phase 59: CLI prompts + resources commands
 **Goal:** Expose the MCP `prompts/get` + `resources/list` + `resources/read` surfaces via human-friendly CLI commands. Operators can invoke any of the 6 v1 prompts, enumerate all static + templated URIs, and read content with correct sandboxing and binary/JSON content-type handling.
@@ -177,7 +180,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 | 55. Validation, contract tests & QA gate                    | v10.2     | 5/5            | Complete    | 2026-06-03 |
 | 56. Design doc + CLI backend skeleton                       | 3/3 | Complete    | 2026-06-06 | -          |
 | 57. CLI transport selector + byte-identical equivalence     | 3/3 | Complete    | 2026-06-07 | -          |
-| 58. Runtime discovery + helper commands                     | v10.3     | 0/TBD          | Not started | -          |
+| 58. Runtime discovery + helper commands                     | 1/3 | In Progress|  | -          |
 | 59. CLI prompts + resources commands                        | v10.3     | 0/TBD          | Not started | -          |
 | 60. Subprocess hygiene + 1000-invocation orphan test        | v10.3     | 0/TBD          | Not started | -          |
 | 61. Python framework adapter matrix                         | v10.3     | 0/TBD          | Not started | -          |

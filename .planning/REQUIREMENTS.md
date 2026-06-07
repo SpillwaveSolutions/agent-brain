@@ -102,7 +102,7 @@ Which phases cover which requirements. Filled by roadmap creation 2026-06-05.
 | CLI-MCP-05 | Phase 59 | Pending |
 | CLI-MCP-06 | Phase 59 | Pending |
 | CLI-MCP-07 | Phase 59 | Pending |
-| CLI-MCP-08 | Phase 58 | Pending |
+| CLI-MCP-08 | Phase 58 | In Progress (foundation landed in Plan 58-01: mcp_runtime.py helpers + schema constants + 0o600 perms; McpHttpBackend.__init__ discovery integration closes the requirement in Plan 58-03) |
 | CLI-MCP-09 | Phase 58 | Pending |
 | CLI-MCP-10 | Phase 58 | Pending |
 | MCPHYG-01 | Phase 60 | Pending |
