@@ -72,3 +72,6 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "integration: opt-in end-to-end tests that drive real subprocesses",
+]
