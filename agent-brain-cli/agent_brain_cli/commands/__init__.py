@@ -10,6 +10,7 @@ from .inject import inject_command
 from .install_agent import install_agent_command
 from .jobs import jobs_command
 from .list_cmd import list_command
+from .mcp import mcp_group
 from .query import query_command
 from .reset import reset_command
 from .start import start_command
@@ -29,6 +30,7 @@ __all__ = [
     "install_agent_command",
     "jobs_command",
     "list_command",
+    "mcp_group",
     "query_command",
     "reset_command",
     "start_command",
