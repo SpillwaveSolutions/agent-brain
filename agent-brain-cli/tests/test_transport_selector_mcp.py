@@ -36,6 +36,7 @@ from __future__ import annotations
 import os
 import sys
 from collections.abc import Generator
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -85,8 +86,12 @@ class TestMcpCase2HttpWithoutUrl:
     """§3.5 case 2 — --mcp-transport http without a URL."""
 
     def test_http_without_url_exits_2_with_phase58_message(
-        self, clean_env: None
+        self, clean_env: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        # Phase 58 wired discovery via mcp.runtime.json. Use an empty
+        # state_dir so discovery fails and the verbatim §3.5 wording
+        # surfaces.
+        monkeypatch.setenv("AGENT_BRAIN_STATE_DIR", str(tmp_path))
         runner = CliRunner()
         result = runner.invoke(
             cli,
@@ -98,7 +103,9 @@ class TestMcpCase2HttpWithoutUrl:
             f"expected exit code 2, got {result.exit_code}; "
             f"output={result.output!r}"
         )
-        assert "discovery file support lands in Phase 58" in result.output
+        # Phase 58 swapped wording — verbatim v3 design doc §3.5.
+        assert "discovery file not found at" in result.output
+        assert "run 'agent-brain mcp start' or pass --mcp-url" in result.output
 
 
 class TestSkeletonRoutingStdio:

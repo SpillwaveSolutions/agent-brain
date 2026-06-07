@@ -12,6 +12,7 @@ the MCP process free of Click / Rich. ~80 LOC bound.
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from types import TracebackType
 from typing import TYPE_CHECKING, Any
 
@@ -831,10 +832,73 @@ class McpHttpBackend:
             Phase 60 may wire this through if the SDK adds the knob.
     """
 
-    def __init__(self, url: str, *, timeout: float = 30.0) -> None:
+    def __init__(
+        self,
+        url: str | None = None,
+        *,
+        timeout: float = 30.0,
+        state_dir: Path | None = None,
+    ) -> None:
+        """CLI-side backend that talks to agent-brain-mcp over Streamable HTTP.
+
+        Args:
+            url: Full HTTP URL of the MCP listener including the mount path,
+                e.g. "http://127.0.0.1:9999/mcp". When None, discovery is
+                attempted via ``state_dir/mcp.runtime.json`` (Phase 58 §2.4).
+            timeout: Per-request timeout in seconds (advisory).
+            state_dir: Project state directory used for mcp.runtime.json
+                discovery when ``url`` is None. Phase 58 CLI-MCP-08.
+
+        Raises:
+            ValueError: when both ``url`` and ``state_dir`` are None.
+            RuntimeError: when ``url`` is None and the discovery file is
+                missing or malformed (verbatim v3 design doc §3.5 wording).
+        """
+        if url is None:
+            if state_dir is None:
+                raise ValueError("must pass either url or state_dir")
+            url = self._discover_url(state_dir)
         self.url = url
         self.timeout = timeout
         self._closed = False
+
+    @staticmethod
+    def _discover_url(state_dir: Path) -> str:
+        """Resolve url from ``<state_dir>/mcp.runtime.json`` (Phase 58 §2.4).
+
+        Lazy-imports ``agent_brain_cli.mcp_runtime`` to keep the dep
+        direction soft (standalone agent-brain-mcp usage still works when
+        the operator passes ``url`` explicitly).
+
+        Raises:
+            RuntimeError: when agent-brain-cli is not installed, the
+                discovery file is missing, or it is malformed
+                (missing/invalid host or port).
+        """
+        try:
+            from agent_brain_cli.mcp_runtime import (
+                MCP_RUNTIME_FILE,
+                read_mcp_runtime,
+            )
+        except ImportError as exc:
+            raise RuntimeError(
+                "agent-brain-cli not installed; pass url explicitly"
+            ) from exc
+
+        runtime = read_mcp_runtime(state_dir)
+        if runtime is None:
+            raise RuntimeError(
+                f"discovery file not found at {state_dir}/{MCP_RUNTIME_FILE}; "
+                f"run 'agent-brain mcp start' or pass --mcp-url"
+            )
+        host = runtime.get("host")
+        port = runtime.get("port")
+        if not isinstance(host, str) or not isinstance(port, int):
+            raise RuntimeError(
+                f"mcp.runtime.json at {state_dir}/{MCP_RUNTIME_FILE} is "
+                f"malformed: missing host/port"
+            )
+        return f"http://{host}:{port}/mcp"
 
     def __enter__(self) -> McpHttpBackend:
         return self

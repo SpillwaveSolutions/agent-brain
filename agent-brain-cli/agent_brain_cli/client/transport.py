@@ -21,8 +21,9 @@ Three §3.5 design-doc misuse cases surface as ``click.UsageError``
   1. ``--transport mcp`` + ``agent-brain-mcp`` package not installed
      → "install agent-brain-mcp to use --transport mcp"
   2. ``--mcp-transport http`` without ``--mcp-url`` (and no
-     ``AGENT_BRAIN_MCP_URL`` env)
-     → raised by ``resolve_mcp_transport`` with the §3.5 wording
+     ``AGENT_BRAIN_MCP_URL`` env) AND no ``mcp.runtime.json``
+     discovery file → raised by ``resolve_mcp_transport`` with the
+     verbatim v3 §3.5 wording (Phase 58 CLI-MCP-08)
   3. ``--mcp-transport stdio`` + ``agent-brain-mcp`` not reachable
      on ``PATH`` (``shutil.which`` returns ``None``)
      → "agent-brain-mcp not found on PATH; install agent-brain-mcp
@@ -40,6 +41,26 @@ import click
 from ..config import resolve_api_key, resolve_mcp_transport, resolve_transport
 from .api_client import DocServeClient
 from .protocol import BackendClient
+
+
+def _resolve_state_dir_for_discovery() -> Path | None:
+    """Resolve state_dir for mcp.runtime.json discovery (Phase 58 CLI-MCP-08).
+
+    Mirrors the chain used by ``agent-brain mcp start``. Returns None on
+    any failure — callers treat that as "no discovery possible" and
+    fall through to the explicit-url-or-error path inside
+    ``resolve_mcp_transport``.
+    """
+    try:
+        from agent_brain_cli.config import resolve_project_root
+        from agent_brain_cli.migration import resolve_state_dir_with_fallback
+        from agent_brain_cli.xdg_paths import migrate_legacy_paths
+
+        migrate_legacy_paths()
+        project_root = resolve_project_root()
+        return resolve_state_dir_with_fallback(project_root)
+    except Exception:
+        return None
 
 
 def open_backend(ctx: click.Context, *, timeout: float = 30.0) -> BackendClient:
@@ -78,9 +99,11 @@ def open_backend(ctx: click.Context, *, timeout: float = 30.0) -> BackendClient:
 
     # --- MCP branch (v3) -----------------------------------------
     if (transport_hint or "").lower() == "mcp":
+        state_dir = _resolve_state_dir_for_discovery()
         mcp_transport, mcp_target = resolve_mcp_transport(
             mcp_transport_hint=obj.get("mcp_transport_hint"),
             mcp_url_override=obj.get("mcp_url_override"),
+            state_dir=state_dir,
         )
         if obj.get("debug_transport"):
             auth_marker = "with X-API-Key" if api_key else "no auth"

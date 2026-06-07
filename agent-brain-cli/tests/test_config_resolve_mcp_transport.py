@@ -105,11 +105,13 @@ class TestResolveMcpTransportHttpWithoutUrlRaises:
 
         with pytest.raises(click.UsageError) as exc_info:
             resolve_mcp_transport(mcp_transport_hint="http", mcp_url_override=None)
-        # Verbatim §3.5 wording — Phase 57's pre-discovery messaging.
-        assert (
-            "discovery file support lands in Phase 58; "
-            "pass --mcp-url explicitly in Phase 57"
-        ) in str(exc_info.value)
+        # Phase 58 swapped Phase 57's placeholder for the verbatim v3
+        # design doc §3.5 wording. With no state_dir passed (defensive
+        # branch), the literal "<state_dir>" placeholder appears in the
+        # error message.
+        msg = str(exc_info.value)
+        assert "discovery file not found at" in msg
+        assert "run 'agent-brain mcp start' or pass --mcp-url" in msg
 
 
 # Sanity assertion: the helper must read from os.environ at call time,

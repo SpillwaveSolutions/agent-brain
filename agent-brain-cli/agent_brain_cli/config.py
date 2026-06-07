@@ -542,6 +542,7 @@ def resolve_mcp_transport(
     *,
     mcp_transport_hint: str | None = None,
     mcp_url_override: str | None = None,
+    state_dir: Path | None = None,
 ) -> tuple[Literal["stdio", "http"], str | None]:
     """Resolve the MCP-axis transport when ``--transport mcp`` is active.
 
@@ -556,11 +557,12 @@ def resolve_mcp_transport(
       2. ``AGENT_BRAIN_MCP_TRANSPORT`` environment variable
       3. Default: ``"stdio"``
 
-    URL precedence for ``http``:
+    URL precedence for ``http`` (Phase 58 added the discovery step):
 
       1. ``mcp_url_override`` argument (CLI ``--mcp-url`` flag)
       2. ``AGENT_BRAIN_MCP_URL`` environment variable
-      3. Hard error — ``mcp.runtime.json`` discovery lands in Phase 58.
+      3. ``<state_dir>/mcp.runtime.json`` discovery (Phase 58 CLI-MCP-08)
+      4. Hard error — verbatim v3 design doc §3.5 wording.
 
     Returns:
         A ``(transport, target)`` tuple. ``transport`` is ``"stdio"``
@@ -570,8 +572,8 @@ def resolve_mcp_transport(
 
     Raises:
         click.UsageError: When ``http`` is selected but no URL is
-            resolvable. Exits the CLI with code 2 per the v10.2
-            HTTP-03 no-silent-fallback contract.
+            resolvable AND no discovery file is present. Exits with
+            code 2 per the v10.2 HTTP-03 no-silent-fallback contract.
     """
     chosen = (
         mcp_transport_hint or os.environ.get("AGENT_BRAIN_MCP_TRANSPORT") or "stdio"
@@ -580,18 +582,39 @@ def resolve_mcp_transport(
         return ("stdio", None)
     if chosen == "http":
         url = mcp_url_override or os.environ.get("AGENT_BRAIN_MCP_URL")
-        if not url:
-            # Late `import click as _click` keeps config.py free of a
-            # top-level Click dependency (today config.py imports only
-            # yaml + pydantic). The error surfaces with Click's
-            # standard exit code 2 — v10.2 HTTP-03 carry-forward.
+        if url:
+            return ("http", url)
+        # Phase 58 CLI-MCP-08: try mcp.runtime.json discovery.
+        if state_dir is not None:
+            from agent_brain_cli.mcp_runtime import (
+                MCP_RUNTIME_FILE,
+                read_mcp_runtime,
+            )
+
+            runtime = read_mcp_runtime(state_dir)
+            if runtime is not None:
+                host = runtime.get("host")
+                port = runtime.get("port")
+                if isinstance(host, str) and isinstance(port, int):
+                    return ("http", f"http://{host}:{port}/mcp")
+            # No discovery file or malformed — verbatim §3.5 wording with
+            # the actual resolved state_dir interpolated.
             import click as _click
 
             raise _click.UsageError(
-                "discovery file support lands in Phase 58; "
-                "pass --mcp-url explicitly in Phase 57"
+                f"discovery file not found at {state_dir}/{MCP_RUNTIME_FILE}; "
+                f"run 'agent-brain mcp start' or pass --mcp-url"
             )
-        return ("http", url)
+        # No state_dir resolvable — defensive minimal error using the
+        # literal placeholder. open_backend always passes state_dir in
+        # the normal path; this branch fires only if discovery is
+        # disabled (None) by a direct caller.
+        import click as _click
+
+        raise _click.UsageError(
+            "discovery file not found at <state_dir>/mcp.runtime.json; "
+            "run 'agent-brain mcp start' or pass --mcp-url"
+        )
     # Unknown value — Click.Choice on the flag already filters this at
     # parse time, but defend against the env-only path.
     import click as _click
