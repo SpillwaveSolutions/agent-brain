@@ -29,6 +29,7 @@ pyyaml = "^6.0.0"
 pydantic = "^2.10.0"
 agent-brain-rag = "^10.2.1"
 agent-brain-uds = "^10.2.1"
+psutil = "^5.9"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"
