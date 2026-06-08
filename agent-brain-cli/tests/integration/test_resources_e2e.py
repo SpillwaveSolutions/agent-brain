@@ -109,16 +109,14 @@ def test_resources_list_enumerates_static_and_templates(
         timeout=60,
         check=False,
     )
-    assert proc.returncode == 0, (
-        f"resources list failed: stdout={proc.stdout!r} stderr={proc.stderr!r}"
-    )
+    assert (
+        proc.returncode == 0
+    ), f"resources list failed: stdout={proc.stdout!r} stderr={proc.stderr!r}"
     parsed = json.loads(proc.stdout)
     assert "resources" in parsed
     assert "templates" in parsed
     static_uris = {r.get("uri") for r in parsed["resources"]}
-    template_uris = {
-        t.get("uriTemplate", t.get("uri")) for t in parsed["templates"]
-    }
+    template_uris = {t.get("uriTemplate", t.get("uri")) for t in parsed["templates"]}
     # All 5 static URIs.
     assert "corpus://config" in static_uris
     assert "corpus://status" in static_uris

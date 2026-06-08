@@ -60,9 +60,12 @@ def resources_group() -> None:
     Examples:
       agent-brain --transport mcp --mcp-transport stdio resources list
       agent-brain --transport mcp --mcp-transport stdio resources list --json
-      agent-brain --transport mcp --mcp-transport stdio resources read corpus://status
-      agent-brain --transport mcp --mcp-transport stdio resources read file:///path/x.txt
-      agent-brain --transport mcp --mcp-transport stdio resources read file:///a.png --output-file out.png
+      agent-brain --transport mcp --mcp-transport stdio resources read \\
+          corpus://status
+      agent-brain --transport mcp --mcp-transport stdio resources read \\
+          file:///path/x.txt
+      agent-brain --transport mcp --mcp-transport stdio resources read \\
+          file:///a.png --output-file out.png
     """
 
 
@@ -95,9 +98,7 @@ def list_command(ctx: click.Context, as_json: bool) -> None:
         sys.exit(1)
 
     if as_json:
-        click.echo(
-            json.dumps({"resources": static, "templates": templates}, indent=2)
-        )
+        click.echo(json.dumps({"resources": static, "templates": templates}, indent=2))
         return
 
     rows: list[tuple[str, str, str]] = []
@@ -198,9 +199,7 @@ def read_command(
             try:
                 payload = base64.b64decode(blob)
             except (binascii.Error, ValueError) as exc:
-                click.echo(
-                    f"Failed to decode blob for {uri}: {exc}", err=True
-                )
+                click.echo(f"Failed to decode blob for {uri}: {exc}", err=True)
                 sys.exit(3)
             path.write_bytes(payload)
             click.echo(f"wrote {len(payload)} bytes to {path}")
