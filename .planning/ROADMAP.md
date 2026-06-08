@@ -114,7 +114,10 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
   2. `agent-brain resources list` enumerates all 5 static URIs + 4 templated URI schemes (`chunk://`, `graph-entity://`, `job://`, `file://`) with their mime types
   3. `agent-brain resources read <uri>` calls MCP `resources/read` and prints content with correct content-type handling: JSON pretty-printed, text passed through, binary blobs surfaced as a base64 marker or `--output-file` redirect (no raw bytes to stdout)
   4. `agent-brain resources read file:///disallowed/path` is rejected with the same `outside_indexed_roots` reason the MCP server returns (sandbox respected at the CLI layer too)
-**Plans:** TBD
+**Plans:** 3 plans
+- [ ] 59-01-PLAN.md — McpBackend Protocol + 5 skeleton methods on both backends + open_mcp_backend factory + isinstance pinning (CLI-MCP-05 foundation)
+- [ ] 59-02-PLAN.md — Wire 5 methods on both backends via asyncio.run Pattern A + agent-brain prompt command with --arg KEY=VALUE multi + --json flag + unknown-name handling (CLI-MCP-05)
+- [ ] 59-03-PLAN.md — agent-brain resources Click sub-group (list + read) with content-type dispatch + end-to-end integration test covering all 4 ROADMAP SCs including file:// sandbox rejection (CLI-MCP-06 + CLI-MCP-07)
 
 ### Phase 60: Subprocess hygiene + 1000-invocation orphan test
 **Goal:** Lock MCP stdio subprocess hygiene as a contract BEFORE the framework matrix lands — pinned cwd (no `cwd=None` inheritance), env sanitized to an explicit allowlist (drop API keys unless explicitly forwarded), SIGTERM → SIGKILL escalation with configurable grace, and an opt-in 1000-invocation pgrep test proving no orphans survive a tight tear-down loop.
@@ -181,7 +184,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 | 56. Design doc + CLI backend skeleton                       | 3/3 | Complete    | 2026-06-06 | -          |
 | 57. CLI transport selector + byte-identical equivalence     | 3/3 | Complete    | 2026-06-07 | -          |
 | 58. Runtime discovery + helper commands                     | 3/3 | Complete    | 2026-06-07 | -          |
-| 59. CLI prompts + resources commands                        | v10.3     | 0/TBD          | Not started | -          |
+| 59. CLI prompts + resources commands                        | v10.3     | 0/3            | Planned     | -          |
 | 60. Subprocess hygiene + 1000-invocation orphan test        | v10.3     | 0/TBD          | Not started | -          |
 | 61. Python framework adapter matrix                         | v10.3     | 0/TBD          | Not started | -          |
 | 62. TypeScript framework adapter matrix                     | v10.3     | 0/TBD          | Not started | -          |
@@ -189,4 +192,4 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-06-06 — Phase 57 planned (3 plans: flag wiring + dispatcher rename, query + byte-identical-equivalence DoD anchor, remaining 10 methods). Next: `/gsd:execute-phase 57` to ship Wave 1 (57-01 flags + dispatcher).*
+*Last updated: 2026-06-08 — Phase 59 planned (3 plans: McpBackend Protocol + skeletons + factory; wire 5 methods + agent-brain prompt; agent-brain resources sub-group + e2e). Next: `/gsd:execute-phase 59` to ship Wave 1 (59-01).*
