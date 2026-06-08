@@ -125,12 +125,17 @@ def test_open_mcp_backend_missing_agent_brain_mcp_raises_usage_error() -> None:
     )
 
 
-def test_open_mcp_backend_unimplemented_methods_still_raise() -> None:
-    """The factory returns the real McpStdioBackend, NOT a stub.
+def test_open_mcp_backend_returns_real_wired_backend_not_stub() -> None:
+    """The factory returns the real, Plan-59-02-wired McpStdioBackend.
 
-    Proves the skeleton bodies from Task 2 reach the caller through
-    the factory: ``backend.get_prompt("any")`` raises
-    ``NotImplementedError`` with the Phase 59 Plan 02 sentinel.
+    Plan 59-01 paired this test with a sentinel assertion proving the
+    skeleton bodies reached the caller through the factory. Plan 59-02
+    wires the bodies — the sentinel is gone. The post-Plan-02
+    contract: the returned instance is an actual ``McpStdioBackend``
+    whose ``get_prompt`` method, when called against a bogus binary
+    path (no agent-brain-mcp subprocess will ever boot), raises a real
+    runtime failure — NOT ``NotImplementedError`` with the old Plan
+    59-01 sentinel.
     """
     ctx = _make_ctx(transport_hint="mcp", mcp_transport_hint="stdio")
     with patch(
@@ -138,6 +143,19 @@ def test_open_mcp_backend_unimplemented_methods_still_raise() -> None:
         return_value="/usr/local/bin/agent-brain-mcp",
     ):
         backend = open_mcp_backend(ctx)
-    with pytest.raises(NotImplementedError) as exc_info:
+
+    # The factory returned the real McpStdioBackend type (not a stub).
+    from agent_brain_mcp.client import McpStdioBackend
+
+    assert isinstance(backend, McpStdioBackend)
+
+    # Calling get_prompt against the dummy backend now attempts a real
+    # SDK round-trip — fails for some non-sentinel reason (binary path
+    # bogus, subprocess can't boot, MCP handshake never completes).
+    with pytest.raises(BaseException) as exc_info:
         backend.get_prompt("any")
-    assert str(exc_info.value) == "Wired in Phase 59 Plan 02"
+    rendered = str(exc_info.value)
+    assert "Wired in Phase 59 Plan 02" not in rendered, (
+        "Plan 59-01 sentinel still raised through the factory — "
+        "Plan 02 wire bodies did not land."
+    )

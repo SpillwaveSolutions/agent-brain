@@ -1,12 +1,12 @@
-"""Skeleton conformance + architectural-boundary pinning for the new
-``McpBackend`` Protocol (Phase 59 Plan 01).
+"""Architectural-boundary pinning for the ``McpBackend`` Protocol
+(Phase 59 Plan 01 — wired by Phase 59 Plan 02).
 
 Sibling to ``test_cli_backends_skeleton.py`` — that file pins
 ``BackendClient`` (the tools surface introduced in Plan 56-02);
 this file pins ``McpBackend`` (the prompts + resources surface
-introduced in Plan 59-01).
+introduced in Plan 59-01, wired in Plan 59-02).
 
-Three architectural pins:
+Three architectural pins survive Plan 02 unchanged:
 
 1. ``McpStdioBackend`` structurally satisfies ``McpBackend``.
 2. ``McpHttpBackend`` structurally satisfies ``McpBackend``.
@@ -15,11 +15,13 @@ Three architectural pins:
    prompts/resources by design; this assertion makes the boundary
    explicit and survives Phase 60+ refactors.
 
-Plus a parametrized sentinel assertion: every skeleton method body on
-both backends raises ``NotImplementedError("Wired in Phase 59 Plan 02")``
-verbatim. Plan 59-02 greps for that exact string before replacing each
-body, so a drift here would silently de-couple the skeletons from the
-wire plan.
+A parametrized "sentinel-gone" pin: every previously-skeleton method
+body on both backends now raises ANY exception OTHER than the
+Plan 59-01 sentinel ``NotImplementedError("Wired in Phase 59 Plan
+02")``. Plan 02 wired the bodies; this pin proves the swap happened.
+The expected runtime error on a dummy backend is a real SDK
+connection failure (or similar), surfaced here as the negation of
+the obsolete sentinel.
 """
 
 from __future__ import annotations
@@ -30,7 +32,10 @@ from agent_brain_cli.client.protocol import McpBackend
 
 from agent_brain_mcp.client import McpHttpBackend, McpStdioBackend
 
-SKELETON_SENTINEL: str = "Wired in Phase 59 Plan 02"
+# The Plan 59-01 sentinel literal — Plan 59-02 removes this from every
+# method body. Kept here as the negative-case anchor so a regression
+# (someone reverting the wires) trips this test immediately.
+PLAN_59_01_SENTINEL: str = "Wired in Phase 59 Plan 02"
 
 
 def test_mcp_stdio_backend_satisfies_mcp_backend_protocol() -> None:
@@ -80,36 +85,43 @@ _BACKEND_INSTANCES = [
 
 
 @pytest.mark.parametrize("backend", _BACKEND_INSTANCES)
-def test_mcp_backend_skeleton_methods_raise_with_sentinel(
+def test_mcp_backend_methods_no_longer_raise_plan_59_01_sentinel(
     backend: McpBackend,
 ) -> None:
-    """Every skeleton method raises ``NotImplementedError`` with the
-    verbatim Phase 59 Plan 02 sentinel.
+    """Every Phase 59 method body on both backends MUST NOT raise the
+    Plan 59-01 ``NotImplementedError`` sentinel anymore.
 
-    Plan 59-02 greps for the exact literal ``"Wired in Phase 59 Plan 02"``
-    before replacing each method body with a real wire implementation —
-    a drift in this string (extra period, paraphrase, wrong plan
-    number) silently breaks the swap-in pattern.
+    Plan 02 replaces each skeleton with a real wire — the bodies now
+    attempt an actual MCP SDK round-trip. Against the dummy backends
+    constructed here (bogus stdio command + unreachable HTTP URL), the
+    real wires raise SDK connection failures (httpx.ConnectError,
+    BrokenPipeError, FileNotFoundError, etc. — sometimes wrapped in
+    ExceptionGroup / BaseExceptionGroup from anyio). The negation
+    contract: whatever exception bubbles up, it MUST NOT be the
+    Plan 59-01 sentinel string.
 
-    Method names and safe dummy args come from the ``McpBackend``
-    Protocol signature; coverage is 10 calls (5 methods × 2 backends).
+    Coverage is 10 calls (5 methods × 2 backends) — same surface
+    pinned by the original Plan 59-01 skeleton-conformance test;
+    Plan 59-02 inverts the assertion now that the bodies are wired.
     """
-    with pytest.raises(NotImplementedError) as exc_info:
-        backend.get_prompt("any")
-    assert str(exc_info.value) == SKELETON_SENTINEL
-
-    with pytest.raises(NotImplementedError) as exc_info:
-        backend.list_prompts()
-    assert str(exc_info.value) == SKELETON_SENTINEL
-
-    with pytest.raises(NotImplementedError) as exc_info:
-        backend.list_resources()
-    assert str(exc_info.value) == SKELETON_SENTINEL
-
-    with pytest.raises(NotImplementedError) as exc_info:
-        backend.list_resource_templates()
-    assert str(exc_info.value) == SKELETON_SENTINEL
-
-    with pytest.raises(NotImplementedError) as exc_info:
-        backend.read_resource("any://x")
-    assert str(exc_info.value) == SKELETON_SENTINEL
+    method_calls = [
+        ("get_prompt", lambda b: b.get_prompt("any")),
+        ("list_prompts", lambda b: b.list_prompts()),
+        ("list_resources", lambda b: b.list_resources()),
+        ("list_resource_templates", lambda b: b.list_resource_templates()),
+        ("read_resource", lambda b: b.read_resource("any://x")),
+    ]
+    for method_name, call in method_calls:
+        with pytest.raises(BaseException) as exc_info:
+            call(backend)
+        # Whatever bubbles up — connection error, BaseExceptionGroup,
+        # subprocess error — it MUST NOT be the obsolete Plan 59-01
+        # sentinel. (str() on BaseExceptionGroup recursively includes
+        # all sub-exception messages — that's the right surface to
+        # check; a sentinel reappearing as a re-raised
+        # NotImplementedError would surface here.)
+        rendered = str(exc_info.value)
+        assert PLAN_59_01_SENTINEL not in rendered, (
+            f"{method_name} on {type(backend).__name__} still raises "
+            f"the Plan 59-01 sentinel — Plan 02 wire never landed."
+        )
