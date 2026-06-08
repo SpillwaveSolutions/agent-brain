@@ -22,6 +22,7 @@ from .commands import (
     prompt_command,
     query_command,
     reset_command,
+    resources_group,
     start_command,
     status_command,
     stop_command,
@@ -161,6 +162,7 @@ cli.add_command(stop_command, name="stop")
 cli.add_command(list_command, name="list")
 cli.add_command(mcp_group, name="mcp")
 cli.add_command(prompt_command, name="prompt")
+cli.add_command(resources_group, name="resources")
 
 # Register server interaction commands
 cli.add_command(status_command, name="status")

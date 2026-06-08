@@ -14,6 +14,7 @@ from .mcp import mcp_group
 from .prompt import prompt_command
 from .query import query_command
 from .reset import reset_command
+from .resources import resources_group
 from .start import start_command
 from .status import status_command
 from .stop import stop_command
@@ -35,6 +36,7 @@ __all__ = [
     "prompt_command",
     "query_command",
     "reset_command",
+    "resources_group",
     "start_command",
     "status_command",
     "stop_command",
