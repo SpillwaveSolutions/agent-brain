@@ -847,10 +847,7 @@ class McpStdioBackend:
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.list_prompts()
-        return [
-            p.model_dump(mode="json", exclude_none=False)
-            for p in result.prompts
-        ]
+        return [p.model_dump(mode="json", exclude_none=False) for p in result.prompts]
 
     def list_resources(self) -> list[dict[str, Any]]:
         return asyncio.run(self._async_list_resources())
@@ -863,10 +860,7 @@ class McpStdioBackend:
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.list_resources()
-        return [
-            r.model_dump(mode="json", exclude_none=False)
-            for r in result.resources
-        ]
+        return [r.model_dump(mode="json", exclude_none=False) for r in result.resources]
 
     def list_resource_templates(self) -> list[dict[str, Any]]:
         return asyncio.run(self._async_list_resource_templates())
@@ -1312,10 +1306,7 @@ class McpHttpBackend:
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.list_prompts()
-        return [
-            p.model_dump(mode="json", exclude_none=False)
-            for p in result.prompts
-        ]
+        return [p.model_dump(mode="json", exclude_none=False) for p in result.prompts]
 
     def list_resources(self) -> list[dict[str, Any]]:
         return asyncio.run(self._async_list_resources())
@@ -1328,10 +1319,7 @@ class McpHttpBackend:
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.list_resources()
-        return [
-            r.model_dump(mode="json", exclude_none=False)
-            for r in result.resources
-        ]
+        return [r.model_dump(mode="json", exclude_none=False) for r in result.resources]
 
     def list_resource_templates(self) -> list[dict[str, Any]]:
         return asyncio.run(self._async_list_resource_templates())

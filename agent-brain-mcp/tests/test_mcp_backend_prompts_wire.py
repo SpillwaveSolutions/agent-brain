@@ -41,7 +41,6 @@ from pydantic import AnyUrl
 
 from agent_brain_mcp.client import McpHttpBackend, McpStdioBackend
 
-
 # ---------------------------------------------------------------------------
 # Canned SDK return values — Pydantic models shaped like real SDK results.
 # ---------------------------------------------------------------------------
@@ -451,11 +450,7 @@ def test_no_skeleton_sentinel_remains_in_phase_59_methods() -> None:
     (e.g., a comment referring to the lift) — but pins removal at the
     method bodies.
     """
-    client_py = (
-        Path(__file__).resolve().parent.parent
-        / "agent_brain_mcp"
-        / "client.py"
-    )
+    client_py = Path(__file__).resolve().parent.parent / "agent_brain_mcp" / "client.py"
     src = client_py.read_text()
     lines = src.splitlines()
 

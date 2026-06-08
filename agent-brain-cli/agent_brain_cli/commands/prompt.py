@@ -67,9 +67,7 @@ def _parse_arg(arg: str) -> tuple[str, str]:
         )
     key, _, value = arg.partition("=")
     if not key:
-        raise click.UsageError(
-            f"--arg KEY must be non-empty; got {arg!r}"
-        )
+        raise click.UsageError(f"--arg KEY must be non-empty; got {arg!r}")
     return key, value
 
 
@@ -151,14 +149,8 @@ def prompt_command(
                     f"Prompt call failed: {exc}; additionally, "
                     f"prompts/list failed: {list_exc}"
                 ) from exc
-            names = sorted(
-                p.get("name", "")
-                for p in available_raw
-                if p.get("name")
-            )
-            joined = (
-                ", ".join(names) if names else "<no prompts registered>"
-            )
+            names = sorted(p.get("name", "") for p in available_raw if p.get("name"))
+            joined = ", ".join(names) if names else "<no prompts registered>"
             raise click.UsageError(
                 f"Unknown prompt {name!r}; available: {joined}"
             ) from exc

@@ -38,7 +38,6 @@ from mcp.types import ErrorData
 
 from agent_brain_cli.cli import cli
 
-
 # ---------------------------------------------------------------------------
 # Fake backend factory — context-manager-aware MagicMock
 # ---------------------------------------------------------------------------
@@ -161,9 +160,9 @@ def test_prompt_command_json_flag_pretty_prints_dict() -> None:
             ],
         )
 
-    assert result.exit_code == 0, (
-        f"Expected exit 0, got {result.exit_code}\nstdout: {result.output}"
-    )
+    assert (
+        result.exit_code == 0
+    ), f"Expected exit 0, got {result.exit_code}\nstdout: {result.output}"
     # The output must be parseable JSON equal to the canned dict.
     parsed = json.loads(result.output)
     assert parsed == canned
@@ -196,9 +195,9 @@ def test_prompt_command_arg_kv_pairs_forwarded_to_get_prompt() -> None:
             ],
         )
 
-    assert result.exit_code == 0, (
-        f"Expected exit 0, got {result.exit_code}\nstdout: {result.output}"
-    )
+    assert (
+        result.exit_code == 0
+    ), f"Expected exit 0, got {result.exit_code}\nstdout: {result.output}"
     backend.get_prompt.assert_called_once_with(
         "find-callers",
         {"symbol": "parse_query", "file": "query_service.py"},
@@ -262,9 +261,7 @@ def test_prompt_command_empty_key_in_arg_exits_2() -> None:
 def test_prompt_command_unknown_name_lists_available_alphabetical() -> None:
     """Unknown prompt name → catches McpError → calls list_prompts →
     exits 2 with sorted available names."""
-    err = McpError(
-        ErrorData(code=-32602, message="Unknown prompt: unknown-name")
-    )
+    err = McpError(ErrorData(code=-32602, message="Unknown prompt: unknown-name"))
     backend = _make_fake_backend(
         get_prompt_side_effect=err,
         list_prompts_result=[
@@ -294,10 +291,7 @@ def test_prompt_command_unknown_name_lists_available_alphabetical() -> None:
     assert "Unknown prompt" in result.output
     assert "unknown-name" in result.output
     # Alphabetical sort of available names.
-    assert (
-        "audit-indexed-folders, explain-architecture, find-callers"
-        in result.output
-    )
+    assert "audit-indexed-folders, explain-architecture, find-callers" in result.output
     # The fallback list_prompts call happened.
     backend.list_prompts.assert_called_once()
 
