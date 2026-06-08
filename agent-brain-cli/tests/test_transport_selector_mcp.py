@@ -109,18 +109,26 @@ class TestMcpCase2HttpWithoutUrl:
 
 
 class TestSkeletonRoutingStdio:
-    """--transport mcp --mcp-transport stdio reaches the McpStdioBackend
-    skeleton — proves the dispatcher routed correctly (the skeleton then
-    raises NotImplementedError("Wired in Phase 57+"))."""
+    """--transport mcp --mcp-transport stdio reaches the McpStdioBackend.
 
-    def test_stdio_branch_reaches_skeleton(
+    Originally pinned a Phase 57-skeleton sentinel string; Phase 57 Plan
+    02 + Plan 03 wired the real bodies, so the post-Phase-57 routing
+    assertion is that the dispatcher reaches McpStdioBackend and the
+    wired body attempts a real MCP handshake (which fails fast against
+    a non-existent subprocess). We patch ``open_backend`` at the query
+    command's call site so the wired body never actually spawns a
+    subprocess — the assertion is purely that ``open_backend`` returned
+    an ``McpStdioBackend`` for the stdio branch.
+    """
+
+    def test_stdio_branch_reaches_mcp_stdio_backend(
         self, clean_env: None, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         # Skip if agent-brain-mcp isn't installed in the venv — that
         # path is covered by TestMcpCase1PackageNotInstalled (§3.5 case 1).
         pytest.importorskip("agent_brain_mcp.client")
-        # PATH precheck must pass so the dispatcher hits the actual
-        # McpStdioBackend constructor + .query() method.
+        # PATH precheck must pass so the dispatcher reaches the
+        # McpStdioBackend constructor.
         monkeypatch.setattr(
             "shutil.which",
             lambda cmd: (
@@ -128,52 +136,114 @@ class TestSkeletonRoutingStdio:
             ),
         )
 
-        runner = CliRunner()
-        result = runner.invoke(
-            cli,
-            ["--transport", "mcp", "--mcp-transport", "stdio", "query", "X"],
-        )
+        # Spy on open_backend at the query command's call site so we
+        # can inspect the returned instance without running the wired
+        # body (which would spawn a real subprocess).
+        from agent_brain_mcp.client import McpStdioBackend
 
-        # Either Click surfaces the NotImplementedError as result.exception
-        # OR the message lands in result.output. Either is acceptable as
-        # long as the skeleton's sentinel string was reached.
-        combined = result.output + (str(result.exception) if result.exception else "")
-        assert "Wired in Phase 57+" in combined, (
-            f"expected skeleton's NotImplementedError sentinel to surface; "
-            f"exit_code={result.exit_code} output={result.output!r} "
-            f"exception={result.exception!r}"
+        captured: dict[str, object] = {}
+        with patch("agent_brain_cli.commands.query.open_backend") as mock_open:
+            mock_client = MagicMock()
+            mock_client.__enter__ = MagicMock(return_value=mock_client)
+            mock_client.__exit__ = MagicMock(return_value=None)
+            mock_client.query.return_value = MagicMock(
+                results=[],
+                query="X",
+                count=0,
+                total_count=0,
+                elapsed_seconds=0.01,
+                source_types_searched=None,
+                languages_searched=None,
+                file_paths_searched=None,
+            )
+
+            def _capture(ctx: object, *args: object, **kwargs: object) -> object:
+                # Re-invoke the real open_backend to confirm dispatch
+                # returns McpStdioBackend, then hand the test a mock.
+                from agent_brain_cli.client.transport import open_backend as _real
+
+                captured["backend"] = _real(ctx)  # type: ignore[arg-type]
+                return mock_client
+
+            mock_open.side_effect = _capture
+
+            runner = CliRunner()
+            result = runner.invoke(
+                cli,
+                ["--transport", "mcp", "--mcp-transport", "stdio", "query", "X"],
+            )
+
+        assert mock_open.called, (
+            f"expected open_backend to be invoked from query on stdio MCP; "
+            f"exit_code={result.exit_code} output={result.output!r}"
+        )
+        assert isinstance(captured.get("backend"), McpStdioBackend), (
+            f"expected stdio branch to return McpStdioBackend; "
+            f"got {type(captured.get('backend'))!r}"
         )
 
 
 class TestSkeletonRoutingHttp:
     """--transport mcp --mcp-transport http --mcp-url <url> reaches the
-    McpHttpBackend skeleton."""
+    McpHttpBackend.
 
-    def test_http_branch_reaches_skeleton(self, clean_env: None) -> None:
+    Originally pinned the Phase 57-skeleton sentinel; Phase 57 Plan 02
+    + 03 wired the real bodies. Post-Phase-57 routing assertion: the
+    dispatcher reaches McpHttpBackend for the http MCP branch.
+    """
+
+    def test_http_branch_reaches_mcp_http_backend(self, clean_env: None) -> None:
         # Skip if agent-brain-mcp isn't installed in the venv — that
         # path is covered by TestMcpCase1PackageNotInstalled (§3.5 case 1).
         pytest.importorskip("agent_brain_mcp.client")
+        from agent_brain_mcp.client import McpHttpBackend
 
-        runner = CliRunner()
-        result = runner.invoke(
-            cli,
-            [
-                "--transport",
-                "mcp",
-                "--mcp-transport",
-                "http",
-                "--mcp-url",
-                "http://127.0.0.1:9999/mcp",
-                "query",
-                "X",
-            ],
+        captured: dict[str, object] = {}
+        with patch("agent_brain_cli.commands.query.open_backend") as mock_open:
+            mock_client = MagicMock()
+            mock_client.__enter__ = MagicMock(return_value=mock_client)
+            mock_client.__exit__ = MagicMock(return_value=None)
+            mock_client.query.return_value = MagicMock(
+                results=[],
+                query="X",
+                count=0,
+                total_count=0,
+                elapsed_seconds=0.01,
+                source_types_searched=None,
+                languages_searched=None,
+                file_paths_searched=None,
+            )
+
+            def _capture(ctx: object, *args: object, **kwargs: object) -> object:
+                from agent_brain_cli.client.transport import open_backend as _real
+
+                captured["backend"] = _real(ctx)  # type: ignore[arg-type]
+                return mock_client
+
+            mock_open.side_effect = _capture
+
+            runner = CliRunner()
+            result = runner.invoke(
+                cli,
+                [
+                    "--transport",
+                    "mcp",
+                    "--mcp-transport",
+                    "http",
+                    "--mcp-url",
+                    "http://127.0.0.1:9999/mcp",
+                    "query",
+                    "X",
+                ],
+            )
+
+        assert mock_open.called, (
+            f"expected open_backend to be invoked from query on http MCP; "
+            f"exit_code={result.exit_code} output={result.output!r}"
         )
-
-        combined = result.output + (str(result.exception) if result.exception else "")
-        assert "Wired in Phase 57+" in combined, (
-            f"expected skeleton's NotImplementedError sentinel to surface; "
-            f"exit_code={result.exit_code} output={result.output!r} "
-            f"exception={result.exception!r}"
+        assert isinstance(captured.get("backend"), McpHttpBackend), (
+            f"expected http branch to return McpHttpBackend; "
+            f"got {type(captured.get('backend'))!r}"
         )
 
 
