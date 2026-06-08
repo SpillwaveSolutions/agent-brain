@@ -42,9 +42,7 @@ def test_mcp_backend_protocol_declares_expected_methods() -> None:
         declared = frozenset(McpBackend.__protocol_attrs__)
     else:
         declared = frozenset(
-            name
-            for name, value in vars(McpBackend).items()
-            if callable(value)
+            name for name, value in vars(McpBackend).items() if callable(value)
         )
     missing = EXPECTED_MCP_PROTOCOL_METHODS - declared
     extra = declared - EXPECTED_MCP_PROTOCOL_METHODS - {"__init_subclass__"}

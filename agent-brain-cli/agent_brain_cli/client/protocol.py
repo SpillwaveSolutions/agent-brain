@@ -128,4 +128,46 @@ class BackendClient(Protocol):
     def clear_cache(self) -> dict[str, Any]: ...
 
 
-__all__: list[str] = ["BackendClient"]
+@runtime_checkable
+class McpBackend(Protocol):
+    """Structural contract for MCP-only CLI backends (Phase 59).
+
+    Exposes the ``prompts/get`` + ``prompts/list`` +
+    ``resources/list`` + ``resources/templates/list`` +
+    ``resources/read`` MCP surface that the v3 ``agent-brain prompt``
+    and ``agent-brain resources *`` commands speak. Intentionally
+    SEPARATE from :class:`BackendClient` — DocServeClient (UDS/HTTP)
+    does NOT satisfy this Protocol because those transports do not
+    speak MCP prompts/resources. The negative-case pinning test in
+    ``agent-brain-mcp/tests/test_mcp_backend_protocol_skeleton.py``
+    (``test_doc_serve_client_does_not_satisfy_mcp_backend``) makes the
+    architectural boundary explicit and lasting.
+
+    All methods are synchronous (sync-facade Pattern A confirmed by
+    Plan 57-02; see design doc §3.2). The v3 MCP backends wrap async
+    MCP SDK calls via ``asyncio.run(...)`` per call — from the
+    caller's perspective the facade is identical to
+    :class:`BackendClient`'s.
+
+    Return shapes are deliberately ``dict[str, Any]`` /
+    ``list[dict[str, Any]]`` (NOT typed dataclasses) — the MCP wire
+    payloads for ``prompts/get`` and ``resources/read`` differ enough
+    that the Phase 59 Plan 02 / Plan 03 command layer handles per-
+    method coercion (mirrors the existing
+    :func:`api_client._unwrap_payload` shape). Phase 60+ may revisit.
+    """
+
+    def get_prompt(
+        self, name: str, arguments: dict[str, str] | None = None
+    ) -> dict[str, Any]: ...
+
+    def list_prompts(self) -> list[dict[str, Any]]: ...
+
+    def list_resources(self) -> list[dict[str, Any]]: ...
+
+    def list_resource_templates(self) -> list[dict[str, Any]]: ...
+
+    def read_resource(self, uri: str) -> dict[str, Any]: ...
+
+
+__all__: list[str] = ["BackendClient", "McpBackend"]
