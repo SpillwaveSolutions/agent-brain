@@ -807,31 +807,96 @@ class McpStdioBackend:
                 result = await session.call_tool("clear_cache", {"confirm": True})
         return _unwrap_payload(result)
 
-    # --- Phase 59: McpBackend Protocol surface (skeletons; Plan 02 wires) ---
+    # --- Phase 59 Plan 02: McpBackend Protocol surface (wired) ---
     #
-    # Skeleton-first per the Plan 56-03 / Plan 57-01 precedent: Plan 59-01
-    # closes the architectural boundary (McpBackend Protocol +
-    # open_mcp_backend factory + isinstance pinning test) so Plan 59-02
-    # can land the wire bodies without simultaneously debugging the
-    # Protocol shape. The NotImplementedError sentinel below is grep-
-    # matched by Plan 59-02 before replacing each body.
+    # Each public method is a 1-line ``asyncio.run(self._async_*())``
+    # facade (Pattern A — Plan 57-02 CONTEXT decision, confirmed across
+    # the full 10-method × 2-backend surface in Plan 57-03). Each
+    # ``_async_*`` helper opens ``stdio_client(self._stdio_params())``,
+    # opens a ``ClientSession``, calls one MCP wire method, then
+    # ``model_dump(mode="json", exclude_none=False)``-translates the
+    # Pydantic result to ``dict[str, Any]`` / ``list[dict[str, Any]]``.
+    # The Plan 59-01 NotImplementedError sentinel has been fully removed
+    # — replaced byte-for-byte by these wire bodies.
 
     def get_prompt(
         self, name: str, arguments: dict[str, str] | None = None
     ) -> dict[str, Any]:
-        raise NotImplementedError("Wired in Phase 59 Plan 02")
+        return asyncio.run(self._async_get_prompt(name, arguments))
+
+    async def _async_get_prompt(
+        self, name: str, arguments: dict[str, str] | None
+    ) -> dict[str, Any]:
+        from mcp import ClientSession
+        from mcp.client.stdio import stdio_client
+
+        async with stdio_client(self._stdio_params()) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.get_prompt(name, arguments)
+        return result.model_dump(mode="json", exclude_none=False)
 
     def list_prompts(self) -> list[dict[str, Any]]:
-        raise NotImplementedError("Wired in Phase 59 Plan 02")
+        return asyncio.run(self._async_list_prompts())
+
+    async def _async_list_prompts(self) -> list[dict[str, Any]]:
+        from mcp import ClientSession
+        from mcp.client.stdio import stdio_client
+
+        async with stdio_client(self._stdio_params()) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.list_prompts()
+        return [
+            p.model_dump(mode="json", exclude_none=False)
+            for p in result.prompts
+        ]
 
     def list_resources(self) -> list[dict[str, Any]]:
-        raise NotImplementedError("Wired in Phase 59 Plan 02")
+        return asyncio.run(self._async_list_resources())
+
+    async def _async_list_resources(self) -> list[dict[str, Any]]:
+        from mcp import ClientSession
+        from mcp.client.stdio import stdio_client
+
+        async with stdio_client(self._stdio_params()) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.list_resources()
+        return [
+            r.model_dump(mode="json", exclude_none=False)
+            for r in result.resources
+        ]
 
     def list_resource_templates(self) -> list[dict[str, Any]]:
-        raise NotImplementedError("Wired in Phase 59 Plan 02")
+        return asyncio.run(self._async_list_resource_templates())
+
+    async def _async_list_resource_templates(self) -> list[dict[str, Any]]:
+        from mcp import ClientSession
+        from mcp.client.stdio import stdio_client
+
+        async with stdio_client(self._stdio_params()) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.list_resource_templates()
+        return [
+            t.model_dump(mode="json", exclude_none=False)
+            for t in result.resourceTemplates
+        ]
 
     def read_resource(self, uri: str) -> dict[str, Any]:
-        raise NotImplementedError("Wired in Phase 59 Plan 02")
+        return asyncio.run(self._async_read_resource(uri))
+
+    async def _async_read_resource(self, uri: str) -> dict[str, Any]:
+        from mcp import ClientSession
+        from mcp.client.stdio import stdio_client
+        from pydantic import AnyUrl
+
+        async with stdio_client(self._stdio_params()) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.read_resource(AnyUrl(uri))
+        return result.model_dump(mode="json", exclude_none=False)
 
 
 class McpHttpBackend:
@@ -1211,30 +1276,92 @@ class McpHttpBackend:
                 result = await session.call_tool("clear_cache", {"confirm": True})
         return _unwrap_payload(result)
 
-    # --- Phase 59: McpBackend Protocol surface (skeletons; Plan 02 wires) ---
+    # --- Phase 59 Plan 02: McpBackend Protocol surface (wired) ---
     #
-    # Skeleton-first per the Plan 56-03 / Plan 57-01 precedent. The
-    # NotImplementedError message string is EXACTLY "Wired in Phase 59
-    # Plan 02" — Plan 59-02 greps for this literal sentinel before
-    # replacing each body. Signatures match the McpBackend Protocol
-    # declared at agent_brain_cli/client/protocol.py verbatim.
+    # Same Pattern A shape as McpStdioBackend's wires above, but using
+    # ``streamablehttp_client(self.url)`` (3-tuple yield: read, write,
+    # session_id_factory — absorb the trailing tuple element with
+    # ``*_`` per the Phase 53 ``test_transport_selection.py``
+    # precedent). The model_dump translation is identical.
 
     def get_prompt(
         self, name: str, arguments: dict[str, str] | None = None
     ) -> dict[str, Any]:
-        raise NotImplementedError("Wired in Phase 59 Plan 02")
+        return asyncio.run(self._async_get_prompt(name, arguments))
+
+    async def _async_get_prompt(
+        self, name: str, arguments: dict[str, str] | None
+    ) -> dict[str, Any]:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+
+        async with streamablehttp_client(self.url) as (read, write, *_):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.get_prompt(name, arguments)
+        return result.model_dump(mode="json", exclude_none=False)
 
     def list_prompts(self) -> list[dict[str, Any]]:
-        raise NotImplementedError("Wired in Phase 59 Plan 02")
+        return asyncio.run(self._async_list_prompts())
+
+    async def _async_list_prompts(self) -> list[dict[str, Any]]:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+
+        async with streamablehttp_client(self.url) as (read, write, *_):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.list_prompts()
+        return [
+            p.model_dump(mode="json", exclude_none=False)
+            for p in result.prompts
+        ]
 
     def list_resources(self) -> list[dict[str, Any]]:
-        raise NotImplementedError("Wired in Phase 59 Plan 02")
+        return asyncio.run(self._async_list_resources())
+
+    async def _async_list_resources(self) -> list[dict[str, Any]]:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+
+        async with streamablehttp_client(self.url) as (read, write, *_):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.list_resources()
+        return [
+            r.model_dump(mode="json", exclude_none=False)
+            for r in result.resources
+        ]
 
     def list_resource_templates(self) -> list[dict[str, Any]]:
-        raise NotImplementedError("Wired in Phase 59 Plan 02")
+        return asyncio.run(self._async_list_resource_templates())
+
+    async def _async_list_resource_templates(self) -> list[dict[str, Any]]:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+
+        async with streamablehttp_client(self.url) as (read, write, *_):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.list_resource_templates()
+        return [
+            t.model_dump(mode="json", exclude_none=False)
+            for t in result.resourceTemplates
+        ]
 
     def read_resource(self, uri: str) -> dict[str, Any]:
-        raise NotImplementedError("Wired in Phase 59 Plan 02")
+        return asyncio.run(self._async_read_resource(uri))
+
+    async def _async_read_resource(self, uri: str) -> dict[str, Any]:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+        from pydantic import AnyUrl
+
+        async with streamablehttp_client(self.url) as (read, write, *_):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.read_resource(AnyUrl(uri))
+        return result.model_dump(mode="json", exclude_none=False)
 
 
 __all__: list[str] = ["ApiClient", "McpStdioBackend", "McpHttpBackend"]
