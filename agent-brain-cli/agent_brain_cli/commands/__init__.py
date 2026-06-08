@@ -11,6 +11,7 @@ from .install_agent import install_agent_command
 from .jobs import jobs_command
 from .list_cmd import list_command
 from .mcp import mcp_group
+from .prompt import prompt_command
 from .query import query_command
 from .reset import reset_command
 from .start import start_command
@@ -31,6 +32,7 @@ __all__ = [
     "jobs_command",
     "list_command",
     "mcp_group",
+    "prompt_command",
     "query_command",
     "reset_command",
     "start_command",
