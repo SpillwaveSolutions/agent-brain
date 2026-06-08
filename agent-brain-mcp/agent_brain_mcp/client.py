@@ -807,6 +807,32 @@ class McpStdioBackend:
                 result = await session.call_tool("clear_cache", {"confirm": True})
         return _unwrap_payload(result)
 
+    # --- Phase 59: McpBackend Protocol surface (skeletons; Plan 02 wires) ---
+    #
+    # Skeleton-first per the Plan 56-03 / Plan 57-01 precedent: Plan 59-01
+    # closes the architectural boundary (McpBackend Protocol +
+    # open_mcp_backend factory + isinstance pinning test) so Plan 59-02
+    # can land the wire bodies without simultaneously debugging the
+    # Protocol shape. The NotImplementedError sentinel below is grep-
+    # matched by Plan 59-02 before replacing each body.
+
+    def get_prompt(
+        self, name: str, arguments: dict[str, str] | None = None
+    ) -> dict[str, Any]:
+        raise NotImplementedError("Wired in Phase 59 Plan 02")
+
+    def list_prompts(self) -> list[dict[str, Any]]:
+        raise NotImplementedError("Wired in Phase 59 Plan 02")
+
+    def list_resources(self) -> list[dict[str, Any]]:
+        raise NotImplementedError("Wired in Phase 59 Plan 02")
+
+    def list_resource_templates(self) -> list[dict[str, Any]]:
+        raise NotImplementedError("Wired in Phase 59 Plan 02")
+
+    def read_resource(self, uri: str) -> dict[str, Any]:
+        raise NotImplementedError("Wired in Phase 59 Plan 02")
+
 
 class McpHttpBackend:
     """CLI-side backend that talks to agent-brain-mcp over Streamable HTTP.
@@ -1184,6 +1210,31 @@ class McpHttpBackend:
                 await session.initialize()
                 result = await session.call_tool("clear_cache", {"confirm": True})
         return _unwrap_payload(result)
+
+    # --- Phase 59: McpBackend Protocol surface (skeletons; Plan 02 wires) ---
+    #
+    # Skeleton-first per the Plan 56-03 / Plan 57-01 precedent. The
+    # NotImplementedError message string is EXACTLY "Wired in Phase 59
+    # Plan 02" — Plan 59-02 greps for this literal sentinel before
+    # replacing each body. Signatures match the McpBackend Protocol
+    # declared at agent_brain_cli/client/protocol.py verbatim.
+
+    def get_prompt(
+        self, name: str, arguments: dict[str, str] | None = None
+    ) -> dict[str, Any]:
+        raise NotImplementedError("Wired in Phase 59 Plan 02")
+
+    def list_prompts(self) -> list[dict[str, Any]]:
+        raise NotImplementedError("Wired in Phase 59 Plan 02")
+
+    def list_resources(self) -> list[dict[str, Any]]:
+        raise NotImplementedError("Wired in Phase 59 Plan 02")
+
+    def list_resource_templates(self) -> list[dict[str, Any]]:
+        raise NotImplementedError("Wired in Phase 59 Plan 02")
+
+    def read_resource(self, uri: str) -> dict[str, Any]:
+        raise NotImplementedError("Wired in Phase 59 Plan 02")
 
 
 __all__: list[str] = ["ApiClient", "McpStdioBackend", "McpHttpBackend"]
