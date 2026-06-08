@@ -40,7 +40,7 @@ import click
 
 from ..config import resolve_api_key, resolve_mcp_transport, resolve_transport
 from .api_client import DocServeClient
-from .protocol import BackendClient
+from .protocol import BackendClient, McpBackend
 
 
 def _resolve_state_dir_for_discovery() -> Path | None:
@@ -163,3 +163,93 @@ def open_backend(ctx: click.Context, *, timeout: float = 30.0) -> BackendClient:
 
     inner = make_client(socket_path=Path(target), timeout=timeout)
     return DocServeClient.from_httpx(inner, api_key=api_key)
+
+
+def open_mcp_backend(ctx: click.Context, *, timeout: float = 30.0) -> McpBackend:
+    """Construct an ``McpBackend`` for MCP-only CLI commands (Phase 59).
+
+    Sibling to :func:`open_backend`: that dispatcher returns a
+    :class:`BackendClient` (the tools surface — health/query/index/etc.)
+    over any of HTTP/UDS/MCP; this factory returns an
+    :class:`McpBackend` (the prompts + resources surface — get_prompt /
+    list_resources / read_resource) exclusively over MCP. Every Phase 59
+    MCP-only command (``agent-brain prompt``, ``agent-brain resources
+    *``) calls this instead of :func:`open_backend` so the
+    ``--transport mcp`` check lives at a single point of contract.
+
+    Reads from ``ctx.obj`` (set by the top-level Click group in
+    ``cli.py``):
+
+      - ``transport_hint`` — MUST be ``"mcp"`` (case-insensitive); any
+        other value raises :class:`click.UsageError` per the Phase 57
+        §3.5 no-silent-fallback contract.
+      - ``mcp_transport_hint`` (``"stdio"`` / ``"http"`` / ``None``)
+      - ``mcp_url_override`` (URL string or ``None``)
+      - ``debug_transport`` (bool)
+
+    Dispatch:
+
+      1. ``mcp_transport == "stdio"`` →
+         :class:`McpStdioBackend(command="agent-brain-mcp")` (precheck:
+         ``shutil.which("agent-brain-mcp")`` must be non-None; same
+         §3.5 case-3 wording as :func:`open_backend`).
+      2. ``mcp_transport == "http"`` →
+         :class:`McpHttpBackend(url=resolved_mcp_url, timeout=timeout)`.
+
+    Raises:
+        click.UsageError: Exit code 2 when (1) ``transport_hint`` is
+            not ``"mcp"``, (2) ``agent-brain-mcp`` is not installed,
+            (3) stdio binary not on PATH. Carries the Phase 57 §3.5
+            verbatim wording — no silent fallback.
+    """
+    obj = ctx.obj or {}
+    transport_hint = (obj.get("transport_hint") or "").lower()
+    if transport_hint != "mcp":
+        # Generic per-factory wording. Each MCP-only command may wrap
+        # this and replace the trailing ``<command>`` placeholder with
+        # its own name (``prompt``, ``resources list``, etc.) — the
+        # default is sufficient for Plan 59-01's contract test and for
+        # the rare case where a future command forgets the wrapper.
+        raise click.UsageError(
+            "This command requires --transport mcp; example: "
+            "agent-brain --transport mcp --mcp-transport stdio <command>"
+        )
+
+    state_dir = _resolve_state_dir_for_discovery()
+    mcp_transport, mcp_target = resolve_mcp_transport(
+        mcp_transport_hint=obj.get("mcp_transport_hint"),
+        mcp_url_override=obj.get("mcp_url_override"),
+        state_dir=state_dir,
+    )
+    if obj.get("debug_transport"):
+        target_label = mcp_target if mcp_target else "subprocess: agent-brain-mcp"
+        click.echo(
+            f"[debug-transport] mcp-only ({mcp_transport}) -> {target_label}",
+            err=True,
+        )
+    try:
+        from agent_brain_mcp.client import (  # noqa: F401
+            McpHttpBackend,
+            McpStdioBackend,
+        )
+    except ImportError as exc:
+        raise click.UsageError(
+            "install agent-brain-mcp to use --transport mcp"
+        ) from exc
+
+    if mcp_transport == "stdio":
+        # §3.5 case 3 precheck — verbatim wording, same as open_backend.
+        if shutil.which("agent-brain-mcp") is None:
+            raise click.UsageError(
+                "agent-brain-mcp not found on PATH; install "
+                "agent-brain-mcp into the same Python environment"
+            )
+        # cast(): mirrors open_backend's pattern. The runtime
+        # @runtime_checkable Protocol contract is pinned by the
+        # Plan 59-01 isinstance test in agent-brain-mcp/tests/
+        # test_mcp_backend_protocol_skeleton.py.
+        return cast(McpBackend, McpStdioBackend(command="agent-brain-mcp"))
+    # mcp_transport == "http" — resolve_mcp_transport guarantees
+    # mcp_target is not None for the http branch.
+    assert mcp_target is not None  # noqa: S101
+    return cast(McpBackend, McpHttpBackend(url=mcp_target, timeout=timeout))
