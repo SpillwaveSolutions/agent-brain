@@ -22,7 +22,7 @@ Requirements for v10.3. Each maps to a roadmap phase.
 
 ### CLI Surface for Prompts + Resources
 
-- [ ] **CLI-MCP-05**: `agent-brain prompt <name>` command that calls MCP `prompts/get` and prints the expanded prompt content (all 6 v1 prompts: `audit_indexed_folders`, `compare_search_modes`, `explain_architecture`, `find_callers`, `find_implementation`, `onboard_to_codebase`).
+- [x] **CLI-MCP-05**: `agent-brain prompt <name>` command that calls MCP `prompts/get` and prints the expanded prompt content (all 6 v1 prompts: `audit_indexed_folders`, `compare_search_modes`, `explain_architecture`, `find_callers`, `find_implementation`, `onboard_to_codebase`).
 - [ ] **CLI-MCP-06**: `agent-brain resources list` enumerates the 5 static URIs + 4 templated URI schemes (`chunk://`, `graph-entity://`, `job://`, `file://`).
 - [ ] **CLI-MCP-07**: `agent-brain resources read <uri>` calls MCP `resources/read` and prints content; respects `file://` sandbox; correct content-type handling for binary blobs vs JSON.
 
@@ -99,7 +99,7 @@ Which phases cover which requirements. Filled by roadmap creation 2026-06-05.
 | CLI-MCP-02 | Phase 56 | Complete |
 | CLI-MCP-03 | Phase 57 | Complete (selector + dispatcher + 3 §3.5 cases in Plan 57-01; query() wiring + CLI-MCP-04 DoD anchor in Plan 57-02; remaining 10 BackendClient methods + verbatim reset() on both backends in Plan 57-03) |
 | CLI-MCP-04 | Phase 57 | Complete |
-| CLI-MCP-05 | Phase 59 | Pending |
+| CLI-MCP-05 | Phase 59 | Complete |
 | CLI-MCP-06 | Phase 59 | Pending |
 | CLI-MCP-07 | Phase 59 | Pending |
 | CLI-MCP-08 | Phase 58 | Complete (Plan 58-01 helpers + Plan 58-02 start writes runtime + Plan 58-03 McpHttpBackend.__init__ + resolve_mcp_transport discovery end-to-end) |
