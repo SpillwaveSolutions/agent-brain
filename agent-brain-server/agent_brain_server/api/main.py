@@ -671,12 +671,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def _check_api_key_startup_gate(resolved_host: str) -> None:
-    """Refuse to start when binding non-loopback without an API key (Issue #179).
+    """Refuse to start without an API key unless ``INSECURE_NO_AUTH=true`` (Issue #199).
 
-    Loopback (``127.0.0.1`` / ``localhost`` / ``::1``) + empty key emits a
-    loud warning and proceeds. Any other bind host without a key exits with
-    code 2 — the same code uvicorn uses for "port in use" — so process
-    managers can distinguish a misconfiguration from a server crash.
+    Inverts the old #179 contract:
+
+    * Before 199-03: loopback + empty key was *allowed* (warning), non-loopback
+      was refused. This left ``127.0.0.1`` as an implicit "no-auth is fine here"
+      escape hatch — OWASP API1/API2:2023 risk for any multi-process box.
+    * 199-03: every bind host requires a key. The only opt-out is an explicit
+      ``INSECURE_NO_AUTH=true`` env var (mirrors Postgres ``--allow-empty-password``
+      / Redis ``protected-mode no``) which emits a loud warning at startup so
+      operators see the choice in their logs.
+
+    The Settings validator (``_backfill_api_key_from_legacy``) copies the
+    deprecated ``AGENT_BRAIN_API_KEY`` env var into ``API_KEY`` before this
+    check runs, so existing PR #195 / Issue #179 installs upgrade silently.
 
     Refreshes the settings lru_cache first so env vars set by the CLI
     subprocess wrapper (and tests) are picked up before the check fires.
@@ -686,26 +695,25 @@ def _check_api_key_startup_gate(resolved_host: str) -> None:
     get_settings.cache_clear()
     current_settings = get_settings()
 
-    loopback_hosts = {"127.0.0.1", "localhost", "::1"}
-    api_key_set = bool(current_settings.AGENT_BRAIN_API_KEY)
-
-    if api_key_set:
+    if current_settings.API_KEY is not None:
         return
 
-    if resolved_host in loopback_hosts:
+    if current_settings.INSECURE_NO_AUTH:
         logger.warning(
-            "Starting on %s with no AGENT_BRAIN_API_KEY set — endpoints are "
-            "unauthenticated. Safe for single-user dev only. Set "
-            "AGENT_BRAIN_API_KEY before exposing the server beyond loopback.",
+            "Starting on %s with INSECURE_NO_AUTH=true — endpoints are "
+            "unauthenticated and accept requests from any caller. This is "
+            "ONLY safe on a single-user, single-process machine. Set "
+            "API_KEY to switch back to authenticated mode. (Issue #199)",
             resolved_host,
         )
         return
 
     logger.critical(
-        "Refusing to start on %s without AGENT_BRAIN_API_KEY. The default "
-        "no-auth posture is only allowed on loopback (127.0.0.1, localhost, "
-        "::1). Set AGENT_BRAIN_API_KEY in the environment or bind to "
-        "127.0.0.1. (Issue #179)",
+        "Refusing to start on %s without API_KEY. The 199-03 default is "
+        "auth-required on every bind host (loopback included) because "
+        "127.0.0.1 is not a trust boundary on multi-process machines. Set "
+        "API_KEY in the environment, or pass INSECURE_NO_AUTH=true to opt "
+        "out explicitly. (Issue #199)",
         resolved_host,
     )
     sys.exit(2)
@@ -714,11 +722,19 @@ def _check_api_key_startup_gate(resolved_host: str) -> None:
 def _build_app() -> FastAPI:
     """Construct the FastAPI app, gating /docs and /openapi.json when configured.
 
-    When ``AGENT_BRAIN_API_KEY`` is set AND ``DEBUG`` is False, the interactive
-    docs (``/docs``, ``/redoc``) and the OpenAPI schema (``/openapi.json``) are
-    disabled — there's no point requiring an API key to read endpoints if the
-    schema describing them is publicly browsable. In DEBUG mode the docs stay
-    open so developers keep their normal workflow.
+    When ``API_KEY`` is set AND ``DEBUG`` is False, the interactive docs
+    (``/docs``, ``/redoc``) and the OpenAPI schema (``/openapi.json``) are
+    disabled — there's no point requiring a bearer token to read endpoints
+    if the schema describing them is publicly browsable. In DEBUG mode the
+    docs stay open so developers keep their normal workflow.
+
+    When ``API_KEY`` is None (loopback dev or ``INSECURE_NO_AUTH=true``), the
+    docs stay open because the endpoints themselves are open — gating the
+    schema would only obscure them, not protect anything.
+
+    Reads ``settings.API_KEY`` (post-validator backfill from the deprecated
+    ``AGENT_BRAIN_API_KEY`` env var, see config.settings), so callers who
+    haven't migrated their env vars yet still get the gated docs.
 
     Extracted as a factory so tests can build alternate apps under a
     monkeypatched environment without re-importing the module.
@@ -727,9 +743,7 @@ def _build_app() -> FastAPI:
 
     get_settings.cache_clear()
     current_settings = get_settings()
-    docs_gated = (
-        bool(current_settings.AGENT_BRAIN_API_KEY) and not current_settings.DEBUG
-    )
+    docs_gated = current_settings.API_KEY is not None and not current_settings.DEBUG
     return FastAPI(
         title="Agent Brain RAG API",
         description=(
@@ -834,8 +848,11 @@ def run(
             _project_root = env_root or str(_state_dir.parent.parent.parent)
 
         # Create runtime state — surface the configured API key so the CLI
-        # and MCP clients can discover it from runtime.json (Issue #179).
-        # write_runtime() chmods the file to 0o600.
+        # and MCP clients can discover it from runtime.json (Issues #179, #199).
+        # write_runtime() chmods the file to 0o600. Reads the resolved
+        # ``settings.API_KEY`` (Settings validator backfilled the deprecated
+        # AGENT_BRAIN_API_KEY env var into it) so the CLI sees a single
+        # source of truth regardless of which env var was set.
         _runtime_state = RuntimeState(
             mode="project",
             project_root=_project_root,
@@ -843,7 +860,7 @@ def run(
             port=resolved_port,
             pid=os.getpid(),
             base_url=f"http://{resolved_host}:{resolved_port}",
-            api_key=settings.AGENT_BRAIN_API_KEY or None,
+            api_key=(settings.API_KEY.get_secret_value() if settings.API_KEY else None),
         )
 
         # Write runtime.json before starting server

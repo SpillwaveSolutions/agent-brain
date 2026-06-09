@@ -225,6 +225,9 @@ class TestRunHonorsUdsEnv:
         monkeypatch.setenv(
             "AGENT_BRAIN_UDS_PATH", str(short_state_dir / "agent-brain.sock")
         )
+        # Issue #199 (199-03): startup gate refuses without API_KEY. This
+        # test exercises UDS dispatch only, so opt out of auth explicitly.
+        monkeypatch.setenv("INSECURE_NO_AUTH", "true")
 
         main_mod.run(host="127.0.0.1", port=8765, state_dir=str(short_state_dir))
 
@@ -261,6 +264,9 @@ class TestRunHonorsUdsEnv:
         monkeypatch.setenv(
             "AGENT_BRAIN_UDS_PATH", str(short_state_dir / "agent-brain.sock")
         )
+        monkeypatch.setenv(
+            "INSECURE_NO_AUTH", "true"
+        )  # Issue #199 — UDS dispatch test, not auth
 
         main_mod.run(host="127.0.0.1", port=8765, state_dir=str(short_state_dir))
 
@@ -283,6 +289,9 @@ class TestRunHonorsUdsEnv:
         monkeypatch.setattr(main_mod.uvicorn, "run", _fake_uvicorn_run)
         monkeypatch.delenv("AGENT_BRAIN_UDS", raising=False)
         monkeypatch.delenv("AGENT_BRAIN_UDS_ONLY", raising=False)
+        monkeypatch.setenv(
+            "INSECURE_NO_AUTH", "true"
+        )  # Issue #199 — dispatch test, not auth
 
         main_mod.run(host="127.0.0.1", port=8765)
 

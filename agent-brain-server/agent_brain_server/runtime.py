@@ -3,12 +3,20 @@
 import json
 import logging
 import os
+import secrets
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
+
+# Token length matches PR #193's design: secrets.token_urlsafe(32) produces a
+# 43-character URL-safe base64 string (~256 bits of entropy), the same shape
+# Postgres-style admin secrets and GitHub PATs use. Defined as a module-level
+# constant so the same length is documented for the CLI auto-gen path
+# (199-04) and the server backfill path (199-03).
+API_KEY_BYTES = 32
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +45,25 @@ class RuntimeState(BaseModel):
     # clients read this field to authenticate their requests; the file is
     # chmod'd to 0o600 by write_runtime so the secret stays user-only.
     api_key: str | None = None
+
+
+def generate_api_key() -> str:
+    """Generate a new API key suitable for ``RuntimeState.api_key``.
+
+    Produces a ``secrets.token_urlsafe(32)`` string (43 URL-safe base64
+    characters, ~256 bits of entropy). Same shape PR #193 uses; same
+    function will be called by both the server backfill path (Issue #199
+    sub-plan 199-03) and the CLI ``agent-brain init`` auto-gen path
+    (Issue #199 sub-plan 199-04).
+
+    This is plumbing only in 199-01 — no caller yet. 199-03 wires it
+    into the server startup gate; 199-04 wires it into the CLI init
+    command.
+
+    Returns:
+        A URL-safe base64 string suitable for use as a Bearer token.
+    """
+    return secrets.token_urlsafe(API_KEY_BYTES)
 
 
 def write_runtime(state_dir: Path, state: RuntimeState) -> None:

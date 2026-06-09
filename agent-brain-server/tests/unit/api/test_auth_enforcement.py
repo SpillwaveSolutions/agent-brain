@@ -1,16 +1,17 @@
-"""Integration tests proving each non-health router gates on ``verify_api_key``.
+"""Integration tests proving each non-health router gates on ``verify_bearer_token``.
 
 Two layers of evidence:
 
-1. **Structural** — ``router.dependencies`` contains a ``Depends(verify_api_key)``
-   for every non-health router. Cheap regression guard against someone deleting
-   the dependency from a router file.
-2. **Behavioral** — a minimal FastAPI app mounts a stub endpoint underneath each
-   router's dependency stack, and a TestClient verifies that requests without
-   the ``X-API-Key`` header return 401 while requests with the right header
-   reach the stub handler. This exercises the full FastAPI dependency-resolution
-   chain (the unit tests in ``test_security.py`` only cover the dependency in
-   isolation).
+1. **Structural** — ``router.dependencies`` contains a
+   ``Depends(verify_bearer_token)`` for every non-health router. Cheap
+   regression guard against someone deleting the dependency from a router
+   file.
+2. **Behavioral** — a minimal FastAPI app mounts a stub endpoint underneath
+   each router's dependency stack, and a TestClient verifies that requests
+   without the ``Authorization: Bearer`` header return 401 while requests
+   with the right header reach the stub handler. This exercises the full
+   FastAPI dependency-resolution chain (the unit tests in
+   ``test_security.py`` only cover the dependency in isolation).
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ from agent_brain_server.api.routers import (
     query,
 )
 from agent_brain_server.api.routers import health as health_router
-from agent_brain_server.api.security import verify_api_key
+from agent_brain_server.api.security import verify_bearer_token
 from agent_brain_server.config.settings import get_settings
 
 GATED_ROUTERS = [
@@ -56,20 +57,22 @@ def reset_settings_cache() -> Generator[None, None, None]:
 
 
 @pytest.mark.parametrize("name,router", GATED_ROUTERS)
-def test_each_gated_router_declares_verify_api_key(name: str, router: object) -> None:
-    """``router.dependencies`` must include a ``Depends(verify_api_key)`` entry."""
+def test_each_gated_router_declares_verify_bearer_token(
+    name: str, router: object
+) -> None:
+    """``router.dependencies`` must include a ``Depends(verify_bearer_token)`` entry."""
     deps = getattr(router, "dependencies", [])
     assert any(
-        getattr(d, "dependency", None) is verify_api_key for d in deps
-    ), f"router '{name}' is missing Depends(verify_api_key)"
+        getattr(d, "dependency", None) is verify_bearer_token for d in deps
+    ), f"router '{name}' is missing Depends(verify_bearer_token)"
 
 
 def test_health_router_is_intentionally_unauthenticated() -> None:
     """Health endpoints must stay open even when API key is configured."""
     deps = getattr(health_router.router, "dependencies", [])
     assert not any(
-        getattr(d, "dependency", None) is verify_api_key for d in deps
-    ), "health router should NOT carry verify_api_key — it must stay open"
+        getattr(d, "dependency", None) is verify_bearer_token for d in deps
+    ), "health router should NOT carry verify_bearer_token — it must stay open"
 
 
 # ---------------------------------------------------------------------------
@@ -104,31 +107,33 @@ def test_gated_router_returns_401_without_header(
     name: str,
     router: object,
 ) -> None:
-    monkeypatch.setenv("AGENT_BRAIN_API_KEY", "auth-test-key")
+    monkeypatch.setenv("API_KEY", "auth-test-key")
     client = TestClient(_make_stub_app(router))
 
     response = client.get("/__authcheck")
 
     assert (
         response.status_code == 401
-    ), f"router '{name}' did not return 401 without X-API-Key"
+    ), f"router '{name}' did not return 401 without Authorization header"
 
 
 @pytest.mark.parametrize("name,router", GATED_ROUTERS)
-def test_gated_router_returns_200_with_correct_header(
+def test_gated_router_returns_200_with_correct_bearer_header(
     monkeypatch: pytest.MonkeyPatch,
     reset_settings_cache: None,
     name: str,
     router: object,
 ) -> None:
-    monkeypatch.setenv("AGENT_BRAIN_API_KEY", "auth-test-key")
+    monkeypatch.setenv("API_KEY", "auth-test-key")
     client = TestClient(_make_stub_app(router))
 
-    response = client.get("/__authcheck", headers={"X-API-Key": "auth-test-key"})
+    response = client.get(
+        "/__authcheck", headers={"Authorization": "Bearer auth-test-key"}
+    )
 
     assert (
         response.status_code == 200
-    ), f"router '{name}' rejected the correct X-API-Key"
+    ), f"router '{name}' rejected the correct Bearer token"
     assert response.json() == {"ok": "true"}
 
 
@@ -136,7 +141,7 @@ def test_health_router_stays_open_when_key_is_set(
     monkeypatch: pytest.MonkeyPatch, reset_settings_cache: None
 ) -> None:
     """A real /health/ endpoint must respond 200 with no header even when key set."""
-    monkeypatch.setenv("AGENT_BRAIN_API_KEY", "auth-test-key")
+    monkeypatch.setenv("API_KEY", "auth-test-key")
 
     # Mount only the health router; /health/ does not require app.state.
     app = FastAPI()

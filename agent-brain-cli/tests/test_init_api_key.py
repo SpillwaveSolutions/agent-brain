@@ -40,12 +40,16 @@ def temp_project(tmp_path: Path) -> Generator[Path, None, None]:
 
 @pytest.fixture
 def clean_env() -> Generator[None, None, None]:
-    keys = [k for k in os.environ if k.startswith("AGENT_BRAIN_")]
-    saved = {k: os.environ.pop(k) for k in keys}
+    """Strip Agent Brain env vars *and* the canonical ``API_KEY`` so the test
+    exercises the file-fallback path even when the dev shell has API_KEY set."""
+    candidates = {
+        k for k in os.environ if k.startswith("AGENT_BRAIN_") or k == "API_KEY"
+    }
+    saved = {k: os.environ.pop(k) for k in candidates}
     try:
         yield
     finally:
-        for k in keys:
+        for k in candidates:
             os.environ.pop(k, None)
         os.environ.update(saved)
 

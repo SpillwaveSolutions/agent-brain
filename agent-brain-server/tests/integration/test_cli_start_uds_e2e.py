@@ -91,6 +91,13 @@ def test_agent_brain_serve_dual_bind_subprocess(short_state_dir: Path) -> None:
     env["AGENT_BRAIN_UDS"] = "1"
     env["AGENT_BRAIN_UDS_PATH"] = str(socket_path)
     env["AGENT_BRAIN_STATE_DIR"] = str(short_state_dir)
+    # Issue #199 (199-03): startup gate refuses subprocess without API_KEY.
+    # This e2e exercises UDS dual-bind, not auth, so opt out explicitly.
+    env["INSECURE_NO_AUTH"] = "true"
+    # Strip any inherited API_KEY/AGENT_BRAIN_API_KEY so the subprocess hits
+    # the INSECURE_NO_AUTH warning path predictably regardless of dev shell state.
+    env.pop("API_KEY", None)
+    env.pop("AGENT_BRAIN_API_KEY", None)
 
     proc = subprocess.Popen(
         [

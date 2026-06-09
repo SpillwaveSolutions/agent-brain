@@ -11,6 +11,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Security
+
+- **REST API auth upgraded to RFC 6750 Bearer scheme + refuse-without-key startup gate** (`agent_brain_server/api/security.py`, `agent_brain_server/api/main.py`, `agent_brain_server/api/routers/*.py`, `agent_brain_server/config/settings.py`, `agent_brain_server/runtime.py`, `agent_brain_cli/agent_brain_cli/client/api_client.py`, `agent_brain_cli/agent_brain_cli/client/transport.py`, `agent_brain_cli/agent_brain_cli/config.py`, `agent_brain_cli/agent_brain_cli/commands/start.py`). Closes [#199](https://github.com/SpillwaveSolutions/agent-brain/issues/199) — the v2 hardening pass on top of the v1 X-API-Key flow from PR #195. Three concrete changes:
+
+  1. **Scheme switch.** The gated routers (`/index`, `/index/cache`, `/index/folders`, `/index/jobs`, `/query`, `/graph`) now consume `Authorization: Bearer <token>` per RFC 6750. The deprecated `X-API-Key` header still works for one release window with a server-side log per request and a per-process CLI warning when the legacy env var is read. Bearer is forward-compatible with the OAuth 2.1 work in [#188](https://github.com/SpillwaveSolutions/agent-brain/issues/188) — same scheme evolves from static key to OAuth-issued bearer.
+  2. **Refuse-without-key by default — every bind host.** The startup gate at `agent_brain_server/api/main.py::_check_api_key_startup_gate` previously allowed `127.0.0.1` with no key (loopback was implicitly trusted). The v2 default refuses to start (`sys.exit(2)`) on **every** host (loopback included) unless either `API_KEY` is set or `INSECURE_NO_AUTH=true` is passed explicitly. 127.0.0.1 is not a trust boundary on multi-process machines (OWASP API1/API2:2023). The explicit opt-out mirrors Postgres `--allow-empty-password` and Redis `protected-mode no` — operators see a loud warning at boot when they take it.
+  3. **CLI `--insecure` flag.** `agent-brain start --insecure` exports `INSECURE_NO_AUTH=true` to the server subprocess AND strips any inherited `API_KEY` / `AGENT_BRAIN_API_KEY` env var, so a stale shell entry can't silently re-enable auth and confuse operators who asked for `--insecure` on purpose. The default path now propagates the project-local key as the canonical `API_KEY` env var (the deprecated `AGENT_BRAIN_API_KEY` keeps working server-side via a `Settings` validator that backfills the new field).
+
+  **Settings:** `API_KEY: SecretStr | None` is now the canonical env var name (logs and tracebacks redact via SecretStr). `INSECURE_NO_AUTH: bool = False` is the operator opt-out. `AGENT_BRAIN_API_KEY: str = ""` is preserved as a deprecated alias and the validator copies it into `API_KEY` at construction time so PR #195 deployments keep working without code changes. `/docs`, `/redoc`, `/openapi.json` gating now keys off `API_KEY` (single source of truth) instead of the v1 field.
+
+  **CLI:** `DocServeClient(api_key=...)` and `DocServeClient.from_httpx(client, api_key=...)` build `Authorization: Bearer <token>` instead of `X-API-Key`. `resolve_api_key()` precedence is now `API_KEY` env > `AGENT_BRAIN_API_KEY` env (deprecation log) > `runtime.json::api_key` > `config.json::api_key` > None.
+
+  **Tests:** 13 new server unit tests for `verify_bearer_token` (`agent-brain-server/tests/unit/api/test_security.py`), 20 retargeted structural + behavioral tests across all 6 gated routers (`test_auth_enforcement.py`), 15 rewritten startup-gate + docs-gating tests (`test_startup_gate.py`) including the refuse-on-loopback inversion, 13 CLI propagation tests covering Bearer headers, the new env-var cascade, and the deprecation-warning latch (`agent-brain-cli/tests/test_api_key_propagation.py`), and 4 new tests for `agent-brain start --insecure` (`test_start_insecure.py`) covering the env-construction contract: `INSECURE_NO_AUTH=true` + key strip, `API_KEY` propagation from config, operator env-var precedence, and legacy `AGENT_BRAIN_API_KEY` preservation. `task before-push` and `task pr-qa-gate` both pass: 1330 server / 553 CLI / 32 UDS / 544 MCP tests, 80%+ coverage every package.
+
+  **Migration for callers of the v1 (X-API-Key) flow:** existing PR #195 / Issue #179 deployments require no immediate changes — the v1 env var name (`AGENT_BRAIN_API_KEY`) and the v1 header (`X-API-Key`) both keep working through one deprecation window. To migrate ahead of removal: rename your env var to `API_KEY` and switch your HTTP clients to `Authorization: Bearer <token>`. Operators who relied on default-no-auth on `127.0.0.1` must either set `API_KEY` (recommended) or pass `INSECURE_NO_AUTH=true` explicitly — the server now refuses to boot otherwise.
+
+  Credit: design and reference implementation from [@jeremylongshore](https://github.com/jeremylongshore)'s [PR #193](https://github.com/SpillwaveSolutions/agent-brain/pull/193). The OWASP framing, the secure-default rationale, the RFC 6750 + forward-compat-to-OAuth choice, and the `INSECURE_NO_AUTH` opt-out shape are all from that branch. PR #199 re-applies the design against the post-v10.2 surface (which had drifted heavily — `api/security.py`, `api/main.py`, `config/settings.py`, `runtime.py`, and the CLI client all moved) as six small sub-plans rather than a single big diff.
+
+---
+
 ## [10.2.1] - 2026-06-05
 
 ### Security

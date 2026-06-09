@@ -41,7 +41,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from agent_brain_server.api.security import verify_api_key
+from agent_brain_server.api.security import verify_bearer_token
 from agent_brain_server.config.provider_config import load_provider_settings
 from agent_brain_server.config.settings import settings
 from agent_brain_server.models import ENTITY_TYPES, GraphEntityRecord
@@ -52,7 +52,7 @@ from agent_brain_server.storage.graph_store import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(dependencies=[Depends(verify_api_key)])
+router = APIRouter(dependencies=[Depends(verify_bearer_token)])
 
 
 # Frozen at module import for predictable 400-body content. The 17 SCHEMA-01

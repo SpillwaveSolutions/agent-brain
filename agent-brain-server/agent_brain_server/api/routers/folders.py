@@ -12,7 +12,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from agent_brain_server.api.security import verify_api_key
+from agent_brain_server.api.security import verify_bearer_token
 from agent_brain_server.models.folders import (
     FolderDeleteRequest,
     FolderDeleteResponse,
@@ -22,7 +22,7 @@ from agent_brain_server.models.folders import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(dependencies=[Depends(verify_api_key)])
+router = APIRouter(dependencies=[Depends(verify_bearer_token)])
 
 
 @router.get(
