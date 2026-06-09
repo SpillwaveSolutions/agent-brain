@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v10.3
 milestone_name: MCP v3 — CLI-via-MCP + Framework Matrix
-current_phase: 59 (complete) → next 60
-status: completed
+current_phase: 60
+status: planning
 stopped_at: Completed 59-03-PLAN.md; Phase 59 complete; CLI-MCP-05 + CLI-MCP-06 + CLI-MCP-07 closed; next is Phase 60 (subprocess hygiene + 1000-invocation orphan test)
-last_updated: "2026-06-08T22:07:52.402Z"
+last_updated: "2026-06-09T02:48:37.711Z"
 progress:
   total_phases: 8
   completed_phases: 4
@@ -17,8 +17,8 @@ progress:
 
 **Last Updated:** 2026-06-08
 **Current Milestone:** v10.3 MCP v3 — CLI-via-MCP + Framework Matrix
-**Status:** Phase 59 Complete — ready to start Phase 60
-**Current Phase:** 59 (complete) → next 60
+**Status:** Ready to plan
+**Current Phase:** 60
 
 ## Current Position
 

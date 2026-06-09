@@ -184,7 +184,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 | 56. Design doc + CLI backend skeleton                       | 3/3 | Complete    | 2026-06-06 | -          |
 | 57. CLI transport selector + byte-identical equivalence     | 3/3 | Complete    | 2026-06-07 | -          |
 | 58. Runtime discovery + helper commands                     | 3/3 | Complete    | 2026-06-07 | -          |
-| 59. CLI prompts + resources commands                        | 3/3 | Complete   | 2026-06-08 | -          |
+| 59. CLI prompts + resources commands                        | 3/3 | Complete    | 2026-06-09 | -          |
 | 60. Subprocess hygiene + 1000-invocation orphan test        | v10.3     | 0/TBD          | Not started | -          |
 | 61. Python framework adapter matrix                         | v10.3     | 0/TBD          | Not started | -          |
 | 62. TypeScript framework adapter matrix                     | v10.3     | 0/TBD          | Not started | -          |
