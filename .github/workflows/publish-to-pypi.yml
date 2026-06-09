@@ -119,32 +119,49 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Verify tag matches pyproject.toml version
+        # On `release` events, the tag (e.g. v10.3.0) must match every
+        # pyproject's version. On `workflow_dispatch` we're a recovery
+        # path — GITHUB_REF_NAME is the dispatched branch name (usually
+        # `main`), so the tag check would always fail. Skip the tag↔file
+        # comparison but still cross-check that the four pyprojects
+        # agree among themselves; downstream publishes are idempotent
+        # via skip-existing.
         run: |
-          # Get version from release tag (e.g., v3.0.0 → 3.0.0)
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-
           # Get version from pyproject.toml
           SERVER_VERSION=$(grep '^version = ' agent-brain-server/pyproject.toml | cut -d'"' -f2)
           CLI_VERSION=$(grep '^version = ' agent-brain-cli/pyproject.toml | cut -d'"' -f2)
           UDS_VERSION=$(grep '^version = ' agent-brain-uds/pyproject.toml | cut -d'"' -f2)
           MCP_VERSION=$(grep '^version = ' agent-brain-mcp/pyproject.toml | cut -d'"' -f2)
 
-          echo "Tag version: $TAG_VERSION"
           echo "Server pyproject.toml: $SERVER_VERSION"
           echo "CLI pyproject.toml: $CLI_VERSION"
           echo "UDS pyproject.toml: $UDS_VERSION"
           echo "MCP pyproject.toml: $MCP_VERSION"
 
-          # Verify all versions match
-          for name in SERVER CLI UDS MCP; do
-            eval "v=\$${name}_VERSION"
-            if [ "$TAG_VERSION" != "$v" ]; then
-              echo "ERROR: Tag ($TAG_VERSION) does not match $name version ($v)"
+          if [ "${{ github.event_name }}" = "release" ]; then
+            # Get version from release tag (e.g., v3.0.0 → 3.0.0)
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+            echo "Tag version: $TAG_VERSION"
+            # Verify tag matches every pyproject
+            for name in SERVER CLI UDS MCP; do
+              eval "v=\$${name}_VERSION"
+              if [ "$TAG_VERSION" != "$v" ]; then
+                echo "ERROR: Tag ($TAG_VERSION) does not match $name version ($v)"
+                exit 1
+              fi
+            done
+            echo "✓ All versions aligned: $TAG_VERSION"
+          else
+            # workflow_dispatch recovery path — verify the four pyprojects
+            # agree with each other so we never publish a mixed release.
+            if [ "$SERVER_VERSION" != "$CLI_VERSION" ] \
+              || [ "$SERVER_VERSION" != "$UDS_VERSION" ] \
+              || [ "$SERVER_VERSION" != "$MCP_VERSION" ]; then
+              echo "ERROR: pyproject versions disagree (server=$SERVER_VERSION cli=$CLI_VERSION uds=$UDS_VERSION mcp=$MCP_VERSION)"
               exit 1
             fi
-          done
-
-          echo "✓ All versions aligned: $TAG_VERSION"
+            echo "✓ workflow_dispatch — all 4 pyprojects agree on $SERVER_VERSION"
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
