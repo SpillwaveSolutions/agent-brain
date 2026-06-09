@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agent-brain-ag-mcp"
-version = "10.2.1"
+version = "10.3.0"
 description = "Agent Brain MCP - Model Context Protocol server exposing Agent Brain as MCP tools, resources, and prompts"
 authors = ["Spillwave Solutions"]
 readme = "README.md"
@@ -38,8 +38,8 @@ click = "^8.1.0"
 # entity/{type}/{id}) in agent-brain-server 10.2.0; the MCP package
 # now refuses to run against anything older both at install time (this
 # pin) and at startup (the version-floor check).
-agent-brain-rag = "^10.2.1"
-agent-brain-uds = "^10.2.1"
+agent-brain-rag = {path = "../agent-brain-server", develop = false}
+agent-brain-uds = {path = "../agent-brain-uds", develop = false}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"

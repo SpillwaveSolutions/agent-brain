@@ -2,7 +2,7 @@
 
 [[package]]
 name = "agent-brain-cli"
-version = "10.2.1"
+version = "10.3.0"
 description = "Agent Brain CLI - Command-line interface for managing AI agent memory and knowledge retrieval"
 optional = false
 python-versions = "^3.10"
@@ -11,10 +11,11 @@ files = []
 develop = false
 
 [package.dependencies]
-agent-brain-rag = "^10.2.1"
-agent-brain-uds = "^10.2.1"
+agent-brain-rag = "^10.3.0"
+agent-brain-uds = "^10.3.0"
 click = "^8.1.0"
 httpx = "^0.28.0"
+psutil = "^6.0"
 pydantic = "^2.10.0"
 pyyaml = "^6.0.0"
 rich = "^13.9.0"
@@ -25,39 +26,37 @@ url = "../agent-brain-cli"
 
 [[package]]
 name = "agent-brain-rag"
-version = "10.2.1"
+version = "10.3.0"
 description = "Agent Brain RAG - Intelligent document indexing and semantic search server that gives AI agents long-term memory"
 optional = false
-python-versions = "<4.0,>=3.10"
+python-versions = "^3.10"
 groups = ["main", "dev"]
-files = [
-    {file = "agent_brain_rag-10.2.1-py3-none-any.whl", hash = "sha256:ba6a3b69e37923c2305e51a42466df20405036e5d82885f3dbba7c1125e290cd"},
-    {file = "agent_brain_rag-10.2.1.tar.gz", hash = "sha256:60fcbd0d40904c7f868695dcda3d6f94e75b818c4901846100b41e519ebf9687"},
-]
+files = []
+develop = false
 
 [package.dependencies]
-anthropic = ">=0.40.0,<0.41.0"
+anthropic = "^0.40.0"
 cachetools = ">=5.3"
-chromadb = ">=0.5.0,<0.6.0"
-click = ">=8.1.0,<9.0.0"
-fastapi = ">=0.115.0,<0.116.0"
-google-genai = ">=1.0.0,<2.0.0"
-llama-index-core = ">=0.14.0,<0.15.0"
-llama-index-embeddings-openai = ">=0.5.0,<0.6.0"
-llama-index-llms-openai = ">=0.6.12,<0.7.0"
-llama-index-readers-file = ">=0.5.0,<0.6.0"
-llama-index-retrievers-bm25 = ">=0.6.0,<0.7.0"
-openai = ">=1.57.0,<2.0.0"
-pathspec = ">=0.12.0,<0.13.0"
-pydantic = ">=2.10.0,<3.0.0"
-pydantic-settings = ">=2.6.0,<3.0.0"
-python-dotenv = ">=1.0.0,<2.0.0"
-pyyaml = ">=6.0.0,<7.0.0"
-rank-bm25 = ">=0.2.2,<0.3.0"
-sentence-transformers = ">=3.4.0,<4.0.0"
-tiktoken = ">=0.8.0,<0.9.0"
-tree-sitter-language-pack = ">=0.7.3,<0.8.0"
-uvicorn = {version = ">=0.32.0,<0.33.0", extras = ["standard"]}
+chromadb = "^0.5.0"
+click = "^8.1.0"
+fastapi = "^0.115.0"
+google-genai = "^1.0.0"
+llama-index-core = "^0.14.0"
+llama-index-embeddings-openai = "^0.5.0"
+llama-index-llms-openai = "^0.6.12"
+llama-index-readers-file = "^0.5.0"
+llama-index-retrievers-bm25 = "^0.6.0"
+openai = "^1.57.0"
+pathspec = "^0.12.0"
+pydantic = "^2.10.0"
+pydantic-settings = "^2.6.0"
+python-dotenv = "^1.0.0"
+pyyaml = "^6.0.0"
+rank-bm25 = "^0.2.2"
+sentence-transformers = "^3.4.0"
+tiktoken = "^0.8.0"
+tree-sitter-language-pack = "^0.7.3"
+uvicorn = {version = "^0.32.0", extras = ["standard"]}
 
 [package.extras]
 cohere = ["cohere (>=5.21.0,<6.0)"]
@@ -66,20 +65,26 @@ graphrag-all = ["langextract (>=1.0.0,<2.0.0)", "llama-index-graph-stores-kuzu (
 graphrag-kuzu = ["llama-index-graph-stores-kuzu (>=0.9.0,<0.10.0)"]
 postgres = ["asyncpg (>=0.29.0,<0.30.0)", "sqlalchemy[asyncio] (>=2.0.0,<3.0.0)"]
 
+[package.source]
+type = "directory"
+url = "../agent-brain-server"
+
 [[package]]
 name = "agent-brain-uds"
-version = "10.2.1"
+version = "10.3.0"
 description = "Agent Brain UDS - Unix-domain-socket transport for Agent Brain (socket path resolution, permission validation, httpx UDS client factory)"
 optional = false
-python-versions = "<4.0,>=3.10"
+python-versions = "^3.10"
 groups = ["main", "dev"]
-files = [
-    {file = "agent_brain_uds-10.2.1-py3-none-any.whl", hash = "sha256:6ea36ab28e09618bf8f71af0e27f19109f7a8c0feb908e81535690941d1357d7"},
-    {file = "agent_brain_uds-10.2.1.tar.gz", hash = "sha256:5e4ce91002fa18ccaa78f98af1f0d0aafcd914e20a2602a467891ab4c3a3dc21"},
-]
+files = []
+develop = false
 
 [package.dependencies]
-httpx = ">=0.28.0,<0.29.0"
+httpx = "^0.28.0"
+
+[package.source]
+type = "directory"
+url = "../agent-brain-uds"
 
 [[package]]
 name = "aiohappyeyeballs"
@@ -7860,4 +7865,4 @@ type = ["pytest-mypy (>=1.0.1) ; platform_python_implementation != \"PyPy\""]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "4e817820e528c2e8dabc721ff0a269ad56f8180389efb1b08e568329208baf74"
+content-hash = "d910312215d32b329fa7c2baf5442431a1d253a61184197bbc4c1e314aa657cb"
