@@ -128,9 +128,9 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
   2. `McpStdioBackend.close()` sends SIGTERM, waits `grace_period_s` (configurable, default ≤5s), then escalates to SIGKILL; the grace period is honored by a unit test using a stub child that ignores SIGTERM
   3. `task mcp:stress:orphan-test` drives `McpStdioBackend` through 1000 query→close cycles in a tight loop; `pgrep -f agent-brain-mcp` returns no surviving PIDs after each tear-down (asserted per-iteration); the task is opt-in (NOT in `task before-push` — slow) and surfaces leak counts in the failure message
   4. Phase 61 + 62 framework tests inherit the hygiene contract automatically by going through `McpStdioBackend` rather than spawning raw subprocesses
-**Plans:** 1/3 plans executed
-- [ ] 60-01-PLAN.md — DEFAULT_ENV_ALLOWLIST module constant + McpStdioBackend.__init__ extended with env_allowlist/forward_env/grace_period_s kwargs + cwd snapshot/validation (MCPHYG-01 foundation half)
-- [ ] 60-02-PLAN.md — Hygienic stdio_client wrapper + weakref/threading.Lock in-flight tracker + close() SIGTERM→SIGKILL escalation + SIGTERM-ignoring stub child fixture (MCPHYG-01 close() half)
+**Plans:** 2/3 plans executed
+- [x] 60-01-PLAN.md — DEFAULT_ENV_ALLOWLIST module constant + McpStdioBackend.__init__ extended with env_allowlist/forward_env/grace_period_s kwargs + cwd snapshot/validation (MCPHYG-01 foundation half)
+- [x] 60-02-PLAN.md — Hygienic stdio_client wrapper + weakref/threading.Lock in-flight tracker + close() SIGTERM→SIGKILL escalation + SIGTERM-ignoring stub child fixture (MCPHYG-01 close() half)
 - [ ] 60-03-PLAN.md — agent-brain-mcp/tests/stress/test_orphan_subprocess.py @pytest.mark.stress + psutil children delta primary assert + pgrep diagnostic + task mcp:stress:orphan-test target (MCPHYG-02)
 
 ### Phase 61: Python framework adapter matrix
