@@ -88,7 +88,7 @@ Each task was committed atomically:
 2. **Task 2: Add unit tests for env allowlist + cwd + grace_period_s** — `5b9552b` (test)
 3. **Task 3: Cross-package backward-compat verification** — no source change required (54/54 Phase 57 + 59 wire tests green; `task before-push` exits 0). Captured in the plan-metadata commit below.
 
-**Plan metadata:** pending (SUMMARY + STATE + ROADMAP)
+**Plan metadata:** `be77138` (docs: complete subprocess hygiene foundation plan — SUMMARY + STATE + ROADMAP + REQUIREMENTS)
 
 ## Files Created/Modified
 
