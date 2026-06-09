@@ -46,22 +46,50 @@ DEFAULT_ENV_ALLOWLIST: frozenset[str] = frozenset(
 # (SIGTERM→SIGKILL escalation).
 
 
+def _process_has_exited(process: Any) -> bool:
+    """Return True if the subprocess has exited.
+
+    Checks both ``process.returncode`` (set when the asyncio event loop
+    reaps the child) AND ``psutil.pid_exists(process.pid)`` (kernel-level
+    truth). ``returncode`` alone is unreliable from sync code because
+    ``close()`` runs OUTSIDE the asyncio event loop — the loop never gets
+    to update ``returncode`` until the caller does ``await process.wait()``.
+    Phase 58-03 ``_wait_for_pid_exit`` used the same psutil.pid_exists
+    pattern (commands/mcp.py:309-321).
+
+    Fakes that lack ``.pid`` (e.g. SimpleNamespace in unit tests) still
+    work via the ``returncode`` check.
+    """
+    if process.returncode is not None:
+        return True
+    pid = getattr(process, "pid", None)
+    if pid is None:
+        return False
+    try:
+        import psutil
+    except ImportError:
+        return False
+    return not psutil.pid_exists(pid)
+
+
 def _wait_for_subprocess_exit(
     process: Any, timeout: float, poll_interval: float = 0.05
 ) -> bool:
-    """Poll ``process.returncode`` until non-None or timeout expires.
+    """Poll ``process`` until it has exited or ``timeout`` expires.
 
     Returns True if the subprocess exited within ``timeout`` seconds,
     False otherwise. ``timeout == 0`` performs a single check.
 
     Mirrors Phase 58-03's ``_wait_for_pid_exit`` shape (commands/mcp.py:
-    309-321) but operates on an asyncio.subprocess.Process rather than a
-    bare pid — avoids the psutil.pid_exists round-trip when the SDK
-    already owns the Process handle.
+    309-321). Uses :func:`_process_has_exited` which checks both
+    ``process.returncode`` AND ``psutil.pid_exists(process.pid)`` — the
+    psutil round-trip is necessary because ``close()`` runs outside the
+    asyncio event loop, so ``returncode`` alone is unreliable for real
+    ``asyncio.subprocess.Process`` instances.
     """
     deadline = time.monotonic() + max(0.0, timeout)
     while True:
-        if process.returncode is not None:
+        if _process_has_exited(process):
             return True
         if time.monotonic() >= deadline:
             return False
@@ -685,7 +713,7 @@ class McpStdioBackend:
             ref = self._inflight_ref
         process = ref() if ref is not None else None
 
-        if process is None or process.returncode is not None:
+        if process is None or _process_has_exited(process):
             # No in-flight subprocess, or it already exited.
             self._closed = True
             return
