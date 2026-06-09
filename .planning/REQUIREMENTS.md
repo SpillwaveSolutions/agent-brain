@@ -34,7 +34,7 @@ Requirements for v10.3. Each maps to a roadmap phase.
 
 ### Subprocess Hygiene
 
-- [ ] **MCPHYG-01**: MCP stdio subprocess hygiene — pinned cwd (no `cwd=None` inheritance), env sanitized to allowlist (drop `OPENAI_API_KEY`/`ANTHROPIC_API_KEY`/etc. unless explicitly forwarded), SIGTERM → SIGKILL escalation with configurable grace period.
+- [x] **MCPHYG-01**: MCP stdio subprocess hygiene — pinned cwd (no `cwd=None` inheritance), env sanitized to allowlist (drop `OPENAI_API_KEY`/`ANTHROPIC_API_KEY`/etc. unless explicitly forwarded), SIGTERM → SIGKILL escalation with configurable grace period.
 - [ ] **MCPHYG-02**: 1000-invocation no-orphan pgrep test — drive `McpStdioBackend` through 1000 query→close cycles in a tight loop, assert `pgrep -f agent-brain-mcp` returns no surviving PIDs after each tear-down. Gated behind `task mcp:stress:orphan-test` (opt-in, slow).
 
 ### Framework Adapter Matrix
@@ -105,7 +105,7 @@ Which phases cover which requirements. Filled by roadmap creation 2026-06-05.
 | CLI-MCP-08 | Phase 58 | Complete (Plan 58-01 helpers + Plan 58-02 start writes runtime + Plan 58-03 McpHttpBackend.__init__ + resolve_mcp_transport discovery end-to-end) |
 | CLI-MCP-09 | Phase 58 | Complete |
 | CLI-MCP-10 | Phase 58 | Complete |
-| MCPHYG-01 | Phase 60 | Pending |
+| MCPHYG-01 | Phase 60 | Complete |
 | MCPHYG-02 | Phase 60 | Pending |
 | FRAME-01 | Phase 61 | Pending |
 | FRAME-02 | Phase 61 | Pending |

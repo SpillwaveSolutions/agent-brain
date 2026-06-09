@@ -128,7 +128,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
   2. `McpStdioBackend.close()` sends SIGTERM, waits `grace_period_s` (configurable, default ≤5s), then escalates to SIGKILL; the grace period is honored by a unit test using a stub child that ignores SIGTERM
   3. `task mcp:stress:orphan-test` drives `McpStdioBackend` through 1000 query→close cycles in a tight loop; `pgrep -f agent-brain-mcp` returns no surviving PIDs after each tear-down (asserted per-iteration); the task is opt-in (NOT in `task before-push` — slow) and surfaces leak counts in the failure message
   4. Phase 61 + 62 framework tests inherit the hygiene contract automatically by going through `McpStdioBackend` rather than spawning raw subprocesses
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 - [ ] 60-01-PLAN.md — DEFAULT_ENV_ALLOWLIST module constant + McpStdioBackend.__init__ extended with env_allowlist/forward_env/grace_period_s kwargs + cwd snapshot/validation (MCPHYG-01 foundation half)
 - [ ] 60-02-PLAN.md — Hygienic stdio_client wrapper + weakref/threading.Lock in-flight tracker + close() SIGTERM→SIGKILL escalation + SIGTERM-ignoring stub child fixture (MCPHYG-01 close() half)
 - [ ] 60-03-PLAN.md — agent-brain-mcp/tests/stress/test_orphan_subprocess.py @pytest.mark.stress + psutil children delta primary assert + pgrep diagnostic + task mcp:stress:orphan-test target (MCPHYG-02)
@@ -188,7 +188,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 | 57. CLI transport selector + byte-identical equivalence     | 3/3 | Complete    | 2026-06-07 | -          |
 | 58. Runtime discovery + helper commands                     | 3/3 | Complete    | 2026-06-07 | -          |
 | 59. CLI prompts + resources commands                        | 3/3 | Complete    | 2026-06-09 | -          |
-| 60. Subprocess hygiene + 1000-invocation orphan test        | v10.3     | 0/TBD          | Not started | -          |
+| 60. Subprocess hygiene + 1000-invocation orphan test        | 1/3 | In Progress|  | -          |
 | 61. Python framework adapter matrix                         | v10.3     | 0/TBD          | Not started | -          |
 | 62. TypeScript framework adapter matrix                     | v10.3     | 0/TBD          | Not started | -          |
 | 63. Tooling + docs + integration page                       | v10.3     | 0/TBD          | Not started | -          |
