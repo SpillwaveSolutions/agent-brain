@@ -28,10 +28,10 @@ Next Phase: 60 (subprocess hygiene + 1000-invocation orphan test)
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-05)
+See: .planning/PROJECT.md (updated 2026-06-08)
 
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Phase 59 — cli-prompts-resources-commands
+**Current focus:** Phase 60 — subprocess hygiene + 1000-invocation orphan test
 
 ## Milestone Summary
 
@@ -51,7 +51,7 @@ v10.0.0–v10.0.6 Patch Train: [██████████] 100% (shipped 20
 v10.1.0 MCP v1:              [██████████] 100% (shipped 2026-05-30; UDS + 7-tool stdio MCP + CLI dual transport)
 v10.1.2 MCP package rename:  [██████████] 100% (shipped 2026-06-01; agent-brain-mcp PyPI distribution + standalone user guide)
 v10.2 MCP v2:                [██████████] 100% (24/24 plans across Phases 50-55 — milestone READY FOR RELEASE, awaiting gsd-complete-milestone)
-v10.3 MCP v3:                [          ]   0% (0/8 phases — Phases 56-63, scoped 2026-06-05; 23/23 requirements mapped)
+v10.3 MCP v3:                [█████     ]  50% (4/8 phases — Phases 56-59 complete; CLI-MCP-01..10 + DESIGN-V3-01 closed; 12/12 plans; Phases 60-63 remaining)
 ```
 
 ## v10.2 Phase Progress
