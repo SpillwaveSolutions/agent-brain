@@ -13,6 +13,11 @@ from __future__ import annotations
 
 import asyncio
 import os
+import threading
+import time
+import weakref
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from types import TracebackType
 from typing import TYPE_CHECKING, Any
@@ -33,6 +38,66 @@ from . import errors
 DEFAULT_ENV_ALLOWLIST: frozenset[str] = frozenset(
     {"PATH", "HOME", "USER", "LANG", "LC_ALL", "TERM"}
 )
+
+
+# Phase 60 (MCPHYG-01) — module-level subprocess hygiene helpers.
+# Consumed by ``McpStdioBackend._hygienic_stdio_client`` (per-call wrapper
+# around ``mcp.client.stdio.stdio_client``) and ``McpStdioBackend.close()``
+# (SIGTERM→SIGKILL escalation).
+
+
+def _wait_for_subprocess_exit(
+    process: Any, timeout: float, poll_interval: float = 0.05
+) -> bool:
+    """Poll ``process.returncode`` until non-None or timeout expires.
+
+    Returns True if the subprocess exited within ``timeout`` seconds,
+    False otherwise. ``timeout == 0`` performs a single check.
+
+    Mirrors Phase 58-03's ``_wait_for_pid_exit`` shape (commands/mcp.py:
+    309-321) but operates on an asyncio.subprocess.Process rather than a
+    bare pid — avoids the psutil.pid_exists round-trip when the SDK
+    already owns the Process handle.
+    """
+    deadline = time.monotonic() + max(0.0, timeout)
+    while True:
+        if process.returncode is not None:
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(poll_interval)
+
+
+def _extract_subprocess_from_streams(streams: Any) -> Any | None:
+    """Best-effort: extract asyncio.subprocess.Process from stdio_client streams.
+
+    The MCP SDK 1.12.x line stores the spawned subprocess on the write
+    stream's underlying transport. SDK versions are pinned in
+    pyproject.toml; if the SDK changes shape, the close() escalation
+    silently downgrades to no-op (registered process is None) — Pattern A
+    still tears down via the SDK's normal context cleanup, so this is a
+    soft-fail boundary INSIDE the extractor. The wrapper-level §3.5
+    no-silent-fallback contract is enforced by an E2E extraction test
+    (``test_hygienic_wrapper_registers_inflight_on_real_sdk_shape``).
+
+    Returns None if extraction fails (subprocess hygiene degrades to
+    SDK-only cleanup; still correct, just no SIGKILL escalation).
+    """
+    try:
+        # streams is a (read_stream, write_stream) tuple.
+        _read, write = streams
+        # Inspect write stream for a process attribute (best-effort —
+        # exact attribute name varies by SDK version).
+        for attr in ("_process", "process", "_transport"):
+            candidate = getattr(write, attr, None)
+            if candidate is None:
+                continue
+            # asyncio.subprocess.Process has .returncode + .terminate + .kill
+            if all(hasattr(candidate, m) for m in ("returncode", "terminate", "kill")):
+                return candidate
+        return None
+    except Exception:
+        return None
 
 
 class ApiClient:
@@ -541,6 +606,13 @@ class McpStdioBackend:
             raise ValueError(f"grace_period_s must be > 0; got {grace_period_s!r}")
         self.grace_period_s = float(grace_period_s)
         self._closed = False
+        # Phase 60 (MCPHYG-01): in-flight subprocess tracker. Pattern A
+        # spawns a fresh subprocess per call, so at most ONE subprocess
+        # is alive on this backend at a time. weakref so we don't extend
+        # the SDK's lifecycle; threading.Lock so close() from another
+        # thread doesn't race with the async helper registering.
+        self._inflight_ref: weakref.ref[Any] | None = None
+        self._inflight_lock = threading.Lock()
 
     def __enter__(self) -> McpStdioBackend:
         return self
@@ -553,12 +625,90 @@ class McpStdioBackend:
     ) -> None:
         self.close()
 
-    def close(self) -> None:
-        """Tear down the MCP subprocess. Idempotent.
+    def _register_inflight(self, process: Any) -> None:
+        """Set the in-flight subprocess weakref (called by the hygienic wrapper).
 
-        Skeleton: marks the instance closed; Phase 57 implements SIGTERM
-        ->SIGKILL escalation per design doc §4.5 (Phase 60 hygiene).
+        Pattern A invariant: at most ONE subprocess per backend at a time.
         """
+        with self._inflight_lock:
+            self._inflight_ref = weakref.ref(process)
+
+    def _unregister_inflight(self) -> None:
+        """Clear the in-flight subprocess weakref.
+
+        Called when the hygienic wrapper exits cleanly — the SDK has
+        already torn the subprocess down via its own context cleanup.
+        """
+        with self._inflight_lock:
+            self._inflight_ref = None
+
+    @asynccontextmanager
+    async def _hygienic_stdio_client(self, params: Any) -> AsyncIterator[Any]:
+        """Wrap the SDK's stdio_client to register the spawned subprocess.
+
+        Drop-in replacement for ``stdio_client(params)`` inside each
+        ``_async_*`` helper. Registers the underlying
+        ``asyncio.subprocess.Process`` on ``self._inflight_ref`` so
+        ``close()`` from another thread can escalate SIGTERM → SIGKILL.
+
+        Pattern A preserved — still fresh subprocess per call. The wrapper
+        does NOT keep the subprocess alive after the async context exits;
+        it merely registers a weakref for the duration of the call.
+        """
+        from mcp.client.stdio import stdio_client
+
+        async with stdio_client(params) as streams:
+            # The MCP SDK 1.12.x stdio_client owns an
+            # asyncio.subprocess.Process internally. Best-effort
+            # discovery via the (read, write) streams' transport.
+            process = _extract_subprocess_from_streams(streams)
+            if process is not None:
+                self._register_inflight(process)
+            try:
+                yield streams
+            finally:
+                self._unregister_inflight()
+
+    def close(self) -> None:
+        """Tear down any in-flight MCP subprocess. Idempotent.
+
+        Phase 60 (MCPHYG-01) close() escalation:
+        1. Idempotent fast path — no in-flight subprocess → return.
+        2. Send SIGTERM via ``process.terminate()``.
+        3. Poll ``process.returncode`` for ``self.grace_period_s``.
+        4. If still alive, send SIGKILL via ``process.kill()``.
+
+        Safe to call from another thread while a sync method is mid-flight
+        on the main thread — the threading.Lock guards the weakref.
+        """
+        with self._inflight_lock:
+            ref = self._inflight_ref
+        process = ref() if ref is not None else None
+
+        if process is None or process.returncode is not None:
+            # No in-flight subprocess, or it already exited.
+            self._closed = True
+            return
+
+        # Path 1: SIGTERM the in-flight subprocess.
+        try:
+            process.terminate()
+        except (ProcessLookupError, OSError):
+            self._closed = True
+            return
+
+        # Path 2: poll for grace_period_s.
+        if _wait_for_subprocess_exit(process, self.grace_period_s):
+            self._closed = True
+            return
+
+        # Path 3: refused to die — SIGKILL.
+        try:
+            process.kill()
+        except (ProcessLookupError, OSError):
+            pass
+        # Best-effort short wait so callers see the dead state.
+        _wait_for_subprocess_exit(process, 1.0)
         self._closed = True
 
     # --- Shared helpers (Pattern A — asyncio.run per call) ---
@@ -617,9 +767,8 @@ class McpStdioBackend:
 
     async def _async_health(self) -> HealthStatus:
         from mcp import ClientSession
-        from mcp.client.stdio import stdio_client
 
-        async with stdio_client(self._stdio_params()) as (read, write):
+        async with self._hygienic_stdio_client(self._stdio_params()) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.call_tool("server_health", {})
@@ -630,10 +779,9 @@ class McpStdioBackend:
 
     async def _async_status(self) -> IndexingStatus:
         from mcp import ClientSession
-        from mcp.client.stdio import stdio_client
         from pydantic import AnyUrl
 
-        async with stdio_client(self._stdio_params()) as (read, write):
+        async with self._hygienic_stdio_client(self._stdio_params()) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.read_resource(AnyUrl("corpus://status"))
@@ -692,7 +840,6 @@ class McpStdioBackend:
         # path; consumers of the McpStdioBackend constructor that
         # never call query() do not pay the import cost.
         from mcp import ClientSession
-        from mcp.client.stdio import stdio_client
 
         tool_args: dict[str, Any] = {
             "query": query_text,
@@ -709,7 +856,7 @@ class McpStdioBackend:
         if file_paths is not None:
             tool_args["file_paths"] = file_paths
 
-        async with stdio_client(self._stdio_params()) as (read, write):
+        async with self._hygienic_stdio_client(self._stdio_params()) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.call_tool("search_documents", tool_args)
@@ -763,9 +910,8 @@ class McpStdioBackend:
         self, *, tool_name: str, body: dict[str, Any]
     ) -> IndexResponse:
         from mcp import ClientSession
-        from mcp.client.stdio import stdio_client
 
-        async with stdio_client(self._stdio_params()) as (read, write):
+        async with self._hygienic_stdio_client(self._stdio_params()) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.call_tool(tool_name, body)
@@ -776,10 +922,9 @@ class McpStdioBackend:
 
     async def _async_list_folders(self) -> list[FolderInfo]:
         from mcp import ClientSession
-        from mcp.client.stdio import stdio_client
         from pydantic import AnyUrl
 
-        async with stdio_client(self._stdio_params()) as (read, write):
+        async with self._hygienic_stdio_client(self._stdio_params()) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.read_resource(AnyUrl("corpus://folders"))
@@ -790,13 +935,12 @@ class McpStdioBackend:
 
     async def _async_delete_folder(self, folder_path: str) -> dict[str, Any]:
         from mcp import ClientSession
-        from mcp.client.stdio import stdio_client
 
         # remove_folder is destructive — Phase 54 Plan 03 schema
         # requires confirm=True (RemoveFolderInput.confirm: Literal[True]).
         # CONTEXT.md Claude's-discretion note: pass-through for parity
         # with --transport uds; no CLI-side confirmation prompt.
-        async with stdio_client(self._stdio_params()) as (read, write):
+        async with self._hygienic_stdio_client(self._stdio_params()) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.call_tool(
@@ -821,9 +965,8 @@ class McpStdioBackend:
 
     async def _async_list_jobs(self, limit: int) -> list[dict[str, Any]]:
         from mcp import ClientSession
-        from mcp.client.stdio import stdio_client
 
-        async with stdio_client(self._stdio_params()) as (read, write):
+        async with self._hygienic_stdio_client(self._stdio_params()) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.call_tool("list_jobs", {"limit": limit})
@@ -837,10 +980,9 @@ class McpStdioBackend:
 
     async def _async_get_job(self, job_id: str) -> dict[str, Any]:
         from mcp import ClientSession
-        from mcp.client.stdio import stdio_client
         from pydantic import AnyUrl
 
-        async with stdio_client(self._stdio_params()) as (read, write):
+        async with self._hygienic_stdio_client(self._stdio_params()) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.read_resource(AnyUrl(f"job://{job_id}"))
@@ -851,13 +993,12 @@ class McpStdioBackend:
 
     async def _async_cancel_job(self, job_id: str) -> dict[str, Any]:
         from mcp import ClientSession
-        from mcp.client.stdio import stdio_client
 
         # cancel_job is destructive — v1's destructive-op guard requires
         # confirm=True (CancelJobInput.confirm: Literal[True], v1 §6.2).
         # CONTEXT.md Claude's-discretion note: pass-through for parity
         # with --transport uds.
-        async with stdio_client(self._stdio_params()) as (read, write):
+        async with self._hygienic_stdio_client(self._stdio_params()) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.call_tool(
@@ -870,9 +1011,8 @@ class McpStdioBackend:
 
     async def _async_cache_status(self) -> dict[str, Any]:
         from mcp import ClientSession
-        from mcp.client.stdio import stdio_client
 
-        async with stdio_client(self._stdio_params()) as (read, write):
+        async with self._hygienic_stdio_client(self._stdio_params()) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.call_tool("cache_status", {})
@@ -883,13 +1023,12 @@ class McpStdioBackend:
 
     async def _async_clear_cache(self) -> dict[str, Any]:
         from mcp import ClientSession
-        from mcp.client.stdio import stdio_client
 
         # confirm=True is REQUIRED by the clear_cache tool's
         # Pydantic schema (Phase 54 Plan 03 destructive-op guard).
         # CONTEXT.md Claude's-discretion note: pass-through for parity
         # with --transport uds; no CLI-side confirmation prompt.
-        async with stdio_client(self._stdio_params()) as (read, write):
+        async with self._hygienic_stdio_client(self._stdio_params()) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.call_tool("clear_cache", {"confirm": True})
@@ -916,9 +1055,8 @@ class McpStdioBackend:
         self, name: str, arguments: dict[str, str] | None
     ) -> dict[str, Any]:
         from mcp import ClientSession
-        from mcp.client.stdio import stdio_client
 
-        async with stdio_client(self._stdio_params()) as (read, write):
+        async with self._hygienic_stdio_client(self._stdio_params()) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.get_prompt(name, arguments)
@@ -929,9 +1067,8 @@ class McpStdioBackend:
 
     async def _async_list_prompts(self) -> list[dict[str, Any]]:
         from mcp import ClientSession
-        from mcp.client.stdio import stdio_client
 
-        async with stdio_client(self._stdio_params()) as (read, write):
+        async with self._hygienic_stdio_client(self._stdio_params()) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.list_prompts()
@@ -942,9 +1079,8 @@ class McpStdioBackend:
 
     async def _async_list_resources(self) -> list[dict[str, Any]]:
         from mcp import ClientSession
-        from mcp.client.stdio import stdio_client
 
-        async with stdio_client(self._stdio_params()) as (read, write):
+        async with self._hygienic_stdio_client(self._stdio_params()) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.list_resources()
@@ -955,9 +1091,8 @@ class McpStdioBackend:
 
     async def _async_list_resource_templates(self) -> list[dict[str, Any]]:
         from mcp import ClientSession
-        from mcp.client.stdio import stdio_client
 
-        async with stdio_client(self._stdio_params()) as (read, write):
+        async with self._hygienic_stdio_client(self._stdio_params()) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.list_resource_templates()
@@ -971,10 +1106,9 @@ class McpStdioBackend:
 
     async def _async_read_resource(self, uri: str) -> dict[str, Any]:
         from mcp import ClientSession
-        from mcp.client.stdio import stdio_client
         from pydantic import AnyUrl
 
-        async with stdio_client(self._stdio_params()) as (read, write):
+        async with self._hygienic_stdio_client(self._stdio_params()) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.read_resource(AnyUrl(uri))
