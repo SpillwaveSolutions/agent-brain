@@ -56,6 +56,12 @@ Adapter smoke tests against each:
 - `docs/INTEGRATIONS.md` shipped.
 - MCP stdio subprocess hygiene verified: pinned cwd, sanitized env (allowlist), SIGTERM/SIGKILL escalation, no orphans confirmed by a 1000-invocation `pgrep` test.
 
+## Design doc
+
+Surgical v3 design — locks BackendClient Protocol, backend class boundaries, runtime discovery model, and sync-facade decision. Reviewers challenge the wire shape here BEFORE any MCP-layer code lands (v2 Phase 50 precedent).
+
+- [`docs/plans/2026-06-05-mcp-v3-cli-via-mcp.md`](../../plans/2026-06-05-mcp-v3-cli-via-mcp.md) — v3 design doc (filed 2026-06-05, Plan 56-01)
+
 ## Source design
 
 `docs/plans/2026-05-28-mcp-uds-transport-design.md` §11 (v3 row), §15.2.

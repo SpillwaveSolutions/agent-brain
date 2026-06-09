@@ -18,8 +18,11 @@ from .commands import (
     install_agent_command,
     jobs_command,
     list_command,
+    mcp_group,
+    prompt_command,
     query_command,
     reset_command,
+    resources_group,
     start_command,
     status_command,
     stop_command,
@@ -33,11 +36,11 @@ from .commands import (
 @click.option(
     "--transport",
     "transport",
-    type=click.Choice(["auto", "http", "uds"], case_sensitive=False),
+    type=click.Choice(["auto", "http", "uds", "mcp"], case_sensitive=False),
     default=None,
     help=(
-        "Transport to use: auto (default — UDS if available, HTTP "
-        "otherwise), http, or uds. Honors AGENT_BRAIN_TRANSPORT env."
+        "Transport: auto (UDS if available, HTTP otherwise), http, uds, "
+        "or mcp (CLI talks to agent-brain-mcp). Honors AGENT_BRAIN_TRANSPORT env."
     ),
 )
 @click.option(
@@ -52,6 +55,28 @@ from .commands import (
     help="Override server base URL (only used with --transport=http|auto).",
 )
 @click.option(
+    "--mcp-transport",
+    "mcp_transport",
+    type=click.Choice(["stdio", "http"], case_sensitive=False),
+    default=None,
+    help=(
+        "MCP listen transport for --transport mcp: stdio (default) "
+        "or http. Honors AGENT_BRAIN_MCP_TRANSPORT env. Ignored "
+        "when --transport != mcp."
+    ),
+)
+@click.option(
+    "--mcp-url",
+    "mcp_url",
+    default=None,
+    help=(
+        "MCP HTTP listener URL for --transport mcp --mcp-transport "
+        "http (e.g. http://127.0.0.1:9999/mcp). Honors "
+        "AGENT_BRAIN_MCP_URL env. mcp.runtime.json discovery "
+        "lands in Phase 58."
+    ),
+)
+@click.option(
     "--debug-transport",
     is_flag=True,
     default=False,
@@ -63,6 +88,8 @@ def cli(
     transport: str | None,
     socket_path: str | None,
     base_url: str | None,
+    mcp_transport: str | None,
+    mcp_url: str | None,
     debug_transport: bool,
 ) -> None:
     """Agent Brain CLI - Manage and query the Agent Brain RAG server.
@@ -124,6 +151,8 @@ def cli(
     ctx.obj["base_url_override"] = base_url
     ctx.obj["socket_path_override"] = socket_path
     ctx.obj["debug_transport"] = debug_transport
+    ctx.obj["mcp_transport_hint"] = mcp_transport
+    ctx.obj["mcp_url_override"] = mcp_url
 
 
 # Register project management commands
@@ -131,6 +160,9 @@ cli.add_command(init_command, name="init")
 cli.add_command(start_command, name="start")
 cli.add_command(stop_command, name="stop")
 cli.add_command(list_command, name="list")
+cli.add_command(mcp_group, name="mcp")
+cli.add_command(prompt_command, name="prompt")
+cli.add_command(resources_group, name="resources")
 
 # Register server interaction commands
 cli.add_command(status_command, name="status")

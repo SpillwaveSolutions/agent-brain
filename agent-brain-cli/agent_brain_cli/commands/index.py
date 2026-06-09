@@ -6,7 +6,7 @@ import click
 from rich.console import Console
 
 from ..client import ConnectionError, ServerError
-from ..client.transport import open_client
+from ..client.transport import open_backend
 from ..diagnostics import doctor_hint_message
 
 console = Console()
@@ -129,7 +129,7 @@ def index_command(
     )
 
     try:
-        with open_client(ctx) as client:
+        with open_backend(ctx) as client:
             response = client.index(
                 folder_path=str(folder),
                 chunk_size=chunk_size,

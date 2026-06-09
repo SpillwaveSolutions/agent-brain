@@ -11,31 +11,31 @@ Requirements for v10.3. Each maps to a roadmap phase.
 
 ### Design
 
-- [ ] **DESIGN-V3-01**: v3 design doc filed at `docs/plans/2026-06-<dd>-mcp-v3-cli-via-mcp.md` covering CLI backend abstraction, runtime discovery, and framework matrix scope before MCP-layer code lands.
+- [x] **DESIGN-V3-01**: v3 design doc filed at `docs/plans/2026-06-<dd>-mcp-v3-cli-via-mcp.md` covering CLI backend abstraction, runtime discovery, and framework matrix scope before MCP-layer code lands.
 
 ### CLI-via-MCP Backend Clients
 
-- [ ] **CLI-MCP-01**: New `McpStdioBackend` in `agent_brain_mcp/client.py` (or `agent_brain_cli/client/mcp_backend.py`) satisfying the same shape `DocServeClient` exposes today (query, list_folders, etc.) — caller cannot distinguish via the interface.
-- [ ] **CLI-MCP-02**: New `McpHttpBackend` parallel to `McpStdioBackend` but driving `streamablehttp_client` against a live `agent-brain-mcp --transport http` listener.
-- [ ] **CLI-MCP-03**: `agent-brain --transport mcp` selector + `--mcp-transport stdio|http` sub-selector wired into the CLI; explicit selection, no silent fallback (mirrors v10.2 HTTP-03).
-- [ ] **CLI-MCP-04**: `agent-brain --transport mcp query "X"` returns byte-identical results to `--transport uds` for the same backend state (modulo timestamps/elapsed) — the v3 DoD anchor.
+- [x] **CLI-MCP-01**: New `McpStdioBackend` in `agent_brain_mcp/client.py` (or `agent_brain_cli/client/mcp_backend.py`) satisfying the same shape `DocServeClient` exposes today (query, list_folders, etc.) — caller cannot distinguish via the interface.
+- [x] **CLI-MCP-02**: New `McpHttpBackend` parallel to `McpStdioBackend` but driving `streamablehttp_client` against a live `agent-brain-mcp --transport http` listener.
+- [x] **CLI-MCP-03**: `agent-brain --transport mcp` selector + `--mcp-transport stdio|http` sub-selector wired into the CLI; explicit selection, no silent fallback (mirrors v10.2 HTTP-03).
+- [x] **CLI-MCP-04**: `agent-brain --transport mcp query "X"` returns byte-identical results to `--transport uds` for the same backend state (modulo timestamps/elapsed) — the v3 DoD anchor.
 
 ### CLI Surface for Prompts + Resources
 
-- [ ] **CLI-MCP-05**: `agent-brain prompt <name>` command that calls MCP `prompts/get` and prints the expanded prompt content (all 6 v1 prompts: `audit_indexed_folders`, `compare_search_modes`, `explain_architecture`, `find_callers`, `find_implementation`, `onboard_to_codebase`).
-- [ ] **CLI-MCP-06**: `agent-brain resources list` enumerates the 5 static URIs + 4 templated URI schemes (`chunk://`, `graph-entity://`, `job://`, `file://`).
-- [ ] **CLI-MCP-07**: `agent-brain resources read <uri>` calls MCP `resources/read` and prints content; respects `file://` sandbox; correct content-type handling for binary blobs vs JSON.
+- [x] **CLI-MCP-05**: `agent-brain prompt <name>` command that calls MCP `prompts/get` and prints the expanded prompt content (all 6 v1 prompts: `audit_indexed_folders`, `compare_search_modes`, `explain_architecture`, `find_callers`, `find_implementation`, `onboard_to_codebase`).
+- [x] **CLI-MCP-06**: `agent-brain resources list` enumerates the 5 static URIs + 4 templated URI schemes (`chunk://`, `graph-entity://`, `job://`, `file://`).
+- [x] **CLI-MCP-07**: `agent-brain resources read <uri>` calls MCP `resources/read` and prints content; respects `file://` sandbox; correct content-type handling for binary blobs vs JSON.
 
 ### Runtime Discovery & Helper
 
-- [ ] **CLI-MCP-08**: `<state_dir>/mcp.runtime.json` written by `agent-brain mcp start`, read by CLI when `--transport mcp --mcp-transport http` is set without an explicit `--mcp-url`. Schema matches `runtime.json` style (host, port, pid, started_at, transport).
-- [ ] **CLI-MCP-09**: `agent-brain mcp start` helper that launches `agent-brain-mcp --transport http` as a background process with loopback bind, port auto-allocation, and `mcp.runtime.json` write on listener-ready (uses the same psutil socket-bind verification path as v10.2 HTTP-02).
-- [ ] **CLI-MCP-10**: `agent-brain mcp stop` companion command that reads `mcp.runtime.json`, sends SIGTERM, escalates to SIGKILL after grace period, removes `mcp.runtime.json` on clean exit.
+- [x] **CLI-MCP-08**: `<state_dir>/mcp.runtime.json` written by `agent-brain mcp start`, read by CLI when `--transport mcp --mcp-transport http` is set without an explicit `--mcp-url`. Schema matches `runtime.json` style (host, port, pid, started_at, transport).
+- [x] **CLI-MCP-09**: `agent-brain mcp start` helper that launches `agent-brain-mcp --transport http` as a background process with loopback bind, port auto-allocation, and `mcp.runtime.json` write on listener-ready (uses the same psutil socket-bind verification path as v10.2 HTTP-02).
+- [x] **CLI-MCP-10**: `agent-brain mcp stop` companion command that reads `mcp.runtime.json`, sends SIGTERM, escalates to SIGKILL after grace period, removes `mcp.runtime.json` on clean exit.
 
 ### Subprocess Hygiene
 
-- [ ] **MCPHYG-01**: MCP stdio subprocess hygiene — pinned cwd (no `cwd=None` inheritance), env sanitized to allowlist (drop `OPENAI_API_KEY`/`ANTHROPIC_API_KEY`/etc. unless explicitly forwarded), SIGTERM → SIGKILL escalation with configurable grace period.
-- [ ] **MCPHYG-02**: 1000-invocation no-orphan pgrep test — drive `McpStdioBackend` through 1000 query→close cycles in a tight loop, assert `pgrep -f agent-brain-mcp` returns no surviving PIDs after each tear-down. Gated behind `task mcp:stress:orphan-test` (opt-in, slow).
+- [x] **MCPHYG-01**: MCP stdio subprocess hygiene — pinned cwd (no `cwd=None` inheritance), env sanitized to allowlist (drop `OPENAI_API_KEY`/`ANTHROPIC_API_KEY`/etc. unless explicitly forwarded), SIGTERM → SIGKILL escalation with configurable grace period.
+- [x] **MCPHYG-02**: 1000-invocation no-orphan pgrep test — drive `McpStdioBackend` through 1000 query→close cycles in a tight loop, assert `pgrep -f agent-brain-mcp` returns no surviving PIDs after each tear-down. Gated behind `task mcp:stress:orphan-test` (opt-in, slow).
 
 ### Framework Adapter Matrix
 
@@ -94,19 +94,19 @@ Which phases cover which requirements. Filled by roadmap creation 2026-06-05.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DESIGN-V3-01 | Phase 56 | Pending |
-| CLI-MCP-01 | Phase 56 | Pending |
-| CLI-MCP-02 | Phase 56 | Pending |
-| CLI-MCP-03 | Phase 57 | Pending |
-| CLI-MCP-04 | Phase 57 | Pending |
-| CLI-MCP-05 | Phase 59 | Pending |
-| CLI-MCP-06 | Phase 59 | Pending |
-| CLI-MCP-07 | Phase 59 | Pending |
-| CLI-MCP-08 | Phase 58 | Pending |
-| CLI-MCP-09 | Phase 58 | Pending |
-| CLI-MCP-10 | Phase 58 | Pending |
-| MCPHYG-01 | Phase 60 | Pending |
-| MCPHYG-02 | Phase 60 | Pending |
+| DESIGN-V3-01 | Phase 56 | Complete |
+| CLI-MCP-01 | Phase 56 | Complete |
+| CLI-MCP-02 | Phase 56 | Complete |
+| CLI-MCP-03 | Phase 57 | Complete (selector + dispatcher + 3 §3.5 cases in Plan 57-01; query() wiring + CLI-MCP-04 DoD anchor in Plan 57-02; remaining 10 BackendClient methods + verbatim reset() on both backends in Plan 57-03) |
+| CLI-MCP-04 | Phase 57 | Complete |
+| CLI-MCP-05 | Phase 59 | Complete |
+| CLI-MCP-06 | Phase 59 | Complete |
+| CLI-MCP-07 | Phase 59 | Complete |
+| CLI-MCP-08 | Phase 58 | Complete (Plan 58-01 helpers + Plan 58-02 start writes runtime + Plan 58-03 McpHttpBackend.__init__ + resolve_mcp_transport discovery end-to-end) |
+| CLI-MCP-09 | Phase 58 | Complete |
+| CLI-MCP-10 | Phase 58 | Complete |
+| MCPHYG-01 | Phase 60 | Complete |
+| MCPHYG-02 | Phase 60 | Complete |
 | FRAME-01 | Phase 61 | Pending |
 | FRAME-02 | Phase 61 | Pending |
 | FRAME-03 | Phase 61 | Pending |

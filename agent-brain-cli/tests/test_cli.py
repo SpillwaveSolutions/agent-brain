@@ -37,7 +37,7 @@ class TestCLIHelp:
 class TestStatusCommand:
     """Tests for status command."""
 
-    @patch("agent_brain_cli.commands.status.open_client")
+    @patch("agent_brain_cli.commands.status.open_backend")
     def test_status_healthy(self, mock_open_client, runner):
         """Test status command when server is healthy."""
         mock_client = MagicMock()
@@ -68,7 +68,7 @@ class TestStatusCommand:
         assert result.exit_code == 0
         assert "HEALTHY" in result.output or "healthy" in result.output.lower()
 
-    @patch("agent_brain_cli.commands.status.open_client")
+    @patch("agent_brain_cli.commands.status.open_backend")
     def test_status_json_output(self, mock_open_client, runner):
         """Test status command with JSON output."""
         mock_client = MagicMock()
@@ -107,7 +107,7 @@ class TestStatusCommand:
         }
         assert output["indexing"]["embedding_cache"] is None
 
-    @patch("agent_brain_cli.commands.status.open_client")
+    @patch("agent_brain_cli.commands.status.open_backend")
     def test_status_connection_error(self, mock_open_client, runner):
         """Test status command when server unreachable."""
         mock_client = MagicMock()
@@ -125,7 +125,7 @@ class TestStatusCommand:
 class TestQueryCommand:
     """Tests for query command."""
 
-    @patch("agent_brain_cli.commands.query.open_client")
+    @patch("agent_brain_cli.commands.query.open_backend")
     def test_query_with_results(self, mock_client_class, runner):
         """Test query command with results."""
         mock_client = MagicMock()
@@ -153,7 +153,7 @@ class TestQueryCommand:
         assert "Found 1 results" in result.output
         assert "docs/test.md" in result.output
 
-    @patch("agent_brain_cli.commands.query.open_client")
+    @patch("agent_brain_cli.commands.query.open_backend")
     def test_query_no_results(self, mock_client_class, runner):
         """Test query command with no results."""
         mock_client = MagicMock()
@@ -173,7 +173,7 @@ class TestQueryCommand:
         assert result.exit_code == 0
         assert "No matching documents" in result.output
 
-    @patch("agent_brain_cli.commands.query.open_client")
+    @patch("agent_brain_cli.commands.query.open_backend")
     def test_query_json_output(self, mock_client_class, runner):
         """Test query command with JSON output."""
         mock_client = MagicMock()
@@ -207,7 +207,7 @@ class TestQueryCommand:
 class TestIndexCommand:
     """Tests for index command."""
 
-    @patch("agent_brain_cli.commands.index.open_client")
+    @patch("agent_brain_cli.commands.index.open_backend")
     def test_index_success(self, mock_client_class, runner, tmp_path):
         """Test index command success."""
         mock_client = MagicMock()
@@ -243,7 +243,7 @@ class TestIndexCommand:
 class TestResetCommand:
     """Tests for reset command."""
 
-    @patch("agent_brain_cli.commands.reset.open_client")
+    @patch("agent_brain_cli.commands.reset.open_backend")
     def test_reset_with_yes_flag(self, mock_client_class, runner):
         """Test reset command with --yes flag."""
         mock_client = MagicMock()

@@ -29,7 +29,7 @@ def _make_mock_client(folders: list[FolderInfo] | None = None) -> MagicMock:
 class TestFoldersListCommand:
     """Tests for 'agent-brain folders list' command."""
 
-    @patch("agent_brain_cli.commands.folders.open_client")
+    @patch("agent_brain_cli.commands.folders.open_backend")
     def test_list_folders_with_results(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -57,7 +57,7 @@ class TestFoldersListCommand:
         assert "/home/user/src" in result.output
         assert "100" in result.output
 
-    @patch("agent_brain_cli.commands.folders.open_client")
+    @patch("agent_brain_cli.commands.folders.open_backend")
     def test_list_folders_empty(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -70,7 +70,7 @@ class TestFoldersListCommand:
         assert result.exit_code == 0
         assert "No folders indexed yet" in result.output
 
-    @patch("agent_brain_cli.commands.folders.open_client")
+    @patch("agent_brain_cli.commands.folders.open_backend")
     def test_list_folders_json_output(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -94,7 +94,7 @@ class TestFoldersListCommand:
         assert data["folders"][0]["folder_path"] == "/home/user/docs"
         assert data["folders"][0]["chunk_count"] == 10
 
-    @patch("agent_brain_cli.commands.folders.open_client")
+    @patch("agent_brain_cli.commands.folders.open_backend")
     def test_list_folders_connection_error(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -108,7 +108,7 @@ class TestFoldersListCommand:
         assert result.exit_code == 1
         assert "Connection Error" in result.output
 
-    @patch("agent_brain_cli.commands.folders.open_client")
+    @patch("agent_brain_cli.commands.folders.open_backend")
     def test_list_folders_server_error(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -124,7 +124,7 @@ class TestFoldersListCommand:
         assert result.exit_code == 1
         assert "Server Error" in result.output
 
-    @patch("agent_brain_cli.commands.folders.open_client")
+    @patch("agent_brain_cli.commands.folders.open_backend")
     def test_list_folders_json_connection_error(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -143,7 +143,7 @@ class TestFoldersListCommand:
 class TestFoldersRemoveCommand:
     """Tests for 'agent-brain folders remove' command."""
 
-    @patch("agent_brain_cli.commands.folders.open_client")
+    @patch("agent_brain_cli.commands.folders.open_backend")
     def test_remove_folder_with_yes_flag(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -162,7 +162,7 @@ class TestFoldersRemoveCommand:
         assert "42" in result.output
         mock_client.delete_folder.assert_called_once()
 
-    @patch("agent_brain_cli.commands.folders.open_client")
+    @patch("agent_brain_cli.commands.folders.open_backend")
     def test_remove_folder_prompt_confirm(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -184,7 +184,7 @@ class TestFoldersRemoveCommand:
         assert result.exit_code == 0
         assert "5" in result.output
 
-    @patch("agent_brain_cli.commands.folders.open_client")
+    @patch("agent_brain_cli.commands.folders.open_backend")
     def test_remove_folder_prompt_abort(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -201,7 +201,7 @@ class TestFoldersRemoveCommand:
         assert result.exit_code != 0
         mock_client.delete_folder.assert_not_called()
 
-    @patch("agent_brain_cli.commands.folders.open_client")
+    @patch("agent_brain_cli.commands.folders.open_backend")
     def test_remove_folder_not_found(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -217,7 +217,7 @@ class TestFoldersRemoveCommand:
         assert result.exit_code == 1
         assert "not indexed" in result.output or "not found" in result.output.lower()
 
-    @patch("agent_brain_cli.commands.folders.open_client")
+    @patch("agent_brain_cli.commands.folders.open_backend")
     def test_remove_folder_conflict(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -233,7 +233,7 @@ class TestFoldersRemoveCommand:
         assert result.exit_code == 1
         assert "Conflict" in result.output or "active" in result.output.lower()
 
-    @patch("agent_brain_cli.commands.folders.open_client")
+    @patch("agent_brain_cli.commands.folders.open_backend")
     def test_remove_folder_json_output(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -255,7 +255,7 @@ class TestFoldersRemoveCommand:
         data = json.loads(result.output)
         assert data["chunks_deleted"] == 42
 
-    @patch("agent_brain_cli.commands.folders.open_client")
+    @patch("agent_brain_cli.commands.folders.open_backend")
     def test_remove_folder_connection_error(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -273,7 +273,7 @@ class TestFoldersRemoveCommand:
 class TestFoldersAddCommand:
     """Tests for 'agent-brain folders add' command."""
 
-    @patch("agent_brain_cli.commands.folders.open_client")
+    @patch("agent_brain_cli.commands.folders.open_backend")
     def test_add_folder(
         self,
         mock_client_class: MagicMock,
@@ -299,7 +299,7 @@ class TestFoldersAddCommand:
         assert "job-123" in result.output or "queued" in result.output
         mock_client.index.assert_called_once()
 
-    @patch("agent_brain_cli.commands.folders.open_client")
+    @patch("agent_brain_cli.commands.folders.open_backend")
     def test_add_folder_with_include_code(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -322,7 +322,7 @@ class TestFoldersAddCommand:
         call_kwargs = mock_client.index.call_args
         assert call_kwargs[1].get("include_code") is True
 
-    @patch("agent_brain_cli.commands.folders.open_client")
+    @patch("agent_brain_cli.commands.folders.open_backend")
     def test_add_folder_json_output(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:
@@ -346,7 +346,7 @@ class TestFoldersAddCommand:
         assert "job_id" in data
         assert data["job_id"] == "job-789"
 
-    @patch("agent_brain_cli.commands.folders.open_client")
+    @patch("agent_brain_cli.commands.folders.open_backend")
     def test_add_folder_connection_error(
         self, mock_client_class: MagicMock, runner: CliRunner
     ) -> None:

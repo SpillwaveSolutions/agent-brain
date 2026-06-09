@@ -51,11 +51,11 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 
 ### Phases (summary checklist)
 
-- [ ] **Phase 56: Design doc + CLI backend skeleton** — File the v3 design doc first; land `McpStdioBackend` + `McpHttpBackend` against the `DocServeClient` shape
-- [ ] **Phase 57: CLI transport selector + byte-identical equivalence** — `--transport mcp` + `--mcp-transport stdio|http` wired; results match `--transport uds` byte-for-byte
-- [ ] **Phase 58: Runtime discovery + helper commands** — `mcp.runtime.json` schema + `agent-brain mcp start/stop` with loopback bind, port auto-allocation, psutil verification
-- [ ] **Phase 59: CLI prompts + resources commands** — `agent-brain prompt <name>`, `agent-brain resources list/read <uri>` with sandbox + binary/JSON content handling
-- [ ] **Phase 60: Subprocess hygiene + 1000-invocation orphan test** — Pinned cwd, env allowlist, SIGTERM/SIGKILL escalation, opt-in stress test
+- [x] **Phase 56: Design doc + CLI backend skeleton** — File the v3 design doc first; land `McpStdioBackend` + `McpHttpBackend` against the `DocServeClient` shape (completed 2026-06-06)
+- [x] **Phase 57: CLI transport selector + byte-identical equivalence** — `--transport mcp` + `--mcp-transport stdio|http` wired; results match `--transport uds` byte-for-byte (completed 2026-06-06)
+- [x] **Phase 58: Runtime discovery + helper commands** — `mcp.runtime.json` schema + `agent-brain mcp start/stop` with loopback bind, port auto-allocation, psutil verification (completed 2026-06-07)
+- [x] **Phase 59: CLI prompts + resources commands** — `agent-brain prompt <name>`, `agent-brain resources list/read <uri>` with sandbox + binary/JSON content handling (completed 2026-06-08)
+- [x] **Phase 60: Subprocess hygiene + 1000-invocation orphan test** — Pinned cwd, env allowlist, SIGTERM/SIGKILL escalation, opt-in stress test (completed 2026-06-09)
 - [ ] **Phase 61: Python framework adapter matrix** — Smoke tests for OpenAI Agents SDK, LangChain, LlamaIndex, Pydantic AI, Autogen
 - [ ] **Phase 62: TypeScript framework adapter matrix** — Smoke tests for Mastra + Vercel AI SDK in `framework-matrix/ts/`
 - [ ] **Phase 63: Tooling + docs + integration page** — `task mcp:framework-matrix`, nightly advisory CI workflow, `docs/INTEGRATIONS.md` with 7 framework pages + 5 config recipes
@@ -63,15 +63,19 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 ### Phase Details
 
 ### Phase 56: Design doc + CLI backend skeleton
-**Goal:** File the v3 design doc so reviewers can challenge the `McpStdioBackend` + `McpHttpBackend` shape BEFORE MCP-layer code lands; then land the two backend classes against the existing `DocServeClient` surface so callers cannot distinguish via the interface.
+**Goal:** File the v3 design doc so reviewers can challenge the `McpStdioBackend` + `McpHttpBackend` shape BEFORE MCP-layer code lands; then land the BackendClient Protocol + both backend classes as skeletons (non-trivial methods raise NotImplementedError; Phase 57+ wires them).
 **Depends on:** v10.2 (Phases 50-55) — needs Streamable HTTP transport + 16-tool MCP surface as the integration target
 **Requirements:** DESIGN-V3-01, CLI-MCP-01, CLI-MCP-02
 **Success Criteria** (what must be TRUE):
-  1. `docs/plans/2026-06-<dd>-mcp-v3-cli-via-mcp.md` exists, covers CLI backend abstraction + runtime discovery + framework matrix scope, and links from `docs/roadmaps/mcp/v3-cli-via-mcp-and-frameworks.md` (mirrors v10.2 Phase 50 design-first precedent)
-  2. `McpStdioBackend` exposes the full `DocServeClient` surface (query, list_folders, etc.); replacing one for the other inside a unit test passes without code changes
-  3. `McpHttpBackend` drives `streamablehttp_client` against a live `agent-brain-mcp --transport http` listener and exposes the same surface as `McpStdioBackend`
-  4. Both backends pass an interface-parity contract test that drives the same method matrix against both implementations
-**Plans:** TBD
+  1. `docs/plans/2026-06-05-mcp-v3-cli-via-mcp.md` exists, covers CLI backend abstraction + runtime discovery + framework matrix scope, and links from `docs/roadmaps/mcp/v3-cli-via-mcp-and-frameworks.md` (mirrors v10.2 Phase 50 design-first precedent)
+  2. `McpStdioBackend` exposes the full `DocServeClient` surface (query, list_folders, etc.); replacing one for the other inside a unit test passes without code changes (skeleton may raise NotImplementedError for non-trivial methods — signatures must be in place)
+  3. `McpHttpBackend` declares the BackendClient Protocol surface for `streamablehttp_client` against a future `agent-brain-mcp --transport http` listener (skeleton; Phase 57 wires real SDK calls)
+  4. Both backends pass an `isinstance(backend, BackendClient)` parity assertion against the runtime_checkable Protocol shipped in Plan 02
+  5. Skeleton stubs raise NotImplementedError with the literal sentinel "Wired in Phase 57+" so Phase 57 tests can grep for it
+**Plans:** 3/3 plans complete
+- [ ] 56-01-PLAN.md — File v3 design doc at docs/plans/2026-06-05-mcp-v3-cli-via-mcp.md mirroring v2 doc structure (DESIGN-V3-01; docs-only; design-first gate)
+- [ ] 56-02-PLAN.md — Land BackendClient runtime_checkable Protocol in agent_brain_cli/client/protocol.py + isinstance regression test asserting DocServeClient conformance
+- [ ] 56-03-PLAN.md — Land McpStdioBackend + McpHttpBackend skeletons in agent_brain_mcp/client.py satisfying BackendClient (CLI-MCP-01, CLI-MCP-02); non-trivial methods raise NotImplementedError("Wired in Phase 57+")
 
 ### Phase 57: CLI transport selector + byte-identical equivalence
 **Goal:** Wire `--transport mcp` + `--mcp-transport stdio|http` into the Click CLI with explicit selection (no silent fallback, mirroring v10.2 HTTP-03); pin the v3 Definition of Done — byte-identical query results between `--transport mcp` and `--transport uds` for the same backend state.
@@ -82,7 +86,10 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
   2. `agent-brain --transport mcp --mcp-transport http query "X"` succeeds and routes through `McpHttpBackend`
   3. Invalid combinations (e.g., `--mcp-transport http` without an `--mcp-url` and no `mcp.runtime.json`) fail with a clear error and a non-zero exit code; NO silent fallback to stdio or UDS
   4. Contract test asserts the JSON output of `agent-brain --transport mcp query "X"` equals the output of `agent-brain --transport uds query "X"` byte-for-byte after stripping timestamps + elapsed fields
-**Plans:** TBD
+**Plans:** 3/3 plans complete
+- [ ] 57-01-PLAN.md — Wire `--transport mcp` + `--mcp-transport stdio|http` + `--mcp-url` flags, `resolve_mcp_transport` config helper, `open_backend` dispatcher rename + 20-callsite swap (CLI-MCP-03)
+- [ ] 57-02-PLAN.md — Wire `query()` on both McpStdioBackend + McpHttpBackend via `stdio_client` / `streamablehttp_client` + the byte-identical-equivalence DoD anchor contract test (CLI-MCP-04)
+- [ ] 57-03-PLAN.md — Wire remaining 10 BackendClient methods on both backends per design doc §2.3 mapping table; `reset()` stays NotImplementedError with the verbatim §3.5 wording (CLI-MCP-03 close)
 
 ### Phase 58: Runtime discovery + helper commands
 **Goal:** Make the MCP HTTP listener self-advertising: define the `mcp.runtime.json` schema, land `agent-brain mcp start` (loopback bind, port auto-allocation, psutil socket-bind verification — reuses v10.2 HTTP-02 pattern), and `agent-brain mcp stop` (SIGTERM/SIGKILL escalation, runtime file cleanup).
@@ -93,7 +100,10 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
   2. `agent-brain --transport mcp --mcp-transport http query "X"` with no `--mcp-url` reads `mcp.runtime.json` and connects successfully
   3. `agent-brain mcp stop` reads `mcp.runtime.json`, sends SIGTERM, escalates to SIGKILL after a configurable grace period, and removes `mcp.runtime.json` on clean exit (or after SIGKILL)
   4. Concurrent `agent-brain mcp start` invocations against an already-running instance fail fast with a clear "already running on port N" error and a non-zero exit code (no double-bind, no orphan)
-**Plans:** TBD
+**Plans:** 3/3 plans complete
+- [ ] 58-01-PLAN.md — mcp_runtime.py shared helpers + psutil verifier + 0o600 perms + psutil dep added to agent-brain-cli (CLI-MCP-08 prereq foundation)
+- [ ] 58-02-PLAN.md — agent-brain mcp start Click sub-group: port allocation, lock acquisition, detached Popen with start_new_session=True, psutil-verified write of mcp.runtime.json (CLI-MCP-09)
+- [ ] 58-03-PLAN.md — agent-brain mcp stop (os.killpg SIGTERM grace SIGKILL cleanup) + McpHttpBackend.__init__ discovery + resolve_mcp_transport section 3.5 wording swap + end-to-end integration test (CLI-MCP-08 close + CLI-MCP-10)
 
 ### Phase 59: CLI prompts + resources commands
 **Goal:** Expose the MCP `prompts/get` + `resources/list` + `resources/read` surfaces via human-friendly CLI commands. Operators can invoke any of the 6 v1 prompts, enumerate all static + templated URIs, and read content with correct sandboxing and binary/JSON content-type handling.
@@ -104,7 +114,10 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
   2. `agent-brain resources list` enumerates all 5 static URIs + 4 templated URI schemes (`chunk://`, `graph-entity://`, `job://`, `file://`) with their mime types
   3. `agent-brain resources read <uri>` calls MCP `resources/read` and prints content with correct content-type handling: JSON pretty-printed, text passed through, binary blobs surfaced as a base64 marker or `--output-file` redirect (no raw bytes to stdout)
   4. `agent-brain resources read file:///disallowed/path` is rejected with the same `outside_indexed_roots` reason the MCP server returns (sandbox respected at the CLI layer too)
-**Plans:** TBD
+**Plans:** 3/3 plans complete
+- [ ] 59-01-PLAN.md — McpBackend Protocol + 5 skeleton methods on both backends + open_mcp_backend factory + isinstance pinning (CLI-MCP-05 foundation)
+- [ ] 59-02-PLAN.md — Wire 5 methods on both backends via asyncio.run Pattern A + agent-brain prompt command with --arg KEY=VALUE multi + --json flag + unknown-name handling (CLI-MCP-05)
+- [ ] 59-03-PLAN.md — agent-brain resources Click sub-group (list + read) with content-type dispatch + end-to-end integration test covering all 4 ROADMAP SCs including file:// sandbox rejection (CLI-MCP-06 + CLI-MCP-07)
 
 ### Phase 60: Subprocess hygiene + 1000-invocation orphan test
 **Goal:** Lock MCP stdio subprocess hygiene as a contract BEFORE the framework matrix lands — pinned cwd (no `cwd=None` inheritance), env sanitized to an explicit allowlist (drop API keys unless explicitly forwarded), SIGTERM → SIGKILL escalation with configurable grace, and an opt-in 1000-invocation pgrep test proving no orphans survive a tight tear-down loop.
@@ -115,7 +128,10 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
   2. `McpStdioBackend.close()` sends SIGTERM, waits `grace_period_s` (configurable, default ≤5s), then escalates to SIGKILL; the grace period is honored by a unit test using a stub child that ignores SIGTERM
   3. `task mcp:stress:orphan-test` drives `McpStdioBackend` through 1000 query→close cycles in a tight loop; `pgrep -f agent-brain-mcp` returns no surviving PIDs after each tear-down (asserted per-iteration); the task is opt-in (NOT in `task before-push` — slow) and surfaces leak counts in the failure message
   4. Phase 61 + 62 framework tests inherit the hygiene contract automatically by going through `McpStdioBackend` rather than spawning raw subprocesses
-**Plans:** TBD
+**Plans:** 3/3 plans complete
+- [x] 60-01-PLAN.md — DEFAULT_ENV_ALLOWLIST module constant + McpStdioBackend.__init__ extended with env_allowlist/forward_env/grace_period_s kwargs + cwd snapshot/validation (MCPHYG-01 foundation half)
+- [x] 60-02-PLAN.md — Hygienic stdio_client wrapper + weakref/threading.Lock in-flight tracker + close() SIGTERM→SIGKILL escalation + SIGTERM-ignoring stub child fixture (MCPHYG-01 close() half)
+- [x] 60-03-PLAN.md — agent-brain-mcp/tests/stress/test_orphan_subprocess.py @pytest.mark.stress + psutil children delta primary assert + pgrep diagnostic + task mcp:stress:orphan-test target (MCPHYG-02)
 
 ### Phase 61: Python framework adapter matrix
 **Goal:** Validate the MCP server against the 5 Python LLM agent frameworks via smoke tests that each connect, call `search_documents`, and assert non-empty results. SDK versions pinned in `framework-matrix/requirements.txt` to control churn.
@@ -168,15 +184,15 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 | 53. Streamable HTTP transport                               | v10.2     | 3/3            | Complete    | 2026-06-03 |
 | 54. 9 remaining MCP tools                                   | v10.2     | 4/4            | Complete    | 2026-06-03 |
 | 55. Validation, contract tests & QA gate                    | v10.2     | 5/5            | Complete    | 2026-06-03 |
-| 56. Design doc + CLI backend skeleton                       | v10.3     | 0/TBD          | Not started | -          |
-| 57. CLI transport selector + byte-identical equivalence     | v10.3     | 0/TBD          | Not started | -          |
-| 58. Runtime discovery + helper commands                     | v10.3     | 0/TBD          | Not started | -          |
-| 59. CLI prompts + resources commands                        | v10.3     | 0/TBD          | Not started | -          |
-| 60. Subprocess hygiene + 1000-invocation orphan test        | v10.3     | 0/TBD          | Not started | -          |
+| 56. Design doc + CLI backend skeleton                       | 3/3 | Complete    | 2026-06-06 | -          |
+| 57. CLI transport selector + byte-identical equivalence     | 3/3 | Complete    | 2026-06-07 | -          |
+| 58. Runtime discovery + helper commands                     | 3/3 | Complete    | 2026-06-07 | -          |
+| 59. CLI prompts + resources commands                        | 3/3 | Complete    | 2026-06-09 | -          |
+| 60. Subprocess hygiene + 1000-invocation orphan test        | 3/3 | Complete    | 2026-06-09 | -          |
 | 61. Python framework adapter matrix                         | v10.3     | 0/TBD          | Not started | -          |
 | 62. TypeScript framework adapter matrix                     | v10.3     | 0/TBD          | Not started | -          |
 | 63. Tooling + docs + integration page                       | v10.3     | 0/TBD          | Not started | -          |
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-06-05 — v10.3 MCP v3 scoped (Phases 56-63, 23/23 requirements mapped, granularity standard). v10.2 milestone archived. Next: `/gsd:discuss-phase 56` to begin v3 design doc planning.*
+*Last updated: 2026-06-08 — Phase 59 planned (3 plans: McpBackend Protocol + skeletons + factory; wire 5 methods + agent-brain prompt; agent-brain resources sub-group + e2e). Next: `/gsd:execute-phase 59` to ship Wave 1 (59-01).*

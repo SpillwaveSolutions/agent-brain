@@ -185,7 +185,7 @@ class DocServeClient:
         """Build a DocServeClient that uses a pre-constructed httpx.Client.
 
         Used by the transport selector to inject a UDS-backed client
-        (see ``agent_brain_cli.client.transport.open_client``). The
+        (see ``agent_brain_cli.client.transport.open_backend``). The
         inner client's ``base_url`` is preserved; this wrapper sends
         relative paths only.
 

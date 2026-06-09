@@ -8,8 +8,9 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from ..client import ConnectionError, DocServeClient, ServerError
-from ..client.transport import open_client
+from ..client import ConnectionError, ServerError
+from ..client.protocol import BackendClient
+from ..client.transport import open_backend
 from ..diagnostics import doctor_hint_message
 
 console = Console()
@@ -198,7 +199,7 @@ def _create_job_detail_panel(job: dict[str, Any]) -> Panel:
     return Panel(content, title=title, border_style=status_style)
 
 
-def _list_jobs(client: DocServeClient, limit: int, json_output: bool) -> None:
+def _list_jobs(client: BackendClient, limit: int, json_output: bool) -> None:
     """List all jobs."""
     jobs = client.list_jobs(limit=limit)
 
@@ -216,7 +217,7 @@ def _list_jobs(client: DocServeClient, limit: int, json_output: bool) -> None:
     console.print(table)
 
 
-def _show_job_detail(client: DocServeClient, job_id: str, json_output: bool) -> None:
+def _show_job_detail(client: BackendClient, job_id: str, json_output: bool) -> None:
     """Show details for a specific job."""
     job = client.get_job(job_id)
 
@@ -230,7 +231,7 @@ def _show_job_detail(client: DocServeClient, job_id: str, json_output: bool) -> 
     console.print(panel)
 
 
-def _cancel_job(client: DocServeClient, job_id: str, json_output: bool) -> None:
+def _cancel_job(client: BackendClient, job_id: str, json_output: bool) -> None:
     """Cancel a specific job."""
     result = client.cancel_job(job_id)
 
@@ -249,7 +250,7 @@ def _cancel_job(client: DocServeClient, job_id: str, json_output: bool) -> None:
         console.print(f"[yellow]{message}[/]")
 
 
-def _watch_jobs(client: DocServeClient, limit: int) -> None:
+def _watch_jobs(client: BackendClient, limit: int) -> None:
     """Watch jobs with periodic refresh."""
     try:
         while True:
@@ -323,7 +324,7 @@ def jobs_command(
         raise click.UsageError("--watch cannot be used with --json")
 
     try:
-        with open_client(ctx) as client:
+        with open_backend(ctx) as client:
             if cancel and job_id:
                 _cancel_job(client, job_id, json_output)
             elif watch:

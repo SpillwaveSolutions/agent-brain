@@ -536,3 +536,90 @@ def resolve_transport(
     except ImportError:
         # agent_brain_uds not installed — HTTP is the only option.
         return ("http", _resolve_http_target())
+
+
+def resolve_mcp_transport(
+    *,
+    mcp_transport_hint: str | None = None,
+    mcp_url_override: str | None = None,
+    state_dir: Path | None = None,
+) -> tuple[Literal["stdio", "http"], str | None]:
+    """Resolve the MCP-axis transport when ``--transport mcp`` is active.
+
+    Sibling to :func:`resolve_transport` — that helper handles the
+    HTTP/UDS axis (the v1/v2 ``cli_listen_transport``); this helper
+    handles the MCP axis (the v3 ``cli_backend_transport``, per design
+    doc §2.1).
+
+    Precedence (per Phase 57 CONTEXT §decisions / design doc §3.5):
+
+      1. ``mcp_transport_hint`` argument (CLI ``--mcp-transport`` flag)
+      2. ``AGENT_BRAIN_MCP_TRANSPORT`` environment variable
+      3. Default: ``"stdio"``
+
+    URL precedence for ``http`` (Phase 58 added the discovery step):
+
+      1. ``mcp_url_override`` argument (CLI ``--mcp-url`` flag)
+      2. ``AGENT_BRAIN_MCP_URL`` environment variable
+      3. ``<state_dir>/mcp.runtime.json`` discovery (Phase 58 CLI-MCP-08)
+      4. Hard error — verbatim v3 design doc §3.5 wording.
+
+    Returns:
+        A ``(transport, target)`` tuple. ``transport`` is ``"stdio"``
+        or ``"http"``. ``target`` is the MCP URL for ``http``, or
+        ``None`` for ``stdio`` (stdio backends spawn a subprocess, not
+        a URL connection).
+
+    Raises:
+        click.UsageError: When ``http`` is selected but no URL is
+            resolvable AND no discovery file is present. Exits with
+            code 2 per the v10.2 HTTP-03 no-silent-fallback contract.
+    """
+    chosen = (
+        mcp_transport_hint or os.environ.get("AGENT_BRAIN_MCP_TRANSPORT") or "stdio"
+    ).lower()
+    if chosen == "stdio":
+        return ("stdio", None)
+    if chosen == "http":
+        url = mcp_url_override or os.environ.get("AGENT_BRAIN_MCP_URL")
+        if url:
+            return ("http", url)
+        # Phase 58 CLI-MCP-08: try mcp.runtime.json discovery.
+        if state_dir is not None:
+            from agent_brain_cli.mcp_runtime import (
+                MCP_RUNTIME_FILE,
+                read_mcp_runtime,
+            )
+
+            runtime = read_mcp_runtime(state_dir)
+            if runtime is not None:
+                host = runtime.get("host")
+                port = runtime.get("port")
+                if isinstance(host, str) and isinstance(port, int):
+                    return ("http", f"http://{host}:{port}/mcp")
+            # No discovery file or malformed — verbatim §3.5 wording with
+            # the actual resolved state_dir interpolated.
+            import click as _click
+
+            raise _click.UsageError(
+                f"discovery file not found at {state_dir}/{MCP_RUNTIME_FILE}; "
+                f"run 'agent-brain mcp start' or pass --mcp-url"
+            )
+        # No state_dir resolvable — defensive minimal error using the
+        # literal placeholder. open_backend always passes state_dir in
+        # the normal path; this branch fires only if discovery is
+        # disabled (None) by a direct caller.
+        import click as _click
+
+        raise _click.UsageError(
+            "discovery file not found at <state_dir>/mcp.runtime.json; "
+            "run 'agent-brain mcp start' or pass --mcp-url"
+        )
+    # Unknown value — Click.Choice on the flag already filters this at
+    # parse time, but defend against the env-only path.
+    import click as _click
+
+    raise _click.UsageError(
+        f"AGENT_BRAIN_MCP_TRANSPORT={chosen!r} is not a known MCP "
+        "transport; expected 'stdio' or 'http'"
+    )

@@ -6,7 +6,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from ..client import ConnectionError, ServerError
-from ..client.transport import open_client
+from ..client.transport import open_backend
 from ..diagnostics import doctor_hint_message
 
 console = Console()
@@ -27,13 +27,13 @@ def status_command(
 ) -> None:
     """Check Agent Brain server status and health."""
     # ``--url`` is a per-command HTTP override — promote it to the
-    # transport-selector context so ``open_client`` honors it.
+    # transport-selector context so ``open_backend`` honors it.
     if url:
         ctx.ensure_object(dict)
         ctx.obj["base_url_override"] = url
         ctx.obj["transport_hint"] = "http"
     try:
-        with open_client(ctx) as client:
+        with open_backend(ctx) as client:
             health = client.health()
             indexing = client.status()
 

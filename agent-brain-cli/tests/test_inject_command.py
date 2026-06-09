@@ -57,7 +57,7 @@ def _make_mock_client(mock_class: MagicMock) -> MagicMock:
 class TestInjectCommandScript:
     """Tests for --script option."""
 
-    @patch("agent_brain_cli.commands.inject.open_client")
+    @patch("agent_brain_cli.commands.inject.open_backend")
     def test_inject_with_script_sends_injector_script(
         self,
         mock_client_class: MagicMock,
@@ -76,7 +76,7 @@ class TestInjectCommandScript:
         assert call_kwargs["folder_metadata_file"] is None
         assert call_kwargs["dry_run"] is False
 
-    @patch("agent_brain_cli.commands.inject.open_client")
+    @patch("agent_brain_cli.commands.inject.open_backend")
     def test_inject_with_folder_metadata_sends_folder_metadata_file(
         self,
         mock_client_class: MagicMock,
@@ -97,7 +97,7 @@ class TestInjectCommandScript:
         assert call_kwargs["injector_script"] is None
         assert call_kwargs["dry_run"] is False
 
-    @patch("agent_brain_cli.commands.inject.open_client")
+    @patch("agent_brain_cli.commands.inject.open_backend")
     def test_inject_with_both_script_and_folder_metadata(
         self,
         mock_client_class: MagicMock,
@@ -126,7 +126,7 @@ class TestInjectCommandScript:
         assert call_kwargs["injector_script"] == str(Path(tmp_script).resolve())
         assert call_kwargs["folder_metadata_file"] == str(Path(tmp_metadata).resolve())
 
-    @patch("agent_brain_cli.commands.inject.open_client")
+    @patch("agent_brain_cli.commands.inject.open_backend")
     def test_inject_dry_run_sends_dry_run_true(
         self,
         mock_client_class: MagicMock,
@@ -178,7 +178,7 @@ class TestInjectCommandValidation:
 class TestInjectCommandOptions:
     """Tests for inject command inheriting index options."""
 
-    @patch("agent_brain_cli.commands.inject.open_client")
+    @patch("agent_brain_cli.commands.inject.open_backend")
     def test_inject_inherits_chunk_size_option(
         self,
         mock_client_class: MagicMock,
@@ -198,7 +198,7 @@ class TestInjectCommandOptions:
         call_kwargs = mock_client.index.call_args[1]
         assert call_kwargs["chunk_size"] == 256
 
-    @patch("agent_brain_cli.commands.inject.open_client")
+    @patch("agent_brain_cli.commands.inject.open_backend")
     def test_inject_inherits_include_code_option(
         self,
         mock_client_class: MagicMock,
@@ -218,7 +218,7 @@ class TestInjectCommandOptions:
         call_kwargs = mock_client.index.call_args[1]
         assert call_kwargs["include_code"] is True
 
-    @patch("agent_brain_cli.commands.inject.open_client")
+    @patch("agent_brain_cli.commands.inject.open_backend")
     def test_inject_inherits_no_recursive_option(
         self,
         mock_client_class: MagicMock,
@@ -238,7 +238,7 @@ class TestInjectCommandOptions:
         call_kwargs = mock_client.index.call_args[1]
         assert call_kwargs["recursive"] is False
 
-    @patch("agent_brain_cli.commands.inject.open_client")
+    @patch("agent_brain_cli.commands.inject.open_backend")
     def test_inject_inherits_include_type_option(
         self,
         mock_client_class: MagicMock,
@@ -269,7 +269,7 @@ class TestInjectCommandOptions:
 class TestInjectCommandJsonOutput:
     """Tests for inject command JSON output."""
 
-    @patch("agent_brain_cli.commands.inject.open_client")
+    @patch("agent_brain_cli.commands.inject.open_backend")
     def test_inject_json_output(
         self,
         mock_client_class: MagicMock,
@@ -294,7 +294,7 @@ class TestInjectCommandJsonOutput:
         assert data["job_id"] == "job-inject-123"
         assert data["dry_run"] is False
 
-    @patch("agent_brain_cli.commands.inject.open_client")
+    @patch("agent_brain_cli.commands.inject.open_backend")
     def test_inject_dry_run_json_output(
         self,
         mock_client_class: MagicMock,
@@ -320,7 +320,7 @@ class TestInjectCommandJsonOutput:
 class TestInjectCommandErrorHandling:
     """Tests for inject command error handling."""
 
-    @patch("agent_brain_cli.commands.inject.open_client")
+    @patch("agent_brain_cli.commands.inject.open_backend")
     def test_inject_connection_error(
         self,
         mock_client_class: MagicMock,
@@ -340,7 +340,7 @@ class TestInjectCommandErrorHandling:
         assert result.exit_code == 1
         assert "Connection Error" in result.output or "error" in result.output.lower()
 
-    @patch("agent_brain_cli.commands.inject.open_client")
+    @patch("agent_brain_cli.commands.inject.open_backend")
     def test_inject_server_error(
         self,
         mock_client_class: MagicMock,
@@ -362,7 +362,7 @@ class TestInjectCommandErrorHandling:
         assert result.exit_code == 1
         assert "Server Error" in result.output or "error" in result.output.lower()
 
-    @patch("agent_brain_cli.commands.inject.open_client")
+    @patch("agent_brain_cli.commands.inject.open_backend")
     def test_inject_connection_error_json(
         self,
         mock_client_class: MagicMock,

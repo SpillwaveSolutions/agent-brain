@@ -7,8 +7,10 @@ from .api_client import (
     FolderInfo,
     ServerError,
 )
+from .protocol import BackendClient
 
 __all__ = [
+    "BackendClient",
     "DocServeClient",
     "DocServeError",
     "ConnectionError",
