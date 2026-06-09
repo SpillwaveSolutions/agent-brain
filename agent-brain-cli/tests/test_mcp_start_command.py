@@ -133,9 +133,12 @@ def test_start_lock_collision_exits_one(
         ["start", "--state-dir", str(state_dir), "--port", "8765"],
     )
     assert result.exit_code == 1, result.output
-    assert "already running on port" in result.output
+    # Click wraps error text at terminal width; normalize whitespace before
+    # substring checks so the assertion is stable across CI and local widths.
+    normalized = " ".join(result.output.split())
+    assert "already running on port" in normalized
     # The verbatim wording is mirrored from Plan 58-01's LockAcquisitionError.
-    assert "agent-brain mcp stop" in result.output
+    assert "agent-brain mcp stop" in normalized
 
 
 def test_start_writes_runtime_file_with_correct_schema(

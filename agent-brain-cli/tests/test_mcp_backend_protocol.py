@@ -45,7 +45,18 @@ def test_mcp_backend_protocol_declares_expected_methods() -> None:
             name for name, value in vars(McpBackend).items() if callable(value)
         )
     missing = EXPECTED_MCP_PROTOCOL_METHODS - declared
-    extra = declared - EXPECTED_MCP_PROTOCOL_METHODS - {"__init_subclass__"}
+    # Exclude Protocol runtime artifacts: __init_subclass__ (all versions),
+    # __init__ and __subclasshook__ (Python 3.11 exposes these in
+    # __protocol_attrs__; 3.12+ filters them out).
+    extra = (
+        declared
+        - EXPECTED_MCP_PROTOCOL_METHODS
+        - {
+            "__init_subclass__",
+            "__init__",
+            "__subclasshook__",
+        }
+    )
     assert not missing, f"McpBackend missing required methods: {missing}"
     assert not extra, (
         f"McpBackend declares unexpected methods: {extra} — "

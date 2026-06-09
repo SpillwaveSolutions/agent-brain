@@ -60,7 +60,18 @@ def test_backend_client_protocol_declares_expected_methods() -> None:
             if callable(value) or name in {"__enter__", "__exit__"}
         )
     missing = EXPECTED_PROTOCOL_METHODS - declared
-    extra = declared - EXPECTED_PROTOCOL_METHODS - {"__init_subclass__"}
+    # Exclude Protocol runtime artifacts: __init_subclass__ (all versions),
+    # __init__ and __subclasshook__ (Python 3.11 exposes these in
+    # __protocol_attrs__; 3.12+ filters them out).
+    extra = (
+        declared
+        - EXPECTED_PROTOCOL_METHODS
+        - {
+            "__init_subclass__",
+            "__init__",
+            "__subclasshook__",
+        }
+    )
     assert not missing, f"BackendClient missing required methods: {missing}"
     assert not extra, (
         f"BackendClient declares unexpected methods: {extra} — "
