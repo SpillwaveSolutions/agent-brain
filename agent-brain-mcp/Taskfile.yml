@@ -107,6 +107,23 @@ tasks:
       - task: test
       - task: mcp:smoke:http
 
+  stress:orphan-test:
+    desc: |
+      Phase 60 (MCPHYG-02): 1000-invocation no-orphan stress test. SLOW
+      (500-2000s wall-clock). OPT-IN — NOT in `task before-push`. Drives
+      McpStdioBackend through a tight query→close loop, asserting psutil
+      children delta returns to zero per iteration. Override iteration
+      count with AGENT_BRAIN_ORPHAN_TEST_MAX_ITERATIONS.
+
+      Per-package task name is bare ``stress:orphan-test`` (NO ``mcp:``
+      prefix) — the root Taskfile's ``includes: mcp:`` alias adds the
+      ``mcp:`` namespace automatically, so the root surface is
+      ``task mcp:stress:orphan-test`` (mirrors the ``mcp:before-push``
+      dispatch idiom — see root Taskfile.yml line 221).
+    deps: [install]
+    cmds:
+      - poetry run pytest {{.TEST_DIR}}/stress/test_orphan_subprocess.py -v -m stress
+
   test:all:
     desc: Unit + integration + e2e
     deps: [install]

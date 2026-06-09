@@ -221,6 +221,18 @@ tasks:
       - task: mcp:before-push
       - echo "--- All checks passed - Ready to push ---"
 
+  # Phase 60 (MCPHYG-02): 1000-invocation no-orphan stress test for
+  # McpStdioBackend. OPT-IN, slow (500-2000s wall-clock). NOT in
+  # `task before-push` by design — surfaces orphan-process bugs without
+  # blocking PRs. Override iteration count with
+  # AGENT_BRAIN_ORPHAN_TEST_MAX_ITERATIONS env var (default 1000).
+  #
+  # Discoverable as `task mcp:stress:orphan-test` via the `includes: mcp:`
+  # alias above (line 33) — the per-package task is named bare
+  # `stress:orphan-test` in agent-brain-mcp/Taskfile.yml and gets the
+  # `mcp:` namespace prepended by Task's includes resolver. Mirrors the
+  # `mcp:before-push` dispatch idiom used at line 221 above.
+
   ci:
     desc: Simulate full CI pipeline locally
     cmds:
