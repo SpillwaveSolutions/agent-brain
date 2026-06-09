@@ -142,7 +142,13 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
   2. LangChain, LlamaIndex, Pydantic AI, and Autogen (AG2) each have a smoke test that connects to `agent-brain-mcp`, calls `search_documents`, and asserts a non-empty result list
   3. `framework-matrix/requirements.txt` (or per-framework venvs) pins every SDK version with a comment noting the source URL and pin date; running the suite produces no `pip install` upgrade messages
   4. Each smoke test runs in <30s in isolation (tight tear-down via Phase 60 hygiene); zero orphan subprocesses survive between frameworks
-**Plans:** TBD
+**Plans:** 6 plans
+- [ ] 61-01-PLAN.md — Shared scaffolding: framework_mcp_session fixture + canned corpus seed + framework_matrix pytest marker + task mcp:framework-matrix Taskfile target + framework-matrix/requirements.txt skeleton + framework-matrix poetry extra (Wave 1)
+- [ ] 61-02-PLAN.md — FRAME-01 OpenAI Agents SDK: MCPServerStdio + MCPServerStreamableHttp smoke tests (dual transport); openai-agents pin (Wave 2)
+- [ ] 61-03-PLAN.md — FRAME-02 LangChain: langchain-mcp-adapters MultiServerMCPClient stdio smoke test; langchain-mcp-adapters + langchain-core pins (Wave 2)
+- [ ] 61-04-PLAN.md — FRAME-03 LlamaIndex: llama-index-tools-mcp BasicMCPClient + McpToolSpec stdio smoke test; llama-index-tools-mcp + llama-index-core pins (Wave 2)
+- [ ] 61-05-PLAN.md — FRAME-04 Pydantic AI: pydantic_ai.mcp.MCPServerStdio stdio smoke test; pydantic-ai-slim pin (Wave 2)
+- [ ] 61-06-PLAN.md — FRAME-05 Autogen / AG2: autogen_ext.tools.mcp.McpWorkbench + StdioServerParams stdio smoke test; autogen-agentchat + autogen-ext[mcp] pins (Wave 2)
 
 ### Phase 62: TypeScript framework adapter matrix
 **Goal:** Mirror Phase 61 for the 2 TypeScript frameworks under a separate `framework-matrix/ts/` harness (node + pnpm/npm), sharing a single subprocess fixture where possible. Mastra + Vercel AI SDK smoke tests connect, call `search_documents`, assert non-empty results.
@@ -153,7 +159,13 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
   2. Mastra adapter smoke test (`@mastra/mcp`) connects to `agent-brain-mcp`, calls `search_documents`, and asserts a non-empty result list
   3. Vercel AI SDK adapter smoke test (`experimental_createMCPClient`) connects to `agent-brain-mcp`, calls `search_documents`, and asserts a non-empty result list
   4. Both TS tests run with a single `npm test` (or `pnpm test`) invocation; failures fingerprint cleanly to per-framework error messages (not opaque node tracebacks)
-**Plans:** TBD
+**Plans:** 6 plans
+- [ ] 61-01-PLAN.md — Shared scaffolding: framework_mcp_session fixture + canned corpus seed + framework_matrix pytest marker + task mcp:framework-matrix Taskfile target + framework-matrix/requirements.txt skeleton + framework-matrix poetry extra (Wave 1)
+- [ ] 61-02-PLAN.md — FRAME-01 OpenAI Agents SDK: MCPServerStdio + MCPServerStreamableHttp smoke tests (dual transport); openai-agents pin (Wave 2)
+- [ ] 61-03-PLAN.md — FRAME-02 LangChain: langchain-mcp-adapters MultiServerMCPClient stdio smoke test; langchain-mcp-adapters + langchain-core pins (Wave 2)
+- [ ] 61-04-PLAN.md — FRAME-03 LlamaIndex: llama-index-tools-mcp BasicMCPClient + McpToolSpec stdio smoke test; llama-index-tools-mcp + llama-index-core pins (Wave 2)
+- [ ] 61-05-PLAN.md — FRAME-04 Pydantic AI: pydantic_ai.mcp.MCPServerStdio stdio smoke test; pydantic-ai-slim pin (Wave 2)
+- [ ] 61-06-PLAN.md — FRAME-05 Autogen / AG2: autogen_ext.tools.mcp.McpWorkbench + StdioServerParams stdio smoke test; autogen-agentchat + autogen-ext[mcp] pins (Wave 2)
 
 ### Phase 63: Tooling + docs + integration page
 **Goal:** Land the operator-facing surface for v10.3: a Taskfile target that runs the full 7-framework matrix opt-in, a nightly advisory CI workflow on `main`, and `docs/INTEGRATIONS.md` with one short page per framework PLUS a "config recipes" section for 5 editor-side integrations (Goose, Continue.dev, Cline, Cursor, Cody) that ship docs-only in v10.3.
@@ -164,7 +176,13 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
   2. `.github/workflows/framework-matrix.yml` runs `task mcp:framework-matrix` against `main` on a nightly cron; failure does NOT block PRs (advisory only — framework drift is expected); job results published as a GitHub status check tagged `advisory`
   3. `docs/INTEGRATIONS.md` ships with one short copy-pasteable page per framework (server command, transport, capabilities) for all 7 smoke-tested frameworks PLUS a separate "config recipes" section for Goose, Continue.dev, Cline, Cursor, and Cody (config-only, no smoke test in v10.3)
   4. `docs/INTEGRATIONS.md` includes a SDK-pinning note pointing at `framework-matrix/requirements.txt` (and the TS equivalent) so operators know how to align their environment with the tested versions
-**Plans:** TBD
+**Plans:** 6 plans
+- [ ] 61-01-PLAN.md — Shared scaffolding: framework_mcp_session fixture + canned corpus seed + framework_matrix pytest marker + task mcp:framework-matrix Taskfile target + framework-matrix/requirements.txt skeleton + framework-matrix poetry extra (Wave 1)
+- [ ] 61-02-PLAN.md — FRAME-01 OpenAI Agents SDK: MCPServerStdio + MCPServerStreamableHttp smoke tests (dual transport); openai-agents pin (Wave 2)
+- [ ] 61-03-PLAN.md — FRAME-02 LangChain: langchain-mcp-adapters MultiServerMCPClient stdio smoke test; langchain-mcp-adapters + langchain-core pins (Wave 2)
+- [ ] 61-04-PLAN.md — FRAME-03 LlamaIndex: llama-index-tools-mcp BasicMCPClient + McpToolSpec stdio smoke test; llama-index-tools-mcp + llama-index-core pins (Wave 2)
+- [ ] 61-05-PLAN.md — FRAME-04 Pydantic AI: pydantic_ai.mcp.MCPServerStdio stdio smoke test; pydantic-ai-slim pin (Wave 2)
+- [ ] 61-06-PLAN.md — FRAME-05 Autogen / AG2: autogen_ext.tools.mcp.McpWorkbench + StdioServerParams stdio smoke test; autogen-agentchat + autogen-ext[mcp] pins (Wave 2)
 
 ### Notes
 

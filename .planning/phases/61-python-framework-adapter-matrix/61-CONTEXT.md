@@ -83,7 +83,20 @@ Validate `agent-brain-mcp` against the 5 Python LLM agent frameworks listed in `
 - Whether to add a sixth `framework_matrix_quick` marker for fast-subset runs (skip if no need surfaces in plan-phase)
 - Test naming (e.g., `test_smoke.py` vs `test_<framework>_smoke.py`) — pick whichever flows cleaner during plan-phase
 
+### Hygiene inheritance scope clarification (revision iteration 2, 2026-06-09)
+
+**Scope:** The statement under `<domain>` that "Every test goes through `McpStdioBackend` so it inherits Phase 60's subprocess hygiene contract automatically" is **stdio-only by class definition**. `McpStdioBackend` cannot run an HTTP listener — it is the stdio transport client.
+
+**HTTP transport exception:** Phase 61 has exactly ONE HTTP arm (FRAME-01 in Plan 61-02, satisfying ROADMAP SC #1's "MCPServerStdio AND MCPServerStreamableHttp" requirement). That arm spawns `agent-brain-mcp --transport http` via raw `subprocess.Popen` because no `McpStdioBackend`-equivalent class exists for the HTTP listener side. The fixture manually mirrors Phase 60's hygiene contract:
+- `_filtered_subprocess_env()` helper mirroring `DEFAULT_ENV_ALLOWLIST` (`PATH`, `HOME`, `USER`, `LANG`, `LC_ALL`, `TERM`) + the four forward keys (`AGENT_BRAIN_STATE_DIR`, `AGENT_BRAIN_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
+- Pinned `cwd` on the spawn
+- `start_new_session=True` for process-group isolation
+- SIGTERM → wait 5.0s grace → SIGKILL escalation in teardown
+
+This is a **sanctioned exception** to the automatic-inheritance pattern, not drift. The replicated helper is hoisted to `agent-brain-mcp/tests/framework/conftest.py` as `filtered_subprocess_env()` (Plan 61-01 Task 3) so all 5 framework plans + the HTTP arm share a single allowlist definition. Phase 60 allowlist drift would require a one-file update.
+
 </decisions>
+
 
 <canonical_refs>
 ## Canonical References
