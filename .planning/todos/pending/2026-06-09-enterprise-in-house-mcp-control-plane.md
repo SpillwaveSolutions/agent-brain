@@ -3,6 +3,7 @@ created: 2026-06-09T17:04:00.000Z
 title: In-house MCP control plane — registry/portal, policy engine, shadow-MCP detection
 area: governance
 parent_plan: docs/plans/2026-06-09-enterprise-hardening-and-cloud-deployment.md
+issue: https://github.com/SpillwaveSolutions/agent-brain/issues/204
 followup_of: §6, §8, §10.5
 files:
   - (new) control-plane service (separate component)

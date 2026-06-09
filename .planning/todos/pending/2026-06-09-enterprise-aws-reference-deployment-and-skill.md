@@ -3,6 +3,7 @@ created: 2026-06-09T17:00:00.000Z
 title: AWS reference deployment (RDS pgvector + ECS/App Runner) + deploying-agent-brain-aws skill
 area: deployment
 parent_plan: docs/plans/2026-06-09-enterprise-hardening-and-cloud-deployment.md
+issue: https://github.com/SpillwaveSolutions/agent-brain/issues/200
 followup_of: §7, §10.1
 files:
   - agent-brain-server/agent_brain_server/storage/postgres/{config,connection}.py

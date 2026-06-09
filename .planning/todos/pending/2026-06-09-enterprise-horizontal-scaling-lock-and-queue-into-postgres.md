@@ -3,6 +3,7 @@ created: 2026-06-09T17:02:00.000Z
 title: Horizontal scaling — move fcntl lock + local job queue into Postgres to unblock multi-replica
 area: architecture
 parent_plan: docs/plans/2026-06-09-enterprise-hardening-and-cloud-deployment.md
+issue: https://github.com/SpillwaveSolutions/agent-brain/issues/202
 followup_of: §2, §10.3
 files:
   - agent-brain-server/agent_brain_server/locking.py

@@ -3,6 +3,7 @@ created: 2026-06-09T17:03:00.000Z
 title: Split read/write tiers — single indexer/writer + N read-only query replicas
 area: architecture
 parent_plan: docs/plans/2026-06-09-enterprise-hardening-and-cloud-deployment.md
+issue: https://github.com/SpillwaveSolutions/agent-brain/issues/203
 followup_of: §2, §10.4
 files:
   - agent-brain-server/agent_brain_server/api/main.py

@@ -3,6 +3,7 @@ created: 2026-06-09T17:05:00.000Z
 title: DLP — classification-aware response redaction for search/MCP results
 area: security
 parent_plan: docs/plans/2026-06-09-enterprise-hardening-and-cloud-deployment.md
+issue: https://github.com/SpillwaveSolutions/agent-brain/issues/205
 followup_of: §8, §10.6
 files:
   - agent-brain-server/agent_brain_server/services/query_service.py

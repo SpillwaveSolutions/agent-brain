@@ -3,6 +3,7 @@ created: 2026-06-09T17:01:00.000Z
 title: Azure reference deployment (Flexible Server pgvector + Container Apps) + deploying-agent-brain-azure skill
 area: deployment
 parent_plan: docs/plans/2026-06-09-enterprise-hardening-and-cloud-deployment.md
+issue: https://github.com/SpillwaveSolutions/agent-brain/issues/201
 followup_of: §7, §10.2
 files:
   - agent-brain-server/agent_brain_server/storage/postgres/{config,connection}.py

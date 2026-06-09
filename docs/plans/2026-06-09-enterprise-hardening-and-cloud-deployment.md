@@ -307,21 +307,21 @@ phases additionally require `terraform plan` + a Cloud Run smoke test.
 
 ## 10. Follow-up issues → seed in `.planning/todos/pending/`
 
-To be captured as TODO stubs (file naming convention `YYYY-MM-DD-slug.md`), spec'd here but not
-built in this effort:
+Captured as TODO stubs (`.planning/todos/pending/`, convention `YYYY-MM-DD-slug.md`) **and filed
+as GitHub issues** — spec'd here but not built in this effort:
 
 1. **AWS reference deployment + `deploying-agent-brain-aws` skill** (RDS + ECS/App Runner +
-   Secrets Manager + Cognito/API GW).
+   Secrets Manager + Cognito/API GW). — [#200](https://github.com/SpillwaveSolutions/agent-brain/issues/200)
 2. **Azure reference deployment + `deploying-agent-brain-azure` skill** (Flexible Server +
-   Container Apps + Key Vault + Entra/APIM).
+   Container Apps + Key Vault + Entra/APIM). — [#201](https://github.com/SpillwaveSolutions/agent-brain/issues/201)
 3. **Horizontal scaling:** move the `fcntl` lock + local JSON job queue into Postgres
-   (advisory locks / queue table) — unblocks multi-replica. Touches `locking.py` + job queue.
+   (advisory locks / queue table) — unblocks multi-replica. Touches `locking.py` + job queue. — [#202](https://github.com/SpillwaveSolutions/agent-brain/issues/202)
 4. **Split read/write tiers:** one indexer/writer instance + N read-only query replicas;
-   read/write DB role separation.
+   read/write DB role separation. — [#203](https://github.com/SpillwaveSolutions/agent-brain/issues/203)
 5. **Full in-house MCP control plane:** internal registry/portal, policy engine, **shadow-MCP
    detection** (monitor `/mcp`, `/mcp/sse`, JSON-RPC `initialize`/`tools/call`/`prompts/get`),
-   per-group tool exposure.
-6. **DLP / classification-aware response redaction.**
+   per-group tool exposure. — [#204](https://github.com/SpillwaveSolutions/agent-brain/issues/204)
+6. **DLP / classification-aware response redaction.** — [#205](https://github.com/SpillwaveSolutions/agent-brain/issues/205)
 
 ---
 
