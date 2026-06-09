@@ -12,6 +12,7 @@ the MCP process free of Click / Rich. ~80 LOC bound.
 from __future__ import annotations
 
 import asyncio
+import os
 from pathlib import Path
 from types import TracebackType
 from typing import TYPE_CHECKING, Any
@@ -19,6 +20,19 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 from . import errors
+
+# Phase 60 (MCPHYG-01) — minimum POSIX-ish env to keep Python subprocess
+# startup + locale working on macOS/Linux/Windows.
+#
+# AGENT_BRAIN_API_KEY is auto-forwarded by ``_effective_env`` when set in
+# the parent environment — this is the v10.2.1 SECURITY-01 loopback API
+# auth key and dropping it would break ``agent-brain-mcp`` calling
+# ``agent-brain-server`` over a bearer-protected loopback. Other
+# AGENT_BRAIN_* vars (including OPENAI_API_KEY / ANTHROPIC_API_KEY)
+# REQUIRE caller opt-in via the ``forward_env=[...]`` constructor kwarg.
+DEFAULT_ENV_ALLOWLIST: frozenset[str] = frozenset(
+    {"PATH", "HOME", "USER", "LANG", "LC_ALL", "TERM"}
+)
 
 
 class ApiClient:
@@ -461,11 +475,32 @@ class McpStdioBackend:
             ``str`` is split into argv[0]; ``list[str]`` is passed
             verbatim. ``--transport stdio`` is appended by
             ``_stdio_params``.
-        cwd: Working directory for the subprocess. Default None means
-            "inherit current cwd" — Phase 60 (subprocess hygiene) pins
-            this to an explicit value before any orphan test ships.
-        env: Subprocess env dict. None means "inherit current env";
-            Phase 60 replaces with an allowlist.
+        cwd: Working directory for the subprocess. Default ``None``
+            snapshots ``os.getcwd()`` at construction (Phase 60 hygiene
+            — no "moving target" if the caller ``os.chdir()`` s later).
+            An explicit ``cwd`` MUST exist and be a directory; otherwise
+            ``__init__`` raises ``ValueError`` (fail-fast at the
+            construction boundary).
+        env: Subprocess env dict. If non-``None`` it wins verbatim and
+            bypasses the allowlist (escape hatch for tests/advanced
+            ops). When ``None``, ``_effective_env`` filters
+            ``os.environ`` through ``env_allowlist`` and merges
+            ``forward_env`` keys additively.
+        env_allowlist: Module-level ``DEFAULT_ENV_ALLOWLIST`` is used
+            when ``None``. Pass a ``frozenset[str]`` to replace
+            entirely (overrides default — additive forwarding still
+            happens via ``forward_env``).
+        forward_env: Additive list of env keys to forward from the
+            parent environment on top of the active allowlist.
+            Required to propagate provider keys (e.g.
+            ``OPENAI_API_KEY``, ``ANTHROPIC_API_KEY``); these never
+            auto-forward by default. ``AGENT_BRAIN_API_KEY`` is the one
+            exception — it auto-forwards (v10.2.1 SECURITY-01 carryover).
+        grace_period_s: SIGTERM→SIGKILL grace window (seconds) for
+            ``close()`` escalation (consumed by Plan 60-02). Default
+            ``5.0`` mirrors Phase 58-03 ``mcp stop --grace`` precedent
+            and v10.2 HTTP-02 grace. Must be ``> 0``; ``ValueError``
+            otherwise.
     """
 
     def __init__(
@@ -474,10 +509,37 @@ class McpStdioBackend:
         *,
         cwd: str | None = None,
         env: dict[str, str] | None = None,
+        env_allowlist: frozenset[str] | None = None,
+        forward_env: list[str] | None = None,
+        grace_period_s: float = 5.0,
     ) -> None:
         self.command = command
-        self.cwd = cwd
+        # Phase 60 (MCPHYG-01): pin cwd. None → snapshot os.getcwd() at
+        # construction so callers' later os.chdir() does NOT move the
+        # target.
+        if cwd is None:
+            self.cwd = os.getcwd()
+        else:
+            cwd_path = Path(cwd)
+            if not cwd_path.exists():
+                raise ValueError(f"cwd does not exist: {cwd!r}")
+            if not cwd_path.is_dir():
+                raise ValueError(f"cwd is not a directory: {cwd!r}")
+            self.cwd = cwd
         self.env = env
+        # Phase 60 (MCPHYG-01): env hygiene. None → DEFAULT_ENV_ALLOWLIST;
+        # caller may pass a frozenset to replace entirely. forward_env is
+        # additive on top of the active allowlist.
+        self.env_allowlist = (
+            env_allowlist if env_allowlist is not None else DEFAULT_ENV_ALLOWLIST
+        )
+        self.forward_env = list(forward_env) if forward_env else []
+        # Phase 60 (MCPHYG-01): grace period persisted at __init__;
+        # consumed by Plan 60-02 close() escalation. ValueError on
+        # non-positive to fail-fast at the construction boundary.
+        if grace_period_s <= 0:
+            raise ValueError(f"grace_period_s must be > 0; got {grace_period_s!r}")
+        self.grace_period_s = float(grace_period_s)
         self._closed = False
 
     def __enter__(self) -> McpStdioBackend:
@@ -501,11 +563,37 @@ class McpStdioBackend:
 
     # --- Shared helpers (Pattern A — asyncio.run per call) ---
 
+    def _effective_env(self) -> dict[str, str]:
+        """Build the subprocess env dict honoring the allowlist + forwards.
+
+        Precedence:
+        1. If ``self.env`` is non-None, return it verbatim (caller fully
+           controls the env — escape hatch for tests / advanced ops).
+        2. Otherwise: filter ``os.environ`` through ``self.env_allowlist``,
+           additively merge any caller ``forward_env`` keys, and
+           auto-forward ``AGENT_BRAIN_API_KEY`` if present (v10.2.1
+           SECURITY-01 carryover).
+        """
+        if self.env is not None:
+            return dict(self.env)
+        active: dict[str, str] = {
+            k: v for k, v in os.environ.items() if k in self.env_allowlist
+        }
+        for key in self.forward_env:
+            if key in os.environ:
+                active[key] = os.environ[key]
+        # SECURITY-01 carryover: server-auth key always forwards if set.
+        if "AGENT_BRAIN_API_KEY" in os.environ:
+            active["AGENT_BRAIN_API_KEY"] = os.environ["AGENT_BRAIN_API_KEY"]
+        return active
+
     def _stdio_params(self) -> Any:
         """Build StdioServerParameters from ``self.command`` / cwd / env.
 
         Shared by every async helper so the subprocess spec stays
-        consistent across all 11 wired methods.
+        consistent across all 11 wired methods. Phase 60 (MCPHYG-01)
+        routes the env through ``_effective_env`` so every wired method
+        inherits the allowlist hygiene by going through this chokepoint.
         """
         from mcp.client.stdio import StdioServerParameters
 
@@ -519,7 +607,7 @@ class McpStdioBackend:
             command=command_str,
             args=[*extra_args, "--transport", "stdio"],
             cwd=self.cwd,
-            env=self.env,
+            env=self._effective_env(),
         )
 
     # --- BackendClient surface (12 methods) ---
