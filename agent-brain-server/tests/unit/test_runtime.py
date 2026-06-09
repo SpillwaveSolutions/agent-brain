@@ -5,8 +5,10 @@ import os
 from unittest.mock import patch
 
 from agent_brain_server.runtime import (
+    API_KEY_BYTES,
     RuntimeState,
     delete_runtime,
+    generate_api_key,
     read_runtime,
     validate_runtime,
     write_runtime,
@@ -168,3 +170,35 @@ class TestValidateRuntime:
         state = RuntimeState()  # pid=0, base_url=""
         result = validate_runtime(state)
         assert result is False
+
+
+class TestGenerateApiKey:
+    """Tests for generate_api_key() helper (Issue #199 plumbing — 199-01)."""
+
+    def test_returns_non_empty_string(self):
+        """Generated key is a non-empty str."""
+        key = generate_api_key()
+        assert isinstance(key, str)
+        assert len(key) > 0
+
+    def test_key_has_expected_length(self):
+        """secrets.token_urlsafe(32) produces a 43-character URL-safe base64 string."""
+        # 32 bytes encoded as URL-safe base64 = ceil(32 * 4 / 3) = 43 chars
+        # (no padding for token_urlsafe).
+        assert API_KEY_BYTES == 32
+        key = generate_api_key()
+        assert len(key) == 43
+
+    def test_two_calls_return_different_values(self):
+        """Successive calls produce different tokens — entropy sanity check."""
+        key_a = generate_api_key()
+        key_b = generate_api_key()
+        assert key_a != key_b
+
+    def test_key_uses_url_safe_alphabet(self):
+        """Token contains only URL-safe base64 characters."""
+        key = generate_api_key()
+        allowed = set(
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ" "abcdefghijklmnopqrstuvwxyz" "0123456789-_"
+        )
+        assert set(key).issubset(allowed)

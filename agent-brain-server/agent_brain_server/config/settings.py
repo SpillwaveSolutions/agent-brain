@@ -6,6 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
@@ -19,13 +20,22 @@ class Settings(BaseSettings):
     API_PORT: int = 8000
     DEBUG: bool = False
 
-    # API Authentication (Issue #179)
+    # API Authentication (Issue #179 v1 — X-API-Key)
     # When empty (default), data endpoints are unauthenticated — safe only on
     # loopback for single-user dev. The startup gate in api/main.py refuses to
     # start when API_HOST != "127.0.0.1" and this is unset.
     # When set, requests to gated routers must carry the value in the
     # X-API-Key header; /health stays open; /docs is gated when DEBUG is False.
     AGENT_BRAIN_API_KEY: str = ""
+
+    # API Authentication (Issue #199 v2 — Bearer scheme, secure-by-default).
+    # Plumbing only in 199-01: these fields exist alongside AGENT_BRAIN_API_KEY
+    # but are NOT yet wired into the routers. 199-02 swaps verify_api_key →
+    # verify_bearer_token to consume API_KEY. The env-var alias migration from
+    # AGENT_BRAIN_API_KEY → API_KEY also lands in 199-02 so this commit stays
+    # behavior-preserving.
+    API_KEY: SecretStr | None = None
+    INSECURE_NO_AUTH: bool = False
 
     # OpenAI Configuration
     OPENAI_API_KEY: str = ""
