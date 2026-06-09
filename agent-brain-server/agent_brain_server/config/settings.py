@@ -6,7 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from pydantic import SecretStr
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
@@ -29,13 +29,32 @@ class Settings(BaseSettings):
     AGENT_BRAIN_API_KEY: str = ""
 
     # API Authentication (Issue #199 v2 — Bearer scheme, secure-by-default).
-    # Plumbing only in 199-01: these fields exist alongside AGENT_BRAIN_API_KEY
-    # but are NOT yet wired into the routers. 199-02 swaps verify_api_key →
-    # verify_bearer_token to consume API_KEY. The env-var alias migration from
-    # AGENT_BRAIN_API_KEY → API_KEY also lands in 199-02 so this commit stays
-    # behavior-preserving.
+    # ``API_KEY`` is the canonical Bearer token storage as of 199-02.
+    # ``AGENT_BRAIN_API_KEY`` (above) is a deprecated env-var alias kept for
+    # one release; the ``_backfill_api_key_from_legacy`` validator copies the
+    # legacy value into ``API_KEY`` after construction so the router
+    # dependency only has to read one field.
+    # ``INSECURE_NO_AUTH=true`` is the explicit opt-out for running with no
+    # authentication — verify_bearer_token treats it as a no-op gate.
     API_KEY: SecretStr | None = None
     INSECURE_NO_AUTH: bool = False
+
+    @model_validator(mode="after")
+    def _backfill_api_key_from_legacy(self) -> "Settings":
+        """Backfill ``API_KEY`` from the deprecated ``AGENT_BRAIN_API_KEY`` env var.
+
+        Migration path for Issue #199. Users who set ``AGENT_BRAIN_API_KEY``
+        (v1 scheme, PR #195) continue to work unchanged — verify_bearer_token
+        reads ``API_KEY`` only, so the validator copies the legacy value into
+        a SecretStr-wrapped ``API_KEY`` when the new field is unset.
+
+        Only one direction (legacy → canonical) — reverse-direction would
+        leak the secret value into the plain-str ``AGENT_BRAIN_API_KEY``
+        field and defeat SecretStr's redaction guarantee.
+        """
+        if self.API_KEY is None and self.AGENT_BRAIN_API_KEY:
+            self.API_KEY = SecretStr(self.AGENT_BRAIN_API_KEY)
+        return self
 
     # OpenAI Configuration
     OPENAI_API_KEY: str = ""

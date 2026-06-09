@@ -19,12 +19,12 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from agent_brain_server.api.security import verify_api_key
+from agent_brain_server.api.security import verify_bearer_token
 from agent_brain_server.services.embedding_cache import get_embedding_cache
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(dependencies=[Depends(verify_api_key)])
+router = APIRouter(dependencies=[Depends(verify_bearer_token)])
 
 
 async def _cache_status_impl(request: Request) -> dict[str, Any]:
