@@ -9,6 +9,11 @@ name: Publish to PyPI
 on:
   release:
     types: [published]
+  # Allow manual re-runs after a partial-failure recovery (e.g. one of the
+  # four publish jobs failed mid-release). Combined with skip-existing on
+  # every publish step, re-dispatching against main re-publishes only the
+  # missing packages. Use `gh workflow run publish-to-pypi.yml --ref main`.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -159,6 +164,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: agent-brain-server/dist/
+          skip-existing: true
 
   publish-uds:
     name: Publish agent-brain-uds
@@ -188,6 +194,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: agent-brain-uds/dist/
+          skip-existing: true
 
   publish-cli:
     name: Publish agent-brain-cli
@@ -237,6 +244,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: agent-brain-cli/dist/
+          skip-existing: true
 
   publish-mcp:
     name: Publish agent-brain-mcp
@@ -277,6 +285,33 @@ jobs:
         with:
           version: 1.7.1
 
+      - name: Flip path-deps to versioned PyPI deps before build
+        # agent-brain-mcp's pyproject.toml carries path-deps on
+        # agent-brain-rag / -uds / -cli for monorepo dev + test workflows.
+        # PyPI legacy rejects wheels whose METADATA has any direct
+        # dependency (Requires-Dist: pkg @ file:///...). Rewrite the three
+        # path-deps to versioned PyPI deps pinned to this release's tag
+        # before `poetry build` so the published wheel only declares
+        # legal PyPI references. Done in-place on a runner checkout so
+        # the source tree on main keeps its path-deps for local dev.
+        # First failure mode that caught this: v10.3.0 publish — Issue #199.
+        working-directory: agent-brain-mcp
+        run: |
+          VERSION=$(grep '^version = ' pyproject.toml | head -1 | cut -d'"' -f2)
+          if [ -z "$VERSION" ]; then
+            echo "Could not parse version from agent-brain-mcp/pyproject.toml"
+            exit 1
+          fi
+          echo "Flipping path-deps to ^${VERSION}"
+          # Match either `pkg = {path = "..."}` or `pkg = { path = "..." }`,
+          # tolerating extra keys (develop = false) and surrounding spaces.
+          # Anchored at line start so we never touch a different occurrence.
+          for pkg in agent-brain-rag agent-brain-uds agent-brain-cli; do
+            sed -i -E "s|^${pkg}[[:space:]]*=[[:space:]]*\\{[^}]*\\}|${pkg} = \"^${VERSION}\"|" pyproject.toml
+          done
+          echo "--- agent-brain-mcp/pyproject.toml after flip ---"
+          grep -E "^agent-brain-(rag|uds|cli)" pyproject.toml || true
+
       - name: Build package
         run: poetry build
         working-directory: agent-brain-mcp
@@ -285,3 +320,4 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: agent-brain-mcp/dist/
+          skip-existing: true
