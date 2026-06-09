@@ -106,7 +106,7 @@ def open_backend(ctx: click.Context, *, timeout: float = 30.0) -> BackendClient:
             state_dir=state_dir,
         )
         if obj.get("debug_transport"):
-            auth_marker = "with X-API-Key" if api_key else "no auth"
+            auth_marker = "with Bearer token" if api_key else "no auth"
             target_label = mcp_target if mcp_target else "subprocess: agent-brain-mcp"
             click.echo(
                 f"[debug-transport] mcp ({mcp_transport}) -> "

@@ -210,6 +210,16 @@ def update_registry(project_root: Path, state_dir: Path) -> None:
     is_flag=True,
     help="Bind only the Unix Domain Socket (no TCP listener). Implies --uds.",
 )
+@click.option(
+    "--insecure",
+    is_flag=True,
+    help=(
+        "Start the server with authentication disabled (sets INSECURE_NO_AUTH=true). "
+        "Strips any inherited API_KEY / AGENT_BRAIN_API_KEY env var so the server's "
+        "startup gate honors the opt-out unambiguously. Only safe on a single-user, "
+        "single-process machine. (Issue #199)"
+    ),
+)
 def start_command(
     path: str | None,
     host: str | None,
@@ -220,6 +230,7 @@ def start_command(
     strict: bool,
     uds: bool,
     uds_only: bool,
+    insecure: bool,
 ) -> None:
     """Start an Agent Brain server for this project.
 
@@ -368,12 +379,30 @@ def start_command(
         env = os.environ.copy()
         env["AGENT_BRAIN_PROJECT_ROOT"] = str(project_root)
         env["AGENT_BRAIN_STATE_DIR"] = str(state_dir)
-        # Issue #179: propagate the project-local API key from config.json
-        # into the server subprocess. Existing env value wins so operators
-        # can override the file-stored key without re-running init.
-        config_api_key = config.get("api_key")
-        if config_api_key and not env.get("AGENT_BRAIN_API_KEY"):
-            env["AGENT_BRAIN_API_KEY"] = str(config_api_key)
+
+        # Issue #199: --insecure short-circuits all key propagation and
+        # tells the server's startup gate to accept the auth-disabled
+        # posture explicitly. Strip any inherited key so a stale
+        # API_KEY in the shell doesn't silently re-enable auth and
+        # confuse operators who asked for --insecure on purpose.
+        if insecure:
+            env["INSECURE_NO_AUTH"] = "true"
+            env.pop("API_KEY", None)
+            env.pop("AGENT_BRAIN_API_KEY", None)
+        else:
+            # Issue #199: propagate the project-local API key from config.json
+            # into the server subprocess as ``API_KEY`` (canonical v2 name).
+            # Existing env values win so operators can override the file-
+            # stored key without re-running init. The server's Settings
+            # validator backfills the deprecated AGENT_BRAIN_API_KEY env
+            # var, so legacy env-var setters keep working.
+            config_api_key = config.get("api_key")
+            if (
+                config_api_key
+                and not env.get("API_KEY")
+                and not env.get("AGENT_BRAIN_API_KEY")
+            ):
+                env["API_KEY"] = str(config_api_key)
         if strict:
             env["AGENT_BRAIN_STRICT_MODE"] = "true"
         if enable_uds:

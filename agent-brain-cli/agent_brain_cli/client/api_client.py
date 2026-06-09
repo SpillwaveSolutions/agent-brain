@@ -167,13 +167,15 @@ class DocServeClient:
         Args:
             base_url: Server base URL.
             timeout: Request timeout in seconds.
-            api_key: Optional X-API-Key value (Issue #179). When supplied,
-                every outbound request carries the header. ``None`` means
-                no auth (legacy single-user loopback dev path).
+            api_key: Optional bearer token (Issues #179, #199). When supplied,
+                every outbound request carries an ``Authorization: Bearer``
+                header per RFC 6750. ``None`` means no auth header (server
+                must be in ``INSECURE_NO_AUTH=true`` mode to accept the
+                request).
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
-        headers = {"X-API-Key": api_key} if api_key else None
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
         self._client = httpx.Client(timeout=timeout, headers=headers)
 
     @classmethod
@@ -192,9 +194,10 @@ class DocServeClient:
         Args:
             client: An already-configured ``httpx.Client``. The wrapper
                 takes ownership and will close it on ``__exit__``.
-            api_key: Optional X-API-Key to merge into the client's
-                default headers (Issue #179). Caller may also have set
-                the header on ``client`` directly; both paths work.
+            api_key: Optional bearer token to merge into the client's
+                default headers as ``Authorization: Bearer <token>``
+                (Issues #179, #199). Caller may also have set the
+                header on ``client`` directly; both paths work.
 
         Returns:
             A DocServeClient backed by ``client``.
@@ -204,7 +207,7 @@ class DocServeClient:
         timeout = client.timeout
         instance.timeout = timeout.read or 30.0
         if api_key:
-            client.headers["X-API-Key"] = api_key
+            client.headers["Authorization"] = f"Bearer {api_key}"
         instance._client = client
         return instance
 

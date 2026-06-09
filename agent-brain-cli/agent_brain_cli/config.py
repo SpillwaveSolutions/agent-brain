@@ -415,20 +415,22 @@ def get_server_url(config: AgentBrainConfig | None = None) -> str:
 
 
 def resolve_api_key(state_dir: Path | None = None) -> str | None:
-    """Resolve the X-API-Key value the CLI should send (Issue #179).
+    """Resolve the bearer-token value the CLI should send (Issues #179, #199).
 
     Precedence (first non-empty wins):
-      1. ``AGENT_BRAIN_API_KEY`` environment variable
-      2. ``runtime.json::api_key`` for the resolved state directory
+      1. ``API_KEY`` environment variable (canonical v2 name)
+      2. ``AGENT_BRAIN_API_KEY`` environment variable (deprecated; logs a
+         one-time warning per process when used)
+      3. ``runtime.json::api_key`` for the resolved state directory
          (set by the running server)
-      3. ``config.json::api_key`` for the resolved state directory
+      4. ``config.json::api_key`` for the resolved state directory
          (set by ``agent-brain init``, used when the server hasn't
          started yet)
 
     Returns ``None`` when no source provides a value, which is the
-    correct behavior for a server running in default no-auth loopback
-    mode — the client sends no header and the server's no-op dependency
-    accepts the request.
+    correct behavior for a server running with ``INSECURE_NO_AUTH=true``
+    (the per-request gate is a no-op and the server's startup gate
+    emitted the loud warning).
 
     Args:
         state_dir: Optional state directory to read from. Defaults to
@@ -436,13 +438,25 @@ def resolve_api_key(state_dir: Path | None = None) -> str | None:
             to thread the path through.
 
     Returns:
-        The resolved API key or ``None``.
+        The resolved bearer token or ``None``.
     """
     import json
 
-    env_key = os.getenv("AGENT_BRAIN_API_KEY")
+    env_key = os.getenv("API_KEY")
     if env_key:
         return env_key
+
+    legacy_env_key = os.getenv("AGENT_BRAIN_API_KEY")
+    if legacy_env_key:
+        # Log once per process to avoid spamming long-running CLI sessions.
+        if not getattr(resolve_api_key, "_legacy_env_warned", False):
+            logger.warning(
+                "AGENT_BRAIN_API_KEY environment variable is deprecated; "
+                "switch to API_KEY. Support will be removed in a future "
+                "release. (Issue #199)"
+            )
+            resolve_api_key._legacy_env_warned = True  # type: ignore[attr-defined]
+        return legacy_env_key
 
     if state_dir is None:
         try:
