@@ -125,17 +125,24 @@ e2e/tmp/
 tmp/
 .tmp-*/
 *.bak
+# --- Override global ~/.gitignore_global ---
+# The user's global excludes file ignores `CLAUDE.md` and `.claude/` wholesale.
+# Re-include them so this repo's tracked Claude config wins. Git cannot
+# re-include a child of an excluded directory unless the directory itself is
+# re-included first, so we negate BOTH `.claude/` (the dir) and `.claude/**`
+# (its contents). The runtime/local re-ignores further down still apply because
+# the last matching pattern wins.
 !CLAUDE.md
 !AGENTS.md
 !.claude/
+!.claude/**
 !.opencode/
 !e2e-cli/lib/
 !e2e-cli/lib/*.sh
 .env
-!CLAUDE.md
-!AGENTS.md
 
 # Agent Brain per-project runtime state
+# (re-ignored AFTER the broad .claude/** re-include above — last match wins)
 .claude/agent-brain/
 .claude/doc-serve/
 .claude/settings.local.json
