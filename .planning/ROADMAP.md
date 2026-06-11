@@ -56,7 +56,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 - [x] **Phase 58: Runtime discovery + helper commands** — `mcp.runtime.json` schema + `agent-brain mcp start/stop` with loopback bind, port auto-allocation, psutil verification (completed 2026-06-07)
 - [x] **Phase 59: CLI prompts + resources commands** — `agent-brain prompt <name>`, `agent-brain resources list/read <uri>` with sandbox + binary/JSON content handling (completed 2026-06-08)
 - [x] **Phase 60: Subprocess hygiene + 1000-invocation orphan test** — Pinned cwd, env allowlist, SIGTERM/SIGKILL escalation, opt-in stress test (completed 2026-06-09)
-- [ ] **Phase 61: Python framework adapter matrix** — Smoke tests for OpenAI Agents SDK, LangChain, LlamaIndex, Pydantic AI, Autogen
+- [x] **Phase 61: Python framework adapter matrix** — Smoke tests for OpenAI Agents SDK, LangChain, LlamaIndex, Pydantic AI, Autogen (completed 2026-06-11)
 - [ ] **Phase 62: TypeScript framework adapter matrix** — Smoke tests for Mastra + Vercel AI SDK in `framework-matrix/ts/`
 - [ ] **Phase 63: Tooling + docs + integration page** — `task mcp:framework-matrix`, nightly advisory CI workflow, `docs/INTEGRATIONS.md` with 7 framework pages + 5 config recipes
 
@@ -142,7 +142,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
   2. LangChain, LlamaIndex, Pydantic AI, and Autogen (AG2) each have a smoke test that connects to `agent-brain-mcp`, calls `search_documents`, and asserts a non-empty result list
   3. `framework-matrix/requirements.txt` (or per-framework venvs) pins every SDK version with a comment noting the source URL and pin date; running the suite produces no `pip install` upgrade messages
   4. Each smoke test runs in <30s in isolation (tight tear-down via Phase 60 hygiene); zero orphan subprocesses survive between frameworks
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 - [ ] 61-01-PLAN.md — framework-matrix/ foundation: shared real-server harness (seeded agent-brain-serve + indexed corpus + http_mcp_listener) + `framework` pytest marker (opt-in, NOT in before-push) + keyless connect→call→assert helper + per-framework venv bootstrap
 - [ ] 61-02-PLAN.md — FRAME-01 OpenAI Agents SDK smoke test over BOTH MCPServerStdio + MCPServerStreamableHttp (isolated pinned venv)
 - [ ] 61-03-PLAN.md — FRAME-02 LangChain (langchain-mcp-adapters) + FRAME-03 LlamaIndex (llama-index-tools-mcp) stdio smoke tests (isolated pinned venvs)
@@ -193,7 +193,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 | 58. Runtime discovery + helper commands                     | 3/3 | Complete    | 2026-06-07 | -          |
 | 59. CLI prompts + resources commands                        | 3/3 | Complete    | 2026-06-09 | -          |
 | 60. Subprocess hygiene + 1000-invocation orphan test        | 3/3 | Complete    | 2026-06-09 | -          |
-| 61. Python framework adapter matrix                         | 3/4 | In Progress|  | -          |
+| 61. Python framework adapter matrix                         | 4/4 | Complete   | 2026-06-11 | -          |
 | 62. TypeScript framework adapter matrix                     | v10.3     | 0/TBD          | Not started | -          |
 | 63. Tooling + docs + integration page                       | v10.3     | 0/TBD          | Not started | -          |
 
