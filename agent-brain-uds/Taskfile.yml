@@ -108,8 +108,23 @@ tasks:
 
   before-push:
     desc: Per-package pre-push check (format, lint, typecheck, test with coverage)
-    deps: [install]
+    # Scope-leak guard (#174 sibling): this task tests ONLY agent-brain-uds.
+    # ROOT_DIR is the entrypoint Taskfile's dir — the monorepo root when the
+    # root gate dispatches `uds:before-push` (via includes), but THIS package
+    # dir when a human runs `task before-push` from agent-brain-uds/. The
+    # latter gives a false-green that CI then catches. Fail fast (before the
+    # slow install) instead. `install` is the first cmd, not a dep, so the
+    # precondition blocks before any work on the standalone-subdir path.
+    preconditions:
+      - sh: 'test "{{.ROOT_DIR}}" = "$(git -C "{{.ROOT_DIR}}" rev-parse --show-toplevel)"'
+        msg: |
+          ✗ `task before-push` here runs ONLY the agent-brain-uds package gate — not the full monorepo.
+            That is a false-green: CI runs server + cli + uds + mcp and will catch gaps you can't see locally.
+            Run the full gate from the repo root instead:
+              cd "$(git rev-parse --show-toplevel)" && task before-push
+            (To run just this package's checks on purpose, use `task uds:before-push` from the repo root.)
     cmds:
+      - task: install
       - task: format:check
       - task: lint
       - task: typecheck

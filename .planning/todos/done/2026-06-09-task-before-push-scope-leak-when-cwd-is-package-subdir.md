@@ -60,3 +60,21 @@ easy to forget. B alone won't prevent recurrence.
   subdir either re-execs from root or fails with a clear message
 - Running from repo root continues to work unchanged
 - No false positives when run via CI (CI always runs from repo root)
+
+---
+
+## Resolution (2026-06-11)
+
+**Fixed via Option A** (machine-enforced guard). Added a `preconditions` gate to
+the `before-push` task in `agent-brain-mcp/Taskfile.yml` and
+`agent-brain-uds/Taskfile.yml` (the two package Taskfiles that define their own
+`before-push` and thus produce the false-green). The guard compares Task's
+built-in `{{.ROOT_DIR}}` (entrypoint Taskfile dir) to `git rev-parse
+--show-toplevel`: equal on root dispatch (`mcp:before-push`/`uds:before-push`
+via includes), unequal on standalone `task before-push` from the package subdir
+→ fails fast with a message pointing to the repo-root gate. `install` moved from
+`deps` to first `cmd` so the guard blocks *before* the slow install. Verified:
+fails from `agent-brain-mcp/` and `agent-brain-uds/`, passes on root dispatch.
+agent-brain-server / agent-brain-cli define no package `before-push`, so
+standalone invocation there errors ("task not found") rather than false-greens.
+Branch `fix/maintenance-todos-flaky-test-and-scope-guard`.
