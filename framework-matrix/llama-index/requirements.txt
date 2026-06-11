@@ -1,0 +1,20 @@
+# Framework: LlamaIndex (via llama-index-tools-mcp)
+# Test: FRAME-03 — smoke-test agent-brain-mcp via BasicMCPClient + McpToolSpec over stdio
+# No LLM/embedding API key required: test drives the MCP adapter layer only (keyless).
+# No llm provider extras, no embedding extras (llama-index-llms-*, llama-index-embeddings-*).
+
+# llama-index-tools-mcp - LlamaIndex MCP tool integration (BasicMCPClient + McpToolSpec)
+# source: https://pypi.org/project/llama-index-tools-mcp/  pinned: 2026-06-11
+llama-index-tools-mcp==0.4.8
+
+# llama-index-core - required by llama-index-tools-mcp (>=0.13.0,<0.15)
+# source: https://pypi.org/project/llama-index-core/  pinned: 2026-06-11
+llama-index-core==0.14.22
+
+# mcp - MCP Python SDK (transitive dep; llama-index-tools-mcp requires >=1.24.0,<2; pin to prevent drift)
+# source: https://pypi.org/project/mcp/  pinned: 2026-06-11
+mcp==1.27.2
+
+# pydantic - required by llama-index-tools-mcp (>=2.0.0,<3)
+# source: https://pypi.org/project/pydantic/  pinned: 2026-06-11
+pydantic==2.13.4
