@@ -174,6 +174,5 @@ agent-brain cache clear --yes
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `AGENT_BRAIN_URL` | Override server URL | Auto-discovered |
-| `DOC_SERVE_URL` | Legacy override (still supported) | Auto-discovered |
 | `OPENAI_API_KEY` | Required for vector/hybrid modes | - |
 | `ANTHROPIC_API_KEY` | Optional for summarization | - |

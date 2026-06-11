@@ -6,17 +6,18 @@ description: |
   "setting up document search", "installing agent-brain packages", "configuring API keys",
   "initializing project for search", "troubleshooting agent brain", "pip install agent-brain",
   "agent brain not working", "agent brain setup error", "configure embeddings provider",
-  "setup ollama for agent brain", or "agent brain environment variables".
-  Covers package installation, provider configuration, project initialization, and server management.
+  "setup ollama for agent brain", "agent brain environment variables",
+  "install agent brain mcp", "configure mcp server", or "connect agent brain to claude desktop".
+  Covers package installation (server, CLI, MCP), provider configuration, project initialization, and server management.
 license: MIT
 allowed-tools:
   - Bash
   - Read
 metadata:
-  version: 7.0.0
+  version: 10.3.0
   category: ai-tools
   author: Spillwave
-  last_validated: 2026-03-19
+  last_validated: 2026-06-10
 ---
 
 # Configuring Agent Brain
@@ -29,6 +30,7 @@ Installation and configuration for Agent Brain document search with pluggable pr
 - [Setup Wizard](#setup-wizard)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
+- [MCP Server](#mcp-server-optional)
 - [Provider Configuration](#provider-configuration)
 - [Project Initialization](#project-initialization)
 - [Verification](#verification)
@@ -46,6 +48,8 @@ Agent Brain supports multiple AI coding runtimes from a single canonical plugin 
 | Claude Code | `agent-brain install-agent --agent claude` |
 | OpenCode | `agent-brain install-agent --agent opencode` |
 | Gemini CLI | `agent-brain install-agent --agent gemini` |
+| Codex (+ AGENTS.md) | `agent-brain install-agent --agent codex` |
+| Any skill runtime | `agent-brain install-agent --agent skill-runtime --dir <path>` |
 
 All runtimes share the same `.agent-brain/` data directory for indexes, configuration, and server state. The `install-agent` command converts the canonical plugin format into each runtime's native format automatically.
 
@@ -178,6 +182,12 @@ identically from the user's perspective. Language is configurable via
 
 ## Installation
 
+> **Recommended installer**: use **pipx** (isolated global) or **uv** to install the
+> CLI — `pipx install agent-brain-cli` or `uv tool install agent-brain-cli`. The bare
+> `pip` commands below work everywhere and are kept for simplicity, but pipx/uv avoid
+> dependency clashes. See [Installation Guide](references/installation-guide.md) for the
+> full comparison.
+
 ### Standard Installation
 
 ```bash
@@ -189,7 +199,7 @@ pip install agent-brain-rag agent-brain-cli
 agent-brain --version
 ```
 
-Expected: Version number displayed (e.g., `3.0.0` or current version)
+Expected: Version number displayed (e.g., `10.3.0` or later)
 
 ### With GraphRAG Support
 
@@ -242,6 +252,61 @@ sudo pip install agent-brain-rag  # Wrong - creates permission issues
 pip install --user agent-brain-rag  # Correct - user installation
 # OR use virtual environment
 ```
+
+---
+
+## MCP Server (Optional)
+
+Agent Brain ships an **MCP (Model Context Protocol) server** that exposes the running
+instance to MCP-aware clients — Claude Desktop, Claude Code, Cursor, Windsurf, the Claude
+Agent SDK, and LangChain DeepAgents.
+
+### Install
+
+```bash
+pip install agent-brain-ag-mcp
+```
+
+> **PyPI name vs. command**: the package publishes as `agent-brain-ag-mcp` (renamed in
+> v10.1.2 — the original name hit PyPI's typosquatting filter), but the installed console
+> script is still `agent-brain-mcp` and the import path is still `agent_brain_mcp`.
+
+### Configure an MCP client
+
+Add the server to your client's MCP config (Claude Desktop / Cursor / Windsurf use the
+same `mcpServers` shape):
+
+```json
+{
+  "mcpServers": {
+    "agent-brain": {
+      "command": "agent-brain-mcp",
+      "args": ["--backend", "auto"],
+      "env": { "AGENT_BRAIN_STATE_DIR": "/abs/path/.agent-brain" }
+    }
+  }
+}
+```
+
+- `--backend {auto,uds,http}` selects how the MCP server reaches `agent-brain-serve`
+  (`auto` prefers the Unix domain socket, falls back to HTTP). This is **orthogonal** to
+  the MCP *listen* transport.
+- **stdio** is the default listen transport (no flag). For IDE/framework clients that
+  prefer HTTP, use `agent-brain-mcp --transport http --host 127.0.0.1 --port 8765`
+  (loopback only — public binds are rejected; auth is deferred to MCP v4).
+
+### Verify
+
+```bash
+# stdio server starts and exposes tools/resources/prompts
+agent-brain-mcp --help
+
+# Or drive it from the CLI's mcp transport
+agent-brain --transport mcp resources list
+```
+
+The v1 surface is 7 tools, 5 `corpus://` resources, and 6 prompts. See the MCP package
+README and `docs/MCP_USER_GUIDE.md` for the full reference.
 
 ---
 
@@ -527,7 +592,7 @@ Expected: Search results or "No results" (not an error)
 
 Run each command and verify expected output:
 
-- [ ] `agent-brain --version` shows version number (7.0.0+)
+- [ ] `agent-brain --version` shows version number (10.3.0+)
 - [ ] `echo ${OPENAI_API_KEY:+SET}` shows "SET" (if using OpenAI)
 - [ ] `ls .agent-brain/config.json` file exists
 - [ ] `agent-brain status` shows "healthy"

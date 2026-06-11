@@ -12,16 +12,17 @@ description: |
   Supports multi-instance architecture with automatic server discovery.
   GraphRAG mode enables relationship-aware queries for code dependencies and entity connections.
   Pluggable providers for embeddings (OpenAI, Cohere, Ollama) and summarization (Anthropic, OpenAI, Gemini, Grok, Ollama).
-  Supports multiple runtimes (Claude Code, OpenCode, Gemini CLI) with shared .agent-brain/ data directory.
+  Supports multiple runtimes (Claude Code, OpenCode, Gemini CLI) with shared .agent-brain/ data directory,
+  plus MCP-aware clients (Claude Desktop, Cursor, Windsurf) via the agent-brain-mcp server.
 license: MIT
 allowed-tools:
   - Bash
   - Read
 metadata:
-  version: 7.0.0
+  version: 10.3.0
   category: ai-tools
   author: Spillwave
-  last_validated: 2026-03-19
+  last_validated: 2026-06-10
 ---
 
 # Agent Brain Expert Skill
@@ -383,7 +384,7 @@ This skill focuses on **searching and querying**. Do NOT use for:
 ## Best Practices
 
 1. **Mode Selection**: BM25 for exact terms, Vector for concepts, Hybrid for comprehensive, Graph for relationships
-2. **Threshold Tuning**: Start at 0.7, lower to 0.3-0.5 for more results
+2. **Threshold Tuning**: The default is `0.3` (see Mode Parameters). Keep it for broad recall; raise toward `0.6–0.7` to tighten precision, or lower to `0.1–0.2` if results are too sparse
 3. **Server Discovery**: Use `runtime.json` rather than assuming port 8000
 4. **Resource Cleanup**: Run `agent-brain stop` when done
 5. **Source Citation**: Always reference source filenames in responses

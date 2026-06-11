@@ -193,6 +193,6 @@ agent-brain list                                # All instances
 ### Environment Override
 
 ```bash
-export DOC_SERVE_URL="http://127.0.0.1:8000"
+export AGENT_BRAIN_URL="http://127.0.0.1:8000"
 agent-brain query "search term"
 ```

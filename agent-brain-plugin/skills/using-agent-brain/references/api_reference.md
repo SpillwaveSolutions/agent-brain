@@ -14,7 +14,7 @@ cat .agent-brain/runtime.json | jq -r '.base_url'
 
 Default (single instance): `http://127.0.0.1:8000`
 
-Override via environment: `DOC_SERVE_URL`
+Override via environment: `AGENT_BRAIN_URL`
 
 ---
 
