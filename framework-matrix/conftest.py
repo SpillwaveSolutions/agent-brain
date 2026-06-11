@@ -44,7 +44,7 @@ import time
 import urllib.error
 import urllib.request
 from contextlib import contextmanager
-from collections.abc import Generator, Iterator
+from collections.abc import Callable, Generator, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -323,23 +323,22 @@ def seeded_mcp_server() -> Generator[Path, None, None]:
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture
-def http_mcp_listener(
-    seeded_mcp_server: Path,
-) -> Generator[str, None, None]:
-    """Yield the URL of a live agent-brain-mcp --transport http listener.
+def _start_http_listener(agent_brain_state: str) -> tuple[subprocess.Popen[bytes], str]:
+    """Start agent-brain-mcp --transport http and return (proc, mcp_url).
 
-    Popens the REAL ``agent-brain-mcp --transport http`` binary (not a fake
-    script) on a free loopback port, polls ``GET /healthz`` until 200, then
-    yields ``http://127.0.0.1:<port>/mcp``.
+    Polls /healthz until 200 or raises RuntimeError on timeout.
 
-    Teardown: SIGTERM → wait(grace) → SIGKILL (Phase 60 contract).
-    SIGINT is intentionally NOT used here — the Phase 60 hygiene contract
-    mandates SIGTERM as the first signal for graceful teardown.
+    Args:
+        agent_brain_state: The .agent-brain state directory path string.
 
-    This fixture is the FRAME-01 streamable-http leg's server.
+    Returns:
+        A 2-tuple (proc, mcp_url) where proc is the running Popen and
+        mcp_url is ``http://127.0.0.1:<port>/mcp``.
+
+    Raises:
+        RuntimeError: when the process exits before /healthz is ready or
+            when the startup timeout is exceeded.
     """
-    agent_brain_state = str(seeded_mcp_server / ".agent-brain")
     port = _find_free_port()
 
     env = {
@@ -400,18 +399,66 @@ def http_mcp_listener(
             f"port {port} within {_HTTP_LISTENER_STARTUP_TIMEOUT_S}s"
         )
 
+    return proc, mcp_url
+
+
+def _stop_http_listener(proc: subprocess.Popen[bytes]) -> None:
+    """Tear down an HTTP listener process. Phase 60 contract: SIGTERM → wait → SIGKILL.
+
+    DO NOT use SIGINT — SIGTERM is the correct first signal per Phase 60.
+
+    Args:
+        proc: The running agent-brain-mcp process to terminate.
+    """
+    if proc.poll() is None:
+        proc.send_signal(signal.SIGTERM)
+        try:
+            proc.wait(timeout=_HTTP_LISTENER_GRACE_S)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+
+
+@pytest.fixture
+def http_mcp_listener(
+    seeded_mcp_server: Path,
+) -> Generator[Callable[[], str], None, None]:
+    """Yield a factory callable that starts a live agent-brain-mcp --transport http listener.
+
+    The factory pattern allows the test to CALL ``http_mcp_listener()`` with
+    parens to start the real binary and receive the MCP URL string. This makes
+    it unambiguous that the listener IS started (vs. being injected as a
+    bare-fixture value that the test might silently never use). Per Plan 61-02:
+    ``url = http_mcp_listener()`` — always call with parens.
+
+    The factory may be called multiple times within a single test (each call
+    starts a new listener on a different free port). All started processes are
+    terminated at fixture teardown using SIGTERM → wait(grace) → SIGKILL
+    (Phase 60 contract). SIGINT is intentionally NOT used.
+
+    This fixture is the FRAME-01 streamable-http leg's server provider.
+
+    Args:
+        seeded_mcp_server: Session-scoped fixture yielding state_dir Path for
+            the live agent-brain-serve with indexed FRAMEWORK_CORPUS.
+
+    Yields:
+        A zero-argument callable that starts a new HTTP listener and returns
+        ``http://127.0.0.1:<port>/mcp``.
+    """
+    agent_brain_state = str(seeded_mcp_server / ".agent-brain")
+    started_procs: list[subprocess.Popen[bytes]] = []
+
+    def factory() -> str:
+        proc, mcp_url = _start_http_listener(agent_brain_state)
+        started_procs.append(proc)
+        return mcp_url
+
     try:
-        yield mcp_url
+        yield factory
     finally:
-        # Phase 60 teardown contract: SIGTERM → wait(grace) → SIGKILL.
-        # DO NOT use SIGINT — SIGTERM is the correct first signal.
-        if proc.poll() is None:
-            proc.send_signal(signal.SIGTERM)
-            try:
-                proc.wait(timeout=_HTTP_LISTENER_GRACE_S)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                proc.wait()
+        for proc in started_procs:
+            _stop_http_listener(proc)
 
 
 # ---------------------------------------------------------------------------
