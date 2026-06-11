@@ -151,3 +151,6 @@ tmp/
 .claude/projects/
 .claude/scheduled_tasks.lock
 agent-brain-server/.agent-brain/
+# Repo-root runtime state created by framework-matrix seeded-server fixtures
+/.agent-brain/
+framework-matrix/.agent-brain/
