@@ -38,7 +38,7 @@ from .paths import (
 )
 from .permissions import validate_socket
 
-__version__ = "10.3.0"
+__version__ = "10.3.1"
 
 __all__ = [
     "BASE_URL",
