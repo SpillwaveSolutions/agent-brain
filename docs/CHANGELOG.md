@@ -1,5 +1,5 @@
 ---
-last_validated: 2026-06-05
+last_validated: 2026-06-11
 ---
 
 # Changelog
@@ -8,6 +8,27 @@ All notable changes to Agent Brain will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [10.3.1] - 2026-06-11
+
+Documentation, plugin-skill, and release-tooling maintenance. **No functional changes to
+any published Python package** (`agent-brain-rag`, `agent-brain-cli`, `agent-brain-uds`,
+`agent-brain-ag-mcp` ship byte-for-byte identical to 10.3.0) — this patch exists to push
+the refreshed Claude Code plugin skills and corrected docs to marketplace users and to
+land the publish-workflow fixes on a tagged commit.
+
+### Changed
+
+- **Plugin skills refreshed for the v10.x layout + MCP rename** (`agent-brain-plugin/skills/configuring-agent-brain/SKILL.md`, `agent-brain-plugin/skills/using-agent-brain/SKILL.md`, `.../using-agent-brain/references/version-management.md`). Frontmatter `version` → `10.3.0` / `last_validated` → `2026-06-10`; added a **MCP Server** section covering install via the renamed `agent-brain-ag-mcp` PyPI package (console script and import path unchanged: `agent-brain-mcp` / `agent_brain_mcp`) plus `mcpServers` JSON config; completed the runtime table (`codex`, `skill-runtime`); pipx/uv install guidance; version pins bumped from the stale `>=3.0.0,<4.0.0` / `^3.0.0` to `>=10.0.0,<11.0.0` / `^10.0.0`; replaced the stale `3.0.0` / `7.0.0+` examples with `10.3.0`. Both skills were graded against the `improving-skills` 5-pillar rubric (report at `docs/plans/skill-grades-2026-06.md`): configuring-agent-brain 73/C, using-agent-brain 80/B.
+- **Root `CLAUDE.md` and `.claude/CLAUDE.md` refreshed and de-duplicated** (`CLAUDE.md`, `.claude/CLAUDE.md`). The 4-package table and stale `doc-serve/` project tree were replaced with the real 6-package layout (server, cli, uds, mcp, plugin, skill) plus a PyPI-name column and the `agent-brain-ag-mcp` rename note; added **MCP & Transport Commands** (`mcp start/stop`, `prompt`, `resources`) and `doctor`, and a **Known Issues** section (run `task` from repo root; flaky sentence-transformer warm-up test). `.claude/CLAUDE.md` shrank from 209 lines to a thin pointer at root as the single source of truth, keeping only the before-push rule and a Claude-specific key-file map.
+- **`.gitignore` now robustly overrides the user's global `~/.gitignore_global`** (`.gitignore`). The global excludes file ignores `.claude/` and `CLAUDE.md` wholesale; the repo re-includes them with `!.claude/` + `!.claude/**` (a child of an excluded directory cannot be re-included until the directory itself is), then re-ignores runtime/local subpaths last. `.claude/settings.local.json` (per-user permissions) is now intentionally untracked.
+
+### Fixed
+
+- **Dropped the dead `DOC_SERVE_URL` environment variable from plugin docs and scripts** (`agent-brain-plugin/skills/using-agent-brain/scripts/query_domain.py`, and the `references/` integration / troubleshooting / server-discovery / api_reference guides under both skills). No shipped package honors `DOC_SERVE_URL`; `query_domain.py`'s `get_base_url()` now resolves `AGENT_BRAIN_URL` (default `http://127.0.0.1:8000`) only. The threshold guidance in `using-agent-brain` was reconciled with the code: the documented default is now `0.3` (was incorrectly stated as `0.7`), with raise-toward-`0.6–0.7` / lower-to-`0.1–0.2` tuning advice.
+- **Publish-to-PyPI workflow hardening** (`.github/workflows/publish-to-pypi.yml`). Flipped the MCP build from path-based to versioned PyPI dependencies with `skip-existing`; allowed `workflow_dispatch` to bypass the tag-vs-`pyproject` version check; fixed the wait-for-PyPI step on the `workflow_dispatch` path.
 
 ---
 
