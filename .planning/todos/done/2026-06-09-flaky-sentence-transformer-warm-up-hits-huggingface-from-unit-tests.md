@@ -75,3 +75,18 @@ that doesn't gate the QA Gate). Heavier change.
 - Tests still cover the state-machine semantics: `_model_loaded`,
   `_availability_checked`, `_is_available_cached` transitions
 - CI runs no longer flake on HuggingFace connectivity for this class
+
+---
+
+## Resolution (2026-06-11)
+
+**Fixed via Option A** (mock `CrossEncoder`). `TestSentenceTransformerWarmUp` in
+`agent-brain-server/tests/unit/providers/test_reranker_providers.py` rewritten to
+7 fully-mocked tests patching
+`agent_brain_server.providers.reranker.sentence_transformers.CrossEncoder`
+(patched where used, not where defined). Covers the state-machine flags
+(`_cross_encoder`, `_model_loaded`, `_availability_checked`,
+`_is_available_cached`), idempotent lazy-load (`assert_called_once`), and the
+failure path. Verified zero network calls under `HF_HUB_OFFLINE=1
+TRANSFORMERS_OFFLINE=1`; 51/51 in-file pass. Branch
+`fix/maintenance-todos-flaky-test-and-scope-guard`.

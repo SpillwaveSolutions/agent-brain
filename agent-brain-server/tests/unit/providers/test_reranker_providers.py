@@ -530,43 +530,156 @@ class TestRerankerConfigParams:
         assert provider._max_concurrent == 10
 
 
-class TestSentenceTransformerWarmUp:
-    """Test warm_up and availability caching for SentenceTransformer."""
+# Patch target: ``CrossEncoder`` is imported with ``from sentence_transformers
+# import CrossEncoder`` inside the provider module, so the name is bound in the
+# provider module's namespace. Patching ``sentence_transformers.CrossEncoder``
+# would NOT intercept the provider's reference. We patch where it is *used*.
+_CROSS_ENCODER_PATH = (
+    "agent_brain_server.providers.reranker.sentence_transformers.CrossEncoder"
+)
 
-    def test_warm_up_success(self) -> None:
-        """warm_up() preloads the model successfully."""
+
+class TestSentenceTransformerWarmUp:
+    """Test warm_up and availability state-machine for SentenceTransformer.
+
+    All tests mock ``CrossEncoder`` so no model is downloaded from HuggingFace
+    and no network call is made. We verify the provider's internal state machine:
+
+        _cross_encoder:       None  -> CrossEncoder instance
+        _model_loaded:        False -> True
+        _availability_checked: False -> True
+        _is_available_cached:  False -> True
+    """
+
+    @pytest.fixture
+    def provider(self) -> SentenceTransformerRerankerProvider:
+        """Provider with a clean (un-warmed) state machine."""
         config = RerankerConfig(
             provider=RerankerProviderType.SENTENCE_TRANSFORMERS,
             model="cross-encoder/ms-marco-MiniLM-L-6-v2",
         )
-        provider = SentenceTransformerRerankerProvider(config)
+        return SentenceTransformerRerankerProvider(config)
 
-        # Before warm_up, model is not loaded
+    def test_initial_state_is_cold(
+        self, provider: SentenceTransformerRerankerProvider
+    ) -> None:
+        """A freshly constructed provider has not loaded or checked anything."""
+        assert provider._cross_encoder is None
         assert provider._model_loaded is False
+        assert provider._availability_checked is False
+        assert provider._is_available_cached is False
 
-        # Warm up should succeed
-        result = provider.warm_up()
+    def test_warm_up_success(
+        self, provider: SentenceTransformerRerankerProvider
+    ) -> None:
+        """warm_up() preloads the model and transitions all state flags to ready."""
+        sentinel_model = MagicMock(name="CrossEncoderInstance")
+
+        with patch(_CROSS_ENCODER_PATH, return_value=sentinel_model) as mock_ce:
+            result = provider.warm_up()
+
+        # CrossEncoder was constructed exactly once with the configured model name,
+        # and no network/HuggingFace download actually occurred.
+        mock_ce.assert_called_once_with("cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+        # State machine fully transitioned to "ready".
         assert result is True
+        assert provider._cross_encoder is sentinel_model
         assert provider._model_loaded is True
         assert provider._availability_checked is True
         assert provider._is_available_cached is True
 
-    def test_availability_caching(self) -> None:
-        """is_available() returns cached result after first check."""
-        config = RerankerConfig(
-            provider=RerankerProviderType.SENTENCE_TRANSFORMERS,
-            model="cross-encoder/ms-marco-MiniLM-L-6-v2",
-        )
-        provider = SentenceTransformerRerankerProvider(config)
+    def test_warm_up_is_idempotent_and_loads_once(
+        self, provider: SentenceTransformerRerankerProvider
+    ) -> None:
+        """Repeated warm_up() calls reuse the cached model (lazy-load happens once)."""
+        sentinel_model = MagicMock(name="CrossEncoderInstance")
 
-        # First call sets the cache
-        result1 = provider.is_available()
-        assert result1 is True
+        with patch(_CROSS_ENCODER_PATH, return_value=sentinel_model) as mock_ce:
+            assert provider.warm_up() is True
+            assert provider.warm_up() is True
+            assert provider.warm_up() is True
+
+        # Model constructed only on the first call; subsequent calls short-circuit
+        # because ``_cross_encoder`` is no longer None.
+        mock_ce.assert_called_once()
+        assert provider._cross_encoder is sentinel_model
+
+    def test_warm_up_failure_returns_false_and_marks_unavailable(
+        self, provider: SentenceTransformerRerankerProvider
+    ) -> None:
+        """Failed model load: warm_up() returns False and caches unavailable."""
+        with patch(
+            _CROSS_ENCODER_PATH,
+            side_effect=OSError("simulated model download failure"),
+        ) as mock_ce:
+            result = provider.warm_up()
+
+        mock_ce.assert_called_once()
+
+        # warm_up() swallows the exception and reports failure.
+        assert result is False
+        # Model never loaded, but availability was checked and cached as False so
+        # the query path won't retry the expensive load on every call.
+        assert provider._cross_encoder is None
+        assert provider._model_loaded is False
         assert provider._availability_checked is True
+        assert provider._is_available_cached is False
 
-        # Second call returns cached result
-        result2 = provider.is_available()
+    def test_is_available_after_failed_warm_up_uses_cache(
+        self, provider: SentenceTransformerRerankerProvider
+    ) -> None:
+        """is_available() honors the cached False set by a failed warm_up()."""
+        with patch(
+            _CROSS_ENCODER_PATH,
+            side_effect=OSError("simulated model download failure"),
+        ):
+            assert provider.warm_up() is False
+
+        # No further patching: is_available() must return the cached value without
+        # touching huggingface_hub or constructing a CrossEncoder.
+        with patch(_CROSS_ENCODER_PATH) as mock_ce:
+            assert provider.is_available() is False
+            mock_ce.assert_not_called()
+
+    def test_is_available_after_warm_up_uses_loaded_model_cache(
+        self, provider: SentenceTransformerRerankerProvider
+    ) -> None:
+        """is_available() returns cached True after a successful warm_up()."""
+        sentinel_model = MagicMock(name="CrossEncoderInstance")
+
+        with patch(_CROSS_ENCODER_PATH, return_value=sentinel_model):
+            assert provider.warm_up() is True
+
+        # is_available() should short-circuit on the cached flag and never hit
+        # huggingface_hub.hf_hub_download.
+        with patch(
+            "huggingface_hub.hf_hub_download",
+            side_effect=AssertionError("must not call huggingface_hub"),
+        ):
+            assert provider.is_available() is True
+
+    def test_availability_caching_without_warm_up(
+        self, provider: SentenceTransformerRerankerProvider
+    ) -> None:
+        """is_available() checks huggingface_hub once then caches the result.
+
+        Without a prior warm_up(), the first is_available() call probes the local
+        HuggingFace cache. We mock that probe so no network call occurs, then assert
+        the second call is served from cache.
+        """
+        with patch(
+            "huggingface_hub.hf_hub_download",
+            return_value="/fake/local/path/config.json",
+        ) as mock_dl:
+            result1 = provider.is_available()
+            result2 = provider.is_available()
+
+        assert result1 is True
         assert result2 is True
+        assert provider._availability_checked is True
+        # The local-cache probe happened at most once; the second call is cached.
+        assert mock_dl.call_count <= 1
 
 
 class TestOllamaCircuitBreaker:
