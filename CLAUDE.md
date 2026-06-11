@@ -1,5 +1,5 @@
 ---
-last_validated: 2026-03-16
+last_validated: 2026-06-10
 ---
 
 # Agent Brain Development Guidelines
@@ -33,12 +33,16 @@ This runs format, lint, typecheck, and tests. **Do NOT push code that fails this
 
 Agent Brain is a RAG-based document indexing and semantic search system. It's a monorepo containing:
 
-| Package | Path | Description |
-|---------|------|-------------|
-| agent-brain-server | `agent-brain-server/` | FastAPI REST API server |
-| agent-brain-cli | `agent-brain-cli/` | CLI management tool |
-| agent-brain-skill | `agent-brain-skill/` | Claude Code skill |
-| agent-brain-plugin | `agent-brain-plugin/` | Claude Code plugin (commands, agents, skills) |
+| Package | Path | PyPI Name | Description |
+|---------|------|-----------|-------------|
+| agent-brain-server | `agent-brain-server/` | `agent-brain-rag` | FastAPI REST API server |
+| agent-brain-cli | `agent-brain-cli/` | `agent-brain-cli` | CLI management tool |
+| agent-brain-uds | `agent-brain-uds/` | `agent-brain-uds` | Unix domain socket transport |
+| agent-brain-mcp | `agent-brain-mcp/` | `agent-brain-ag-mcp` | MCP server (tools, resources, prompts) |
+| agent-brain-skill | `agent-brain-skill/` | — | Claude Code skill |
+| agent-brain-plugin | `agent-brain-plugin/` | — | Claude Code plugin (commands, agents, skills) |
+
+**PyPI rename note**: the MCP package publishes as `agent-brain-ag-mcp` (renamed in v10.1.2 — PyPI typosquatting filter rejected the original name). The console script is still `agent-brain-mcp` and the import path is still `agent_brain_mcp`.
 
 ## Technology Stack
 
@@ -102,31 +106,44 @@ poetry run black agent_brain_cli              # Format code
 poetry run black agent_brain_server tests && poetry run ruff check agent_brain_server tests && poetry run mypy agent_brain_server && poetry run pytest
 ```
 
+### Known Issues
+
+- **Run `task` commands from the repo root**, not from inside a package directory — per-package cwd causes scope leaks across the monorepo's shared `Taskfile.yml` includes.
+- **Flaky sentence-transformer warm-up test**: the first model-download/warm-up assertion can intermittently fail on a cold cache; re-run `task test` once before assuming a real regression.
+
 ## Project Structure
 
 ```
-doc-serve/
-├── agent-brain-server/           # FastAPI server
-│   ├── agent_brain_server/           # FastAPI server
-│   │   ├── api/                # REST endpoints
-│   │   │   ├── main.py         # App entry point
-│   │   │   └── routers/        # Route handlers
-│   │   ├── config/             # Settings (Pydantic)
-│   │   ├── indexing/           # Document processing
-│   │   ├── models/             # Request/response models
-│   │   ├── services/           # Business logic
-│   │   └── storage/            # ChromaDB integration
+agent-brain/                          # Monorepo root (Taskfile orchestrates all packages)
+├── agent-brain-server/               # FastAPI server  (PyPI: agent-brain-rag)
+│   ├── agent_brain_server/
+│   │   ├── api/                      # REST endpoints (main.py + routers/)
+│   │   ├── config/                   # Settings (Pydantic)
+│   │   ├── indexing/                 # AST-aware document processing
+│   │   ├── models/                   # Request/response models
+│   │   ├── services/                 # Business logic (indexing, query)
+│   │   └── storage/                  # ChromaDB integration
 │   └── tests/
-├── agent-brain-cli/                # CLI tool
-│   ├── agent_brain_cli/           # CLI package
-│   │   ├── cli.py              # Main entry point
-│   │   ├── client/             # API client
-│   │   └── commands/           # CLI commands
+├── agent-brain-cli/                  # CLI tool  (PyPI: agent-brain-cli)
+│   ├── agent_brain_cli/
+│   │   ├── cli.py                    # Main entry point
+│   │   ├── client/                   # Transport clients (HTTP, UDS, MCP)
+│   │   └── commands/                 # CLI command implementations
 │   └── tests/
-├── agent-brain-skill/            # Claude skill
-│   └── doc-serve/
-│       └── SKILL.md
-└── docs/                       # Documentation
+├── agent-brain-uds/                  # Unix domain socket transport  (PyPI: agent-brain-uds)
+│   ├── agent_brain_uds/
+│   └── tests/
+├── agent-brain-mcp/                  # MCP server  (PyPI: agent-brain-ag-mcp; import: agent_brain_mcp)
+│   ├── agent_brain_mcp/              # Tools, resources, prompts; stdio + Streamable HTTP
+│   └── tests/
+├── agent-brain-plugin/               # Claude Code plugin (commands, agents, skills) — markdown
+│   ├── commands/  agents/  skills/
+│   └── plugin.json                   # version owned by the release process
+├── agent-brain-skill/                # Standalone Claude Code skill — markdown
+│   └── SKILL.md
+├── Taskfile.yml                      # Monorepo task runner (run `task` from repo root)
+├── scripts/                          # Release, lock-guard, quick-start validation
+└── docs/                             # Documentation
 ```
 
 ## Code Style
@@ -175,6 +192,19 @@ doc-serve/
 | `agent-brain index /path` | Index documents from a folder (queued) |
 | `agent-brain inject /path --script enrich.py` | Index documents with content injection |
 | `agent-brain reset --yes` | Clear all indexed documents |
+| `agent-brain doctor` | Diagnose installation, configuration, and server state |
+
+### MCP & Transport Commands
+
+| Command | Description |
+|---------|-------------|
+| `agent-brain mcp start` | Start the MCP server (`agent-brain-mcp`) for this project |
+| `agent-brain mcp stop` | Stop the MCP server |
+| `agent-brain prompt <name>` | Render a registered MCP prompt (e.g. `find-callers`, `explain-architecture`) |
+| `agent-brain resources list` | List available `corpus://` MCP resources |
+| `agent-brain resources read <uri>` | Read a `corpus://` resource (e.g. `corpus://status`) |
+
+Transport is selectable via the global `--transport {auto,http,uds,mcp}` flag (or `AGENT_BRAIN_TRANSPORT`); `auto` prefers UDS and falls back to HTTP. The MCP package publishes to PyPI as `agent-brain-ag-mcp` but the console script stays `agent-brain-mcp`.
 
 ### Job Queue Commands
 
