@@ -157,7 +157,9 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
   2. Mastra adapter smoke test (`@mastra/mcp`) connects to `agent-brain-mcp`, calls `search_documents`, and asserts a non-empty result list
   3. Vercel AI SDK adapter smoke test (`experimental_createMCPClient`) connects to `agent-brain-mcp`, calls `search_documents`, and asserts a non-empty result list
   4. Both TS tests run with a single `npm test` (or `pnpm test`) invocation; failures fingerprint cleanly to per-framework error messages (not opaque node tracebacks)
-**Plans:** TBD
+**Plans:** 2 plans
+- [ ] 62-01-PLAN.md — framework-matrix/ts/ foundation: pnpm+vitest+TS scaffold + single shared MCP subprocess fixture (seeded agent-brain-serve + stdio agent-brain-mcp) + corpus/smoke-contract parity with Phase 61 + exact pins/lockfile + opt-in isolation verification (FRAME-06, FRAME-07 foundation)
+- [ ] 62-02-PLAN.md — FRAME-06 Mastra (@mastra/mcp) + FRAME-07 Vercel AI SDK (experimental_createMCPClient) smoke tests + per-framework/per-stage failure fingerprinting; single `pnpm test` runs both
 
 ### Phase 63: Tooling + docs + integration page
 **Goal:** Land the operator-facing surface for v10.3: a Taskfile target that runs the full 7-framework matrix opt-in, a nightly advisory CI workflow on `main`, and `docs/INTEGRATIONS.md` with one short page per framework PLUS a "config recipes" section for 5 editor-side integrations (Goose, Continue.dev, Cline, Cursor, Cody) that ship docs-only in v10.3.
@@ -194,7 +196,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 | 59. CLI prompts + resources commands                        | 3/3 | Complete    | 2026-06-09 | -          |
 | 60. Subprocess hygiene + 1000-invocation orphan test        | 3/3 | Complete    | 2026-06-09 | -          |
 | 61. Python framework adapter matrix                         | 4/4 | Complete    | 2026-06-11 | -          |
-| 62. TypeScript framework adapter matrix                     | v10.3     | 0/TBD          | Not started | -          |
+| 62. TypeScript framework adapter matrix                     | v10.3     | 0/2            | Planned     | -          |
 | 63. Tooling + docs + integration page                       | v10.3     | 0/TBD          | Not started | -          |
 
 ---
