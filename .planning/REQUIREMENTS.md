@@ -42,8 +42,8 @@ Requirements for v10.3. Each maps to a roadmap phase.
 Python frameworks (smoke tests in `agent-brain-cli/tests/framework_matrix/` or new `framework-matrix/` top-level dir):
 
 - [x] **FRAME-01**: OpenAI Agents SDK adapter smoke test — `MCPServerStdio` + `MCPServerStreamableHttp` connect to `agent-brain-mcp`, call `search_documents`, assert non-empty results.
-- [ ] **FRAME-02**: LangChain adapter smoke test via `langchain-mcp-adapters`.
-- [ ] **FRAME-03**: LlamaIndex adapter smoke test via `llama-index-tools-mcp`.
+- [x] **FRAME-02**: LangChain adapter smoke test via `langchain-mcp-adapters`.
+- [x] **FRAME-03**: LlamaIndex adapter smoke test via `llama-index-tools-mcp`.
 - [ ] **FRAME-04**: Pydantic AI adapter smoke test via `MCPServerStdio`.
 - [ ] **FRAME-05**: Autogen / AG2 adapter smoke test via `McpWorkbench`.
 
@@ -108,8 +108,8 @@ Which phases cover which requirements. Filled by roadmap creation 2026-06-05.
 | MCPHYG-01 | Phase 60 | Complete |
 | MCPHYG-02 | Phase 60 | Complete |
 | FRAME-01 | Phase 61 | Complete |
-| FRAME-02 | Phase 61 | Pending |
-| FRAME-03 | Phase 61 | Pending |
+| FRAME-02 | Phase 61 | Complete |
+| FRAME-03 | Phase 61 | Complete |
 | FRAME-04 | Phase 61 | Pending |
 | FRAME-05 | Phase 61 | Pending |
 | FRAME-06 | Phase 62 | Pending |
