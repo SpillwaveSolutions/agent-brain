@@ -44,8 +44,8 @@ Python frameworks (smoke tests in `agent-brain-cli/tests/framework_matrix/` or n
 - [x] **FRAME-01**: OpenAI Agents SDK adapter smoke test — `MCPServerStdio` + `MCPServerStreamableHttp` connect to `agent-brain-mcp`, call `search_documents`, assert non-empty results.
 - [x] **FRAME-02**: LangChain adapter smoke test via `langchain-mcp-adapters`.
 - [x] **FRAME-03**: LlamaIndex adapter smoke test via `llama-index-tools-mcp`.
-- [ ] **FRAME-04**: Pydantic AI adapter smoke test via `MCPServerStdio`.
-- [ ] **FRAME-05**: Autogen / AG2 adapter smoke test via `McpWorkbench`.
+- [x] **FRAME-04**: Pydantic AI adapter smoke test via `MCPServerStdio`.
+- [x] **FRAME-05**: Autogen / AG2 adapter smoke test via `McpWorkbench`.
 
 TypeScript frameworks (separate test harness, likely under `framework-matrix/ts/`):
 
@@ -110,8 +110,8 @@ Which phases cover which requirements. Filled by roadmap creation 2026-06-05.
 | FRAME-01 | Phase 61 | Complete |
 | FRAME-02 | Phase 61 | Complete |
 | FRAME-03 | Phase 61 | Complete |
-| FRAME-04 | Phase 61 | Pending |
-| FRAME-05 | Phase 61 | Pending |
+| FRAME-04 | Phase 61 | Complete |
+| FRAME-05 | Phase 61 | Complete |
 | FRAME-06 | Phase 62 | Pending |
 | FRAME-07 | Phase 62 | Pending |
 | TOOLING-V3-01 | Phase 63 | Pending |
