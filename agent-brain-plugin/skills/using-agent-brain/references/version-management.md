@@ -19,6 +19,8 @@ echo "Latest: $VERSION"
 
 | Version | Release Date | Key Features |
 |---------|--------------|--------------|
+| 10.3.0 | 2026-06 | Bearer-auth hardening, injector allowlisting, MCP Streamable HTTP transport |
+| 10.1.0 | 2026-05 | MCP server (`agent-brain-ag-mcp`): 7 tools, 5 resources, 6 prompts; UDS transport |
 | 9.1.0 | 2026-03 | Generic skill-runtime converter, Codex adapter, AGENTS.md generation |
 | 9.0.0 | 2026-03 | Multi-runtime install (claude, opencode, gemini, codex, skill-runtime) |
 | 8.0.0 | 2026-03 | File watcher, embedding cache, setup wizard, query cache, reranking |
@@ -61,11 +63,11 @@ pip install agent-brain-rag==$VERSION agent-brain-cli==$VERSION
 ### Version Range
 
 ```bash
-# Compatible with 3.x
-pip install "agent-brain-rag>=3.0.0,<4.0.0"
+# Compatible with 10.x
+pip install "agent-brain-rag>=10.0.0,<11.0.0"
 
 # Minimum version
-pip install "agent-brain-rag>=3.0.0"
+pip install "agent-brain-rag>=10.0.0"
 ```
 
 ## Listing Available Versions
@@ -189,8 +191,8 @@ agent-brain-cli==X.Y.Z
 ```toml
 [project]
 dependencies = [
-    "agent-brain-rag>=3.0.0,<4.0.0",
-    "agent-brain-cli>=3.0.0,<4.0.0",
+    "agent-brain-rag>=10.0.0,<11.0.0",
+    "agent-brain-cli>=10.0.0,<11.0.0",
 ]
 ```
 
@@ -198,8 +200,8 @@ dependencies = [
 
 ```toml
 [tool.poetry.dependencies]
-agent-brain-rag = "^3.0.0"
-agent-brain-cli = "^3.0.0"
+agent-brain-rag = "^10.0.0"
+agent-brain-cli = "^10.0.0"
 ```
 
 ## Development Versions

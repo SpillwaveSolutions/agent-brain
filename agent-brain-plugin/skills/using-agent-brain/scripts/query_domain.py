@@ -24,8 +24,7 @@ except ImportError:
 
 def get_base_url() -> str:
     """Get the Agent Brain server URL from environment or default."""
-    # Support both new and legacy env var names
-    return os.environ.get("AGENT_BRAIN_URL", os.environ.get("DOC_SERVE_URL", "http://127.0.0.1:8000"))
+    return os.environ.get("AGENT_BRAIN_URL", "http://127.0.0.1:8000")
 
 
 def check_health(base_url: str) -> dict:

@@ -262,7 +262,7 @@ agent-brain list
 **Use correct URL:**
 ```bash
 # Override URL if needed
-export DOC_SERVE_URL="http://localhost:54321"
+export AGENT_BRAIN_URL="http://localhost:54321"
 agent-brain status
 ```
 

@@ -89,7 +89,7 @@ cat .agent-brain/runtime.json | jq '.base_url'
 
 **Override URL if Needed:**
 ```bash
-export DOC_SERVE_URL="http://localhost:49321"
+export AGENT_BRAIN_URL="http://localhost:49321"
 agent-brain status
 ```
 
