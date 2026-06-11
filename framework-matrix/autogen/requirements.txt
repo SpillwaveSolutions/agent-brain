@@ -1,0 +1,25 @@
+# Framework: Autogen/AG2 (autogen-ext, Microsoft fork)
+# Test: FRAME-05 — smoke-test agent-brain-mcp via autogen_ext.tools.mcp.McpWorkbench
+# Distribution note: McpWorkbench ships in autogen-ext[mcp] from Microsoft's autogen repo.
+# This is DIFFERENT from the AG2 fork (ag2-agentchat / pyautogen).
+# No API-key-gated extras (model provider auth is NOT required; test is keyless MCP-adapter-layer only)
+
+# autogen-ext[mcp] - AutoGen extensions package (ships autogen_ext.tools.mcp.McpWorkbench + StdioServerParams)
+# source: https://pypi.org/project/autogen-ext/  pinned: 2026-06-11
+autogen-ext[mcp]==0.7.5
+
+# autogen-core - AutoGen core runtime (required by autogen-ext for Component/Workbench base classes)
+# source: https://pypi.org/project/autogen-core/  pinned: 2026-06-11
+autogen-core==0.7.5
+
+# mcp - MCP Python SDK (transitive dep; autogen-ext[mcp] requires it for stdio transport)
+# source: https://pypi.org/project/mcp/  pinned: 2026-06-11
+mcp==1.9.4
+
+# anyio - async concurrency (transitive dep of autogen-ext + mcp)
+# source: https://pypi.org/project/anyio/  pinned: 2026-06-11
+anyio==4.9.0
+
+# pytest-asyncio - required for @pytest.mark.asyncio in the smoke test
+# source: https://pypi.org/project/pytest-asyncio/  pinned: 2026-06-11
+pytest-asyncio==0.26.0
