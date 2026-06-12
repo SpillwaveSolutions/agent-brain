@@ -1,0 +1,23 @@
+{
+  "name": "agent-brain-framework-matrix-ts",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.12.4",
+  "description": "Phase 62 TypeScript framework adapter matrix: Mastra + Vercel AI SDK smoke tests for agent-brain-mcp",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "25.9.3",
+    "typescript": "6.0.3",
+    "vitest": "4.1.8"
+  },
+  "dependencies": {
+    "@ai-sdk/mcp": "1.0.48",
+    "@mastra/mcp": "1.9.1",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "zod": "4.4.3"
+  }
+}
