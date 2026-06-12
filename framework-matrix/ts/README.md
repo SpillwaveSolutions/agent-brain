@@ -21,6 +21,63 @@ required for the MCP tool call itself; `OPENAI_API_KEY` is only needed by
 
 Both tests land in Plan 62-02. This plan (62-01) ships the shared foundation scaffold.
 
+## Framework Tests (Plan 62-02)
+
+Both tests closed in Plan 62-02 use the shared seeded server from globalSetup.
+
+### FRAME-06: Mastra (`test/mastra.test.ts`)
+
+- Package: `@mastra/mcp` 1.9.1 (`MCPClient` stdio constructor)
+- Flow: `MCPClient({ servers: { agentBrain: { command, args, env } } })` →
+  `listToolsets()` → assert `search_documents` present → `tool.execute(SMOKE_ARGS)` →
+  `assertNonEmptySearch(result)` → `disconnect()`
+- Teardown method: `client.disconnect()`
+
+### FRAME-07: Vercel AI SDK (`test/vercel-ai-sdk.test.ts`)
+
+- Package: `@ai-sdk/mcp` 1.0.48 (`createMCPClient` / `experimental_createMCPClient`)
+- Transport: `StdioClientTransport({ command, args, env })` from
+  `@modelcontextprotocol/sdk/client/stdio.js`
+- Flow: `experimental_createMCPClient({ transport })` → `client.tools()` →
+  assert `search_documents` present → `tool.execute(SMOKE_ARGS)` →
+  `assertNonEmptySearch(result)` → `close()`
+- Package deviation: The plan referenced `experimental_createMCPClient` from `ai`.
+  The stable API is `createMCPClient` in `@ai-sdk/mcp`, which also exports
+  `experimental_createMCPClient` as an alias. The `ai` package is NOT installed.
+  See `PINS.md` and `62-01-SUMMARY.md` for the full deviation rationale.
+
+### Running both with a single command
+
+```bash
+# From framework-matrix/ts/ — runs ALL 4 test files in one invocation:
+pnpm test
+# Output: mastra.test.ts + vercel-ai-sdk.test.ts + corpus.test.ts + isolation.test.ts
+```
+
+Without `OPENAI_API_KEY` / binaries: the server-dependent tests skip gracefully
+(the skip reason is logged: `[mastra] SKIPPED: ...` / `[vercel-ai-sdk] SKIPPED: ...`).
+`corpus.test.ts` (32 tests) and `isolation.test.ts` (8 tests) always pass.
+
+### Failure fingerprinting (`src/fingerprint.ts`)
+
+All five stages of each framework test are wrapped via `stage(framework, stageLabel, fn)`.
+A failure surfaces as:
+
+```
+[mastra] connect failed: <original error>
+[mastra] list-tools failed: ...
+[mastra] call failed: ...
+[mastra] assert failed: ...
+[mastra] disconnect failed: ...
+
+[vercel-ai-sdk] connect failed: <original error>
+[vercel-ai-sdk] list-tools failed: ...
+... (same pattern)
+```
+
+NOT opaque Node stack traces — Success Criterion 4 of the Phase 62 ROADMAP.
+Stages include `disconnect` so teardown failures also fingerprint cleanly.
+
 ## Tests are OPT-IN (NOT in `task before-push`)
 
 The TypeScript suite does **NOT** run in `task before-push` or the PR gate. It is
