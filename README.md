@@ -194,6 +194,7 @@ agent-brain/
 - [API Reference](docs/API_REFERENCE.md) - REST API documentation
 - [Configuration](docs/CONFIGURATION.md) - All configuration options
 - [Provider Configuration](agent-brain-plugin/skills/using-agent-brain/references/provider-configuration.md) - Provider setup
+- [Integrations](docs/INTEGRATIONS.md) - Connect agent-brain-mcp to LLM frameworks + editors
 
 ### Architecture
 - [Architecture Overview](docs/ARCHITECTURE.md) - System design
