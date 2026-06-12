@@ -196,7 +196,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 | 59. CLI prompts + resources commands                        | 3/3 | Complete    | 2026-06-09 | -          |
 | 60. Subprocess hygiene + 1000-invocation orphan test        | 3/3 | Complete    | 2026-06-09 | -          |
 | 61. Python framework adapter matrix                         | 4/4 | Complete    | 2026-06-11 | -          |
-| 62. TypeScript framework adapter matrix                     | 2/2 | Complete   | 2026-06-12 | -          |
+| 62. TypeScript framework adapter matrix                     | 2/2 | Complete    | 2026-06-12 | -          |
 | 63. Tooling + docs + integration page                       | v10.3     | 0/TBD          | Not started | -          |
 
 ---
