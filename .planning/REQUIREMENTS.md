@@ -56,7 +56,7 @@ TypeScript frameworks (separate test harness, likely under `framework-matrix/ts/
 
 - [ ] **TOOLING-V3-01**: `task mcp:framework-matrix` Taskfile target — slow, opt-in, gated behind a `FRAMEWORK_MATRIX=1` env or explicit `--force` flag. Runs all 7 framework smoke tests sequentially with per-framework setup/teardown.
 - [ ] **TOOLING-V3-02**: Nightly CI workflow (`.github/workflows/framework-matrix.yml`) running `task mcp:framework-matrix` against `main`; failure does NOT block PRs (advisory only — framework drift is expected).
-- [ ] **DOCS-V3-01**: `docs/INTEGRATIONS.md` — one short page per framework with copy-pasteable config (server command, transport, capabilities). Includes the 5 optional-config-only frameworks (Goose, Continue.dev, Cline, Cursor, Cody) as a separate "config recipes" section without smoke tests.
+- [x] **DOCS-V3-01**: `docs/INTEGRATIONS.md` — one short page per framework with copy-pasteable config (server command, transport, capabilities). Includes the 5 optional-config-only frameworks (Goose, Continue.dev, Cline, Cursor, Cody) as a separate "config recipes" section without smoke tests.
 
 ## v2 Requirements (deferred to future milestone)
 
@@ -116,7 +116,7 @@ Which phases cover which requirements. Filled by roadmap creation 2026-06-05.
 | FRAME-07 | Phase 62 | Complete |
 | TOOLING-V3-01 | Phase 63 | Pending |
 | TOOLING-V3-02 | Phase 63 | Pending |
-| DOCS-V3-01 | Phase 63 | Pending |
+| DOCS-V3-01 | Phase 63 | Complete |
 
 **Coverage:**
 - v1 requirements: 23 total
