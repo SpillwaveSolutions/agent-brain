@@ -4,13 +4,13 @@ milestone: v10.3
 milestone_name: MCP v3 — CLI-via-MCP + Framework Matrix
 current_phase: 62
 status: executing
-stopped_at: Completed 62-01-PLAN.md (TypeScript framework matrix scaffold)
-last_updated: "2026-06-12T01:56:17.959Z"
+stopped_at: Completed 62-02-PLAN.md (Mastra + Vercel AI SDK smoke tests; FRAME-06 + FRAME-07 closed)
+last_updated: "2026-06-12T02:10:00.000Z"
 progress:
   total_phases: 8
   completed_phases: 6
   total_plans: 21
-  completed_plans: 20
+  completed_plans: 21
 ---
 
 # Agent Brain — Project State
@@ -22,8 +22,8 @@ progress:
 
 ## Current Position
 
-Phase: 62 (typescript-framework-adapter-matrix) — EXECUTING
-Plan: 1 of 2
+Phase: 62 (typescript-framework-adapter-matrix) — COMPLETE
+Plan: 2 of 2 (all plans complete)
 
 ## Project Reference
 
@@ -88,6 +88,7 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 
 ### Key Context Carried Forward
 
+- **Phase 62 complete (2026-06-12):** FRAME-06 (Mastra) + FRAME-07 (Vercel AI SDK) closed. fingerprint.ts stage wrapper + mastra.test.ts + vercel-ai-sdk.test.ts shipped. `pnpm test` runs 4 test files (corpus + isolation + mastra + vercel-ai-sdk). `task before-push` unchanged at 544 passed, 111 deselected. Phase 63 (Taskfile target + CI workflow) is next.
 - **MCP v1 in production:** `agent-brain-mcp` is published to PyPI. Stdio transport, 7 tools, 5 read-only resources, 6 prompts. UDS transport (`agent-brain-uds`) is also live. CLI supports `--transport {auto,uds,http}`.
 - **Source design exists:** `docs/plans/2026-05-28-mcp-uds-transport-design.md` is the master design for v1/v2/v3/v4. v2 work is scoped in `docs/roadmaps/mcp/v2-subscriptions-and-resources.md` and tracked by umbrella issue #186.
 - **Phase order is hard-blocking:** Phase 50 must precede Phase 51 (URI-01/02/04 need server endpoints); Phase 51 must precede Phase 52 (SUB-01 needs `job://` addressable); Phase 52 must precede Phase 54 (TOOL-04 `wait_for_job` needs notification infrastructure); Phase 55 must be last (folds packages into root QA gate). Phase 53 (HTTP transport) is independent of Phase 52 and can run in parallel.
@@ -95,6 +96,7 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 
 ### Decisions from Prior Milestones (still load-bearing)
 
+- **Decision (2026-06-12, Plan 62-02):** FRAME-06 + FRAME-07 closed. `@mastra/mcp 1.9.1` MCPClient uses `listToolsets()` (ungrouped by server, NOT `listTools()` which namespaces as `serverName_toolName`). Tool invocation cast to `unknown as { execute: Function }` to bypass `ToolExecutionContext.observe` required property (smoke test, not agent context). `@ai-sdk/mcp 1.0.48` uses `experimental_createMCPClient` (alias of `createMCPClient`) from `@ai-sdk/mcp` (NOT the `ai` package which is not installed); stdio transport via `StdioClientTransport` from `@modelcontextprotocol/sdk/client/stdio.js`. `fingerprint.ts` exports `stage(framework, stageLabel, fn)` with Stage union `connect|list-tools|call|assert|disconnect`; failed fn rethrows `Error("[framework] stage failed: ...")` with `.cause` preserved. `pnpm test` collects all 4 files: 42 tests pass (40 baseline + 2 new skip-gracefully without OPENAI_API_KEY).
 - **Decision (2026-06-08, Plan 60-02):** `McpStdioBackend._hygienic_stdio_client` async context manager method landed at `agent-brain-mcp/agent_brain_mcp/client.py` — drop-in replacement for `stdio_client(params)` that registers the spawned subprocess via `weakref.ref` on `self._inflight_ref` (guarded by `threading.Lock`) and unregisters on context exit. Pattern A preserved — wrapper is per-call, NOT a persistent-subprocess refactor. All 16 `_async_*` helpers on `McpStdioBackend` swap to `self._hygienic_stdio_client(self._stdio_params())` (grep_c=18: 1 docstring comment + 1 method def + 16 call sites). `McpHttpBackend` NOT touched — different process model. `close()` now escalates **SIGTERM → wait `self.grace_period_s` → SIGKILL**: SIGTERM via `process.terminate()` → poll via `_wait_for_subprocess_exit` for `grace_period_s` → if still alive, SIGKILL via `process.kill()`. Idempotent fast path when no in-flight subprocess. Safe to call from another thread while a sync method is mid-flight (threading.Lock guards the weakref). Module-level helpers added: `_process_has_exited` (checks BOTH `process.returncode` AND `psutil.pid_exists(process.pid)` — Rule 1 fix for sync-context returncode reliability gap; `asyncio.subprocess.Process.returncode` only updates inside the event loop, but `close()` runs OUTSIDE it), `_wait_for_subprocess_exit` (polling), `_extract_subprocess_from_streams` (duck-type extraction from write stream's `._process` / `.process` / `._transport`; soft-fails to None INSIDE the extractor — the wrapper-level §3.5 no-silent-fallback contract is enforced by `test_hygienic_wrapper_registers_inflight_on_real_sdk_shape` which drives a faked SDK-shaped fixture through the FULL wrapper path and asserts `_inflight_ref` is non-None inside the with-block, then clears post-exit). Portable Python SIGTERM-ignoring stub child at `agent-brain-mcp/tests/_stubs/ignore_sigterm.py` (42 lines: `signal.signal(SIGTERM, SIG_IGN)` + `READY` marker — no shell scripts, Phase 58 lock stale-pid stub precedent). 11 unit tests pass at `agent-brain-mcp/tests/test_subprocess_hygiene_close.py` (246 lines) across 6 classes: `TestCloseIdempotency` (2), `TestWaitForSubprocessExit` (2), `TestExtractSubprocessFromStreams` (3), `TestCloseEscalationRealSubprocess` (2 — SIGTERM happy path + SIGKILL escalation against the stub), `TestPatternAPreservation` (1), `TestHygienicWrapperRealSdkShape` (1 — the §3.5 E2E extraction guard). Two Rule 1 deviations discovered by the new tests: (1) sync-context returncode bug fixed by adopting psutil.pid_exists alongside returncode (Phase 58-03 `_wait_for_pid_exit` precedent); (2) `_FakeProcess` class replaces `SimpleNamespace` in E2E test because `weakref.ref()` requires `__weakref__` slot which SimpleNamespace lacks. No prior-phase wire-test patch-path inversions needed — existing Phase 57 + 59 wire tests already patch `mcp.client.stdio.stdio_client` (module-level symbol) which the wrapper also imports lazily, so patches resolve correctly without test changes. Commits `cdcf089` (test stub) + `7967764` (feat wrapper + escalation) + `1aa6f1e` (test + Rule 1 sync-context fix). `task before-push` exits 0 (544 passed, 110 deselected, 7 warnings; 88% coverage on agent-brain-mcp). **MCPHYG-01 fully closed (env allowlist + cwd pinning from 60-01 + close() SIGTERM/SIGKILL escalation from 60-02). Plan 60-03's 1000-invocation orphan test inherits the correct teardown primitive — ignored-SIGTERM children no longer zombie the stress loop.**
 
 - **Decision (2026-06-11, Plan 61-01):** `framework-matrix/` top-level directory created as the Phase 61/62 shared harness. Key decisions: (1) seeding logic inlined in conftest.py (no cross-package import from agent-brain-cli/tests — framework-matrix has no package root); (2) `http_mcp_listener` fixture uses SIGTERM→wait(5s)→SIGKILL teardown, never SIGINT (Phase 60 contract); (3) `framework` pytest marker with `addopts = -m framework` in framework-matrix/pytest.ini — verified absent from all 4 package pyprojects and root Taskfile; (4) `assert_non_empty_search` normalizes all 5 framework result shapes (MCP SDK CallToolResult structuredContent/content, LangChain ToolMessage/str, LlamaIndex ToolOutput, Pydantic AI content-part list, Autogen McpWorkbench ToolResult.result) — tolerates extraction failures on non-None envelopes (counts as >=1); (5) psutil orphan guard degrades gracefully when psutil unavailable. FRAME-01 closed. Commits `0328792` (README+bootstrap), `313089c` (pytest.ini), `776ae66` (_harness.py), `4d15d7e` (conftest.py). `task before-push` exits 0: 544 passed, 111 deselected, framework tests not collected.

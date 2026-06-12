@@ -57,7 +57,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 - [x] **Phase 59: CLI prompts + resources commands** — `agent-brain prompt <name>`, `agent-brain resources list/read <uri>` with sandbox + binary/JSON content handling (completed 2026-06-08)
 - [x] **Phase 60: Subprocess hygiene + 1000-invocation orphan test** — Pinned cwd, env allowlist, SIGTERM/SIGKILL escalation, opt-in stress test (completed 2026-06-09)
 - [x] **Phase 61: Python framework adapter matrix** — Smoke tests for OpenAI Agents SDK, LangChain, LlamaIndex, Pydantic AI, Autogen (completed 2026-06-11)
-- [ ] **Phase 62: TypeScript framework adapter matrix** — Smoke tests for Mastra + Vercel AI SDK in `framework-matrix/ts/`
+- [x] **Phase 62: TypeScript framework adapter matrix** — Smoke tests for Mastra + Vercel AI SDK in `framework-matrix/ts/` (completed 2026-06-12)
 - [ ] **Phase 63: Tooling + docs + integration page** — `task mcp:framework-matrix`, nightly advisory CI workflow, `docs/INTEGRATIONS.md` with 7 framework pages + 5 config recipes
 
 ### Phase Details
@@ -157,7 +157,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
   2. Mastra adapter smoke test (`@mastra/mcp`) connects to `agent-brain-mcp`, calls `search_documents`, and asserts a non-empty result list
   3. Vercel AI SDK adapter smoke test (`experimental_createMCPClient`) connects to `agent-brain-mcp`, calls `search_documents`, and asserts a non-empty result list
   4. Both TS tests run with a single `npm test` (or `pnpm test`) invocation; failures fingerprint cleanly to per-framework error messages (not opaque node tracebacks)
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 - [ ] 62-01-PLAN.md — framework-matrix/ts/ foundation: pnpm+vitest+TS scaffold + single shared MCP subprocess fixture (seeded agent-brain-serve + stdio agent-brain-mcp) + corpus/smoke-contract parity with Phase 61 + exact pins/lockfile + opt-in isolation verification (FRAME-06, FRAME-07 foundation)
 - [ ] 62-02-PLAN.md — FRAME-06 Mastra (@mastra/mcp) + FRAME-07 Vercel AI SDK (experimental_createMCPClient) smoke tests + per-framework/per-stage failure fingerprinting; single `pnpm test` runs both
 
@@ -196,7 +196,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 | 59. CLI prompts + resources commands                        | 3/3 | Complete    | 2026-06-09 | -          |
 | 60. Subprocess hygiene + 1000-invocation orphan test        | 3/3 | Complete    | 2026-06-09 | -          |
 | 61. Python framework adapter matrix                         | 4/4 | Complete    | 2026-06-11 | -          |
-| 62. TypeScript framework adapter matrix                     | 1/2 | In Progress|  | -          |
+| 62. TypeScript framework adapter matrix                     | 2/2 | Complete   | 2026-06-12 | -          |
 | 63. Tooling + docs + integration page                       | v10.3     | 0/TBD          | Not started | -          |
 
 ---
