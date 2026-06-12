@@ -58,7 +58,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 - [x] **Phase 60: Subprocess hygiene + 1000-invocation orphan test** — Pinned cwd, env allowlist, SIGTERM/SIGKILL escalation, opt-in stress test (completed 2026-06-09)
 - [x] **Phase 61: Python framework adapter matrix** — Smoke tests for OpenAI Agents SDK, LangChain, LlamaIndex, Pydantic AI, Autogen (completed 2026-06-11)
 - [x] **Phase 62: TypeScript framework adapter matrix** — Smoke tests for Mastra + Vercel AI SDK in `framework-matrix/ts/` (completed 2026-06-12)
-- [ ] **Phase 63: Tooling + docs + integration page** — `task mcp:framework-matrix`, nightly advisory CI workflow, `docs/INTEGRATIONS.md` with 7 framework pages + 5 config recipes
+- [x] **Phase 63: Tooling + docs + integration page** — `task mcp:framework-matrix`, nightly advisory CI workflow, `docs/INTEGRATIONS.md` with 7 framework pages + 5 config recipes (completed 2026-06-12)
 
 ### Phase Details
 
@@ -170,10 +170,10 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
   2. `.github/workflows/framework-matrix.yml` runs `task mcp:framework-matrix` against `main` on a nightly cron; failure does NOT block PRs (advisory only — framework drift is expected); job results published as a GitHub status check tagged `advisory`
   3. `docs/INTEGRATIONS.md` ships with one short copy-pasteable page per framework (server command, transport, capabilities) for all 7 smoke-tested frameworks PLUS a separate "config recipes" section for Goose, Continue.dev, Cline, Cursor, and Cody (config-only, no smoke test in v10.3)
   4. `docs/INTEGRATIONS.md` includes a SDK-pinning note pointing at `framework-matrix/requirements.txt` (and the TS equivalent) so operators know how to align their environment with the tested versions
-**Plans:** 2/3 plans executed
-- [ ] 63-01-PLAN.md — `task mcp:framework-matrix` target + scripts/run_framework_matrix.sh (gated self-bootstrap runner, opt-in, bare-name include idiom) (TOOLING-V3-01)
-- [ ] 63-02-PLAN.md — .github/workflows/framework-matrix.yml nightly advisory CI (schedule+dispatch only, FRAMEWORK_MATRIX=1, framework-matrix (advisory) status) (TOOLING-V3-02)
-- [ ] 63-03-PLAN.md — docs/INTEGRATIONS.md: 7 framework pages + 5 editor config recipes + SDK-pinning note + README cross-link (DOCS-V3-01)
+**Plans:** 3/3 plans complete
+- [x] 63-01-PLAN.md — `task mcp:framework-matrix` target + scripts/run_framework_matrix.sh (gated self-bootstrap runner, opt-in, bare-name include idiom) (TOOLING-V3-01)
+- [x] 63-02-PLAN.md — .github/workflows/framework-matrix.yml nightly advisory CI (schedule+dispatch only, FRAMEWORK_MATRIX=1, framework-matrix (advisory) status) (TOOLING-V3-02)
+- [x] 63-03-PLAN.md — docs/INTEGRATIONS.md: 7 framework pages + 5 editor config recipes + SDK-pinning note + README cross-link (DOCS-V3-01)
 
 ### Notes
 
@@ -200,7 +200,7 @@ Full details: [milestones/v10.2-ROADMAP.md](milestones/v10.2-ROADMAP.md)
 | 60. Subprocess hygiene + 1000-invocation orphan test        | 3/3 | Complete    | 2026-06-09 | -          |
 | 61. Python framework adapter matrix                         | 4/4 | Complete    | 2026-06-11 | -          |
 | 62. TypeScript framework adapter matrix                     | 2/2 | Complete    | 2026-06-12 | -          |
-| 63. Tooling + docs + integration page                       | 2/3 | In Progress|  | -          |
+| 63. Tooling + docs + integration page                       | 3/3 | Complete   | 2026-06-12 | -          |
 
 ---
 *Roadmap created: 2026-02-07*

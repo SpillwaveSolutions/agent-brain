@@ -4,26 +4,26 @@ milestone: v10.3
 milestone_name: MCP v3 — CLI-via-MCP + Framework Matrix
 current_phase: 63
 status: executing
-stopped_at: Completed 63-01-PLAN.md (checkpoint approved + closeout)
-last_updated: "2026-06-12T16:28:23.827Z"
+stopped_at: Completed 63-02-PLAN.md (nightly advisory framework-matrix CI workflow — TOOLING-V3-02 closed)
+last_updated: "2026-06-12T16:36:10.889Z"
 progress:
   total_phases: 8
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 24
-  completed_plans: 23
+  completed_plans: 24
 ---
 
 # Agent Brain — Project State
 
-**Last Updated:** 2026-06-11
+**Last Updated:** 2026-06-12
 **Current Milestone:** v10.3 MCP v3 — CLI-via-MCP + Framework Matrix
 **Status:** Executing Phase 63
 **Current Phase:** 63
 
 ## Current Position
 
-Phase: 63 (tooling-docs-integration-page) — EXECUTING
-Plan: 3 of 3
+Phase: 63 (tooling-docs-integration-page) — EXECUTING (3/3 plans complete)
+Plan: 3 of 3 (all plans executed)
 
 ## Project Reference
 
@@ -88,6 +88,7 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 
 ### Key Context Carried Forward
 
+- **Plan 63-02 complete (2026-06-12):** TOOLING-V3-02 closed. `.github/workflows/framework-matrix.yml` shipped: schedule cron 07:00 UTC + workflow_dispatch only (no push/pull_request triggers — structurally impossible to mark as required PR check). Matrix step has continue-on-error: true (framework SDK drift never fails the workflow). Local agent-brain packages installed at job level so framework fixture's prerequisite check passes and tests actually run. Advisory commit status posted via actions/github-script@v7 with context 'framework-matrix (advisory)'. Human-verify checkpoint confirmed via YAML parse + GitHub branch protection check (zero required status checks on main). Toolchain setup: actions/setup-python@v5 + snok/install-poetry@v1 + arduino/setup-task@v2 + actions/setup-node@v4 + corepack enable pnpm + astral-sh/setup-uv@v3. environment: ci-testing for secret access.
 - **Plan 63-01 complete (2026-06-12):** TOOLING-V3-01 closed. `task mcp:framework-matrix` bare per-package Taskfile task + `scripts/run_framework_matrix.sh` gated sequential runner shipped. Gate-unset path exits 0 with opt-in message; FRAMEWORK_MATRIX=1/--force path drives all 5 Python bootstraps + TS pnpm leg. Human-verify checkpoint confirmed task before-push never invokes the matrix (1334 tests, no matrix bootstrap). Bare task name (NOT mcp:framework-matrix:) avoids Phase 60-03 cyclic-include collision; root Taskfile gets comment-block-only (no task block). {{.CLI_ARGS}} forwarding lets task mcp:framework-matrix -- --force work.
 - **Phase 62 complete (2026-06-12):** FRAME-06 (Mastra) + FRAME-07 (Vercel AI SDK) closed. fingerprint.ts stage wrapper + mastra.test.ts + vercel-ai-sdk.test.ts shipped. `pnpm test` runs 4 test files (corpus + isolation + mastra + vercel-ai-sdk). `task before-push` unchanged at 544 passed, 111 deselected. Phase 63 (Taskfile target + CI workflow) is next.
 - **MCP v1 in production:** `agent-brain-mcp` is published to PyPI. Stdio transport, 7 tools, 5 read-only resources, 6 prompts. UDS transport (`agent-brain-uds`) is also live. CLI supports `--transport {auto,uds,http}`.
@@ -241,8 +242,8 @@ Feature backlog (#152, #154, #155, #156, #157, #158, #160, #162, #163, #164) and
 
 ## Session Continuity
 
-**Last Session:** 2026-06-12T16:28:11.535Z
-**Stopped At:** Completed 63-01-PLAN.md (checkpoint approved + closeout)
+**Last Session:** 2026-06-12T16:36:10.884Z
+**Stopped At:** Completed 63-02-PLAN.md (nightly advisory framework-matrix CI workflow — TOOLING-V3-02 closed)
 
 **Stopped At (Plan 55-01 — prior, for reference):** SDK-driven contract test scaffolding shipped. New `agent-brain-mcp/tests/contract/` directory + `mcp_stdio_session` fixture (callable returning async context manager — dodging anyio's exit-cancel-scope-in-different-task trap that bites async-generator fixtures wrapping `stdio_client` per Phase 52 Plan 02 Decision precedent) + autouse D-17 orphan-scan fixture (script-name-scoped `pgrep -f fake_contract_server.py` runs after EVERY contract test, fails the test if any subprocess survived, SIGKILLs them so subsequent tests don't inherit). Bundled fake-server script template (`_DEFAULT_CONTRACT_SERVER_SCRIPT`) wires `build_server + run_stdio` against `httpx.MockTransport` backend per CONTEXT D-04 (NOT a real `agent-brain-serve` subprocess). Backend responses passed to the subprocess via `AGENT_BRAIN_MCP_CONTRACT_RESPONSES_JSON` env var (JSON-serialized METHOD-path -> body table); Plans 02/03/04 inject per-test `response_overrides` without rewriting the script. `_DEFAULT_RESPONSES` extended with 8 v2 endpoint stubs (`DELETE /index/folders/`, `GET/DELETE /index/cache/`, `POST /index/add`, 3 terminal JobRecord variants `job_done/job_failed/job_cancelled` for `wait_for_job` contract assertions) — strictly additive, no existing v1 entries modified. `contract` pytest marker registered in `pyproject.toml` + `addopts` extended to exclude contract from default fast path (alongside `e2e + e2e_http`). `agent-brain-mcp/Taskfile.yml::contract` replaces Phase 4 placeholder echo with `poetry run pytest tests/contract -v -m contract`. ONE smoke test asserting `initialize()` over stdio returns `serverInfo.name == 'agent-brain'` — proves the fixture chain end-to-end (0.46s, 0 orphans, 0 anyio errors). Entry point: `sys.executable + bundled script path` (NOT `python -m agent_brain_mcp` against a real backend — `agent_brain_mcp` has no `__main__.py` and `main_async` needs a live backend; bundled script bypasses both per the Phase 4 / Phase 52 fake-server pattern). 3 atomic commits on `main`: `f0b5966` test (8 `_DEFAULT_RESPONSES` additions), `fb24ab9` test (contract dir + conftest + smoke + marker), `2e92dcc` chore (task contract wiring). TWO deviations auto-applied: Rule 1 — anyio task ownership forced `mcp_stdio_session` shape from yielding-generator to callable-returning-async-context-manager (consumed as `async with mcp_stdio_session() as session:`; public fixture name preserved so Plans 02/03/04 inherit verbatim); Rule 2 — autouse orphan-scan fixture moved OUT of `mcp_stdio_session` into independent autouse fixture so future direct-subprocess tests (Plan 04 HTTP) get the D-17 safety net without coupling to session consumption. +1 smoke test on contract suite (`-m contract` opt-in); fast-path 451 tests unchanged (no regression from `_DEFAULT_RESPONSES` additions); `task contract` exit 0; `task check:layering` 3/3 contracts kept (164 files, 414 deps); `task before-push` exit 0 (416 monorepo CLI tests, 80% coverage gate honored, all 1685 cross-package tests passing). 20/24 plans complete across v10.2 milestone. Phase 55 plan 1/5 done.
 **Resume File:** None
