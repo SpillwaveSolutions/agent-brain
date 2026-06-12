@@ -49,8 +49,8 @@ Python frameworks (smoke tests in `agent-brain-cli/tests/framework_matrix/` or n
 
 TypeScript frameworks (separate test harness, likely under `framework-matrix/ts/`):
 
-- [ ] **FRAME-06**: Mastra adapter smoke test via `@mastra/mcp`.
-- [ ] **FRAME-07**: Vercel AI SDK adapter smoke test via `experimental_createMCPClient`.
+- [x] **FRAME-06**: Mastra adapter smoke test via `@mastra/mcp`.
+- [x] **FRAME-07**: Vercel AI SDK adapter smoke test via `experimental_createMCPClient`.
 
 ### Tooling + Docs
 
@@ -112,8 +112,8 @@ Which phases cover which requirements. Filled by roadmap creation 2026-06-05.
 | FRAME-03 | Phase 61 | Complete |
 | FRAME-04 | Phase 61 | Complete |
 | FRAME-05 | Phase 61 | Complete |
-| FRAME-06 | Phase 62 | Pending |
-| FRAME-07 | Phase 62 | Pending |
+| FRAME-06 | Phase 62 | Complete |
+| FRAME-07 | Phase 62 | Complete |
 | TOOLING-V3-01 | Phase 63 | Pending |
 | TOOLING-V3-02 | Phase 63 | Pending |
 | DOCS-V3-01 | Phase 63 | Pending |
