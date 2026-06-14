@@ -42,6 +42,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import socket
+import time
 from collections.abc import AsyncIterator
 from typing import Any, Final
 
@@ -72,6 +73,23 @@ MCP_MOUNT_PATH: Final[str] = "/mcp"
 
 HEALTHZ_PATH: Final[str] = "/healthz"
 """Liveness probe path returning ``{"status":"ok","transport":"http"}``."""
+
+SUBSCRIPTIONS_PATH: Final[str] = "/mcp/subscriptions"
+"""Debug introspection path for active MCP subscription state (HOUSE-01).
+
+Returns 200 + JSON with ``transport``, ``server_uptime_s``, ``active_count``,
+and a ``subscriptions`` array. Each entry has a truncated ``session_id``
+(8-char hex), ``uri``, ``cadence_s``, ``started_at``, ``last_notified_at``.
+
+Security model: loopback-only, no token required — same trust model as
+``/healthz`` and the existing no-auth banner. This endpoint is intentionally
+unauthenticated; auth is deferred to v4 (OAUTH-01).
+
+**stdio transport:** The stdio listener has no HTTP server, so this endpoint
+does not exist under stdio mode. Operators needing the debug view must run
+the HTTP transport (``agent-brain mcp start --transport http``). No shim is
+provided — there is no HTTP listener to mount the route on under stdio.
+"""
 
 # Exact error message wording — pinned by tests.
 LOOPBACK_REJECTION_MESSAGE: Final[str] = (
@@ -143,7 +161,10 @@ def validate_loopback_host(host: str) -> None:
         raise click.ClickException(LOOPBACK_REJECTION_MESSAGE)
 
 
-def build_asgi_app(server: Server) -> Starlette:
+def build_asgi_app(
+    server: Server,
+    subscription_manager: SubscriptionManager | None = None,
+) -> Starlette:
     """Compose the Starlette ASGI app served by :func:`run_http`.
 
     Layout:
@@ -151,10 +172,15 @@ def build_asgi_app(server: Server) -> Starlette:
     * ``GET /healthz`` → JSON ``{"status": "ok", "transport": "http"}``
       (D-07 probe — operators curl-check without driving the MCP
       handshake).
-    * ``POST /mcp`` → MCP SDK's
+    * ``GET /mcp/subscriptions`` → JSON describing active subscription
+      state (HOUSE-01 debug endpoint). No token required; loopback-only.
+      Reports ``active_count 0`` and empty ``subscriptions`` when
+      ``subscription_manager`` is ``None`` (backward-compat default).
+    * ``/mcp`` (Mount) → MCP SDK's
       :class:`StreamableHTTPSessionManager.handle_request` (raw ASGI
       callable; Mount routes any sub-path including the bare ``/mcp``
-      to the handler).
+      to the handler). Must be registered AFTER the specific
+      ``/mcp/subscriptions`` Route so Starlette matches the Route first.
 
     The session manager's lifecycle is bound to Starlette's lifespan
     so the MCP session task group is created/torn-down with the ASGI
@@ -171,12 +197,22 @@ def build_asgi_app(server: Server) -> Starlette:
     Args:
         server: The configured low-level MCP :class:`Server` from
             :func:`agent_brain_mcp.server.build_server`.
+        subscription_manager: The :class:`SubscriptionManager` paired
+            with ``server``. When provided, ``GET /mcp/subscriptions``
+            reads its :meth:`~SubscriptionManager.snapshot` for
+            live data. Defaults to ``None`` for backward compatibility
+            with callers that build the ASGI app without a manager.
 
     Returns:
         A Starlette ``ASGI`` app suitable for ``uvicorn.Server(
         uvicorn.Config(app, ...))``.
     """
-    session_manager = StreamableHTTPSessionManager(
+    # Capture a monotonic timestamp at app-build time so server_uptime_s
+    # reflects time since the ASGI app was composed (a proxy for server
+    # start time that is always available without global state).
+    started_monotonic = time.monotonic()
+
+    mcp_session_manager = StreamableHTTPSessionManager(
         app=server,
         event_store=None,
         json_response=False,
@@ -187,29 +223,54 @@ def build_asgi_app(server: Server) -> Starlette:
     async def healthz(_request: Request) -> JSONResponse:
         return JSONResponse({"status": "ok", "transport": "http"})
 
+    async def subscriptions_debug(_request: Request) -> JSONResponse:
+        """Return a JSON-serializable snapshot of active subscriptions.
+
+        No auth required — loopback-only, same trust model as ``/healthz``.
+        Does NOT exist under stdio transport (no HTTP listener there).
+        """
+        snap = (
+            subscription_manager.snapshot()
+            if subscription_manager is not None
+            else {"active_count": 0, "subscriptions": []}
+        )
+        return JSONResponse(
+            {
+                "transport": "http",
+                "server_uptime_s": time.monotonic() - started_monotonic,
+                "active_count": snap["active_count"],
+                "subscriptions": snap["subscriptions"],
+            }
+        )
+
     async def mcp_asgi_app(scope: Scope, receive: Receive, send: Send) -> None:
         # Thin wrapper around the raw-ASGI callable on the session
         # manager. ``Mount(..., app=callable)`` accepts any ASGI3
         # callable; FastMCP wraps this in a small class
         # (StreamableHTTPASGIApp) — we keep it as a module-level
         # function for testability.
-        await session_manager.handle_request(scope, receive, send)
+        await mcp_session_manager.handle_request(scope, receive, send)
 
     @contextlib.asynccontextmanager
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
-        # ``session_manager.run()`` is the SDK's documented lifespan
+        # ``mcp_session_manager.run()`` is the SDK's documented lifespan
         # contract (see its docstring): create the task group on
         # entry, drain it on exit. The manager can only be run once
         # per instance — fine for our single-process listener.
         # ``@asynccontextmanager`` wraps the async generator so
         # Starlette's lifespan kwarg accepts it as an
         # ``AsyncContextManager`` per its type signature.
-        async with session_manager.run():
+        async with mcp_session_manager.run():
             yield
 
     return Starlette(
         routes=[
             Route(HEALTHZ_PATH, healthz, methods=["GET"]),
+            # SUBSCRIPTIONS_PATH must be registered BEFORE the /mcp Mount so
+            # Starlette matches the specific /mcp/subscriptions Route first
+            # (Mounts are greedy sub-path catchers; Routes take priority in
+            # list order).
+            Route(SUBSCRIPTIONS_PATH, subscriptions_debug, methods=["GET"]),
             Mount(MCP_MOUNT_PATH, app=mcp_asgi_app),
         ],
         lifespan=lifespan,
@@ -356,7 +417,7 @@ async def run_http(
         subscription_manager.cleanup_all()
         raise
 
-    app = build_asgi_app(server)
+    app = build_asgi_app(server, subscription_manager)
     uvi_server = build_uvicorn_server(app, host=host, port=port)
 
     # Banner per D-10. Format string is pinned by the acceptance
@@ -413,6 +474,7 @@ __all__: list[str] = [
     "HEALTHZ_PATH",
     "LOOPBACK_REJECTION_MESSAGE",
     "MCP_MOUNT_PATH",
+    "SUBSCRIPTIONS_PATH",
     "PortInUseError",
     "build_asgi_app",
     "build_uvicorn_server",
