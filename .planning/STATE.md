@@ -4,13 +4,13 @@ milestone: v10.4
 milestone_name: milestone
 current_phase: 64
 status: executing
-stopped_at: Completed 64-03-PLAN.md (graph restore CLI + doctor stale-graph check)
-last_updated: "2026-06-14T14:05:21.669Z"
+stopped_at: "Completed 64-01-PLAN.md: GraphRAG SIGSEGV isolation + per-job degradation"
+last_updated: "2026-06-14T14:07:13.832Z"
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Agent Brain — Project State
@@ -243,8 +243,8 @@ Feature backlog (#152, #154, #155, #156, #157, #158, #160, #162, #163, #164) and
 
 ## Session Continuity
 
-**Last Session:** 2026-06-14T14:05:21.664Z
-**Stopped At:** Completed 64-03-PLAN.md (graph restore CLI + doctor stale-graph check)
+**Last Session:** 2026-06-14T14:07:13.828Z
+**Stopped At:** Completed 64-01-PLAN.md: GraphRAG SIGSEGV isolation + per-job degradation
 
 **Stopped At (Plan 55-01 — prior, for reference):** SDK-driven contract test scaffolding shipped. New `agent-brain-mcp/tests/contract/` directory + `mcp_stdio_session` fixture (callable returning async context manager — dodging anyio's exit-cancel-scope-in-different-task trap that bites async-generator fixtures wrapping `stdio_client` per Phase 52 Plan 02 Decision precedent) + autouse D-17 orphan-scan fixture (script-name-scoped `pgrep -f fake_contract_server.py` runs after EVERY contract test, fails the test if any subprocess survived, SIGKILLs them so subsequent tests don't inherit). Bundled fake-server script template (`_DEFAULT_CONTRACT_SERVER_SCRIPT`) wires `build_server + run_stdio` against `httpx.MockTransport` backend per CONTEXT D-04 (NOT a real `agent-brain-serve` subprocess). Backend responses passed to the subprocess via `AGENT_BRAIN_MCP_CONTRACT_RESPONSES_JSON` env var (JSON-serialized METHOD-path -> body table); Plans 02/03/04 inject per-test `response_overrides` without rewriting the script. `_DEFAULT_RESPONSES` extended with 8 v2 endpoint stubs (`DELETE /index/folders/`, `GET/DELETE /index/cache/`, `POST /index/add`, 3 terminal JobRecord variants `job_done/job_failed/job_cancelled` for `wait_for_job` contract assertions) — strictly additive, no existing v1 entries modified. `contract` pytest marker registered in `pyproject.toml` + `addopts` extended to exclude contract from default fast path (alongside `e2e + e2e_http`). `agent-brain-mcp/Taskfile.yml::contract` replaces Phase 4 placeholder echo with `poetry run pytest tests/contract -v -m contract`. ONE smoke test asserting `initialize()` over stdio returns `serverInfo.name == 'agent-brain'` — proves the fixture chain end-to-end (0.46s, 0 orphans, 0 anyio errors). Entry point: `sys.executable + bundled script path` (NOT `python -m agent_brain_mcp` against a real backend — `agent_brain_mcp` has no `__main__.py` and `main_async` needs a live backend; bundled script bypasses both per the Phase 4 / Phase 52 fake-server pattern). 3 atomic commits on `main`: `f0b5966` test (8 `_DEFAULT_RESPONSES` additions), `fb24ab9` test (contract dir + conftest + smoke + marker), `2e92dcc` chore (task contract wiring). TWO deviations auto-applied: Rule 1 — anyio task ownership forced `mcp_stdio_session` shape from yielding-generator to callable-returning-async-context-manager (consumed as `async with mcp_stdio_session() as session:`; public fixture name preserved so Plans 02/03/04 inherit verbatim); Rule 2 — autouse orphan-scan fixture moved OUT of `mcp_stdio_session` into independent autouse fixture so future direct-subprocess tests (Plan 04 HTTP) get the D-17 safety net without coupling to session consumption. +1 smoke test on contract suite (`-m contract` opt-in); fast-path 451 tests unchanged (no regression from `_DEFAULT_RESPONSES` additions); `task contract` exit 0; `task check:layering` 3/3 contracts kept (164 files, 414 deps); `task before-push` exit 0 (416 monorepo CLI tests, 80% coverage gate honored, all 1685 cross-package tests passing). 20/24 plans complete across v10.2 milestone. Phase 55 plan 1/5 done.
 **Resume File:** None
@@ -310,3 +310,4 @@ Per workflow summarizer (verified ready_to_execute: true):
 | Phase 62 P01 | 13m | 3 tasks | 11 files |
 | Phase 63 P03 | 160 | 2 tasks | 2 files |
 | Phase 64 P03 | 17 | 4 tasks | 8 files |
+| Phase 64-graphrag-stability-subscriptions-debug-endpoint P01 | 45 | 3 tasks | 8 files |
