@@ -32,6 +32,7 @@ Three §3.5 design-doc misuse cases surface as ``click.UsageError``
 
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
 from typing import cast
@@ -61,6 +62,41 @@ def _resolve_state_dir_for_discovery() -> Path | None:
         return resolve_state_dir_with_fallback(project_root)
     except Exception:
         return None
+
+
+def _stdio_command(state_dir: Path | None) -> str | list[str]:
+    """Build the ``agent-brain-mcp`` stdio command, pinning the state dir.
+
+    When ``state_dir`` is resolved, returns
+    ``["agent-brain-mcp", "--state-dir", <path>]`` so the spawned MCP
+    server resolves the same backend the CLI's UDS path would (CLI-MCP-04
+    byte-identical guarantee). ``McpStdioBackend`` filters the subprocess
+    env through ``DEFAULT_ENV_ALLOWLIST`` (which intentionally drops
+    ``AGENT_BRAIN_STATE_DIR``), so an explicit arg is the only reliable
+    way to propagate the state dir across the env boundary.
+
+    ``AGENT_BRAIN_STATE_DIR`` takes precedence over the discovery value,
+    mirroring the UDS leg (``resolve_transport`` →
+    ``resolve_socket_path`` honors the same override). Without this, a
+    user who sets ``AGENT_BRAIN_STATE_DIR`` and runs from a non-project
+    cwd would get the project-root discovery dir on the MCP leg but the
+    override on the UDS leg — diverging the two and breaking CLI-MCP-04.
+
+    When neither the env override nor ``state_dir`` resolves, returns the
+    bare ``"agent-brain-mcp"`` string and lets the subprocess fall back
+    to its own cwd-based discovery — preserving pre-fix behavior.
+    """
+    env_override = os.environ.get("AGENT_BRAIN_STATE_DIR")
+    if env_override:
+        resolved: str | None = str(Path(env_override).expanduser())
+    elif state_dir is not None:
+        resolved = str(state_dir)
+    else:
+        resolved = None
+
+    if resolved is None:
+        return "agent-brain-mcp"
+    return ["agent-brain-mcp", "--state-dir", resolved]
 
 
 def open_backend(ctx: click.Context, *, timeout: float = 30.0) -> BackendClient:
@@ -132,11 +168,21 @@ def open_backend(ctx: click.Context, *, timeout: float = 30.0) -> BackendClient:
                     "agent-brain-mcp not found on PATH; install "
                     "agent-brain-mcp into the same Python environment"
                 )
+            # Pin the resolved state dir into the subprocess as an
+            # explicit --state-dir arg (CLI-MCP-04). McpStdioBackend
+            # filters env through DEFAULT_ENV_ALLOWLIST, which drops
+            # AGENT_BRAIN_STATE_DIR, so without this the spawned
+            # agent-brain-mcp falls back to cwd discovery and may resolve
+            # a DIFFERENT backend than --transport uds. Passing the dir
+            # explicitly makes the byte-identical guarantee hold from any
+            # cwd. When state_dir is None (resolution failed) we keep the
+            # bare command and let agent-brain-mcp do its own cwd discovery.
+            command = _stdio_command(state_dir)
             # cast(): agent_brain_mcp ships with ignore_missing_imports=true
             # so mypy treats McpStdioBackend as Any. The runtime
             # @runtime_checkable Protocol contract is pinned by the
             # Phase 56-03 isinstance test in agent-brain-mcp/tests/.
-            return cast(BackendClient, McpStdioBackend(command="agent-brain-mcp"))
+            return cast(BackendClient, McpStdioBackend(command=command))
         # mcp_transport == "http" — resolve_mcp_transport guarantees
         # mcp_target is not None for the http branch.
         assert mcp_target is not None  # noqa: S101
@@ -244,11 +290,16 @@ def open_mcp_backend(ctx: click.Context, *, timeout: float = 30.0) -> McpBackend
                 "agent-brain-mcp not found on PATH; install "
                 "agent-brain-mcp into the same Python environment"
             )
+        # Pin the resolved state dir into the subprocess (CLI-MCP-04) —
+        # same rationale as open_backend: DEFAULT_ENV_ALLOWLIST drops
+        # AGENT_BRAIN_STATE_DIR, so prompts/resources would otherwise run
+        # against a cwd-discovered backend.
+        command = _stdio_command(state_dir)
         # cast(): mirrors open_backend's pattern. The runtime
         # @runtime_checkable Protocol contract is pinned by the
         # Plan 59-01 isinstance test in agent-brain-mcp/tests/
         # test_mcp_backend_protocol_skeleton.py.
-        return cast(McpBackend, McpStdioBackend(command="agent-brain-mcp"))
+        return cast(McpBackend, McpStdioBackend(command=command))
     # mcp_transport == "http" — resolve_mcp_transport guarantees
     # mcp_target is not None for the http branch.
     assert mcp_target is not None  # noqa: S101
