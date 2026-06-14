@@ -1,886 +1,813 @@
 # Architecture Research
 
-**Domain:** RAG server — v8.0 Performance & DX feature integration
-**Researched:** 2026-03-06
-**Confidence:** HIGH (codebase read directly; UDS dual-server pattern MEDIUM based on official docs + verified community patterns)
+**Domain:** OAuth 2.1 Resource Server (+ optional co-located AS) integration with existing FastAPI + MCP Streamable HTTP server
+**Researched:** 2026-06-14
+**Confidence:** HIGH (existing code read directly; MCP SDK auth module verified via SDK source + DeepWiki; RFC specs canonical; mount-path gotchas verified via open GitHub issues)
+
+---
+
+## v10.4 Scope: What Changes, What Stays
+
+This research covers ONLY how OAuth 2.1 integrates with the existing system. Nothing in the existing core pipeline (indexing, query, storage, job queue) changes. The only surfaces that change are:
+
+- `agent_brain_server/api/security.py` — the existing static-Bearer dependency (replace/layer)
+- `agent_brain_server/api/main.py` — startup gate, router wiring, new well-known endpoints mounted
+- `agent_brain_server/config/settings.py` — new `AGENT_BRAIN_AUTH` toggle + OAuth-specific vars
+- `agent_brain_mcp/http.py` — loopback host whitelist relaxed for `AGENT_BRAIN_AUTH=oauth`; ASGI app gains auth middleware before the `/mcp` mount
+- `agent_brain_mcp/client.py` (`McpHttpBackend`) — OAuth dance client-side (token storage, challenge handling, token refresh)
+- `agent_brain_mcp/security/` — existing re-export shim; new `oauth/` sibling module for scoped-token enforcement
 
 ---
 
 ## Standard Architecture
 
-### System Overview (v7.0 Baseline — What Exists)
+### System Overview — v10.4 Two-Topology Target
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                  TCP Transport (127.0.0.1:PORT)                    │
-├──────────────────────────────────────────────────────────────────┤
-│  FastAPI Application                                               │
-│  ┌──────────┐ ┌────────────┐ ┌──────────┐ ┌───────────────────┐  │
-│  │ /health  │ │  /index    │ │  /query  │ │ /index/folders    │  │
-│  │ /health/ │ │ /index/add │ │ /query/  │ │ /index/jobs       │  │
-│  │ status   │ │ DELETE     │ │  count   │ └───────────────────┘  │
-│  └──────────┘ └─────┬──────┘ └────┬─────┘                        │
-├──────────────────────┼─────────────┼────────────────────────────────┤
-│                Service Layer        │                                │
-│  ┌───────────────────▼──────┐ ┌────▼──────────────────────────┐    │
-│  │     IndexingService      │ │        QueryService            │    │
-│  │  _run_indexing_pipeline  │ │  execute_query()               │    │
-│  │  ManifestTracker         │ │  _execute_vector/bm25/hybrid/  │    │
-│  │  ChunkEvictionService    │ │  graph/multi_query()           │    │
-│  │  FolderManager           │ │  _rerank_results()             │    │
-│  └───────────┬──────────────┘ └───────────────────────────────┘    │
-│  ┌───────────▼──────────────┐                                       │
-│  │  JobService + JobWorker   │                                       │
-│  │  JSONL queue, asyncio     │                                       │
-│  │  poll loop, timeout       │                                       │
-│  └──────────────────────────┘                                       │
-├──────────────────────────────────────────────────────────────────┤
-│                   Indexing Pipeline                                 │
-│  DocumentLoader → ContextAwareChunker/CodeChunker                   │
-│                 → EmbeddingGenerator (pluggable providers)          │
-├──────────────────────────────────────────────────────────────────┤
-│            StorageBackendProtocol (11 async methods)                │
-│  ┌──────────────────────┐  ┌──────────────────────────────────┐    │
-│  │  ChromaDB Backend    │  │     PostgreSQL Backend            │    │
-│  │  vector + BM25 disk  │  │  pgvector + tsvector             │    │
-│  └──────────────────────┘  └──────────────────────────────────┘    │
-└──────────────────────────────────────────────────────────────────┘
+TOPOLOGY A: CO-LOCATED AS/RS (single binary, self-hosted)
+══════════════════════════════════════════════════════════════════════════
+
+  MCP CLIENT (McpHttpBackend / framework / Claude Desktop)
+       │
+       │ HTTPS (public bind, AGENT_BRAIN_AUTH=oauth)
+       ▼
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  Starlette ASGI app  (agent-brain-mcp, build_asgi_app())         │
+  │                                                                  │
+  │  [LAYER 0: RequireAuthMiddleware (mcp.server.auth.middleware)]   │
+  │     • Extracts Bearer token from Authorization header            │
+  │     • Calls TokenVerifier.verify_token(token)                    │
+  │     • 401 + WWW-Authenticate header on missing/invalid token     │
+  │     • 403 on insufficient scope                                  │
+  │                      │                                           │
+  │  [LAYER 1: AuthenticationMiddleware (Starlette auth backend)]    │
+  │     • BearerAuthBackend populates request.state.auth             │
+  │                      │                                           │
+  │  ┌───────────────────┴──────────────────────────────────────┐    │
+  │  │  Route: GET  /.well-known/oauth-protected-resource  (NEW) │    │
+  │  │  Route: GET  /.well-known/oauth-authorization-server (NEW)│    │
+  │  │  Route: POST /token       (AS endpoint, co-located)  (NEW)│    │
+  │  │  Route: GET  /authorize   (AS endpoint, co-located)  (NEW)│    │
+  │  │  Route: POST /register    (DCR, optional)             (NEW)│    │
+  │  │  Route: POST /revoke      (optional)                  (NEW)│    │
+  │  │  Mount: /mcp  →  StreamableHTTPSessionManager         (EX) │    │
+  │  │  Route: GET  /healthz                                 (EX) │    │
+  │  └──────────────────────────────────────────────────────────┘    │
+  │                                                                  │
+  │  TokenVerifier (co-located): ProviderTokenVerifier               │
+  │     → OAuthAuthorizationServerProvider.load_access_token(token) │
+  │     → validates JWT locally (HS256/RS256), checks exp + scope    │
+  └──────────────────────────────────────────────────────────────────┘
+       │
+       │ loopback HTTP (INSECURE, no auth)
+       ▼
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  FastAPI app  (agent-brain-server)                               │
+  │  verify_bearer_token dependency on data routers (EXISTING)      │
+  │  ← AGENT_BRAIN_AUTH=oauth: dependency swapped to                │
+  │     verify_oauth_token (checks JWT locally, scope=server-side)  │
+  └──────────────────────────────────────────────────────────────────┘
+
+TOPOLOGY B: SPLIT AS/RS (external IdP — Keycloak, Auth0, Cognito)
+══════════════════════════════════════════════════════════════════════════
+
+  MCP CLIENT
+       │
+       │ HTTPS
+       ▼
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  Starlette ASGI app  (agent-brain-mcp)                           │
+  │  [RequireAuthMiddleware]                                         │
+  │     TokenVerifier: IntrospectionTokenVerifier OR                 │
+  │                    JwksTokenVerifier (PyJWT + PyJWKClient)       │
+  │       → calls external IdP /introspect  OR                      │
+  │       → fetches JWKS from IdP, validates JWT locally             │
+  │                                                                  │
+  │  ┌──────────────────────────────────────────────────────────┐    │
+  │  │  Route: GET  /.well-known/oauth-protected-resource  (NEW) │    │
+  │  │    (points authorization_servers → external IdP URL)      │    │
+  │  │  Mount: /mcp  →  StreamableHTTPSessionManager        (EX) │    │
+  │  │  Route: GET  /healthz                                (EX) │    │
+  │  │  NO /token /authorize /register /revoke here              │    │
+  │  └──────────────────────────────────────────────────────────┘    │
+  └──────────────────────────────────────────────────────────────────┘
+       │  (token validation queries)
+       ▼
+  ┌────────────────────────────────────────────────────────────────┐
+  │  External IdP  (Keycloak / Auth0 / Cognito)                    │
+  │  Provides: /token, /authorize, /register                       │
+  │  Provides: /.well-known/oauth-authorization-server             │
+  │  Provides: JWKS endpoint                                       │
+  └────────────────────────────────────────────────────────────────┘
 ```
 
-### v8.0 Target Architecture (New Components Highlighted)
+### Auth Toggle — How `AGENT_BRAIN_AUTH` Controls the Three Modes
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│  [NEW] UDS Transport  unix:///state_dir/agent-brain.sock              │
-│  [EXISTING] TCP Transport  127.0.0.1:PORT  (health + remote access)   │
-│  Both transports share the same FastAPI app object and app.state      │
-├──────────────────────────────────────────────────────────────────────┤
-│  FastAPI Application (unchanged router structure)                     │
-├─────────────────────────┬────────────────────────────────────────────┤
-│    Existing Services     │  [NEW] Background Services                  │
-│  ┌────────────────────┐ │  ┌──────────────────────────────────────┐   │
-│  │  IndexingService   │ │  │     FileWatcherService               │   │
-│  │  [MOD] receives    │ │  │  watchdog ObserverThread (OS thread) │   │
-│  │  EmbeddingGenerator│ │  │  DebouncedFolderHandler per folder   │   │
-│  │  with cache wired  │ │  │  threading.Timer cancel-restart      │   │
-│  │  in                │ │  │  asyncio.Queue bridge                │   │
-│  └────────────────────┘ │  │  enqueue to JobService (force=False) │   │
-│  ┌────────────────────┐ │  └──────────────────────────────────────┘   │
-│  │  QueryService      │ │                                              │
-│  │  [MOD] checks      │ │  [NEW] EmbeddingCache                        │
-│  │  QueryCache before │ │  ┌──────────────────────────────────────┐   │
-│  │  any work          │ │  │  sha256(model:text) → vector          │   │
-│  └────────────────────┘ │  │  cachetools LRUCache in-memory       │   │
-│  ┌────────────────────┐ │  │  optional diskcache SQLite (persist) │   │
-│  │  JobWorker         │ │  │  invalidate_all() on provider change  │   │
-│  │  [MOD] calls       │ │  └──────────────────────────────────────┘   │
-│  │  query_cache.      │ │                                              │
-│  │  invalidate_all()  │ │  [NEW] QueryCache                           │
-│  │  on job DONE       │ │  ┌──────────────────────────────────────┐   │
-│  └────────────────────┘ │  │  hash(query+mode+top_k+...) → resp   │   │
-│                          │  │  cachetools TTLCache (300s default)  │   │
-│                          │  │  invalidate_all() on index update    │   │
-│                          │  └──────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────────────────┘
+AGENT_BRAIN_AUTH=none   (default, current behavior)
+    • verify_bearer_token: no-op if API_KEY is None; static compare if set
+    • MCP HTTP: loopback-only enforcement remains, no auth middleware added
+    • No /.well-known/* routes mounted
+
+AGENT_BRAIN_AUTH=basic  (LAN bridge, migration step)
+    • verify_bearer_token: unchanged behavior (shared-secret Bearer)
+    • MCP HTTP: loopback-only lifted only if AGENT_BRAIN_ALLOW_PUBLIC_BIND=true
+    • No /.well-known/* routes mounted
+    • Intent: allows LAN deployment before full OAuth is ready
+
+AGENT_BRAIN_AUTH=oauth  (full OAuth 2.1)
+    • verify_bearer_token: replaced by verify_oauth_token dependency
+    • MCP HTTP: loopback enforcement lifted; RequireAuthMiddleware added
+    • /.well-known/oauth-protected-resource always mounted
+    • Topology A: /.well-known/oauth-authorization-server + /token/authorize/register/revoke mounted
+    • Topology B: none of /token etc. mounted; TokenVerifier hits external IdP
 ```
+
+### The Existing Static-Bearer Path — Replacement, Not Double-Auth
+
+The current `verify_bearer_token` FastAPI dependency in `agent_brain_server/api/security.py` does a static constant-time compare of the incoming Bearer token against `settings.API_KEY`. In `AGENT_BRAIN_AUTH=oauth` mode this dependency MUST be replaced (not added alongside). The architecture is:
+
+```python
+# agent_brain_server/api/security.py  (MODIFY)
+
+async def get_auth_dependency() -> Callable[..., Awaitable[None]]:
+    """Return the correct auth dependency for the current AGENT_BRAIN_AUTH mode."""
+    mode = get_settings().AGENT_BRAIN_AUTH
+    if mode == "oauth":
+        return verify_oauth_token   # new: JWT decode + scope check
+    if mode == "basic":
+        return verify_bearer_token  # existing: static compare
+    return _noop_auth               # AGENT_BRAIN_AUTH=none
+```
+
+Each router's `dependencies=[Depends(verify_bearer_token)]` is replaced with `dependencies=[Depends(get_auth_dependency())]` at import time, or equivalently, the router-level dependency is parameterized via a factory. The critical constraint: a request MUST NOT pass both the static-bearer check AND the JWT check. Toggling is mode-exclusive.
 
 ---
 
 ## Component Responsibilities
 
-| Component | Responsibility | Status | Location |
-|-----------|----------------|--------|----------|
-| `IndexingService` | Orchestrates load→chunk→embed→store pipeline | Existing | `services/indexing_service.py` |
-| `QueryService` | All query modes + reranking | Existing | `services/query_service.py` |
-| `JobWorker` | Polls JSONL queue, runs indexing with timeout | Existing | `job_queue/job_worker.py` |
-| `FolderManager` | Tracks indexed folders with JSONL persistence | Existing | `services/folder_manager.py` |
-| `ManifestTracker` | Per-folder SHA-256 file manifests for incremental indexing | Existing | `services/manifest_tracker.py` |
-| `EmbeddingGenerator` | Pluggable provider calls for embed_texts/embed_query | Existing | `indexing/embedding.py` |
-| `EmbeddingCache` | SHA-256 keyed embedding lookup, LRU + optional disk | **New** | `services/embedding_cache.py` |
-| `QueryCache` | TTL-based cache for full QueryResponse objects | **New** | `services/query_cache.py` |
-| `FileWatcherService` | watchdog observer + per-folder debounce + job enqueue | **New** | `services/file_watcher_service.py` |
-| `FolderRecord` | Extended with `watch_enabled` + `watch_debounce_seconds` | **Modify** | `services/folder_manager.py` |
-| Dual UDS+TCP Server | Two `uvicorn.Server` instances in `asyncio.gather()` | **Modify** | `api/main.py` `run()` function |
-| `RuntimeState` | Extended with `uds_path` + `uds_url` fields | **Modify** | `runtime.py` |
+| Component | Status | Package | Responsibility |
+|-----------|--------|---------|----------------|
+| `verify_bearer_token` | MODIFY | `agent-brain-server` | Existing static-Bearer dep; becomes one branch of auth toggle |
+| `verify_oauth_token` | NEW | `agent-brain-server` | FastAPI dep; decodes JWT, validates `aud` + `exp` + required scope; co-located: inline; split: JWKS |
+| `AuthSettings` | NEW | `agent-brain-mcp` | Configuration for `RequireAuthMiddleware` (issuer URL, required scopes, resource server URL) |
+| `OAuthAuthorizationServerProvider` | NEW | `agent-brain-mcp` | Co-located AS: implements the full MCP SDK protocol (client registry, code store, token store, revocation) |
+| `ProviderTokenVerifier` | NEW (co-located) | `agent-brain-mcp` | Wraps `OAuthAuthorizationServerProvider.load_access_token()` for `RequireAuthMiddleware` |
+| `JwksTokenVerifier` | NEW (split) | `agent-brain-mcp` | Wraps PyJWT `PyJWKClient`; cached JWKS fetch; validates sig + `aud` + `exp` |
+| `IntrospectionTokenVerifier` | NEW (split, optional) | `agent-brain-mcp` | Calls external IdP `/introspect`; use when JWKS unavailable |
+| `RequireAuthMiddleware` | USE SDK | `agent-brain-mcp` | `mcp.server.auth.middleware.bearer_auth.RequireAuthMiddleware`; wraps the MCP ASGI mount |
+| `BearerAuthBackend` | USE SDK | `agent-brain-mcp` | `mcp.server.auth.middleware.bearer_auth.BearerAuthBackend`; Starlette auth backend |
+| `create_auth_routes()` | USE SDK | `agent-brain-mcp` | `mcp.server.auth.routes.create_auth_routes()`; registers AS endpoints (co-located only) |
+| `OAuthTokenStore` | NEW | `agent-brain-mcp` | In-memory (with optional disk persistence) store for auth codes, access tokens, refresh tokens |
+| `OAuthClientRegistry` | NEW | `agent-brain-mcp` | In-memory client registry; used by DCR (`/register`) and `authorize` |
+| `McpHttpBackend` (OAuth mode) | MODIFY | `agent-brain-mcp` | Client-side: passes `OAuthClientProvider` to `streamablehttp_client`; stores tokens; handles 401 dance |
+| `InMemoryTokenStorage` / `FileTokenStorage` | NEW | `agent-brain-mcp` | `TokenStorage` protocol impl for `OAuthClientProvider`; file-backed for persistence across invocations |
+| `agent_brain_mcp/oauth/` | NEW MODULE | `agent-brain-mcp` | Home for all server-side OAuth plumbing (provider, token store, client registry, token verifiers) |
+| `agent_brain_mcp/security/` | MODIFY | `agent-brain-mcp` | Add `scope_guard.py` — per-tool scope enforcement callable; existing `__init__.py` re-export shim unchanged |
+| `AGENT_BRAIN_AUTH` | NEW setting | `agent-brain-server` | Toggle enum: `none` \| `basic` \| `oauth` (default: `none`) |
+| `AGENT_BRAIN_OAUTH_ISSUER` | NEW setting | `agent-brain-server` | Issuer URL for JWT `iss` claim validation |
+| `AGENT_BRAIN_OAUTH_RESOURCE` | NEW setting | `agent-brain-mcp` | Resource URI for PRM + token `aud` claim |
+| `AGENT_BRAIN_OAUTH_JWKS_URI` | NEW setting | `agent-brain-mcp` | External JWKS URL (split topology only) |
+| `AGENT_BRAIN_OAUTH_INTROSPECT_URI` | NEW setting | `agent-brain-mcp` | External introspection URL (split topology only) |
 
 ---
 
-## Integration Points by Feature
-
-### 1. Embedding Cache
-
-**Where it lives:** Inside `EmbeddingGenerator.embed_texts()` — the single choke point for all embedding calls from both `IndexingService` (Step 3 of pipeline) and `QueryService` (vector query, hybrid query, `VectorManagerRetriever`).
-
-**New file:** `agent_brain_server/services/embedding_cache.py`
-
-```python
-# services/embedding_cache.py  (NEW)
-import asyncio
-import hashlib
-from cachetools import LRUCache
-
-class EmbeddingCache:
-    """SHA-256 keyed embedding vector cache with optional disk persistence.
-
-    Key includes model name to prevent cross-provider vector pollution.
-    Call invalidate_all() when embedding provider or model changes.
-    """
-
-    def __init__(
-        self,
-        maxsize: int = 50_000,       # ~50K chunks fit in memory
-        disk_path: str | None = None, # None = memory-only
-    ) -> None:
-        self._memory: LRUCache[str, list[float]] = LRUCache(maxsize=maxsize)
-        self._lock = asyncio.Lock()
-        self._disk = None
-        if disk_path:
-            import diskcache
-            self._disk = diskcache.Cache(disk_path)
-
-    def _key(self, text: str, model: str) -> str:
-        return hashlib.sha256(f"{model}:{text}".encode()).hexdigest()
-
-    async def get(self, text: str, model: str) -> list[float] | None:
-        key = self._key(text, model)
-        async with self._lock:
-            hit = self._memory.get(key)
-            if hit is not None:
-                return hit
-        if self._disk is not None:
-            return self._disk.get(key)  # type: ignore[return-value]
-        return None
-
-    async def put(self, text: str, model: str, embedding: list[float]) -> None:
-        key = self._key(text, model)
-        async with self._lock:
-            self._memory[key] = embedding
-        if self._disk is not None:
-            self._disk[key] = embedding
-
-    def invalidate_all(self) -> None:
-        """Call when embedding provider or model changes."""
-        self._memory.clear()
-        if self._disk is not None:
-            self._disk.clear()
-```
-
-**Modification to `EmbeddingGenerator`** (`indexing/embedding.py`):
-
-```python
-class EmbeddingGenerator:
-    def __init__(
-        self,
-        embedding_provider=None,
-        summarization_provider=None,
-        embedding_cache: "EmbeddingCache | None" = None,  # NEW
-    ):
-        ...
-        self._cache = embedding_cache
-
-    async def embed_texts(self, texts, progress_callback=None):
-        if self._cache is None:
-            return await self._embedding_provider.embed_texts(texts, progress_callback)
-
-        results: list[list[float] | None] = [None] * len(texts)
-        uncached_indices: list[int] = []
-
-        for i, text in enumerate(texts):
-            cached = await self._cache.get(text, self.model)
-            if cached is not None:
-                results[i] = cached
-            else:
-                uncached_indices.append(i)
-
-        if uncached_indices:
-            uncached_texts = [texts[i] for i in uncached_indices]
-            fresh = await self._embedding_provider.embed_texts(uncached_texts)
-            for list_idx, vec in zip(uncached_indices, fresh):
-                results[list_idx] = vec
-                await self._cache.put(texts[list_idx], self.model, vec)
-
-        return results  # type: ignore[return-value]
-```
-
-**Lifespan wiring** (`api/main.py`):
-1. Create `EmbeddingCache` after storage paths are resolved.
-2. Create `EmbeddingGenerator(embedding_cache=embedding_cache)`.
-3. Pass same generator into `IndexingService` and `QueryService`.
-4. Store `embedding_cache` on `app.state.embedding_cache`.
-
-**Invalidation trigger:** In `IndexingService._validate_embedding_compatibility()`, when a provider/model mismatch is detected and `force=True` is used (meaning re-embedding is happening), call `app.state.embedding_cache.invalidate_all()`. Also on startup when `check_embedding_compatibility()` detects a mismatch in `main.py`.
-
----
-
-### 2. Query Cache
-
-**Where it lives:** Top of `QueryService.execute_query()` — before embedding the query text.
-
-**New file:** `agent_brain_server/services/query_cache.py`
-
-```python
-# services/query_cache.py  (NEW)
-import asyncio
-import hashlib
-import json
-from cachetools import TTLCache
-from agent_brain_server.models import QueryRequest, QueryResponse
-
-class QueryCache:
-    """TTL-based cache for full QueryResponse objects.
-
-    Keyed on a deterministic hash of query parameters.
-    Invalidate on any index update via invalidate_all().
-    """
-
-    def __init__(self, maxsize: int = 1000, ttl: int = 300) -> None:
-        self._cache: TTLCache[str, QueryResponse] = TTLCache(
-            maxsize=maxsize, ttl=ttl
-        )
-        self._lock = asyncio.Lock()
-
-    def _key(self, request: QueryRequest) -> str:
-        payload = {
-            "query": request.query,
-            "mode": str(request.mode),
-            "top_k": request.top_k,
-            "threshold": request.similarity_threshold,
-            "alpha": request.alpha,
-            "source_types": sorted(request.source_types or []),
-            "languages": sorted(request.languages or []),
-        }
-        return hashlib.sha256(
-            json.dumps(payload, sort_keys=True).encode()
-        ).hexdigest()
-
-    async def get(self, request: QueryRequest) -> QueryResponse | None:
-        key = self._key(request)
-        async with self._lock:
-            return self._cache.get(key)
-
-    async def put(self, request: QueryRequest, response: QueryResponse) -> None:
-        key = self._key(request)
-        async with self._lock:
-            self._cache[key] = response
-
-    def invalidate_all(self) -> None:
-        """Call when a new indexing job completes successfully."""
-        self._cache.clear()
-```
-
-**Modification to `QueryService`** (`services/query_service.py`):
-- Add `query_cache: QueryCache | None = None` to `__init__`.
-- First two lines of `execute_query()`: check cache, return if hit.
-- Last lines before return: store result in cache.
-
-**Modification to `JobWorker`** (`job_queue/job_worker.py`):
-- Add `query_cache: QueryCache | None = None` to `__init__`.
-- After `job.status = JobStatus.DONE` and before `await self._job_store.update_job(job)` in `_process_job()`: call `self._query_cache.invalidate_all()` if not None.
-
-**Lifespan wiring** (`api/main.py`):
-1. Create `QueryCache(ttl=settings.AGENT_BRAIN_QUERY_CACHE_TTL)`.
-2. Pass into `QueryService(query_cache=query_cache)`.
-3. Pass into `JobWorker(query_cache=query_cache)`.
-4. Store on `app.state.query_cache`.
-
----
-
-### 3. File Watcher with Per-Folder Config and Debounce
-
-**Data model change** (`services/folder_manager.py` — `FolderRecord` dataclass):
-
-```python
-@dataclass
-class FolderRecord:
-    folder_path: str
-    chunk_count: int
-    last_indexed: str
-    chunk_ids: list[str]
-    # NEW — defaults preserve backward compatibility with existing JSONL files
-    watch_enabled: bool = False
-    watch_debounce_seconds: int = 30
-```
-
-`FolderManager._load_jsonl()` already uses `data["key"]` pattern. Change to `data.get("watch_enabled", False)` and `data.get("watch_debounce_seconds", 30)` for backward-compatible deserialization.
-
-**New file:** `agent_brain_server/services/file_watcher_service.py`
-
-```python
-# services/file_watcher_service.py  (NEW)
-import asyncio
-import logging
-import threading
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
-
-logger = logging.getLogger(__name__)
-
-
-class DebouncedFolderHandler(FileSystemEventHandler):
-    """Debounces all filesystem events for one folder into a single asyncio queue push."""
-
-    def __init__(
-        self,
-        folder_path: str,
-        debounce_seconds: int,
-        loop: asyncio.AbstractEventLoop,
-        event_queue: "asyncio.Queue[str]",
-    ) -> None:
-        self._folder_path = folder_path
-        self._debounce_seconds = debounce_seconds
-        self._loop = loop
-        self._event_queue = event_queue
-        self._timer: threading.Timer | None = None
-        self._lock = threading.Lock()
-
-    def on_any_event(self, event) -> None:  # type: ignore[override]
-        if event.is_directory:
-            return
-        with self._lock:
-            if self._timer is not None:
-                self._timer.cancel()
-            self._timer = threading.Timer(
-                self._debounce_seconds,
-                self._fire,
-            )
-            self._timer.daemon = True
-            self._timer.start()
-
-    def _fire(self) -> None:
-        """Fire after debounce window expires. Called from threading.Timer thread."""
-        asyncio.run_coroutine_threadsafe(
-            self._event_queue.put(self._folder_path),
-            self._loop,
-        )
-
-
-class FileWatcherService:
-    """Manages per-folder file watchers and routes debounced events to job queue."""
-
-    def __init__(
-        self,
-        folder_manager: "FolderManager",
-        job_service: "JobQueueService",
-    ) -> None:
-        self._folder_manager = folder_manager
-        self._job_service = job_service
-        self._observer: Observer = Observer()
-        self._event_queue: asyncio.Queue[str] = asyncio.Queue()
-        self._task: asyncio.Task[None] | None = None
-        self._watches: dict[str, object] = {}
-
-    async def start(self) -> None:
-        """Start watchdog observer and asyncio consumer. Call in lifespan."""
-        loop = asyncio.get_running_loop()
-        self._loop = loop
-        await self._sync_watches(loop)
-        self._observer.start()
-        self._task = asyncio.create_task(self._consume_events())
-        logger.info("FileWatcherService started")
-
-    async def stop(self) -> None:
-        """Stop observer and cancel consumer task. Call in lifespan shutdown."""
-        self._observer.stop()
-        self._observer.join(timeout=5.0)
-        if self._task is not None:
-            self._task.cancel()
-            try:
-                await self._task
-            except asyncio.CancelledError:
-                pass
-        logger.info("FileWatcherService stopped")
-
-    async def _sync_watches(self, loop: asyncio.AbstractEventLoop) -> None:
-        """Schedule watches for all auto-reindex folders at startup."""
-        folders = await self._folder_manager.list_folders()
-        for record in folders:
-            if record.watch_enabled:
-                self._schedule_watch(record.folder_path, record.watch_debounce_seconds, loop)
-
-    def add_folder_watch(self, folder_path: str, debounce_seconds: int) -> None:
-        """Called after folder is added with watch_enabled=True."""
-        self._schedule_watch(folder_path, debounce_seconds, self._loop)
-
-    def remove_folder_watch(self, folder_path: str) -> None:
-        """Called when a folder is removed or watch disabled."""
-        watch = self._watches.pop(folder_path, None)
-        if watch is not None:
-            self._observer.unschedule(watch)
-
-    def _schedule_watch(
-        self,
-        folder_path: str,
-        debounce_seconds: int,
-        loop: asyncio.AbstractEventLoop,
-    ) -> None:
-        if folder_path in self._watches:
-            return
-        handler = DebouncedFolderHandler(
-            folder_path=folder_path,
-            debounce_seconds=debounce_seconds,
-            loop=loop,
-            event_queue=self._event_queue,
-        )
-        watch = self._observer.schedule(handler, folder_path, recursive=True)
-        self._watches[folder_path] = watch
-        logger.info(f"Watching {folder_path} (debounce={debounce_seconds}s)")
-
-    async def _consume_events(self) -> None:
-        """Asyncio task: pop folder paths from queue and enqueue indexing jobs."""
-        while True:
-            try:
-                folder_path = await self._event_queue.get()
-                logger.info(f"File change detected in {folder_path}, enqueueing job")
-                await self._job_service.enqueue(
-                    folder_path=folder_path,
-                    include_code=True,
-                    recursive=True,
-                    force=False,  # Always incremental: ManifestTracker handles the diff
-                )
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Error processing watcher event for: {e}", exc_info=True)
-```
-
-**API extension:** Extend `FolderAddRequest` in `models/folders.py` with `watch_enabled: bool = False` and `watch_debounce_seconds: int = 30`. In `folders.py` router, after `folder_manager.add_folder(...)`, call `app.state.file_watcher_service.add_folder_watch(path, debounce_seconds)` if `watch_enabled`.
-
-**Lifespan wiring** (`api/main.py`): After `_job_worker.start()`, create `FileWatcherService` and `await file_watcher_service.start()`. Store on `app.state.file_watcher_service`. In shutdown, `await file_watcher_service.stop()` before `_job_worker.stop()`.
-
----
-
-### 4. Background Incremental Updates (via watcher → existing pipeline)
-
-This is NOT a separate component. It is the data flow that results from combining `FileWatcherService` (new) with `JobWorker` + `IndexingService` + `ManifestTracker` (all existing).
-
-The full path reuses every existing piece. No new components required beyond `FileWatcherService`. The key insight is that watcher-triggered jobs always use `force=False` — the existing `ManifestTracker` mtime fast-path handles ~95% of unchanged files in O(1), so the watcher does not trigger a full re-embed on each event.
-
----
-
-### 5. Hybrid UDS + TCP Transport
-
-**Finding:** Uvicorn does NOT support binding to both TCP and UDS simultaneously from a single `uvicorn.run()` call. The `--uds` and `--host/--port` options are mutually exclusive. (Confirmed against official uvicorn docs at `uvicorn.dev/settings/`.)
-
-**Pattern (MEDIUM confidence):** Two `uvicorn.Server` instances sharing one `app` object, running concurrently via `asyncio.gather()`.
-
-```python
-# api/main.py  (MODIFY run() function)
-
-class _NoSignalServer(uvicorn.Server):
-    """Suppress duplicate signal handler registration when running dual servers."""
-    def install_signal_handlers(self) -> None:
-        pass
-
-
-def run(
-    host: str | None = None,
-    port: int | None = None,
-    reload: bool | None = None,
-    state_dir: str | None = None,
-    uds_path: str | None = None,    # NEW optional parameter
-) -> None:
-    global _runtime_state, _state_dir
-
-    resolved_host = host or settings.API_HOST
-    resolved_port = port if port is not None else settings.API_PORT
-
-    if resolved_port == 0:
-        resolved_port = _find_free_port()
-
-    # ... existing per-project state_dir / runtime setup (unchanged) ...
-
-    # Auto-compute UDS path when state_dir is known
-    if uds_path is None and state_dir and settings.AGENT_BRAIN_UDS_ENABLED:
-        uds_path = str(Path(state_dir) / "agent-brain.sock")
-
-    if uds_path:
-        # Dual-server mode: TCP for remote + UDS for local
-        tcp_config = uvicorn.Config(
-            "agent_brain_server.api.main:app",
-            host=resolved_host,
-            port=resolved_port,
-            loop="none",
-            lifespan="on",   # TCP server owns lifespan — initializes app.state
-        )
-        uds_config = uvicorn.Config(
-            "agent_brain_server.api.main:app",
-            uds=uds_path,
-            loop="none",
-            lifespan="off",  # CRITICAL: UDS server must NOT re-run lifespan
-        )
-        tcp_server = uvicorn.Server(tcp_config)
-        uds_server = _NoSignalServer(uds_config)
-
-        async def _serve_both() -> None:
-            await asyncio.gather(tcp_server.serve(), uds_server.serve())
-
-        asyncio.run(_serve_both())
-    else:
-        # Single TCP server (existing behavior, backward compatible)
-        uvicorn.run(
-            "agent_brain_server.api.main:app",
-            host=resolved_host,
-            port=resolved_port,
-            reload=reload if reload is not None else settings.DEBUG,
-        )
-```
-
-**RuntimeState extension** (`runtime.py`):
-
-```python
-@dataclass
-class RuntimeState:
-    mode: str
-    project_root: str
-    bind_host: str
-    port: int
-    pid: int
-    base_url: str
-    uds_path: str | None = None   # NEW — absolute path to unix socket file
-    uds_url: str | None = None    # NEW — "http+unix://%2F...%2Fagent-brain.sock/"
-```
-
-Write `uds_path` and `uds_url` into `runtime.json` for CLI discovery. The CLI `start` command reads `runtime.json` to build the base URL — it should prefer `uds_url` for local connections when available.
-
-**Settings additions** (`config/settings.py`):
-
-```python
-AGENT_BRAIN_UDS_ENABLED: bool = True        # Default on for project mode
-AGENT_BRAIN_UDS_PATH: str | None = None     # Override socket path
-AGENT_BRAIN_QUERY_CACHE_TTL: int = 300      # seconds
-AGENT_BRAIN_QUERY_CACHE_SIZE: int = 1000    # max entries
-AGENT_BRAIN_EMBED_CACHE_SIZE: int = 50000   # max entries
-```
-
-**Critical constraint on `lifespan="off"`:** The FastAPI `lifespan()` context manager initializes ChromaDB, BM25Manager, PostgreSQL pool, EmbeddingGenerator, IndexingService, QueryService, and JobWorker — all stored on `app.state`. Both servers share the same `app` object. If the UDS server also runs lifespan, all services would be double-initialized against the same persistent storage paths, causing corruption. `lifespan="off"` on UDS ensures it connects to `app.state` that the TCP server has already populated.
-
----
-
-## Recommended Project Structure (New and Modified Files)
+## Recommended Project Structure
 
 ```
 agent-brain-server/
 └── agent_brain_server/
-    ├── services/
-    │   ├── embedding_cache.py         # NEW: LRU + optional diskcache
-    │   ├── query_cache.py             # NEW: TTLCache for QueryResponse
-    │   ├── file_watcher_service.py    # NEW: watchdog + debounce + asyncio bridge
-    │   ├── folder_manager.py          # MODIFY: add watch_enabled/debounce to FolderRecord
-    │   ├── indexing_service.py        # MODIFY: EmbeddingGenerator injected from lifespan
-    │   └── query_service.py           # MODIFY: QueryCache constructor param + check
-    ├── indexing/
-    │   └── embedding.py               # MODIFY: cache lookup in embed_texts()
-    ├── job_queue/
-    │   └── job_worker.py              # MODIFY: invalidate_all() on job DONE
-    ├── models/
-    │   └── folders.py                 # MODIFY: add watch fields to request/response models
     ├── api/
-    │   ├── main.py                    # MODIFY: lifespan wires caches+watcher; run() dual server
+    │   ├── main.py                    # MODIFY: mount /.well-known/* in oauth mode; startup gate
+    │   ├── security.py                # MODIFY: add verify_oauth_token; auth-mode dispatch
     │   └── routers/
-    │       └── folders.py             # MODIFY: pass watch params to FolderManager + FileWatcherService
-    ├── runtime.py                     # MODIFY: uds_path, uds_url in RuntimeState
+    │       └── (all routers)          # MODIFY: dependency param → get_auth_dependency()
     └── config/
-        └── settings.py                # MODIFY: UDS + cache config constants
+        └── settings.py                # MODIFY: AGENT_BRAIN_AUTH, AGENT_BRAIN_OAUTH_ISSUER
+
+agent-brain-mcp/
+└── agent_brain_mcp/
+    ├── http.py                        # MODIFY: loopback gate lifted in oauth mode; inject auth middleware
+    ├── cli.py                         # MODIFY: --no-auth flag → startup gate mirrors server pattern
+    ├── config.py                      # MODIFY: AGENT_BRAIN_OAUTH_RESOURCE, JWKS/introspect URI
+    ├── client.py (McpHttpBackend)     # MODIFY: pass OAuthClientProvider to streamablehttp_client
+    ├── security/
+    │   ├── __init__.py                # UNCHANGED (file sandbox re-export shim)
+    │   └── scope_guard.py             # NEW: per-tool scope enforcement callable
+    └── oauth/                         # NEW MODULE
+        ├── __init__.py                # NEW: re-exports public surface
+        ├── provider.py                # NEW: OAuthAuthorizationServerProvider impl (co-located AS)
+        ├── token_store.py             # NEW: in-memory token/code store (co-located)
+        ├── client_registry.py         # NEW: in-memory client registry (DCR)
+        ├── verifiers.py               # NEW: JwksTokenVerifier + IntrospectionTokenVerifier
+        ├── token_storage.py           # NEW: FileTokenStorage for McpHttpBackend
+        └── metadata.py                # NEW: PRM + OASM response builders
 ```
 
----
+### Structure Rationale
 
-## Data Flow Diagrams
-
-### Flow 1: File Change to Auto-Reindex to Cache Invalidation
-
-```
-[File modified in watched folder]
-    |
-    | (OS inotify/FSEvents/kqueue via watchdog)
-    v
-DebouncedFolderHandler.on_any_event()  [OS thread]
-    |
-    | cancel previous timer, start new threading.Timer(30s)
-    |
-    | [30 seconds of silence pass — no more events]
-    v
-DebouncedFolderHandler._fire()  [threading.Timer thread]
-    |
-    | asyncio.run_coroutine_threadsafe(queue.put(folder_path), loop)
-    |
-    v
-FileWatcherService._consume_events()  [asyncio task in event loop]
-    |
-    | await self._job_service.enqueue(folder_path, force=False)
-    v
-JobQueueStore JSONL append  (atomic via temp+replace)
-    |
-    | JobWorker polls every 1s
-    v
-JobWorker._process_job(job)
-    |
-    | await indexing_service._run_indexing_pipeline(request, force=False)
-    v
-ManifestTracker.load(folder_path)  →  prior manifest
-    |
-    | mtime fast-path: O(1) for ~95% unchanged files
-    v
-ChunkEvictionService.compute_diff_and_evict()
-    |
-    | only changed/new files pass through
-    v
-EmbeddingGenerator.embed_texts(new_chunk_texts)
-    |
-    | EmbeddingCache.get(text, model)  →  HIT: reuse vector (0 API call)
-    |                                  →  MISS: provider API call → cache.put()
-    v
-StorageBackendProtocol.upsert_documents()
-    |
-    v
-ManifestTracker.save(updated_manifest)
-    |
-    v
-JobWorker marks job DONE
-    |
-    | self._query_cache.invalidate_all()
-    v
-QueryCache cleared  (next query hits storage backend fresh)
-```
-
-### Flow 2: Query with Cache
-
-```
-POST /query  (TCP or UDS transport — identical handler)
-    |
-    v
-query_router  →  QueryService.execute_query(request)
-    |
-    | QueryCache.get(request)
-    |   --> HIT:  return cached QueryResponse  (~0ms, no API calls)
-    |   --> MISS: continue
-    v
-EmbeddingGenerator.embed_query(request.query)
-    |
-    | EmbeddingCache.get(query_text, model)
-    |   --> HIT:  return cached vector
-    |   --> MISS: provider API call  →  cache.put()
-    v
-StorageBackendProtocol.vector_search() / keyword_search()
-    |
-    | [optional reranker]
-    v
-QueryResponse assembled
-    |
-    | QueryCache.put(request, response)
-    v
-return QueryResponse
-```
-
-### Flow 3: Dual Transport Startup
-
-```
-cli()  →  run(state_dir=..., uds_path=None)
-    |
-    | auto-compute: uds_path = state_dir / "agent-brain.sock"
-    v
-RuntimeState(port=PORT, uds_path=uds_path, uds_url=...)
-    |
-    | write_runtime()  →  runtime.json (both TCP port and UDS path)
-    v
-asyncio.run(_serve_both())
-    |
-    | asyncio.gather(
-    |   tcp_server.serve(),    # lifespan="on"  → runs lifespan(), populates app.state
-    |   uds_server.serve(),    # lifespan="off" → shares app.state, no re-init
-    | )
-    v
-[Both transports ready — same request handlers, same app.state]
-```
+- **`agent_brain_mcp/oauth/`** is a new top-level module, not a sub-package of `security/`, because `security/` is already a file-sandbox re-export shim with a strict "no logic" contract. The `oauth/` module contains substantial logic (token stores, provider, verifiers) and must be isolated.
+- **`agent_brain_mcp/security/scope_guard.py`** is placed inside `security/` because it is purely a policy enforcement callable — no state, no logic beyond "does this token's scopes list contain X?" — consistent with the security directory's role as policy helpers.
+- **`agent_brain_server/api/security.py`** keeps all FastAPI auth dependencies co-located. Adding `verify_oauth_token` here respects the existing import pattern across all routers.
 
 ---
 
 ## Architectural Patterns
 
-### Pattern 1: Cache Injection via Constructor (Testability First)
+### Pattern 1: Auth-Mode Toggle via `AGENT_BRAIN_AUTH` Setting
 
-**What:** Pass cache objects as optional `None`-default constructor parameters to services.
+**What:** A single enum setting (`none` | `basic` | `oauth`) drives which auth dependency is wired into FastAPI routers, whether the loopback host guard is relaxed, and which routes are mounted. The toggle is read once at startup, not per-request.
 
-**When to use:** Any service where caching is an optimization, not a hard requirement. Tests pass `None` (no mock needed). Production lifespan passes real cache instance.
+**When to use:** At startup gate in `main.py` and in the MCP ASGI builder `http.py`. Per-request path reads only the already-resolved dependency — no per-request mode check.
 
-**Trade-offs:** No global cache state. Tests remain fast (no cache warm-up needed). Adding a cache to a service never breaks existing callers.
+**Trade-offs:** Clean migration path (`none` → `basic` → `oauth`); no double-auth confusion because mode-selection is exclusive. Config error (e.g., `AGENT_BRAIN_AUTH=oauth` without `AGENT_BRAIN_OAUTH_RESOURCE`) must be caught at startup, not at first request.
 
 ```python
-class QueryService:
-    def __init__(self, ..., query_cache: "QueryCache | None" = None):
-        self._query_cache = query_cache
+# agent_brain_server/config/settings.py (MODIFY)
+from typing import Literal
+
+class Settings(BaseSettings):
+    # ...existing fields...
+    AGENT_BRAIN_AUTH: Literal["none", "basic", "oauth"] = "none"
+    AGENT_BRAIN_OAUTH_ISSUER: str | None = None     # JWT iss claim, co-located or split
+    AGENT_BRAIN_OAUTH_AUDIENCE: str | None = None   # JWT aud claim (= resource URI)
+    INSECURE_NO_AUTH: bool = False                  # existing; kept; oauth mode ignores it
+
+# agent_brain_server/api/security.py (MODIFY)
+async def verify_oauth_token(
+    authorization: str | None = Header(default=None),
+) -> TokenClaims:
+    """FastAPI dep: validate JWT access token, return parsed claims."""
+    settings = get_settings()
+    if authorization is None or not authorization.lower().startswith("bearer "):
+        raise HTTPException(401, "Missing Bearer token",
+                            headers={"WWW-Authenticate": 'Bearer error="invalid_token"'})
+    token = authorization[7:].strip()
+    claims = await _verify_jwt(token, settings)  # JWKS or local secret
+    return claims
+
+def get_auth_dependency() -> Callable:
+    """Return the correct FastAPI auth dependency for current mode."""
+    mode = get_settings().AGENT_BRAIN_AUTH
+    if mode == "oauth":
+        return verify_oauth_token
+    if mode == "basic":
+        return verify_bearer_token   # existing static compare
+    return _noop_auth                # none
 ```
 
-### Pattern 2: Thread-to-Asyncio Bridge via `run_coroutine_threadsafe`
+### Pattern 2: MCP SDK Auth Middleware Stack (Server-Side)
 
-**What:** watchdog runs event handlers in OS-managed threads. The job queue lives in the asyncio event loop. `asyncio.run_coroutine_threadsafe(coro, loop)` is the only thread-safe way to submit work to a running event loop.
+**What:** The existing `build_asgi_app()` in `http.py` builds a Starlette ASGI app with two routes (`/healthz` + `/mcp`). In `AGENT_BRAIN_AUTH=oauth` mode, wrap the Starlette app with the SDK's `RequireAuthMiddleware` BEFORE the `StreamableHTTPSessionManager` mount — the middleware intercepts all non-well-known requests, validates Bearer tokens via the injected `TokenVerifier`, and enforces the server-level required scopes.
 
-**When to use:** Any time a blocking library (watchdog, DB driver, subprocess) needs to trigger an asyncio coroutine.
+**When to use:** Only when `AGENT_BRAIN_AUTH=oauth`. The middleware is not instantiated in `none` or `basic` modes — zero overhead in the default dev path.
 
-**Trade-offs:** Requires capturing the event loop reference in the coroutine that starts the thread, before the thread starts. Use `asyncio.get_running_loop()` inside `FileWatcherService.start()` and pass it to each `DebouncedFolderHandler`. Do NOT use `asyncio.Queue.put_nowait()` from a thread — it is not thread-safe.
+**Trade-offs:** The well-known routes (PRM, OASM) MUST be outside the auth middleware — they are publicly accessible for discovery. Mount the well-known routes on the outer Starlette app BEFORE wrapping with `RequireAuthMiddleware`, or use explicit path exclusions.
 
-### Pattern 3: Dual Uvicorn Server with Shared App State
+```python
+# agent_brain_mcp/http.py (MODIFY)
+from mcp.server.auth.middleware.bearer_auth import (
+    BearerAuthBackend, RequireAuthMiddleware
+)
+from starlette.middleware.authentication import AuthenticationMiddleware
 
-**What:** Two `uvicorn.Server` instances reference the same `app` object. TCP server sets `lifespan="on"`. UDS server sets `lifespan="off"`. Both run via `asyncio.gather()`.
+def build_asgi_app(
+    server: Server,
+    *,
+    auth_mode: str = "none",
+    token_verifier: "TokenVerifier | None" = None,
+    auth_settings: "AuthSettings | None" = None,
+    oauth_routes: "list[Route] | None" = None,
+) -> Starlette:
+    """Build Starlette ASGI app. In oauth mode, wraps /mcp with auth middleware."""
+    session_manager = StreamableHTTPSessionManager(
+        app=server,
+        event_store=None,
+        json_response=False,
+        stateless=False,
+        security_settings=_pick_security_settings(auth_mode),
+    )
 
-**When to use:** When local performance (UDS) and remote access (TCP health check) are both needed without running two separate processes.
+    async def healthz(_request: Request) -> JSONResponse:
+        return JSONResponse({"status": "ok", "transport": "http"})
 
-**Trade-offs:** Both servers share `app.state` — the TCP lifespan initializes it once, UDS server sees it immediately. The second server must override `install_signal_handlers()` to prevent duplicate signal registration. If TCP startup fails, `app.state` will be uninitialized when UDS starts — add startup order protection by sequencing `tcp_server.serve()` startup before exposing the UDS socket.
+    routes: list[Route | Mount] = [
+        Route(HEALTHZ_PATH, healthz, methods=["GET"]),
+    ]
 
-### Pattern 4: Debounce via `threading.Timer` Cancel-Restart
+    # OAuth discovery routes mount OUTSIDE auth middleware (publicly accessible)
+    if oauth_routes:
+        routes.extend(oauth_routes)
 
-**What:** On each filesystem event, cancel the pending timer and start a new one. The handler function fires only after N seconds of silence.
+    async def mcp_asgi(scope: Scope, receive: Receive, send: Send) -> None:
+        await session_manager.handle_request(scope, receive, send)
 
-**When to use:** File editors typically emit multiple events per logical "save" (write to temp → atomic rename = 2+ events). 30s default ensures a full build/regeneration cycle completes before triggering reindex.
+    # /mcp mount; in oauth mode we wrap it with auth middleware below
+    mcp_mount = Mount(MCP_MOUNT_PATH, app=mcp_asgi)
+    routes.append(mcp_mount)
 
-**Trade-offs:** Events during active editing are silently batched into one job. A `threading.Lock` is required because `on_any_event` may be called from multiple OS threads concurrently. The timer's thread reference must be properly cancelled on `FileWatcherService.stop()` to avoid a leak.
+    @contextlib.asynccontextmanager
+    async def lifespan(_app: Starlette) -> AsyncIterator[None]:
+        async with session_manager.run():
+            yield
 
----
+    base_app = Starlette(routes=routes, lifespan=lifespan)
 
-## Anti-Patterns
-
-### Anti-Pattern 1: Running lifespan on Both Servers
-
-**What people do:** Pass `lifespan="on"` to both TCP and UDS `uvicorn.Config`.
-
-**Why it's wrong:** `lifespan()` in `main.py` initializes ChromaDB (opens file locks), BM25Manager (loads pickled index), PostgreSQL pool (opens connections), and all services. Running it twice from the same process against the same persistent directories causes resource conflicts and state corruption.
-
-**Do this instead:** `lifespan="off"` on the UDS server. Both servers share the same `app` object — `app.state` is populated by the TCP server's lifespan and is immediately visible to the UDS server's handlers.
-
-### Anti-Pattern 2: Cache Logic Inside IndexingService
-
-**What people do:** Add cache lookup directly inside `IndexingService._run_indexing_pipeline()`, calling the provider directly.
-
-**Why it's wrong:** `QueryService` also calls `EmbeddingGenerator.embed_query()`. Putting cache logic in `IndexingService` means query-time embeddings bypass the cache entirely.
-
-**Do this instead:** Cache logic belongs inside `EmbeddingGenerator.embed_texts()`. Every embedding call — indexing and query both — goes through this single method and benefits from caching automatically.
-
-### Anti-Pattern 3: Cache Key Without Model Name
-
-**What people do:** Key the embedding cache on `sha256(text)` alone.
-
-**Why it's wrong:** When the provider changes from `text-embedding-3-large` (3072d) to `text-embedding-3-small` (1536d), the cache serves the old 3072d vectors. The vector search then receives mismatched dimensions and crashes.
-
-**Do this instead:** Key on `sha256(f"{model}:{text}")`. Call `embedding_cache.invalidate_all()` when the provider settings change.
-
-### Anti-Pattern 4: Query Cache Without Invalidation Hooks
-
-**What people do:** Cache query results with TTL only, relying entirely on expiry.
-
-**Why it's wrong:** With a 5-minute TTL, files indexed by the watcher are invisible to queries for up to 5 minutes. This defeats the purpose of auto-reindex: the files are indexed but search results are stale.
-
-**Do this instead:** `JobWorker` calls `query_cache.invalidate_all()` immediately when job status transitions to `DONE`. TTL is a secondary safety net.
-
-### Anti-Pattern 5: Watcher Jobs with force=True
-
-**What people do:** Set `force=True` on watcher-triggered indexing jobs to ensure everything is re-processed.
-
-**Why it's wrong:** `force=True` bypasses `ManifestTracker`. On a 10K-file codebase, every watcher event triggers re-embedding of all 10K files. API costs and indexing time become proportional to codebase size rather than change size.
-
-**Do this instead:** Always `force=False` for watcher-triggered jobs. `ManifestTracker`'s mtime fast-path handles ~95% of unchanged files in O(1). The changed files are identified correctly without a full re-scan.
-
-### Anti-Pattern 6: FileWatcherService Directly Calls IndexingService
-
-**What people do:** Skip the job queue and call `indexing_service.start_indexing()` directly from `_consume_events()`.
-
-**Why it's wrong:** The job queue provides serialization (one job at a time), timeout protection, progress tracking, cancellation, and JSONL persistence for crash recovery. Bypassing it means watcher-triggered jobs have none of these guarantees. Two rapid watcher events could trigger concurrent indexing.
-
-**Do this instead:** Always route through `job_service.enqueue()`. The job queue serializes correctly and the existing `JobWorker` poll loop handles the rest.
-
----
-
-## New External Dependencies
-
-| Library | Purpose | Status | Confidence |
-|---------|---------|--------|-----------|
-| `watchdog` | Cross-platform filesystem events | New explicit dep | HIGH — well-established, used by uvicorn `--reload` internally |
-| `cachetools` | LRUCache + TTLCache primitives | Verify if transitive dep | HIGH — check `poetry show cachetools`; likely present via LlamaIndex |
-| `diskcache` | Optional disk persistence for embedding cache (SQLite-backed) | New optional dep | MEDIUM — clean API, asyncio-incompatible natively (use `asyncio.to_thread`) |
-
-**Verify before implementing:**
-```bash
-cd agent-brain-server && poetry show cachetools  # Likely already present
-cd agent-brain-server && poetry show watchdog    # Likely already present (uvicorn dep)
+    if auth_mode == "oauth" and token_verifier is not None:
+        # Wrap the full Starlette app with Starlette AuthenticationMiddleware
+        # + MCP SDK's RequireAuthMiddleware to enforce token presence on /mcp
+        authed = AuthenticationMiddleware(base_app, backend=BearerAuthBackend(token_verifier))
+        # RequireAuthMiddleware enforces scope and emits RFC 9728-compliant WWW-Authenticate
+        return RequireAuthMiddleware(authed, required_scopes=["agent-brain:read"])
+    return base_app
 ```
 
-If `watchdog` is already installed transitively but not declared as a direct dependency, add it to `pyproject.toml` to make the dependency explicit.
+**Critical mounting caveat (from GitHub issue #1751):** When the MCP server is mounted at a sub-path (e.g. `/mcp`), the SDK's `OAuthClientProvider` on the client side constructs `/.well-known/oauth-protected-resource` relative to the mount root. If the well-known routes are only at the sub-path, VS Code Copilot and Claude Desktop currently strip the path and hit the root domain. The workaround is to mount well-known routes at BOTH `/.well-known/*` on the outer app AND optionally at `/mcp/.well-known/*`. The Agent Brain MCP server is a single-tenant single-mount app (no sub-path routing), so the well-known routes live at the top-level — no conflict.
+
+### Pattern 3: Protected Resource Metadata (RFC 9728) — PRM Endpoint
+
+**What:** `GET /.well-known/oauth-protected-resource` returns a JSON document that tells MCP clients where to find the AS, which scopes are supported, and how to present tokens. This is the FIRST thing the MCP client fetches after receiving a 401 challenge.
+
+**When to use:** Always in `AGENT_BRAIN_AUTH=oauth` mode, regardless of topology. Co-located: `authorization_servers` points to the same host. Split: `authorization_servers` points to external IdP.
+
+**Trade-offs:** The resource field MUST match the `aud` claim in issued JWTs. If they diverge (e.g., trailing slash mismatch), all token validation fails. Set `AGENT_BRAIN_OAUTH_RESOURCE` once and derive everything from it.
+
+```python
+# agent_brain_mcp/oauth/metadata.py (NEW)
+from dataclasses import dataclass
+
+@dataclass
+class ProtectedResourceMetadata:
+    resource: str                       # e.g. "https://brain.example.com"
+    authorization_servers: list[str]    # e.g. ["https://brain.example.com"]  (co-located)
+                                        #   or ["https://auth.example.com"]   (split)
+    scopes_supported: list[str] = (
+        "agent-brain:read",
+        "agent-brain:index",
+        "agent-brain:admin",
+        "agent-brain:subscribe",
+    )
+    bearer_methods_supported: list[str] = ("header",)
+    jwks_uri: str | None = None         # only if this RS exposes its own JWKS
+
+def build_prm_route(config: OAuthConfig) -> Route:
+    """Return a Starlette Route serving the PRM document."""
+    metadata = ProtectedResourceMetadata(
+        resource=config.resource_uri,
+        authorization_servers=[config.authorization_server_url],
+    )
+    async def handle(_request: Request) -> JSONResponse:
+        return JSONResponse(asdict(metadata))
+    return Route("/.well-known/oauth-protected-resource", handle, methods=["GET"])
+```
+
+### Pattern 4: Per-Tool Scope Enforcement
+
+**What:** MCP tools are dispatched by the MCP SDK based on the tool name. Per-tool scope enforcement adds a check INSIDE the tool handler (not at the middleware level) — the middleware enforces a baseline scope (`agent-brain:read`), and individual tools check for finer-grained scopes.
+
+**When to use:** Required scopes differ across tools:
+- `readOnlyHint: true` tools (`search_documents`, `explain_result`, `list_folders`, etc.) → `agent-brain:read`
+- Mutation tools (`index_folder`, `add_documents`, `inject_documents`, `wait_for_job`) → `agent-brain:index`
+- Destructive tools (`cancel_job`, `remove_folder`, `clear_cache`) → `agent-brain:admin`
+- Subscription tools (`corpus://status`, `corpus://folders`, `job://`) → `agent-brain:subscribe`
+
+**Trade-offs:** The MCP SDK does not natively inject per-tool scope requirements via decorator. The cleanest approach is a `scope_guard(required_scope)` callable that reads `request.state.auth.scopes` and raises `McpError(UNAUTHORIZED)` if the required scope is absent.
+
+```python
+# agent_brain_mcp/security/scope_guard.py (NEW)
+from mcp.types import ErrorCode, McpError
+
+def require_scope(required: str) -> Callable:
+    """Return a guard callable that raises McpError if scope is missing."""
+    async def guard(request: Request) -> None:
+        auth = getattr(getattr(request, "state", None), "auth", None)
+        if auth is None:
+            return  # auth mode is none/basic — no scope enforcement at tool level
+        scopes: list[str] = getattr(auth, "scopes", [])
+        if required not in scopes:
+            raise McpError(
+                ErrorCode.InvalidRequest,
+                f"Insufficient scope: '{required}' required",
+            )
+    return guard
+
+# Usage in agent_brain_mcp/tools/index.py (MODIFY)
+_require_index = require_scope("agent-brain:index")
+
+async def handle_index_folder(request: Request, params: IndexFolderParams) -> ToolResult:
+    await _require_index(request)  # raises McpError if lacking agent-brain:index
+    # ... rest of handler
+```
+
+**Note on request context:** The MCP SDK's low-level `Server` handlers receive a `RequestContext` that carries the underlying Starlette `Request`. `BearerAuthBackend` populates `request.state.auth` before the MCP handler fires. The `scope_guard` reads from `request.state.auth.scopes`, the same attribute set by the Starlette `AuthenticationMiddleware`.
+
+### Pattern 5: `McpHttpBackend` Client-Side OAuth Dance
+
+**What:** When `McpHttpBackend` connects to an OAuth-protected MCP server, it passes an `OAuthClientProvider` (from `mcp.client.auth`) to `streamablehttp_client` via the `auth` kwarg. The SDK's `OAuthClientProvider` implements `httpx.Auth.async_auth_flow()` — a generator that transparently handles the full dance:
+1. Initial request with no token → 401 + `WWW-Authenticate: Bearer resource_metadata="..."`
+2. Client fetches PRM from `resource_metadata` URL
+3. Client discovers AS via PRM's `authorization_servers[0]`
+4. Client fetches OASM from AS `/.well-known/oauth-authorization-server`
+5. DCR: POST to AS `/register` with client metadata → receives `client_id`
+6. PKCE: generate `code_verifier` (128 chars) + `code_challenge` (SHA256, base64url)
+7. Redirect to AS `/authorize?response_type=code&client_id=...&code_challenge=...&resource=...`
+8. User authenticates (browser or device flow)
+9. AS redirects back with `?code=<auth_code>&state=<csrf>`
+10. Client POSTs to AS `/token` with `grant_type=authorization_code&code_verifier=...`
+11. AS returns `access_token` + `refresh_token` + `expires_in`
+12. Client retries original request with `Authorization: Bearer <access_token>`
+13. On subsequent requests: if token is expired, use refresh token at `/token` with `grant_type=refresh_token`
+
+**When to use:** Only when `AGENT_BRAIN_AUTH=oauth` is detected and the MCP URL is non-loopback.
+
+**Trade-offs:** The current (June 2026) MCP CLI client refresh-token gap: PR #2039 in the SDK is open. The SDK's `OAuthClientProvider` supports token refresh in `async_auth_flow` but `McpHttpBackend` must implement `FileTokenStorage` to persist tokens between calls (Pattern A = fresh client per call, so tokens are lost between invocations without file-backed storage).
+
+```python
+# agent_brain_mcp/client.py (MODIFY — McpHttpBackend)
+from mcp.client.auth import OAuthClientProvider
+from mcp.client.streamable_http import streamablehttp_client
+from agent_brain_mcp.oauth.token_storage import FileTokenStorage
+
+class McpHttpBackend:
+    def __init__(self, url: str, api_key: str | None = None,
+                 oauth_storage_dir: Path | None = None) -> None:
+        self._url = url
+        self._api_key = api_key
+        # oauth_storage_dir: None = memory-only; Path = persist across calls
+        self._token_storage = (
+            FileTokenStorage(oauth_storage_dir) if oauth_storage_dir else InMemoryTokenStorage()
+        )
+
+    async def _oauth_client_provider(self) -> OAuthClientProvider | None:
+        """Return OAuthClientProvider if server is OAuth-protected, else None."""
+        from agent_brain_mcp.config import get_mcp_settings
+        settings = get_mcp_settings()
+        if settings.AGENT_BRAIN_AUTH != "oauth":
+            return None
+        return OAuthClientProvider(
+            server_url=self._url,
+            client_metadata=ClientMetadata(
+                client_name="agent-brain-cli",
+                redirect_uris=["http://127.0.0.1:0/callback"],  # local callback server
+                grant_types=["authorization_code", "refresh_token"],
+                response_types=["code"],
+            ),
+            storage=self._token_storage,
+            redirect_handler=_open_browser_redirect,    # opens system browser
+            callback_handler=_local_callback_server,    # local HTTP server, captures code
+        )
+
+    @asynccontextmanager
+    async def _http_client(self) -> AsyncIterator[ClientSession]:
+        oauth = await self._oauth_client_provider()
+        async with streamablehttp_client(
+            url=self._url,
+            headers=({"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}),
+            auth=oauth,         # None = no OAuth; OAuthClientProvider = full dance
+        ) as (read_stream, write_stream, _):
+            async with ClientSession(read_stream, write_stream) as session:
+                yield session
+```
 
 ---
 
-## Integration Points Summary
+## Data Flow
 
-| Boundary | How | Risk |
-|----------|-----|------|
-| watchdog thread → asyncio event loop | `asyncio.run_coroutine_threadsafe()` | Must capture loop before starting thread; loop reference can go stale if event loop restarts |
-| `FileWatcherService` → `JobQueueService` | Direct method call `enqueue()` | Both live in `app.state`, both injected by lifespan; no risk |
-| `JobWorker` → `QueryCache` | Direct call `invalidate_all()` on job DONE | `QueryCache` injected as optional; no-op if None |
-| `EmbeddingGenerator` → `EmbeddingCache` | Direct call `get()`/`put()` | Optional; no-op if None |
-| UDS server ↔ TCP server | Shared module-level `app` object | `lifespan="off"` on UDS is mandatory — enforce in code, not just docs |
-| `FolderRecord` migration | `data.get(key, default)` in `_load_jsonl()` | Existing JSONL files missing new fields read as defaults — backward compat |
+### Full Challenge → Dance → Token → Scoped Call Flow
+
+```
+McpHttpBackend._http_client()
+    │
+    │  streamablehttp_client(url, auth=OAuthClientProvider)
+    │
+    ▼
+[FIRST REQUEST — no token yet]
+    │  POST /mcp  (no Authorization header)
+    ▼
+RequireAuthMiddleware
+    │  no token → 401 Unauthorized
+    │  WWW-Authenticate: Bearer error="invalid_token",
+    │    resource_metadata="https://brain.example.com/.well-known/oauth-protected-resource"
+    ▼
+OAuthClientProvider.async_auth_flow() intercepts 401
+    │
+    ├─[1] GET /.well-known/oauth-protected-resource
+    │       → { resource, authorization_servers: ["https://brain.example.com"],
+    │           scopes_supported: ["agent-brain:read", ...] }
+    │
+    ├─[2] GET https://brain.example.com/.well-known/oauth-authorization-server
+    │       → { issuer, token_endpoint, authorization_endpoint,
+    │           registration_endpoint, revocation_endpoint, ... }
+    │
+    ├─[3] POST /register  (Dynamic Client Registration)
+    │       → { client_id, client_secret (if confidential) }
+    │
+    ├─[4] PKCE: generate code_verifier (128 chars), code_challenge = BASE64URL(SHA256(verifier))
+    │
+    ├─[5] Open browser → /authorize?response_type=code&client_id=...
+    │                       &code_challenge=...&code_challenge_method=S256
+    │                       &resource=https://brain.example.com&scope=agent-brain:read
+    │
+    ├─[6] User authenticates → AS redirects → http://127.0.0.1:<port>/callback?code=...&state=...
+    │
+    ├─[7] POST /token
+    │       grant_type=authorization_code&code=...&code_verifier=...
+    │       → { access_token, refresh_token, expires_in: 900, token_type: "Bearer" }
+    │
+    ├─[8] store in FileTokenStorage
+    │
+    └─[9] retry original POST /mcp with Authorization: Bearer <access_token>
+
+[SUBSEQUENT REQUESTS — token in storage]
+    │  OAuthClientProvider.async_auth_flow()
+    │    → loads token from FileTokenStorage
+    │    → if not expired: inject Authorization: Bearer <access_token>
+    │    → if expired: POST /token grant_type=refresh_token → new access_token
+    │
+    ▼
+RequireAuthMiddleware
+    │  BearerAuthBackend.authenticate() → calls TokenVerifier.verify_token(token)
+    │    Co-located: OAuthAuthorizationServerProvider.load_access_token(token)
+    │                  → validates JWT signature, exp, aud
+    │    Split: JwksTokenVerifier → PyJWKClient.get_signing_key(kid)
+    │                              → jwt.decode(token, key, algorithms=["RS256"])
+    │  → AccessToken { scopes: ["agent-brain:read", "agent-brain:index"], ... }
+    │  → request.state.auth.scopes = ["agent-brain:read", "agent-brain:index"]
+    ▼
+StreamableHTTPSessionManager.handle_request()
+    │
+    ▼
+MCP tool dispatch → tool handler (e.g. handle_index_folder)
+    │  scope_guard("agent-brain:index")(request)
+    │    → scopes contains "agent-brain:index" → OK
+    ▼
+Tool executes → result returned to client
+```
+
+### Key Data Flows
+
+1. **PRM-first discovery:** The 401 response contains a `resource_metadata` URL. The client MUST fetch this first to discover where the AS lives. Do not hard-code the AS URL client-side.
+
+2. **Token `aud` validation:** The issued JWT's `aud` claim MUST equal the `resource` field in the PRM document. This is verified by `TokenVerifier.verify_token()`. Mismatch = 401 even with a valid-looking signature.
+
+3. **Scope downscoping at authorize:** The MCP client requests the specific scopes it needs (derived from the PRM `scopes_supported`). The AS issues tokens with only the granted scopes. The `RequireAuthMiddleware` baseline scope + per-tool `scope_guard` enforce the granted set.
+
+4. **Refresh token rotation:** Each refresh token use issues a new refresh token. The old one is revoked. `FileTokenStorage` must atomically update both `access_token` and `refresh_token` on every refresh cycle.
 
 ---
 
-## Build Order (Phase Dependencies)
+## Integration Points
 
-Ordered by: (1) independent of other v8 features, (2) required by later features, (3) highest risk shipped last.
+### New vs Modified Files (Explicit)
 
-**Phase 1 — Embedding Cache**
-Independent. No other v8 feature requires this, but all watcher-triggered jobs benefit from it being present first.
-- New: `services/embedding_cache.py`
-- Modify: `indexing/embedding.py` (add cache bypass in `embed_texts`)
-- Modify: `api/main.py` lifespan (create `EmbeddingCache`, wire into `EmbeddingGenerator`)
-- Modify: `config/settings.py` (add `AGENT_BRAIN_EMBED_CACHE_SIZE`)
+| File | Status | Change |
+|------|--------|--------|
+| `agent_brain_server/api/security.py` | MODIFY | Add `verify_oauth_token`; add `get_auth_dependency()` dispatch; add `_noop_auth` |
+| `agent_brain_server/api/main.py` | MODIFY | Mount PRM + OASM routes when `AGENT_BRAIN_AUTH=oauth`; startup gate validates OAuth config |
+| `agent_brain_server/api/routers/*.py` | MODIFY (all gated routers) | Replace `Depends(verify_bearer_token)` with `Depends(get_auth_dependency())` |
+| `agent_brain_server/config/settings.py` | MODIFY | Add `AGENT_BRAIN_AUTH`, `AGENT_BRAIN_OAUTH_ISSUER`, `AGENT_BRAIN_OAUTH_AUDIENCE` |
+| `agent_brain_mcp/http.py` | MODIFY | Relax loopback guard in oauth mode; accept `auth_mode` + `token_verifier` + `oauth_routes` params; inject `RequireAuthMiddleware` |
+| `agent_brain_mcp/cli.py` | MODIFY | Startup gate: refuse public bind unless `AGENT_BRAIN_AUTH=oauth`; banner update |
+| `agent_brain_mcp/config.py` | MODIFY | Add `AGENT_BRAIN_OAUTH_RESOURCE`, `AGENT_BRAIN_OAUTH_JWKS_URI`, `AGENT_BRAIN_OAUTH_INTROSPECT_URI`, `AGENT_BRAIN_OAUTH_SECRET_KEY` |
+| `agent_brain_mcp/client.py` | MODIFY | `McpHttpBackend`: add `OAuthClientProvider` plumbing; `FileTokenStorage` constructor |
+| `agent_brain_mcp/security/__init__.py` | UNCHANGED | Pure re-export shim; contract preserved |
+| `agent_brain_mcp/security/scope_guard.py` | NEW | `require_scope(scope)` callable |
+| `agent_brain_mcp/oauth/__init__.py` | NEW | Re-exports: `OAuthProvider`, `JwksTokenVerifier`, `IntrospectionTokenVerifier`, `build_oauth_routes` |
+| `agent_brain_mcp/oauth/provider.py` | NEW | Full `OAuthAuthorizationServerProvider` impl (co-located AS) |
+| `agent_brain_mcp/oauth/token_store.py` | NEW | In-memory stores: `AuthCodeStore`, `AccessTokenStore`, `RefreshTokenStore` |
+| `agent_brain_mcp/oauth/client_registry.py` | NEW | `OAuthClientRegistry` for DCR |
+| `agent_brain_mcp/oauth/verifiers.py` | NEW | `JwksTokenVerifier` (PyJWT+PyJWKClient); `IntrospectionTokenVerifier` |
+| `agent_brain_mcp/oauth/token_storage.py` | NEW | `FileTokenStorage` + `InMemoryTokenStorage` for `McpHttpBackend` |
+| `agent_brain_mcp/oauth/metadata.py` | NEW | `build_prm_route()`, `build_oasm_route()` |
+| `agent_brain_mcp/tools/*.py` | MODIFY (mutation/admin tools) | Add `await require_scope("agent-brain:index")(request)` or `:admin` guards |
 
-**Phase 2 — Query Cache**
-Independent. Requires `JobWorker` modification for invalidation hook.
-- New: `services/query_cache.py`
-- Modify: `services/query_service.py` (check cache at top of `execute_query`)
-- Modify: `job_queue/job_worker.py` (call `invalidate_all()` on DONE)
-- Modify: `api/main.py` lifespan (create `QueryCache`, inject into `QueryService` and `JobWorker`)
-- Modify: `config/settings.py` (add `AGENT_BRAIN_QUERY_CACHE_TTL`, `AGENT_BRAIN_QUERY_CACHE_SIZE`)
+### External Service Integration
 
-**Phase 3 — File Watcher + Background Incremental**
-Depends on Phase 1 (embedding cache should be present so watcher jobs benefit from it).
-- Modify: `services/folder_manager.py` (`FolderRecord` + `_load_jsonl` backward compat)
-- Modify: `models/folders.py` (add watch fields to API request/response models)
-- New: `services/file_watcher_service.py`
-- Modify: `api/routers/folders.py` (pass watch params to watcher on folder add/remove)
-- Modify: `api/main.py` lifespan (start/stop `FileWatcherService`)
+| Service / Standard | Integration Pattern | Confidence | Notes |
+|-------------------|---------------------|------------|-------|
+| MCP SDK `mcp.server.auth` | Use `RequireAuthMiddleware`, `BearerAuthBackend`, `create_auth_routes()`, `OAuthAuthorizationServerProvider` protocol | HIGH (SDK source verified) | SDK is the primary integration point; do not re-implement these |
+| MCP SDK `mcp.client.auth` | Use `OAuthClientProvider`, `TokenStorage` protocol | MEDIUM (PR #2039 open as of June 2026) | Client-side refresh token support may be incomplete; build `FileTokenStorage` defensively |
+| PyJWT (split topology) | `jwt.PyJWKClient` + `jwt.decode()` with `RS256` algorithm | HIGH (well-established) | Cache JWKS keys; `PyJWKClient(uri, cache_keys=True, cache_jwk_set=True, lifespan=300)` |
+| Keycloak (CI) | Standard OIDC token endpoint; JWKS at `/realms/<realm>/protocol/openid-connect/certs` | MEDIUM (standard OIDC) | Use `IntrospectionTokenVerifier` if opaque tokens; `JwksTokenVerifier` if JWTs |
+| RFC 9728 (PRM) | `GET /.well-known/oauth-protected-resource` | HIGH (canonical spec) | `resource` field must equal JWT `aud`; mount at root not sub-path |
+| RFC 8414 (OASM) | `GET /.well-known/oauth-authorization-server` | HIGH (canonical spec) | Co-located: mount on same Starlette app; split: external IdP serves this |
+| RFC 7591 (DCR) | `POST /register` via `create_auth_routes()` | HIGH (SDK handles this) | Enable `client_registration_options.enabled=True` in co-located mode |
+| RFC 7636 (PKCE) | SDK's `PKCEParameters.generate()` | HIGH (SDK source verified) | Always `S256`; 128-char verifier; SHA256 + base64url challenge |
+| RFC 8707 (Resource Indicators) | `resource=<uri>` param in `/authorize` and `/token` | HIGH (SDK source verified) | `OAuthClientProvider._perform_authorization_code_grant()` includes this |
 
-**Phase 4 — UDS Transport**
-Independent of phases 1-3. Highest blast radius (touches server startup). Ship last.
-- Modify: `runtime.py` (add `uds_path`, `uds_url` to `RuntimeState`)
-- Modify: `config/settings.py` (add `AGENT_BRAIN_UDS_ENABLED`, `AGENT_BRAIN_UDS_PATH`)
-- Modify: `api/main.py` `run()` function (dual `uvicorn.Server` with `asyncio.gather`)
-- Modify: `agent-brain-cli` (prefer `uds_url` from `runtime.json` for local calls)
+### Internal Boundaries
+
+| Boundary | Communication | Notes |
+|----------|---------------|-------|
+| `verify_oauth_token` (server) ↔ JWT | Direct decode in-process (co-located) or JWKS fetch (split) | No cross-package call; server is self-contained for auth |
+| `RequireAuthMiddleware` ↔ `TokenVerifier` | Constructor injection; `verify_token()` called per request | Pass `ProviderTokenVerifier` (co-located) or `JwksTokenVerifier` (split) |
+| `scope_guard` ↔ `request.state.auth` | `BearerAuthBackend` populates `request.state.auth.scopes` before tool handler fires | Starlette `AuthenticationMiddleware` must wrap the full app stack |
+| `McpHttpBackend` ↔ `OAuthClientProvider` | Constructor injection; `streamablehttp_client(auth=provider)` | `FileTokenStorage` persists across Pattern A per-call invocations |
+| `agent-brain-server` ↔ `agent-brain-mcp` | MCP server calls REST API over loopback; REST API has its own auth mode; in oauth mode, MCP server still uses loopback + static key to call the REST API | The TWO auth layers are independent: MCP clients authenticate to MCP server via OAuth; MCP server authenticates to REST API via static Bearer (existing SECURITY-01 key) |
+
+---
+
+## Two Deployment Topologies — Component Differences
+
+### Topology A: Co-Located AS/RS (Single Binary)
+
+All OAuth endpoints live in the same `agent-brain-mcp` Starlette app:
+
+```
+agent-brain-mcp Starlette app
+    ├── GET  /.well-known/oauth-protected-resource   → { resource, authorization_servers: [self] }
+    ├── GET  /.well-known/oauth-authorization-server → { issuer: self, token_endpoint, ... }
+    ├── POST /token                                  → issue/refresh JWT (signed with local secret)
+    ├── GET  /authorize                              → PKCE auth code flow
+    ├── POST /register                               → DCR (optional)
+    ├── POST /revoke                                 → token revocation
+    └── /mcp  →  [RequireAuthMiddleware]
+                  → [BearerAuthBackend + ProviderTokenVerifier]
+                  → StreamableHTTPSessionManager
+```
+
+New components unique to Topology A:
+- `OAuthAuthorizationServerProvider` (full impl in `oauth/provider.py`)
+- `OAuthTokenStore` (in-memory, `oauth/token_store.py`)
+- `OAuthClientRegistry` (in-memory, `oauth/client_registry.py`)
+- JWT signed with `AGENT_BRAIN_OAUTH_SECRET_KEY` (HS256) or a local RSA key pair
+- `ProviderTokenVerifier` wraps the provider's `load_access_token()`
+
+Token validation: fully local — no network call. The AS and RS share the same in-process `OAuthAuthorizationServerProvider`, so `verify_token()` reads from the same in-memory store that issued the token.
+
+### Topology B: Split AS/RS (External IdP)
+
+The `agent-brain-mcp` Starlette app exposes ONLY the PRM endpoint:
+
+```
+agent-brain-mcp Starlette app
+    ├── GET  /.well-known/oauth-protected-resource   → { resource, authorization_servers: [idp_url] }
+    └── /mcp  →  [RequireAuthMiddleware]
+                  → [BearerAuthBackend + JwksTokenVerifier]
+                  → StreamableHTTPSessionManager
+```
+
+New components unique to Topology B:
+- `JwksTokenVerifier` (fetches JWKS from `AGENT_BRAIN_OAUTH_JWKS_URI`, caches keys 5 min)
+- OR `IntrospectionTokenVerifier` (calls `AGENT_BRAIN_OAUTH_INTROSPECT_URI` per-token)
+- `AGENT_BRAIN_OAUTH_JWKS_URI` / `AGENT_BRAIN_OAUTH_INTROSPECT_URI` settings
+
+Token validation: `JwksTokenVerifier` — validate JWT signature locally using cached JWKS keys (preferred; no network per request). `IntrospectionTokenVerifier` — one HTTPS call per token (use only if IdP issues opaque tokens). For Keycloak CI, use `JwksTokenVerifier`; Keycloak issues JWTs and exposes a JWKS endpoint.
+
+---
+
+## Build Order
+
+Ordered by: design-doc + security-review first (DoD gate), then foundation → server-side → client-side → scope enforcement → split topology → integration tests.
+
+```
+PHASE 1 — Design Doc + Security Review Gate (DoD prerequisite)
+    • Write v4 OAuth design doc (threat model, topology comparison, scope definitions,
+      token lifecycle, DCR policy, DPoP decision, data-at-rest for token store)
+    • Independent security review before ANY implementation code
+    • Design doc must be approved before Phase 2 begins
+    WHY FIRST: the DoD explicitly requires this; security review may change
+               scope definitions or topology decisions
+
+PHASE 2 — PRM + Settings Foundation (no auth enforcement yet)
+    • NEW: agent_brain_server/config/settings.py → AGENT_BRAIN_AUTH, AGENT_BRAIN_OAUTH_ISSUER
+    • NEW: agent_brain_mcp/config.py → AGENT_BRAIN_OAUTH_RESOURCE, JWKS/introspect URIs
+    • NEW: agent_brain_mcp/oauth/metadata.py → build_prm_route(), build_oasm_route()
+    • MODIFY: agent_brain_mcp/http.py → accept oauth_routes kwarg; mount PRM route in oauth mode
+    • MODIFY: agent_brain_mcp/cli.py → startup gate respects AGENT_BRAIN_AUTH=oauth
+    WHY SECOND: PRM is the root of OAuth discovery; everything else depends on the
+                resource URI and AS URL being correctly configured; verify the
+                /.well-known/oauth-protected-resource response before adding auth middleware
+
+PHASE 3 — Co-Located AS (Topology A server-side)
+    Depends on: Phase 2 (settings + metadata)
+    • NEW: agent_brain_mcp/oauth/token_store.py
+    • NEW: agent_brain_mcp/oauth/client_registry.py
+    • NEW: agent_brain_mcp/oauth/provider.py (OAuthAuthorizationServerProvider full impl)
+    • NEW: agent_brain_mcp/oauth/__init__.py
+    • MODIFY: agent_brain_mcp/http.py → inject RequireAuthMiddleware + auth routes in oauth mode
+    • MODIFY: agent_brain_server/api/security.py → add verify_oauth_token + get_auth_dependency()
+    • MODIFY: agent_brain_server/api/main.py → mount PRM + OASM routes; startup gate validates config
+    • MODIFY: agent_brain_server/api/routers/*.py → swap to get_auth_dependency()
+    WHY THIRD: RS token verification (RequireAuthMiddleware) requires the AS to be issuing
+               tokens before end-to-end tests can pass; build AS first, then enforce
+
+PHASE 4 — Client-Side OAuth Dance (McpHttpBackend)
+    Depends on: Phase 3 (server is issuing tokens)
+    • NEW: agent_brain_mcp/oauth/token_storage.py (FileTokenStorage + InMemoryTokenStorage)
+    • MODIFY: agent_brain_mcp/client.py → McpHttpBackend passes OAuthClientProvider
+    WHY FOURTH: can't test the client dance without a working server; Phase 3 gives
+                a real AS to dance against
+
+PHASE 5 — Per-Tool Scope Enforcement
+    Depends on: Phase 3 (scopes in access tokens); Phase 4 (client requests specific scopes)
+    • NEW: agent_brain_mcp/security/scope_guard.py
+    • MODIFY: agent_brain_mcp/tools/{index,inject,folders,cache,jobs}.py → add scope guards
+    WHY FIFTH: enforcing granular scopes requires the full token validation stack to be
+               working; adding scope guards before Phase 3 yields untestable code
+
+PHASE 6 — Split AS/RS (Topology B — external IdP, Keycloak in CI)
+    Depends on: Phase 3 structure (verifier interface is already abstracted)
+    • NEW: agent_brain_mcp/oauth/verifiers.py → JwksTokenVerifier + IntrospectionTokenVerifier
+    • MODIFY: agent_brain_mcp/http.py → wire JwksTokenVerifier when topology=split
+    • CI: spin up Keycloak container; configure realm + client + scopes; verify end-to-end
+    WHY SIXTH: split topology reuses the Phase 3 middleware stack; only the TokenVerifier
+               impl changes; easiest to add once Topology A is fully tested
+
+PHASE 7 — Integration Tests + DoD Validation
+    Depends on: All prior phases
+    • E2E: 401 challenge → PRM discovery → OASM discovery → DCR → PKCE dance → tool call
+    • Token refresh path (access_token expired, refresh_token present)
+    • Scope enforcement: read-only client gets 403 on admin tool
+    • Topology B: Keycloak-issued JWT accepted
+    • Coverage gate: ≥ 90% on agent_brain_mcp/oauth/ (per DoD)
+```
 
 ---
 
 ## Scaling Considerations
 
-This is a local-first single-user system. Scale targets are single developer / single project.
+This is a single-user, single-instance system. OAuth does not change the scaling posture — it gates access, not throughput.
 
-| Concern | v7.0 Baseline | v8.0 Impact |
-|---------|--------------|-------------|
-| Embedding API costs | Charged per chunk on every reindex | Cache eliminates API calls for unchanged content; amortizes cost to near-zero after first full index |
-| Query latency | Full embed+search per query (~50-200ms) | Cache hit: ~0ms; miss: same as before |
-| File watcher overhead | N/A | watchdog uses inotify/FSEvents/kqueue (OS-native); near-zero CPU when idle |
-| Many watched folders | N/A | Single `Observer` thread handles all watches; no per-folder threads |
-| UDS vs TCP throughput | TCP loopback ~1ms overhead | UDS eliminates TCP stack; relevant for high-frequency CLI polling (`jobs --watch`) |
+| Concern | With `AGENT_BRAIN_AUTH=none` | With `AGENT_BRAIN_AUTH=oauth` |
+|---------|------------------------------|-------------------------------|
+| Per-request overhead | Static compare (~0.1µs) | JWT decode: ~0.5ms (co-located); JWKS cache hit: ~0.5ms; JWKS cache miss: ~50ms network |
+| Token store memory | N/A | In-memory; bounded by number of active sessions; expected < 100 tokens |
+| Token refresh storms | N/A | 15-min access tokens; refresh on expiry; no thundering herd for single-user |
+| JWKS cache staleness | N/A | Cache 5 min; forced refresh on `kid` miss |
+
+The primary operational risk is **JWKS cache staleness** in split topology after an IdP key rotation. Mitigate with: force-refresh on unknown `kid`, plus a background refresh every 5 min.
+
+---
+
+## Anti-Patterns
+
+### Anti-Pattern 1: Double-Auth (Running Static Bearer Check Alongside JWT Verify)
+
+**What people do:** Keep `verify_bearer_token` on all routers AND add `verify_oauth_token` as a second dependency.
+
+**Why it's wrong:** A request carrying a valid OAuth JWT will fail the static Bearer check (the JWT token string is not equal to `settings.API_KEY`), producing a spurious 401. Alternatively, a request with a raw API key bypasses JWT scope enforcement entirely.
+
+**Do this instead:** `get_auth_dependency()` returns ONE dependency based on `AGENT_BRAIN_AUTH`. In `oauth` mode, only `verify_oauth_token` runs. In `basic` mode, only `verify_bearer_token` runs. The two are mutually exclusive on the request path.
+
+### Anti-Pattern 2: Mounting Well-Known Routes Inside the Auth Middleware
+
+**What people do:** Add `/.well-known/oauth-protected-resource` AFTER wrapping the Starlette app with `RequireAuthMiddleware`.
+
+**Why it's wrong:** The PRM endpoint MUST be publicly accessible without authentication — it is the discovery document that tells the client HOW to authenticate. If it's behind `RequireAuthMiddleware`, the client gets a 401 before it can discover the AS, creating an unresolvable chicken-and-egg failure.
+
+**Do this instead:** In `build_asgi_app()`, mount well-known routes on the Starlette `routes` list BEFORE wrapping the `Starlette` app instance with `RequireAuthMiddleware`. The middleware wraps the entire app, but Starlette routes added before the middleware is applied get the request first — OR, add well-known routes to a separate outer Starlette app that then delegates to the auth-wrapped inner app.
+
+### Anti-Pattern 3: Resource URI Mismatch Between PRM and JWT `aud` Claim
+
+**What people do:** Set `AGENT_BRAIN_OAUTH_RESOURCE=https://brain.example.com/` (trailing slash) in the AS when issuing JWTs, but serve the PRM with `resource=https://brain.example.com` (no trailing slash).
+
+**Why it's wrong:** `TokenVerifier.verify_token()` checks `access_token.resource == settings.resource_uri`. String comparison fails. Every token is rejected with 401.
+
+**Do this instead:** Derive both the PRM `resource` field and the JWT `aud` claim from the SAME `AGENT_BRAIN_OAUTH_RESOURCE` setting. Never hard-code either. Normalize the URI (strip trailing slash or always add it — pick one, be consistent).
+
+### Anti-Pattern 4: Using the Loopback Guard Removal Without Enabling TLS
+
+**What people do:** Set `AGENT_BRAIN_AUTH=oauth` to bypass the loopback host guard, then bind to `0.0.0.0` without TLS termination, using plain HTTP for the MCP endpoint.
+
+**Why it's wrong:** OAuth 2.1 requires TLS for all token exchanges. Access tokens and auth codes in plaintext HTTP are trivially intercepted. PKCE protects against code interception but not against token theft in flight.
+
+**Do this instead:** `AGENT_BRAIN_AUTH=oauth` startup gate MUST also check that `AGENT_BRAIN_TLS_CERT` is set (or that a TLS-terminating reverse proxy is configured). Log a CRITICAL warning and exit 2 if `AGENT_BRAIN_AUTH=oauth` AND `AGENT_BRAIN_TLS=false` (the operator must explicitly acknowledge the risk with `AGENT_BRAIN_OAUTH_ALLOW_PLAINTEXT=true`).
+
+### Anti-Pattern 5: Pattern A (Fresh MCP Client per Call) Without Token Persistence
+
+**What people do:** Rely on `McpHttpBackend` default in-memory token storage for the OAuth token across Pattern-A per-call invocations.
+
+**Why it's wrong:** Pattern A creates a fresh `streamablehttp_client` per MCP call. In-memory token storage is discarded when the async context exits. The next call triggers the full OAuth dance again (browser redirect, user interaction). A 60-second agent workflow executes dozens of tool calls — each would require user approval.
+
+**Do this instead:** Wire `FileTokenStorage(state_dir / "mcp-oauth-tokens.json")` into `McpHttpBackend`. `chmod 0o600` the file. The OAuth dance happens once; subsequent calls load the cached token and refresh silently when expired.
 
 ---
 
 ## Sources
 
-- Uvicorn settings (UDS option): [uvicorn.dev/settings](https://uvicorn.dev/settings/) — HIGH confidence
-- Uvicorn dual-server asyncio pattern: [github.com/Kludex/uvicorn/issues/541](https://github.com/Kludex/uvicorn/issues/541) — MEDIUM confidence (community-verified, not official docs)
-- watchdog library: [pypi.org/project/watchdog](https://pypi.org/project/watchdog/) — HIGH confidence
-- asyncio + watchdog thread bridge: [gist.github.com/mivade](https://gist.github.com/mivade/f4cb26c282d421a62e8b9a341c7c65f6) — MEDIUM confidence (community gist)
-- cachetools TTLCache + LRUCache: [cachetools.readthedocs.io](https://cachetools.readthedocs.io/) — HIGH confidence
-- diskcache SQLite-backed cache: [grantjenks.com/docs/diskcache](https://grantjenks.com/docs/diskcache/tutorial.html) — HIGH confidence
-- Codebase read directly (HIGH confidence): `api/main.py`, `services/indexing_service.py`, `services/query_service.py`, `job_queue/job_worker.py`, `services/folder_manager.py`, `services/manifest_tracker.py`, `indexing/embedding.py`, `storage/protocol.py`, `config/settings.py`, `runtime.py`
+- MCP Python SDK `mcp.server.auth` module structure: [DeepWiki — Authentication & Security](https://deepwiki.com/modelcontextprotocol/python-sdk/7-authentication-and-security) — HIGH confidence (SDK source verified)
+- `OAuthClientProvider` and `async_auth_flow` implementation: [python-sdk/src/mcp/client/auth/oauth2.py](https://github.com/modelcontextprotocol/python-sdk/blob/main/src/mcp/client/auth/oauth2.py) — HIGH confidence (source read directly)
+- MCP simple-auth example (AS/RS separation): [python-sdk examples/servers/simple-auth](https://github.com/modelcontextprotocol/python-sdk/tree/main/examples/servers/simple-auth) — HIGH confidence
+- `create_auth_routes()` endpoint list: SDK source via DeepWiki — HIGH confidence
+- RFC 9728 mount path issue in multi-tenant deployments: [GitHub issue #1751](https://github.com/modelcontextprotocol/python-sdk/issues/1751) — HIGH confidence (active issue, directly relevant)
+- RFC 9728 PRM URL mismatch issue: [GitHub issue #1400](https://github.com/modelcontextprotocol/python-sdk/issues/1400) — HIGH confidence
+- MCP client ignores path-based AS URL: [Microsoft Q&A — MCP Client Ignores authorization_servers Path](https://learn.microsoft.com/en-nz/answers/questions/5904511/mcp-client-ignores-authorization-servers-path-from) — MEDIUM confidence (confirmed by multiple community reports)
+- Refresh-token gap in MCP CLI clients: [SecureCoders blog post](https://www.securecoders.com/blog/mcp-cli-refresh-token-gap) — MEDIUM confidence (June 2026 survey; SDK PR #2039 open)
+- MCP authorization spec (draft): [modelcontextprotocol.info/specification/draft/basic/authorization/](https://modelcontextprotocol.info/specification/draft/basic/authorization/) — HIGH confidence (canonical spec)
+- FastAPI JWT + scope enforcement: [FastAPI security tutorial](https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/) — HIGH confidence
+- PyJWT `PyJWKClient` JWKS caching: [PyPI + FastAPI Keycloak integration](https://skycloak.io/blog/keycloak-fastapi-python-api-authentication/) — MEDIUM confidence (verified pattern, not official docs)
+- Existing codebase read directly (HIGH confidence):
+  - `agent_brain_server/api/security.py` (verify_bearer_token, static-Bearer dep)
+  - `agent_brain_server/api/main.py` (router wiring, startup gate, lifespan)
+  - `agent_brain_server/config/settings.py` (Settings class, API_KEY, INSECURE_NO_AUTH)
+  - `agent_brain_mcp/http.py` (build_asgi_app, StreamableHTTPSessionManager, loopback guard)
+  - `agent_brain_mcp/client.py` (McpHttpBackend, Pattern A, DEFAULT_ENV_ALLOWLIST)
+  - `agent_brain_mcp/security/__init__.py` (file sandbox re-export shim, "no logic" contract)
+  - `docs/roadmaps/mcp/v4-oauth-for-remote.md` (deployment shapes, scope definitions, token lifecycle)
+  - `.planning/PROJECT.md` (v10.4 milestone scope, OAuth requirements, DoD)
 
 ---
 
-*Architecture research for: Agent Brain v8.0 Performance & DX*
-*Researched: 2026-03-06*
+*Architecture research for: Agent Brain v10.4 — OAuth 2.1 integration with FastAPI + MCP Streamable HTTP*
+*Researched: 2026-06-14*

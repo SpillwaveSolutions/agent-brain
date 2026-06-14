@@ -200,6 +200,14 @@ class IndexingState(BaseModel):
     started_at: datetime | None = Field(None, description="When indexing started")
     completed_at: datetime | None = Field(None, description="When indexing completed")
     error: str | None = Field(None, description="Error message if failed")
+    graph_degraded: bool = Field(
+        default=False,
+        description=(
+            "True when the last graph build failed (kuzu crash / non-zero child "
+            "exit) but vector + BM25 indexing completed normally. Reset to False "
+            "at the start of each new indexing job."
+        ),
+    )
 
     @property
     def progress_percent(self) -> float:

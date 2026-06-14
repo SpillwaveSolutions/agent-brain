@@ -29,6 +29,7 @@ from agent_brain_server.indexing import (
 from agent_brain_server.indexing.chunking import CodeChunk, CodeChunker, TextChunk
 from agent_brain_server.indexing.graph_index import (
     GraphIndexManager,
+    build_from_documents_isolated,
     get_graph_index_manager,
 )
 from agent_brain_server.models import IndexingState, IndexingStatusEnum, IndexRequest
@@ -38,6 +39,7 @@ from agent_brain_server.storage import (
     get_storage_backend,
     get_vector_store,
 )
+from agent_brain_server.storage.graph_errors import GraphBuildFailedError
 
 logger = logging.getLogger(__name__)
 
@@ -714,26 +716,39 @@ class IndexingService:
                                 "nodes (incremental, fallback)"
                             )
 
-            # Step 6: Build graph index if enabled (Feature 113)
+            # Step 6: Build graph index if enabled (Feature 113 / Phase 64 GSTAB-01)
+            # The kuzu write/commit path runs in an isolated subprocess so a native
+            # SIGSEGV / catalog corruption exits the child (non-zero exit code) without
+            # killing the parent server. GraphBuildFailedError is caught HERE so the
+            # failure never reaches the outer except Exception handler that would mark
+            # the whole job FAILED -- vector + BM25 are already committed above.
+            triplet_count = 0
             if _graphrag_enabled():
                 if progress_callback:
                     await progress_callback(97, 100, "Building graph index...")
 
-                def graph_progress(current: int, total: int, message: str) -> None:
-                    # Synchronous callback wrapper
-                    logger.debug(f"Graph indexing: {message}")
-
-                graph_mgr = self.graph_index_manager
-
                 def _build_graph() -> int:
-                    return graph_mgr.build_from_documents(
+                    return build_from_documents_isolated(
                         chunks,
-                        progress_callback=graph_progress,
                         source_job_id=job_id,
                     )
 
-                triplet_count = await asyncio.to_thread(_build_graph)
-                logger.info(f"Graph index built with {triplet_count} triplets")
+                try:
+                    triplet_count = await asyncio.to_thread(_build_graph)
+                    logger.info(f"Graph index built with {triplet_count} triplets")
+                except GraphBuildFailedError as graph_exc:
+                    # Per-job degradation: vector + BM25 already committed above.
+                    # Do NOT let the graph failure mark the whole job FAILED -- log
+                    # loudly and continue so the operator gets a usable index minus
+                    # the graph layer.
+                    triplet_count = 0
+                    self._state.graph_degraded = True
+                    logger.warning(
+                        "Graph index build degraded for job %s: %s. Vector + BM25 "
+                        "indexing committed; graph was NOT updated this run.",
+                        job_id,
+                        graph_exc,
+                    )
 
             # Mark as completed
             self._state.status = IndexingStatusEnum.COMPLETED
@@ -868,13 +883,18 @@ class IndexingService:
             ),
             "error": self._state.error,
             "indexed_folders": indexed_folders,
-            # Graph index status (Feature 113)
+            # Graph index status (Feature 113 / Phase 64 GSTAB-01)
+            # degraded_last_run: True when the last graph build failed (kuzu
+            # crash) but vector + BM25 completed normally. Plan 02's live-count
+            # work will extend this dict further but does not depend on it.
             "graph_index": {
                 "enabled": graph_status.enabled,
                 "initialized": graph_status.initialized,
                 "entity_count": graph_status.entity_count,
                 "relationship_count": graph_status.relationship_count,
                 "store_type": graph_status.store_type,
+                "counts_stale": graph_status.counts_stale,
+                "degraded_last_run": self._state.graph_degraded,
             },
         }
 
