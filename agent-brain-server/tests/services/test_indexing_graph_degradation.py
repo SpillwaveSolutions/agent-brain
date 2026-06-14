@@ -23,7 +23,6 @@ import pytest
 from agent_brain_server.models import IndexingStatusEnum
 from agent_brain_server.storage.graph_errors import GraphBuildFailedError
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -35,10 +34,18 @@ def _make_minimal_service() -> Any:
     The service is wired so that the main pipeline steps succeed quickly
     (document load, chunk, embed, store) and only the graph build is the
     test subject.
+
+    Key mocking decisions:
+    - document_loader.load_files returns 1 fake doc
+    - chunker.chunk_documents returns 1 fake chunk (no code files)
+    - embedding_generator.embed_chunks is async, returns [[0.1, 0.2, 0.3]]
+    - storage_backend: all async methods are AsyncMock
+    - bm25_manager.build_index is a sync MagicMock (called via asyncio.to_thread)
+    - graph_index_manager.get_status returns a simple MagicMock
     """
     from agent_brain_server.services.indexing_service import IndexingService
 
-    # Storage backend mock
+    # Storage backend mock -- all async I/O mocked
     storage_backend = MagicMock()
     storage_backend.is_initialized = True
     storage_backend.initialize = AsyncMock()
@@ -46,43 +53,49 @@ def _make_minimal_service() -> Any:
     storage_backend.add_chunks = AsyncMock()
     storage_backend.get_embedding_metadata = AsyncMock(return_value=None)
     storage_backend.validate_embedding_compatibility = MagicMock()
+    storage_backend.upsert_documents = AsyncMock()
+    storage_backend.set_embedding_metadata = AsyncMock()
 
-    # Document loader mock -- returns 1 fake document
+    # BM25 manager mock -- build_index is sync (called via asyncio.to_thread).
+    # Must be set on storage_backend.bm25_manager so the service's __init__
+    # picks it up from there (it checks hasattr(storage_backend, 'bm25_manager')).
+    bm25_manager = MagicMock()
+    bm25_manager.build_index = MagicMock()
+    storage_backend.bm25_manager = bm25_manager
+
+    # Document loader mock -- returns 1 fake document (type "doc")
     fake_doc = MagicMock()
     fake_doc.metadata = {"source_type": "doc", "source": "/fake/doc.txt"}
     fake_doc.text = "Alice works at ACME."
     document_loader = MagicMock()
     document_loader.load_files = AsyncMock(return_value=[fake_doc])
 
-    # Chunker mock
-    from llama_index.core.schema import TextNode
-
-    fake_chunk = MagicMock(spec=TextNode)
-    fake_chunk.chunk_id = "chunk-001"
-    fake_chunk.get_embedding = MagicMock(return_value=None)
-    fake_chunk.metadata = MagicMock()
-    fake_chunk.metadata.to_dict = MagicMock(
+    # Chunker mock -- returns 1 fake chunk with proper metadata
+    fake_meta = MagicMock()
+    fake_meta.to_dict = MagicMock(
         return_value={"source_type": "doc", "source": "/fake/doc.txt"}
     )
+    fake_chunk = MagicMock()
+    fake_chunk.chunk_id = "chunk-001"
+    fake_chunk.text = "Alice works at ACME."
+    fake_chunk.metadata = fake_meta
     chunker = MagicMock()
     chunker.chunk_documents = AsyncMock(return_value=[fake_chunk])
 
-    # Embedding generator mock
+    # Embedding generator mock -- embed_chunks is async
     embedding_generator = MagicMock()
-    embedding_generator.generate_embeddings = AsyncMock(return_value=[[0.1, 0.2, 0.3]])
+    embedding_generator.embed_chunks = AsyncMock(return_value=[[0.1, 0.2, 0.3]])
     embedding_generator.get_embedding_dimensions = MagicMock(return_value=3)
 
-    # Graph index manager mock (in-process manager -- NOT used by the new path)
+    # Graph index manager mock -- get_status called by get_status()
+    graph_status_mock = MagicMock()
+    graph_status_mock.enabled = True
+    graph_status_mock.initialized = True
+    graph_status_mock.entity_count = 0
+    graph_status_mock.relationship_count = 0
+    graph_status_mock.store_type = "kuzu"
     graph_index_manager = MagicMock()
-    graph_index_manager.get_status = MagicMock(
-        return_value=MagicMock(
-            enabled=True,
-            initialized=True,
-            entity_count=0,
-            relationship_count=0,
-            store_type="kuzu",
-        )
-    )
+    graph_index_manager.get_status = MagicMock(return_value=graph_status_mock)
 
     svc = IndexingService(
         storage_backend=storage_backend,
@@ -92,6 +105,11 @@ def _make_minimal_service() -> Any:
         graph_index_manager=graph_index_manager,
     )
     return svc
+
+
+def _run(coro: Any) -> Any:
+    """Run an async coroutine in the test event loop."""
+    return asyncio.get_event_loop().run_until_complete(coro)
 
 
 # ---------------------------------------------------------------------------
@@ -127,9 +145,7 @@ class TestGraphFailureLeavesJobCompleted:
                 side_effect=graph_exc,
             ),
         ):
-            asyncio.get_event_loop().run_until_complete(
-                svc._run_indexing_pipeline(request, job_id="job-degraded-001")
-            )
+            _run(svc._run_indexing_pipeline(request, job_id="job-degraded-001"))
 
         assert svc._state.status == IndexingStatusEnum.COMPLETED, (
             f"Job must be COMPLETED after graph degradation, "
@@ -154,9 +170,7 @@ class TestGraphFailureLeavesJobCompleted:
                 side_effect=GraphBuildFailedError("graph failed", exit_code=1),
             ),
         ):
-            asyncio.get_event_loop().run_until_complete(
-                svc._run_indexing_pipeline(request, job_id="job-degraded-002")
-            )
+            _run(svc._run_indexing_pipeline(request, job_id="job-degraded-002"))
 
         assert svc._state.status != IndexingStatusEnum.FAILED
 
@@ -194,16 +208,13 @@ class TestGraphDegradationIsLogged:
                 ),
             ),
         ):
-            asyncio.get_event_loop().run_until_complete(
-                svc._run_indexing_pipeline(request, job_id="job-log-test")
-            )
+            _run(svc._run_indexing_pipeline(request, job_id="job-log-test"))
 
         # At least one WARNING log must mention graph degradation
-        warning_records = [
-            r for r in caplog.records if r.levelno >= logging.WARNING
-        ]
+        warning_records = [r for r in caplog.records if r.levelno >= logging.WARNING]
         assert any(
-            "graph" in r.message.lower() or "degraded" in r.message.lower()
+            "graph" in r.message.lower()
+            or "degraded" in r.message.lower()
             or "graph" in str(r.args).lower()
             for r in warning_records
         ), (
@@ -226,16 +237,14 @@ class TestNonGraphExceptionFailsJob:
         from agent_brain_server.models import IndexRequest
 
         svc = _make_minimal_service()
-        # Make the vector store raise an error
-        svc.storage_backend.add_chunks = AsyncMock(
+        # Make the vector store raise an error during upsert (step 4)
+        svc.storage_backend.upsert_documents = AsyncMock(
             side_effect=RuntimeError("Vector store connection lost")
         )
         request = IndexRequest(folder_path="/fake/docs", recursive=False)
 
         with pytest.raises(RuntimeError, match="Vector store connection lost"):
-            asyncio.get_event_loop().run_until_complete(
-                svc._run_indexing_pipeline(request, job_id="job-vec-fail")
-            )
+            _run(svc._run_indexing_pipeline(request, job_id="job-vec-fail"))
 
         assert svc._state.status == IndexingStatusEnum.FAILED
 
@@ -258,9 +267,7 @@ class TestNonGraphExceptionFailsJob:
             ),
         ):
             # Must NOT raise -- the exception must be fully handled
-            asyncio.get_event_loop().run_until_complete(
-                svc._run_indexing_pipeline(request, job_id="job-swallow")
-            )
+            _run(svc._run_indexing_pipeline(request, job_id="job-swallow"))
 
 
 # ---------------------------------------------------------------------------
@@ -290,13 +297,11 @@ class TestGraphDegradedMarkerInStatus:
                 side_effect=GraphBuildFailedError("graph failed", exit_code=1),
             ),
         ):
-            asyncio.get_event_loop().run_until_complete(
-                svc._run_indexing_pipeline(request, job_id="job-marker")
-            )
+            _run(svc._run_indexing_pipeline(request, job_id="job-marker"))
 
-        assert svc._state.graph_degraded is True, (
-            "IndexingState.graph_degraded must be True after graph build failure"
-        )
+        assert (
+            svc._state.graph_degraded is True
+        ), "IndexingState.graph_degraded must be True after graph build failure"
 
     def test_graph_degraded_in_get_status(self) -> None:
         """get_status() includes 'degraded_last_run': True in the graph_index dict."""
@@ -316,11 +321,9 @@ class TestGraphDegradedMarkerInStatus:
                 side_effect=GraphBuildFailedError("graph failed", exit_code=1),
             ),
         ):
-            asyncio.get_event_loop().run_until_complete(
-                svc._run_indexing_pipeline(request, job_id="job-status")
-            )
+            _run(svc._run_indexing_pipeline(request, job_id="job-status"))
 
-        status = asyncio.get_event_loop().run_until_complete(svc.get_status())
+        status = _run(svc.get_status())
 
         graph_info = status.get("graph_index", {})
         assert graph_info.get("degraded_last_run") is True, (
@@ -329,7 +332,7 @@ class TestGraphDegradedMarkerInStatus:
         )
 
     def test_graph_degraded_false_on_success(self) -> None:
-        """graph_degraded is False (or not set) when graph build succeeds."""
+        """graph_degraded is False when graph build succeeds."""
         from agent_brain_server.models import IndexRequest
 
         svc = _make_minimal_service()
@@ -346,10 +349,8 @@ class TestGraphDegradedMarkerInStatus:
                 return_value=7,
             ),
         ):
-            asyncio.get_event_loop().run_until_complete(
-                svc._run_indexing_pipeline(request, job_id="job-success")
-            )
+            _run(svc._run_indexing_pipeline(request, job_id="job-success"))
 
-        assert not svc._state.graph_degraded, (
-            "graph_degraded must be False after a successful graph build"
-        )
+        assert (
+            not svc._state.graph_degraded
+        ), "graph_degraded must be False after a successful graph build"
