@@ -29,6 +29,15 @@ from agent_brain_cli.config import (
     resolve_project_root_with_strategy,
 )
 
+# agent-brain-rag is a declared dependency of agent-brain-cli. Import at module
+# level so apply_safe_fixes can be patched cleanly in tests.
+try:
+    from agent_brain_server.storage.graph_store import (
+        GraphStoreManager as GraphStoreManager,
+    )
+except ImportError:  # pragma: no cover
+    GraphStoreManager = None
+
 #: Severity returned by every diagnostic check.
 SEVERITY_OK = "ok"
 SEVERITY_WARN = "warn"
@@ -463,6 +472,130 @@ def _check_graph_store_health(state_dir: Path) -> CheckResult | None:
     )
 
 
+def _get_live_kuzu_relationship_count(graph_dir: Path) -> int | None:
+    """Open the kuzu DB read-only and return the live relationship count.
+
+    Returns ``None`` on any failure (not-installed, corrupt, etc.) — the
+    caller treats a None as "can't determine" and skips the staleness check.
+
+    Args:
+        graph_dir: The graph_index directory containing ``kuzu_db``.
+    """
+    try:
+        import kuzu  # noqa: PLC0415
+    except ImportError:
+        return None
+    kuzu_db_path = graph_dir / "kuzu_db"
+    try:
+        db = kuzu.Database(str(kuzu_db_path), read_only=True)
+        conn = kuzu.Connection(db)
+        result = conn.execute("MATCH ()-[r]->() RETURN COUNT(r)")
+        row = result.get_next()
+        return int(row[0]) if row else 0
+    except (IndexError, RuntimeError, OSError, TypeError, Exception):  # noqa: BLE001
+        return None
+
+
+def _check_graph_staleness(state_dir: Path) -> CheckResult | None:
+    """Warn when the live kuzu graph appears STALE (snapshot > live contents).
+
+    This check is SEPARATE from ``_check_graph_store_health`` — that one
+    verifies the DB opens without corruption; this one verifies the live
+    relationship count is not significantly below the latest snapshot count,
+    which signals an ``AGENT_BRAIN_JOB_TIMEOUT`` rollback left the graph
+    partially empty.
+
+    Returns ``None`` when:
+    - GraphRAG is not configured or store_type != "kuzu"
+    - The kuzu DB does not exist on disk yet
+    - No snapshot exists (nothing to compare against)
+    - The live COUNT query fails (could be a format change; don't FAIL here)
+
+    Args:
+        state_dir: Project state directory.
+    """
+    block = _read_graphrag_block(state_dir)
+    if not block or not block.get("enabled"):
+        return None
+    store_type = str(block.get("store_type") or "simple").lower()
+    if store_type != "kuzu":
+        return None
+
+    graph_dir = _graph_index_dir(state_dir)
+    kuzu_db_path = graph_dir / "kuzu_db"
+    if not kuzu_db_path.exists():
+        return None
+
+    # Check that at least one snapshot exists.
+    try:
+        from agent_brain_server.storage.graph_snapshot import (  # noqa: PLC0415
+            GraphSnapshotManager,
+        )
+    except ImportError:
+        # Server package not installed — fall back to manual JSON scan.
+        snap_dir = graph_dir / "snapshots"
+        if not snap_dir.is_dir() or not any(snap_dir.iterdir()):
+            return None
+        # Best-effort: pick the newest file and count triplets.
+        candidates = sorted(
+            (p for p in snap_dir.iterdir() if p.is_file() and p.suffix == ".json"),
+            key=lambda p: (p.stat().st_mtime, p.name),
+            reverse=True,
+        )
+        snapshot_count = 0
+        for snap in candidates:
+            try:
+                payload = json.loads(snap.read_text())
+                snapshot_count = len(payload.get("triplets") or [])
+                break
+            except (OSError, json.JSONDecodeError):
+                continue
+    else:
+        snap_mgr = GraphSnapshotManager(graph_dir)
+        if snap_mgr.latest() is None:
+            return None
+        loaded = snap_mgr.load_latest_valid()
+        if loaded is None:
+            return None
+        _snap_path, triplets = loaded
+        snapshot_count = len(triplets)
+
+    if snapshot_count == 0:
+        return None
+
+    live_count = _get_live_kuzu_relationship_count(graph_dir)
+    if live_count is None:
+        # Can't determine live count — skip rather than raise a false alarm.
+        return None
+
+    if snapshot_count > live_count:
+        return CheckResult(
+            "graph_staleness",
+            SEVERITY_WARN,
+            f"Live kuzu graph has {live_count} relationships but the latest "
+            f"snapshot has {snapshot_count} — the graph looks stale (likely an "
+            "AGENT_BRAIN_JOB_TIMEOUT rollback).",
+            fix=(
+                "Run `agent-brain graph restore-from-snapshot` (or "
+                "`agent-brain doctor --fix`) to replay the snapshot."
+            ),
+            details={
+                "live_relationships": live_count,
+                "snapshot_triplets": snapshot_count,
+            },
+        )
+
+    return CheckResult(
+        "graph_staleness",
+        SEVERITY_OK,
+        "Live kuzu graph is consistent with the latest snapshot.",
+        details={
+            "live_relationships": live_count,
+            "snapshot_triplets": snapshot_count,
+        },
+    )
+
+
 def _server_is_running(state_dir: Path) -> bool:
     """Best-effort check for an active server lock under state_dir."""
     return (state_dir / "server.lock").exists() or (state_dir / "lock").exists()
@@ -537,6 +670,11 @@ def run_doctor(server_url_override: str | None = None) -> DoctorReport:
     graph_check = _check_graph_store_health(state_dir)
     if graph_check is not None:
         checks.append(graph_check)
+
+    # Phase 64 GSTAB-02 — warn when live kuzu is stale (snapshot > live count).
+    stale_check = _check_graph_staleness(state_dir)
+    if stale_check is not None:
+        checks.append(stale_check)
 
     checks.append(_check_gitignore(project_root))
 
@@ -626,6 +764,34 @@ def apply_safe_fixes(report: DoctorReport) -> list[str]:
                     "No snapshot available to restore; graph index will "
                     "start empty. Re-run `agent-brain index <folder>` to "
                     "rebuild."
+                )
+        elif check.name == "graph_staleness" and check.status == SEVERITY_WARN:
+            # Phase 64 GSTAB-02 — restore a stale (but non-corrupt) kuzu graph.
+            if _server_is_running(state_dir):
+                actions.append(
+                    "Skipped graph restore: server appears to be running. "
+                    "Stop it with `agent-brain stop` first, then re-run "
+                    "`agent-brain doctor --fix`."
+                )
+                continue
+            graph_dir = _graph_index_dir(state_dir)
+            if GraphStoreManager is None:  # pragma: no cover
+                actions.append(
+                    "Could not import agent-brain-server to perform restore. "
+                    "Run `agent-brain graph restore-from-snapshot` manually."
+                )
+                continue
+            try:
+                mgr = GraphStoreManager(graph_dir, "kuzu")
+                restored_count = mgr.restore_from_snapshot(None)
+                actions.append(
+                    f"Restored {restored_count} triplets from the latest "
+                    f"snapshot into {graph_dir}."
+                )
+            except Exception as exc:  # noqa: BLE001
+                actions.append(
+                    f"Graph restore failed: {exc}. "
+                    "Run `agent-brain graph restore-from-snapshot` manually."
                 )
     return actions
 
