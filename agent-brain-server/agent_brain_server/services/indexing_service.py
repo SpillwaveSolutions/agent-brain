@@ -893,6 +893,7 @@ class IndexingService:
                 "entity_count": graph_status.entity_count,
                 "relationship_count": graph_status.relationship_count,
                 "store_type": graph_status.store_type,
+                "counts_stale": graph_status.counts_stale,
                 "degraded_last_run": self._state.graph_degraded,
             },
         }

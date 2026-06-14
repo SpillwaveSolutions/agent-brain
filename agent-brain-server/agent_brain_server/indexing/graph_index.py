@@ -967,13 +967,17 @@ class GraphIndexManager:
                 store_type=settings.GRAPH_STORE_TYPE,
             )
 
+        # Use live_counts() instead of the drifting bookkeeping properties so
+        # the health status reflects kuzu reality (GSTAB-03 / Phase 64 Plan 02).
+        entities, relationships, counts_stale = self.graph_store.live_counts()
         return GraphIndexStatus(
             enabled=True,
             initialized=self.graph_store.is_initialized,
-            entity_count=self.graph_store.entity_count,
-            relationship_count=self.graph_store.relationship_count,
+            entity_count=entities,
+            relationship_count=relationships,
             last_updated=self.graph_store.last_updated,
             store_type=self.graph_store.store_type,
+            counts_stale=counts_stale,
         )
 
     def clear(self) -> None:
