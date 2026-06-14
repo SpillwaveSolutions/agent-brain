@@ -462,9 +462,7 @@ class TestStartupGateAtBuildTime:
     ) -> None:
         """build_asgi_app() does NOT exit when oauth mode has a valid resource URI."""
         monkeypatch.setenv("AGENT_BRAIN_AUTH", "oauth")
-        monkeypatch.setenv(
-            "AGENT_BRAIN_OAUTH_RESOURCE", "https://mcp.example.com/mcp"
-        )
+        monkeypatch.setenv("AGENT_BRAIN_OAUTH_RESOURCE", "https://mcp.example.com/mcp")
         backend_client = httpx.Client(
             transport=httpx.MockTransport(
                 lambda _: httpx.Response(200, json={"detail": "test-stub"})
