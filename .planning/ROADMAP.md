@@ -185,7 +185,7 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
 | 63. Tooling + docs + integration page                       | v10.3     | 3/3            | Complete    | 2026-06-12 |
 | 64. GraphRAG stability + subscriptions debug endpoint       | v10.4     | 0/4            | Planned     | -          |
 | 65. OAuth design doc + security review gate                 | 1/2 | Complete    | 2026-06-14 | -          |
-| 66. OAuth settings foundation + PRM/OASM public endpoints   | 2/2 | Complete   | 2026-06-14 | -          |
+| 66. OAuth settings foundation + PRM/OASM public endpoints   | 2/2 | Complete    | 2026-06-14 | -          |
 | 67. Co-located AS + RS middleware                           | v10.4     | 0/TBD          | Not started | -          |
 | 68. Per-tool scope enforcement                              | v10.4     | 0/TBD          | Not started | -          |
 | 69. McpHttpBackend client-side OAuth dance                  | v10.4     | 0/TBD          | Not started | -          |
