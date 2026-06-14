@@ -1,36 +1,37 @@
 ---
 gsd_state_version: 1.0
-milestone: v10.3
-milestone_name: MCP v3 — CLI-via-MCP + Framework Matrix
-current_phase: 63
-status: completed
-stopped_at: Completed 63-02-PLAN.md (nightly advisory framework-matrix CI workflow — TOOLING-V3-02 closed)
-last_updated: "2026-06-14T06:10:40.094Z"
+milestone: v10.4
+milestone_name: "MCP v4: OAuth 2.1 + GraphRAG Stability"
+current_phase: 64
+status: defining_requirements
+stopped_at: Milestone v10.4 started — scope set (bugs first, then OAuth); research-first chosen; defining requirements
+last_updated: "2026-06-14T06:40:00.000Z"
 progress:
-  total_phases: 8
-  completed_phases: 8
-  total_plans: 24
-  completed_plans: 24
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Agent Brain — Project State
 
 **Last Updated:** 2026-06-14
-**Current Milestone:** v10.3 MCP v3 — CLI-via-MCP + Framework Matrix — ✅ SHIPPED
-**Status:** v10.3 archived; planning next milestone
-**Current Phase:** — (between milestones)
+**Current Milestone:** v10.4 — MCP v4: OAuth 2.1 + GraphRAG Stability
+**Status:** Defining requirements (research-first)
+**Current Phase:** 64 — not started (defining requirements)
 
 ## Current Position
 
-v10.3 shipped 2026-06-14 (8 phases, 24 plans, 23/23 requirements). Milestone audit passed; CLI-MCP-04 DoD-anchor env-forwarding gap found by the integration trace and fixed on-branch (`fix(57)`). Archived to `milestones/v10.3-*`. PR #211 open.
-**Next:** `/gsd:new-milestone` (strongest candidate: OAuth 2.1 for HTTP transport, #188 — depends on v10.3's `McpHttpBackend`).
+Phase: Not started (defining requirements)
+Plan: —
+Status: v10.4 started 2026-06-14 after a full backlog sweep (25 open issues + 8 GSD todos bucketed). Scope: bugs first (#178 kuzu SIGSEGV, #184 snapshot scope-gap), then OAuth 2.1 (#188, builds on v10.3's `McpHttpBackend`). Enterprise hardening (#200-205) + feature backlog deferred. Research-first chosen for the OAuth/MCP-auth stack.
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-06-14)
 
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Phase 63 — tooling-docs-integration-page
+**Current focus:** v10.4 — defining requirements (OAuth 2.1 + GraphRAG stability)
 
 ## Milestone Summary
 
