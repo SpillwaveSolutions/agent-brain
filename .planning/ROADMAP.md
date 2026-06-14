@@ -102,7 +102,9 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
   2. Design doc cites the verified live MCP Authorization spec version (and explicitly acknowledges whether the 2026-07-28 RC has landed and what it changes)
   3. An independent security reviewer has signed off on the design doc (documented in the doc's sign-off section) before any Phase 66+ implementation code is committed
   4. The design doc records the explicit decision on CIMD-vs-DCR registration and confirms DPoP can be deferred without violating any current-spec MUST
-**Plans**: TBD
+**Plans**: 2 plans (2 waves — design authoring then independent review + human sign-off gate)
+- [ ] 65-01-PLAN.md — OAUTH-01: author the v4 OAuth design doc (all 10 mandatory sections; spec re-verification)
+- [ ] 65-02-PLAN.md — OAUTH-01: independent adversarial security review + project-owner sign-off gate (autonomous: false)
 
 ### Phase 66: OAuth Settings Foundation + PRM/OASM Public Endpoints
 **Goal**: The OAuth discovery root is live — unauthenticated clients can find the authorization server and learn the PKCE requirement; the `basic` mode is formalized as the LAN bridge; all three auth-mode toggle paths are wired at the settings layer.
@@ -180,7 +182,7 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
 | 62. TypeScript framework adapter matrix                     | v10.3     | 2/2            | Complete    | 2026-06-12 |
 | 63. Tooling + docs + integration page                       | v10.3     | 3/3            | Complete    | 2026-06-12 |
 | 64. GraphRAG stability + subscriptions debug endpoint       | v10.4     | 0/4            | Planned     | -          |
-| 65. OAuth design doc + security review gate                 | v10.4     | 0/TBD          | Not started | -          |
+| 65. OAuth design doc + security review gate                 | v10.4     | 0/2            | Planned     | -          |
 | 66. OAuth settings foundation + PRM/OASM public endpoints   | v10.4     | 0/TBD          | Not started | -          |
 | 67. Co-located AS + RS middleware                           | v10.4     | 0/TBD          | Not started | -          |
 | 68. Per-tool scope enforcement                              | v10.4     | 0/TBD          | Not started | -          |
