@@ -5,7 +5,7 @@ milestone_name: MCP v3 — CLI-via-MCP + Framework Matrix
 current_phase: 63
 status: completed
 stopped_at: Completed 63-02-PLAN.md (nightly advisory framework-matrix CI workflow — TOOLING-V3-02 closed)
-last_updated: "2026-06-12T16:41:02.944Z"
+last_updated: "2026-06-14T06:10:40.094Z"
 progress:
   total_phases: 8
   completed_phases: 8
@@ -15,19 +15,19 @@ progress:
 
 # Agent Brain — Project State
 
-**Last Updated:** 2026-06-12
-**Current Milestone:** v10.3 MCP v3 — CLI-via-MCP + Framework Matrix
-**Status:** Milestone complete
-**Current Phase:** 63
+**Last Updated:** 2026-06-14
+**Current Milestone:** v10.3 MCP v3 — CLI-via-MCP + Framework Matrix — ✅ SHIPPED
+**Status:** v10.3 archived; planning next milestone
+**Current Phase:** — (between milestones)
 
 ## Current Position
 
-Phase: 63 (tooling-docs-integration-page) — EXECUTING (3/3 plans complete)
-Plan: 3 of 3 (all plans executed)
+v10.3 shipped 2026-06-14 (8 phases, 24 plans, 23/23 requirements). Milestone audit passed; CLI-MCP-04 DoD-anchor env-forwarding gap found by the integration trace and fixed on-branch (`fix(57)`). Archived to `milestones/v10.3-*`. PR #211 open.
+**Next:** `/gsd:new-milestone` (strongest candidate: OAuth 2.1 for HTTP transport, #188 — depends on v10.3's `McpHttpBackend`).
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-08)
+See: .planning/PROJECT.md (updated 2026-06-14)
 
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
 **Current focus:** Phase 63 — tooling-docs-integration-page

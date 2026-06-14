@@ -1,5 +1,15 @@
 # Milestones
 
+## v10.3 MCP v3 — CLI-via-MCP + Framework Matrix (Shipped: 2026-06-14)
+
+**Phases completed:** 8 phases, 24 plans, 0 tasks
+
+**Key accomplishments:**
+
+- (none recorded)
+
+---
+
 ## v10.2 MCP v2 — Subscriptions, HTTP Transport, & Tool Completion (Shipped: 2026-06-03)
 
 **Phases completed:** 6 phases (50-55), 24 plans, ~530 new tests
