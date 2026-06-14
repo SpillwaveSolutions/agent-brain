@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import shutil
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -31,6 +32,11 @@ from agent_brain_server.storage.graph_snapshot import (
 )
 
 logger = logging.getLogger(__name__)
+
+# TTL for the live kuzu COUNT(*) cache (GSTAB-03 / Phase 64 Plan 02).
+# Health-poll storms should not issue a graph query per request; a ~5s window
+# amortises the cost while keeping numbers fresh enough for operators.
+LIVE_COUNT_TTL_SECONDS: float = 5.0
 
 
 class KuzuUnavailableError(RuntimeError):
@@ -170,6 +176,9 @@ class GraphStoreManager:
         self._entity_count = 0
         self._relationship_count = 0
         self._last_updated: datetime | None = None
+        # Live COUNT(*) TTL cache fields (GSTAB-03).
+        self._live_count_cache: tuple[int, int] | None = None
+        self._live_count_cached_at: float = 0.0  # time.monotonic() timestamp
 
     @classmethod
     def get_instance(
@@ -643,6 +652,77 @@ class GraphStoreManager:
             return True
         self.initialize()
         return True
+
+    def live_counts(self) -> tuple[int, int, bool]:
+        """Return (entity_count, relationship_count, counts_stale).
+
+        For store_type == 'kuzu': evaluate a live SELECT COUNT(*) against the
+        kuzu DB, cached for LIVE_COUNT_TTL_SECONDS (~5s) so health-poll storms
+        don't issue a graph query per request.  If the COUNT query itself raises
+        (kuzu unreachable), return the last-known counts with stale=True --
+        NEVER 0/0 (issue #184: 0 reads as 'empty graph' and hides an outage).
+
+        For store_type != 'kuzu' (simple / minimal): return the existing
+        bookkeeping counts with stale=False (no live query issued).
+
+        Returns:
+            Tuple of (entity_count, relationship_count, counts_stale).
+            counts_stale is True only when kuzu failed and we fell back to
+            the last-known values.
+        """
+        if not _graphrag_enabled():
+            return (0, 0, False)
+
+        if self.store_type != "kuzu":
+            return (self._entity_count, self._relationship_count, False)
+
+        # Kuzu path: check TTL cache first.
+        now = time.monotonic()
+        if (
+            self._live_count_cache is not None
+            and (now - self._live_count_cached_at) < LIVE_COUNT_TTL_SECONDS
+        ):
+            cached_e, cached_r = self._live_count_cache
+            return (cached_e, cached_r, False)
+
+        # Issue live COUNT(*) queries against kuzu.
+        try:
+            import kuzu as _kuzu_module  # type: ignore[import-not-found]
+
+            conn = _kuzu_module.Connection(self._kuzu_db)
+
+            # Entity COUNT
+            raw_e = conn.execute("MATCH (n) RETURN COUNT(n)")
+            result_e: Any = raw_e[0] if isinstance(raw_e, list) else raw_e
+            entity_row = result_e.get_next()
+            entity_count = int(entity_row[0])
+
+            # Relationship COUNT
+            raw_r = conn.execute("MATCH ()-[r]->() RETURN COUNT(r)")
+            result_r: Any = raw_r[0] if isinstance(raw_r, list) else raw_r
+            rel_row = result_r.get_next()
+            rel_count = int(rel_row[0])
+
+            # Success: update cache and bookkeeping.
+            self._live_count_cache = (entity_count, rel_count)
+            self._live_count_cached_at = time.monotonic()
+            self._entity_count = entity_count
+            self._relationship_count = rel_count
+            return (entity_count, rel_count, False)
+
+        except (IndexError, RuntimeError, OSError) as exc:
+            # kuzu unreachable / catalog corruption — degrade gracefully.
+            # NEVER return 0/0 when a prior count is known (issue #184).
+            logger.warning(
+                "graph_store.live_counts: kuzu COUNT(*) failed, returning "
+                "last-known counts with stale=True: %s",
+                exc,
+            )
+            if self._live_count_cache is not None:
+                cached_e, cached_r = self._live_count_cache
+                return (cached_e, cached_r, True)
+            # No prior live-count cache — fall back to in-memory bookkeeping.
+            return (self._entity_count, self._relationship_count, True)
 
     def persist(self) -> None:
         """Persist graph to disk.
