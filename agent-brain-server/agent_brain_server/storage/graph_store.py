@@ -457,6 +457,102 @@ class GraphStoreManager:
         )
         return restored
 
+    def plan_restore(
+        self, snapshot_path: Path | None = None
+    ) -> tuple[Path, int] | None:
+        """Return (snapshot_path, triplet_count) for the snapshot that WOULD be
+        restored, without mutating the store.
+
+        ``snapshot_path=None`` selects the latest valid snapshot via
+        ``GraphSnapshotManager.load_latest_valid()``. An explicit path loads
+        that specific file via ``GraphSnapshotManager.load()``.
+
+        Returns ``None`` if no valid snapshot exists (nothing to restore).
+        Used to back ``--dry-run`` in the ``agent-brain graph
+        restore-from-snapshot`` CLI command.
+
+        Args:
+            snapshot_path: Specific snapshot file to preview, or ``None``
+                to select the latest valid snapshot on disk.
+
+        Returns:
+            ``(path, triplet_count)`` tuple, or ``None`` if no snapshot.
+        """
+        snapshot_mgr = GraphSnapshotManager(self.persist_dir)
+        if snapshot_path is None:
+            loaded = snapshot_mgr.load_latest_valid()
+            if loaded is None:
+                return None
+            snap_path, triplets = loaded
+        else:
+            triplets = snapshot_mgr.load(snapshot_path)
+            snap_path = snapshot_path
+        return snap_path, len(triplets)
+
+    def restore_from_snapshot(self, snapshot_path: Path | None = None) -> int:
+        """Replay a snapshot's triplets into the graph store on demand.
+
+        Unlike ``_restore_from_snapshot_if_available``, this public method
+        does NOT require ``self._recovered_from_corruption`` to be True —
+        operators invoke it explicitly to recover a stale graph (e.g. after
+        an ``AGENT_BRAIN_JOB_TIMEOUT`` rollback in Phase 64).
+
+        ``snapshot_path=None`` selects the latest valid snapshot via
+        ``GraphSnapshotManager.load_latest_valid()``. An explicit path loads
+        that specific file via ``GraphSnapshotManager.load()`` — raises
+        ``ValueError`` or ``OSError`` on a bad snapshot so the caller can
+        surface a clear message naming the offending file.
+
+        Calls ``self.initialize()`` if the store is not yet initialized,
+        then applies each triplet through ``_apply_triplet_to_store``,
+        updates ``_relationship_count`` and ``_last_updated``, and calls
+        ``persist()``.
+
+        Args:
+            snapshot_path: Snapshot file to replay, or ``None`` for the
+                latest valid snapshot on disk.
+
+        Returns:
+            Number of triplets successfully applied (0 when no snapshot).
+        """
+        snapshot_mgr = GraphSnapshotManager(self.persist_dir)
+        if snapshot_path is None:
+            loaded = snapshot_mgr.load_latest_valid()
+            if loaded is None:
+                logger.info(
+                    "graph_store.restore_from_snapshot: no snapshot available at %s",
+                    self.persist_dir,
+                )
+                return 0
+            snap_path, triplets = loaded
+        else:
+            # Raises ValueError / OSError on a bad snapshot — let it propagate
+            # so the caller can name the bad file in the error message.
+            triplets = snapshot_mgr.load(snapshot_path)
+            snap_path = snapshot_path
+
+        if not self._initialized:
+            self.initialize()
+
+        restored = 0
+        for triplet in triplets:
+            if self._apply_triplet_to_store(triplet):
+                restored += 1
+
+        self._relationship_count = restored
+        self._last_updated = datetime.now(timezone.utc)
+
+        logger.warning(
+            "graph_store.restore_from_snapshot: restored %d triplets from "
+            "snapshot %s at %s",
+            restored,
+            snap_path.name,
+            self.persist_dir / "kuzu_db",
+        )
+
+        self.persist()
+        return restored
+
     def _apply_triplet_to_store(self, triplet: SnapshotTriplet) -> bool:
         """Insert a triplet into the underlying graph store backend.
 
