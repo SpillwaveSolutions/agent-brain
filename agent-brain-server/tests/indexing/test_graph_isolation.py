@@ -17,11 +17,8 @@ Test 5: config is NOT mutated on graph build failure.
 from __future__ import annotations
 
 import os
-import sys
-import tempfile
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -48,51 +45,37 @@ _SIMPLE_DOCS: list[Any] = [
 ]
 
 
-def _make_isolated_call_with_mock_manager(
-    docs: list[Any],
-    triplet_count: int = 3,
-    source_job_id: str | None = None,
-) -> int:
-    """Run build_from_documents_isolated with a mocked GraphIndexManager.
-
-    We patch get_graph_index_manager so the child process returns a
-    controlled triplet count instead of hitting a real kuzu db.
-    """
-    # This helper is used by Test 1 (parity). We monkeypatch the module-level
-    # singleton factory inside the child process by patching the import so the
-    # worker returns a predictable value.
-    with patch(
-        "agent_brain_server.indexing.graph_index.get_graph_index_manager"
-    ) as mock_factory:
-        mock_mgr = MagicMock()
-        mock_mgr.build_from_documents.return_value = triplet_count
-        mock_factory.return_value = mock_mgr
-        result = build_from_documents_isolated(
-            docs, source_job_id=source_job_id
-        )
-    return result
-
-
 # ---------------------------------------------------------------------------
-# Test 1: Parity — returns same triplet count as build_from_documents on clean
+# Test 1: Parity — returns same triplet count as the child worker reports
 # ---------------------------------------------------------------------------
 
 
 class TestBuildIsolatedParity:
-    """Isolated build returns correct triplet count on a clean run."""
+    """Isolated build returns correct triplet count on a clean run.
+
+    We use _child_target_override so the child returns a predictable count
+    without touching a real kuzu database. This sidesteps the inherent
+    limitation that spawn-context children run in a fresh interpreter and
+    cannot inherit unittest.mock patches from the parent process.
+    """
 
     def test_returns_triplet_count_from_child(self) -> None:
         """build_from_documents_isolated returns the child's triplet count."""
-        with patch(
-            "agent_brain_server.indexing.graph_index.get_graph_index_manager"
-        ) as mock_factory:
-            mock_mgr = MagicMock()
-            mock_mgr.build_from_documents.return_value = 5
-            mock_factory.return_value = mock_mgr
-
-            count = build_from_documents_isolated(_SIMPLE_DOCS, source_job_id="job-1")
-
+        count = build_from_documents_isolated(
+            _SIMPLE_DOCS,
+            source_job_id="job-1",
+            _child_target_override=_success_child_5,
+        )
         assert count == 5, f"Expected 5 triplets, got {count}"
+
+    def test_returns_zero_triplets_on_empty_docs(self) -> None:
+        """Isolated build returns 0 when child reports no triplets extracted."""
+        count = build_from_documents_isolated(
+            [],
+            source_job_id="job-empty",
+            _child_target_override=_success_child_0,
+        )
+        assert count == 0, f"Expected 0 triplets, got {count}"
 
 
 # ---------------------------------------------------------------------------
@@ -105,41 +88,10 @@ class TestBuildIsolatedSIGSEGVExit:
     GraphBuildFailedError with the operator message naming the failure and
     pointing at store_type=simple."""
 
-    def test_nonzero_exit_raises_graph_build_failed_error(self) -> None:
-        """Child os._exit(139) (SIGSEGV exit code) raises GraphBuildFailedError."""
-
-        def _crash_worker(
-            docs: list[Any],
-            source_job_id: str | None,
-            result_queue: Any,
-        ) -> None:
-            # Simulate a SIGSEGV via exit code 139 (128 + 11)
-            os._exit(139)
-
-        with patch(
-            "agent_brain_server.indexing.graph_index._run_build_in_child",
-            side_effect=lambda *args, **kwargs: (_ for _ in ()).throw(
-                GraphBuildFailedError(
-                    "Graph index build failed in isolated worker (exit_code=139); "
-                    "vector and BM25 indexing for this job are unaffected. "
-                    "The graph was NOT updated for this run. To switch backends "
-                    "permanently, set graphrag.store_type=simple in your config "
-                    "(the server does not change it automatically).",
-                    exit_code=139,
-                )
-            ),
-        ):
-            pytest.skip(
-                "_run_build_in_child is an internal helper; "
-                "test via direct exit simulation below"
-            )
-
     def test_sigsegv_exit_code_via_spawn_raises_graph_build_failed(
-        self, tmp_path: Path
+        self,
     ) -> None:
         """Simulate SIGSEGV: child calls os._exit(139), parent raises GraphBuildFailedError."""
-        # We need a real subprocess spawn here. Use a minimal child function
-        # that just calls os._exit(139).
         with pytest.raises(GraphBuildFailedError) as exc_info:
             build_from_documents_isolated(
                 _SIMPLE_DOCS,
@@ -152,7 +104,7 @@ class TestBuildIsolatedSIGSEGVExit:
         assert "store_type=simple" in str(err)
         assert "exit_code=139" in str(err)
 
-    def test_nonzero_exit_code_stored_on_error(self, tmp_path: Path) -> None:
+    def test_nonzero_exit_code_stored_on_error(self) -> None:
         """GraphBuildFailedError.exit_code attribute matches the child exit code."""
         with pytest.raises(GraphBuildFailedError) as exc_info:
             build_from_documents_isolated(
@@ -161,6 +113,15 @@ class TestBuildIsolatedSIGSEGVExit:
                 _child_target_override=_exit_42_child,
             )
         assert exc_info.value.exit_code == 42
+
+    def test_error_message_mentions_vector_bm25_unaffected(self) -> None:
+        """Error message notes that vector + BM25 indexing are unaffected."""
+        with pytest.raises(GraphBuildFailedError) as exc_info:
+            build_from_documents_isolated(
+                _SIMPLE_DOCS,
+                _child_target_override=_sigsegv_child,
+            )
+        assert "vector and BM25" in str(exc_info.value)
 
 
 # ---------------------------------------------------------------------------
@@ -280,7 +241,7 @@ class TestNoConfigMutationOnFailure:
     """build_from_documents_isolated must NOT mutate settings.GRAPH_STORE_TYPE
     or graphrag.store_type on failure."""
 
-    def test_graph_store_type_unchanged_after_failure(self, tmp_path: Path) -> None:
+    def test_graph_store_type_unchanged_after_failure(self) -> None:
         """GRAPH_STORE_TYPE is not rewritten when the isolated worker crashes."""
         from agent_brain_server.config import settings
 
@@ -306,6 +267,24 @@ class TestNoConfigMutationOnFailure:
 # Child target functions for subprocess testing
 # (module-level so they are picklable by multiprocessing spawn)
 # ---------------------------------------------------------------------------
+
+
+def _success_child_5(
+    docs: list[Any],
+    source_job_id: str | None,
+    result_queue: Any,
+) -> None:
+    """Child that succeeds with 5 triplets (parity test)."""
+    result_queue.put(5)
+
+
+def _success_child_0(
+    docs: list[Any],
+    source_job_id: str | None,
+    result_queue: Any,
+) -> None:
+    """Child that succeeds with 0 triplets (empty-docs parity test)."""
+    result_queue.put(0)
 
 
 def _sigsegv_child(
