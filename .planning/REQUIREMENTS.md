@@ -34,7 +34,7 @@
 
 ### Housekeeping
 
-- [ ] **HOUSE-01**: `/mcp/subscriptions` debug endpoint exposes active subscription state for operators (#194 — deferred from v10.2 VAL-02, where disconnect-cleanup tests fell back to stderr-scraping).
+- [x] **HOUSE-01**: `/mcp/subscriptions` debug endpoint exposes active subscription state for operators (#194 — deferred from v10.2 VAL-02, where disconnect-cleanup tests fell back to stderr-scraping).
 
 ## v2 Requirements (deferred to future milestone)
 
@@ -85,7 +85,7 @@ Which phases cover which requirements. Filled by roadmap creation.
 | OAUTH-10 | Phase 67 | Pending |
 | OAUTH-11 | Phase 70 | Pending |
 | OAUTH-12 | Phase 70 | Pending |
-| HOUSE-01 | Phase 64 | Pending |
+| HOUSE-01 | Phase 64 | Complete |
 
 **Coverage:**
 - v1 requirements: 16 total (3 GraphRAG stability + 12 OAuth + 1 housekeeping)
