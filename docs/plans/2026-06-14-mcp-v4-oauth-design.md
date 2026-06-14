@@ -977,7 +977,7 @@ The design as amended is ready for human sign-off and Phase 66 implementation.
 
 ### Human Sign-Off
 
-> **Status: PENDING — awaiting project owner approval**
+> **Status: APPROVED**
 
 By signing off, the project owner confirms:
 - The threat model is accurate and the four converged risks are adequately mitigated
@@ -993,8 +993,8 @@ By signing off, the project owner confirms:
 - The DNS rebinding SSRF mitigation requirement is accepted.
 - Phase 66+ implementation may begin once this section reads APPROVED.
 
-**Status: PENDING**
+**Status: APPROVED**
 
-_Approver: _
-_Date: _
-_Conditions: _
+_Approver: Rick Hightower (project owner)_
+_Date: 2026-06-14_
+_Conditions: None — approved as the binding design contract for Phases 66-70. The seven adversarial-review gap-fixes (DNS-rebinding SSRF post-resolution IP check, empty-`AGENT_BRAIN_OAUTH_RESOURCE` startup gate, import-time scope drift guard, PKCE `plain` rejection, FileTokenStorage `0o600`, all-mode token-termination contract, `/mcp/subscriptions` exemption audit) are accepted as binding requirements on the downstream phases._
