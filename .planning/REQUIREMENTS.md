@@ -70,27 +70,36 @@ Which phases cover which requirements. Filled by roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GSTAB-01 | TBD | Pending |
-| GSTAB-02 | TBD | Pending |
-| GSTAB-03 | TBD | Pending |
-| OAUTH-01 | TBD | Pending |
-| OAUTH-02 | TBD | Pending |
-| OAUTH-03 | TBD | Pending |
-| OAUTH-04 | TBD | Pending |
-| OAUTH-05 | TBD | Pending |
-| OAUTH-06 | TBD | Pending |
-| OAUTH-07 | TBD | Pending |
-| OAUTH-08 | TBD | Pending |
-| OAUTH-09 | TBD | Pending |
-| OAUTH-10 | TBD | Pending |
-| OAUTH-11 | TBD | Pending |
-| OAUTH-12 | TBD | Pending |
-| HOUSE-01 | TBD | Pending |
+| GSTAB-01 | Phase 64 | Pending |
+| GSTAB-02 | Phase 64 | Pending |
+| GSTAB-03 | Phase 64 | Pending |
+| OAUTH-01 | Phase 65 | Pending |
+| OAUTH-02 | Phase 66 | Pending |
+| OAUTH-03 | Phase 66 | Pending |
+| OAUTH-04 | Phase 67 | Pending |
+| OAUTH-05 | Phase 67 | Pending |
+| OAUTH-06 | Phase 68 | Pending |
+| OAUTH-07 | Phase 69 | Pending |
+| OAUTH-08 | Phase 67 | Pending |
+| OAUTH-09 | Phase 66 | Pending |
+| OAUTH-10 | Phase 67 | Pending |
+| OAUTH-11 | Phase 70 | Pending |
+| OAUTH-12 | Phase 70 | Pending |
+| HOUSE-01 | Phase 64 | Pending |
 
 **Coverage:**
 - v1 requirements: 16 total (3 GraphRAG stability + 12 OAuth + 1 housekeeping)
-- Mapped to phases: 0 (filled by roadmapper)
-- Unmapped: 16 ⚠️ (pending roadmap)
+- Mapped to phases: 16/16 (roadmap created 2026-06-14)
+- Unmapped: 0 — all requirements covered
+
+**Phase mapping:**
+- Phase 64: GSTAB-01, GSTAB-02, GSTAB-03, HOUSE-01 (4 requirements — bugs first)
+- Phase 65: OAUTH-01 (1 requirement — design doc + security review gate)
+- Phase 66: OAUTH-02, OAUTH-03, OAUTH-09 (3 requirements — settings + public discovery endpoints)
+- Phase 67: OAUTH-04, OAUTH-05, OAUTH-08, OAUTH-10 (4 requirements — co-located AS + RS middleware)
+- Phase 68: OAUTH-06 (1 requirement — per-tool scope enforcement)
+- Phase 69: OAUTH-07 (1 requirement — client-side OAuth dance)
+- Phase 70: OAUTH-11, OAUTH-12 (2 requirements — split AS/RS + integration tests)
 
 ---
 *Requirements defined: 2026-06-14*

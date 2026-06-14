@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v10.4
 milestone_name: "MCP v4: OAuth 2.1 + GraphRAG Stability"
 current_phase: 64
-status: defining_requirements
-stopped_at: Milestone v10.4 started — scope set (bugs first, then OAuth); research-first chosen; defining requirements
-last_updated: "2026-06-14T06:40:00.000Z"
+status: roadmap_created
+stopped_at: Roadmap created — 7 phases (64-70), 16/16 requirements mapped; Phase 64 is the active starting point (bugs first)
+last_updated: "2026-06-14T10:00:00.000Z"
 progress:
-  total_phases: 0
+  total_phases: 7
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,21 +17,21 @@ progress:
 
 **Last Updated:** 2026-06-14
 **Current Milestone:** v10.4 — MCP v4: OAuth 2.1 + GraphRAG Stability
-**Status:** Defining requirements (research-first)
-**Current Phase:** 64 — not started (defining requirements)
+**Status:** Roadmap created — ready to plan Phase 64
+**Current Phase:** 64 — not started (GraphRAG stability + subscriptions debug endpoint)
 
 ## Current Position
 
 Phase: Not started (defining requirements)
 Plan: —
-Status: v10.4 started 2026-06-14 after a full backlog sweep (25 open issues + 8 GSD todos bucketed). Scope: bugs first (#178 kuzu SIGSEGV, #184 snapshot scope-gap), then OAuth 2.1 (#188, builds on v10.3's `McpHttpBackend`). Enterprise hardening (#200-205) + feature backlog deferred. Research-first chosen for the OAuth/MCP-auth stack.
+Roadmap created 2026-06-14. 7 phases (64-70) covering 16 requirements. Phase 64 (bugs first: GSTAB-01..03 + HOUSE-01), Phase 65 (design-doc gate: OAUTH-01), Phases 66-70 (incremental OAuth build). Next: `/gsd:plan-phase 64`.
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-06-14)
 
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** v10.4 — defining requirements (OAuth 2.1 + GraphRAG stability)
+**Current focus:** v10.4 — Phase 64 (GraphRAG stability + subscriptions debug endpoint); run `/gsd:plan-phase 64`
 
 ## Milestone Summary
 
@@ -51,7 +51,8 @@ v10.0.0–v10.0.6 Patch Train: [██████████] 100% (shipped 20
 v10.1.0 MCP v1:              [██████████] 100% (shipped 2026-05-30; UDS + 7-tool stdio MCP + CLI dual transport)
 v10.1.2 MCP package rename:  [██████████] 100% (shipped 2026-06-01; agent-brain-mcp PyPI distribution + standalone user guide)
 v10.2 MCP v2:                [██████████] 100% (24/24 plans across Phases 50-55 — milestone READY FOR RELEASE, awaiting gsd-complete-milestone)
-v10.3 MCP v3:                [██████▌   ]  63% (5/8 phases — Phases 56-60 complete; CLI-MCP-01..10 + DESIGN-V3-01 + MCPHYG-01..02 closed; 15/15 plans; Phases 61-63 remaining)
+v10.3 MCP v3:                [██████████] 100% (shipped 2026-06-14; 8/8 phases — Phases 56-63, 24/24 plans, 23/23 requirements; audit passed)
+v10.4 MCP v4:                [          ]   0% (0/7 phases — roadmap created; Phase 64 is next)
 ```
 
 ## v10.2 Phase Progress
