@@ -246,6 +246,23 @@ wraps the app.
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
+### /mcp/subscriptions Auth-Exemption Scope
+
+The boundary diagram lists `GET /mcp/subscriptions` as auth-exempt. This endpoint was
+added in Phase 64 as a debug/monitoring route. For v10.4 and beyond, this exemption MUST
+be intentional and documented:
+
+- If `/mcp/subscriptions` returns only non-sensitive operational metadata (active
+  subscription counts, no user-specific data), auth-exemption is acceptable for
+  observability purposes.
+- If `/mcp/subscriptions` returns any client-specific data (which subscriptions a
+  particular user has, subscription content, or job-related data), it MUST be moved
+  behind `RequireAuthMiddleware` in `oauth` mode.
+
+**Phase 66 action required:** Audit `/mcp/subscriptions` response contents before
+finalizing its auth-exempt status. If in doubt, put it behind auth — it can be exempted
+later, but a data-exposure bug shipped in an auth-exempt endpoint is harder to walk back.
+
 ### Mount-Order Constraint (Critical)
 
 The SDK's `create_auth_routes()` output and the custom `/.well-known/jwks.json` route
@@ -271,6 +288,25 @@ The MCP SDK does NOT ship a `GET /.well-known/jwks.json` endpoint. The co-locate
 MUST add a custom public route that exposes the RS256 public key as a JWKS JSON document.
 This route MUST be mounted in the auth-exempt section and MUST NOT require a Bearer token.
 This is a known SDK gap to be addressed in Phase 67.
+
+### PKCE S256-Only: Advertisement Is Insufficient — Rejection Required
+
+The OASM MUST include `code_challenge_methods_supported: ["S256"]` so that compliant MCP
+clients know S256 is the only supported method. However, advertising S256 is not sufficient
+on its own: the co-located AS MUST actively REJECT any `/authorize` request where
+`code_challenge_method` is `plain` or is absent. Specifically:
+
+- If `code_challenge_method=plain` is received: respond HTTP 400 with
+  `error=invalid_request`, `error_description="PKCE plain method not supported"`.
+- If `code_challenge` is present but `code_challenge_method` is absent: reject the request
+  (absence implies the default, which in OAuth 2.0 was `plain`; in OAuth 2.1 PKCE is
+  mandatory and S256 is the only permissible method).
+- If `code_challenge` is entirely absent: reject the request — PKCE is mandatory for all
+  public clients per OAuth 2.1 and the MCP 2025-11-25 spec.
+
+This explicit rejection gate MUST be a Phase 66/67 contract test (not just an OASM
+advertisement check), because a non-compliant or malicious client may ignore the
+advertisement and submit `plain` anyway.
 
 ### Token Validation on `/mcp`
 
@@ -336,11 +372,16 @@ The MCP server's outbound call to `agent-brain-server`:
 - MUST use `AGENT_BRAIN_API_KEY` in the `X-API-Key` header, exactly as it does in
   SECURITY-01 (v10.2.1 `docs/plans/2026-06-05-issue-179-api-key-auth.md`)
 - MUST NOT send the OAuth Bearer token as the auth credential on the REST leg
+- This invariant applies in ALL three auth modes (`none`, `basic`, `oauth`): the
+  MCP-to-REST leg ALWAYS uses `AGENT_BRAIN_API_KEY` via `X-API-Key`. The mode toggle
+  controls the MCP client → MCP server boundary only. No mode may change the outbound
+  credential on the MCP server → REST API leg.
 
 This contract prevents the confused-deputy attack (Risk 1 above, OAUTH-08). An automated
 integration test in Phase 70 MUST assert:
 - outgoing REST call carries `X-API-Key: <value>`
 - outgoing REST call does NOT carry `Authorization: Bearer <oauth_access_token>`
+- this assertion MUST be verified for all three auth modes, not just `oauth` mode
 
 ### Why Two Independent Layers
 
@@ -370,6 +411,14 @@ unassigned tools.
 with insufficient scope receives HTTP 403 with
 `WWW-Authenticate: Bearer error="insufficient_scope"` — NOT 401 (the token is valid;
 the scope is not sufficient for the requested tool).
+
+**Drift guard — fail loudly at import time (mandatory for Phase 68):** Any tool registered
+in `_tool_matrix.py` that does not have a corresponding entry in `TOOL_SCOPE_REQUIREMENTS`
+MUST raise a `RuntimeError` at module import time (not merely in a test run). This ensures
+a tool added without a scope assignment can never silently pass scope enforcement — the
+server will refuse to start with an actionable error. The error message MUST name the
+unassigned tool(s). Relying only on test-time detection is insufficient because tests may
+not be run between a commit and a deploy.
 
 ### Scope Table
 
@@ -441,6 +490,19 @@ This value appears as:
 - `resource: "https://mcp.example.com/mcp"` in client authorization and token requests
 - `"resource": "https://mcp.example.com/mcp"` in the PRM JSON document
 
+### Startup Gate: AGENT_BRAIN_OAUTH_RESOURCE Must Be Non-Empty in oauth Mode
+
+When `AGENT_BRAIN_AUTH=oauth`, the server startup gate MUST verify that
+`AGENT_BRAIN_OAUTH_RESOURCE` is set, non-empty, and syntactically valid as a URI with a
+scheme. If the env var is absent or empty, the startup gate MUST refuse to start (log a
+critical error and exit with code 2). **Rationale:** If `AGENT_BRAIN_OAUTH_RESOURCE` is
+not set, the RS would validate `aud == ""` or `aud == None`, effectively disabling
+audience validation and allowing any token with a valid signature to be accepted by any
+AS — the exact `aud`-omission attack Risk 2 is designed to prevent.
+
+This startup gate is a mandatory Phase 66 contract (co-located with the `AGENT_BRAIN_AUTH`
+toggle validation already described in the Auth-Mode Toggle section).
+
 ### Anti-Patterns to Avoid
 
 - **Trailing-slash inconsistency:** `https://mcp.example.com/mcp` and
@@ -451,6 +513,8 @@ This value appears as:
   `AGENT_BRAIN_OAUTH_RESOURCE` at runtime.
 - **No-scheme URIs:** `mcp.example.com/mcp` is not a valid resource URI. The scheme is
   required.
+- **Empty env var:** `AGENT_BRAIN_OAUTH_RESOURCE=""` is not a valid fallback. The startup
+  gate MUST reject an empty value in `oauth` mode (see Startup Gate section above).
 
 ---
 
@@ -490,6 +554,15 @@ Required controls:
 4. Block private IP ranges (`10.x`, `172.16-31.x`, `192.168.x`, `127.x`, `169.254.x`,
    `::1`, link-local) unconditionally, regardless of the allowlist.
 5. Set a short HTTP timeout (e.g., 5s) on the fetch to prevent slowloris-style DoS.
+6. **DNS rebinding mitigation (mandatory):** After DNS resolution and immediately before
+   the HTTP fetch, re-validate that the resolved IP address is NOT a private/loopback/
+   link-local address. Allowlist hostname validation alone is insufficient because an
+   attacker can register `evil.allowlisteddomain.com` with DNS that temporarily resolves
+   to `169.254.169.254` (DNS rebinding). The implementation MUST use a library or custom
+   wrapper that performs post-resolution IP validation (e.g., a custom `httpx` transport
+   that intercepts the connection attempt after DNS resolution and checks the IP). Phase 67
+   MUST include a test that asserts a `client_id` whose DNS resolves to an RFC-1918 address
+   is rejected even when the hostname passes the allowlist check.
 
 SSRF prevention is a security MUST for any AS that supports CIMD registration (Phase 67).
 
@@ -600,6 +673,21 @@ In this topology, a single `agent-brain-mcp` binary serves both the Authorizatio
 with a 30-day validity. All MCP clients are public clients (per spec); PKCE S256 is
 mandatory.
 
+### Client-Side Token Storage: FileTokenStorage chmod 0o600 Required (Pattern A)
+
+`McpHttpBackend` uses Pattern A (a fresh subprocess/client per MCP tool call). An
+in-memory `TokenStorage` is discarded on each call, re-triggering the full browser OAuth
+dance (redirect, user interaction) on every invocation. `FileTokenStorage` keyed to
+`state_dir/mcp-oauth-tokens.json` MUST be used to persist the token across Pattern A
+invocations.
+
+**Security requirement (mandatory for Phase 69):** The `FileTokenStorage` implementation
+MUST create its token file with permissions `0o600` (owner-read/write only). Creating it
+with default umask permissions (typically `0o644`) exposes OAuth tokens to any local user
+on the system. The implementation MUST call `os.chmod(path, 0o600)` immediately after
+creating or writing the file. A test MUST assert the file is not world-readable after a
+token is stored.
+
 ### Deployment Shape B: Split AS / RS (Phase 70)
 
 In this topology, `agent-brain-mcp` is the RS only. The AS is an external IdP (Keycloak,
@@ -657,41 +745,256 @@ they are not silently omitted:
 
 ## Security Review Sign-Off
 
-> **Status: PENDING — not yet reviewed**
+> **Status: ADVERSARIAL REVIEW COMPLETE — Awaiting Human Sign-Off**
 
-This section is a placeholder to be filled by Plan 65-02 (independent adversarial security
-review). No Phase 66+ implementation code may be committed until this section is completed
-and the project owner has signed off.
+An independent adversarial security review of this design document was conducted by
+GSD Plan 65-02 on 2026-06-14. The review probed each of the four threat-model risks
+plus five additional security probes. Seven findings were identified; all have been
+resolved by edits applied directly to the relevant sections of this document (recorded
+below). The document is now ready for human sign-off.
+
+No Phase 66+ implementation code may be committed until the project owner has signed off
+in the "Human Sign-Off" subsection below.
+
+Review status: COMPLETE
+
+---
 
 ### Adversarial Review Findings
 
-> To be completed by Plan 65-02.
->
-> The reviewer is asked to evaluate:
-> 1. Confused-deputy / token-passthrough: is the `AGENT_BRAIN_API_KEY` / `X-API-Key`
->    REST-leg contract unambiguous? Are there code paths where the OAuth token could
->    leak to the REST API?
-> 2. `aud`-claim omission: is the RFC 8707 `aud` binding + RS-side validation contract
->    specific enough for Phase 67 implementors?
-> 3. Well-known-behind-auth deadlock: is the mount-order constraint in the AS/RS boundary
->    section specific enough to prevent this in Phase 66?
-> 4. Per-tool scope escalation: is the scope-to-tool table complete? Are there tool call
->    paths that could bypass `scope_guard`?
->
-> Record findings + proposed resolutions here.
+**Reviewer:** GSD Plan 65-02 (independent structured adversarial read — 2026-06-14)
+**Method:** Adversarial structured read against all four threat-model risks plus five
+additional probes from the 65-PLAN review_targets block and SUMMARY.md "Gaps to Address."
+
+---
+
+#### Risk 1: Confused-Deputy / Token Passthrough (OAUTH-08)
+
+**Finding: PASS with one precision gap — GAP CLOSED**
+
+The "Token Termination Data Flow" section provides a sequence diagram, a two-layer
+architecture explanation, and a termination contract. Phase 70 integration tests are
+mandated to assert the outgoing REST call carries `X-API-Key` and NOT the OAuth token.
+
+**Gap found:** The termination contract said the `AGENT_BRAIN_API_KEY`/`X-API-Key`
+invariant applies "in SECURITY-01" but did not explicitly state it applies in ALL three
+auth modes (`none`, `basic`, `oauth`). A developer reading the doc could interpret the
+constraint as OAuth-mode-specific, missing that the MCP-to-REST leg is ALWAYS API-key
+authenticated regardless of the mode toggle.
+
+**Resolution (applied):** The "Termination Contract (OAUTH-08)" section was updated to
+explicitly state: "This invariant applies in ALL three auth modes (`none`, `basic`,
+`oauth`). The mode toggle controls the MCP client → MCP server boundary only." The Phase
+70 integration test assertion was also updated to verify all three auth modes, not just
+`oauth` mode.
+
+**Residual risk:** None. The confused-deputy design is unambiguous.
+
+---
+
+#### Risk 2: aud-Claim Omission (OAUTH-08, OAUTH-05)
+
+**Finding: PASS with one critical missing startup gate — GAP CLOSED**
+
+The "Canonical Resource URI Contract" section correctly specifies RFC 8707 `resource`
+parameter requirements, `aud` binding in issued JWTs, and RS-side `aud` validation. The
+token validation sequence (steps 1-6) explicitly calls out `aud == AGENT_BRAIN_OAUTH_RESOURCE`
+as step 5.
+
+**Gap found:** The document did not specify what happens when `AGENT_BRAIN_OAUTH_RESOURCE`
+is not set (absent or empty). If the env var is missing, the RS would evaluate
+`aud == ""` or `aud == None`, which either rejects all tokens (DoS) or silently disables
+audience validation depending on implementation (critical security failure). This is the
+exact attack Risk 2 is designed to prevent, re-introduced through a missing config check.
+
+**Resolution (applied):** A new "Startup Gate: AGENT_BRAIN_OAUTH_RESOURCE Must Be
+Non-Empty in oauth Mode" subsection was added to the Canonical Resource URI Contract
+section: when `AGENT_BRAIN_AUTH=oauth`, the startup gate MUST verify `AGENT_BRAIN_OAUTH_RESOURCE`
+is set, non-empty, and syntactically valid as a URI with a scheme; on failure, exit code
+2 with a critical log. The "Anti-Patterns to Avoid" section was also updated to include
+`AGENT_BRAIN_OAUTH_RESOURCE=""` as an explicit anti-pattern.
+
+**Residual risk:** None. The aud validation chain is now specified end-to-end including
+the startup precondition.
+
+---
+
+#### Risk 3: Well-Known-Behind-Auth Deadlock
+
+**Finding: PASS with one ambiguity requiring a Phase 66 audit action**
+
+The "AS / RS / Public-Route Boundary" section includes a boundary diagram listing all
+auth-exempt routes, the correct mount-order constraint with pseudo-code, and Phase 66's
+primary acceptance test (`curl /.well-known/oauth-protected-resource` without a token
+returning 200). The mount-order constraint is clearly stated and specific enough to
+prevent the deadlock pattern in Phase 66 implementation.
+
+**Gap found:** The boundary diagram lists `GET /mcp/subscriptions` as auth-exempt. This
+endpoint was added in Phase 64 as a debug route. The doc did not specify what data this
+endpoint returns or whether its auth-exemption was intentional in `oauth` mode. If
+`/mcp/subscriptions` returns any client-specific data (job IDs, user subscription state),
+an auth-exempt placement leaks that data to any unauthenticated caller.
+
+**Resolution (applied):** A new "/mcp/subscriptions Auth-Exemption Scope" subsection was
+added to the AS/RS Boundary section: Phase 66 MUST audit `/mcp/subscriptions` response
+contents before finalizing its auth-exempt status, with the explicit guidance that if
+in doubt, the endpoint should be placed behind auth.
+
+**Residual risk:** Low. The audit action is required before Phase 66 ships. The well-known
+deadlock for OAuth discovery routes is fully mitigated.
+
+---
+
+#### Risk 4: Per-Tool Scope Escalation
+
+**Finding: PASS with one implementation gap — GAP CLOSED**
+
+The "Scope-to-Tool Mapping" section defines all 4 scopes × 16 tools, specifies HTTP 403
+on insufficient scope (not 401), and names the `scope_guard` pattern at the dispatch
+layer. The scope table covers all 16 tools explicitly.
+
+**Gap found:** The doc said "a drift guard test at import time detects unassigned tools."
+Relying on test-time detection means a developer can add a tool to `_tool_matrix.py`,
+skip running tests, and ship an unguarded tool to production. The guarantee needs to be
+at module import time (server startup), not test run time.
+
+**Resolution (applied):** The Scope-to-Tool Mapping section was updated: the drift guard
+MUST raise a `RuntimeError` at module import time (not merely in a test run) if any tool
+in `_tool_matrix.py` lacks a `TOOL_SCOPE_REQUIREMENTS` entry. This prevents the server
+from starting with an unguarded tool.
+
+**Residual risk:** None. The scope escalation gap is structurally closed by import-time
+enforcement.
+
+---
+
+#### Additional Probe: CIMD SSRF Allowlist Completeness
+
+**Finding: GAP FOUND — CLOSED**
+
+The "SSRF Mitigation (Mandatory)" subsection correctly mandates an allowlist, blocking
+private IP ranges, and a request timeout. However, it did not address DNS rebinding
+attacks: an attacker can register a hostname that passes the allowlist check (`evil.mycompany.com`)
+but has DNS that temporarily resolves to `169.254.169.254` (AWS IMDS) at fetch time.
+The hostname-only allowlist is insufficient against this attack class.
+
+**Resolution (applied):** A control #6 was added to the SSRF Mitigation list:
+"After DNS resolution, re-validate that the resolved IP is NOT a private/loopback/
+link-local address." The implementation MUST use post-resolution IP validation in the
+HTTP transport layer. Phase 67 MUST include a test asserting a `client_id` whose DNS
+resolves to an RFC-1918 address is rejected even when the hostname is on the allowlist.
+
+**Residual risk:** Low. Requires careful implementation of the DNS rebinding mitigation
+in Phase 67 (the test gate captures any omission).
+
+---
+
+#### Additional Probe: FileTokenStorage chmod 0o600
+
+**Finding: GAP FOUND — CLOSED**
+
+The research SUMMARY explicitly identified `FileTokenStorage` with `chmod 0o600` as
+required for Pattern A token persistence. The design doc's architecture section mentioned
+`FileTokenStorage keyed to state_dir` but did not specify the file permission requirement.
+On a multi-user system, default umask permissions (`0o644`) would expose OAuth tokens to
+any local user.
+
+**Resolution (applied):** A new "Client-Side Token Storage: FileTokenStorage chmod 0o600
+Required (Pattern A)" subsection was added to the Auth-Mode Toggle and Deployment Shapes
+section. It specifies that `FileTokenStorage` MUST create its token file with `0o600`
+permissions via `os.chmod()` immediately after creation/write, and a test MUST assert
+the file is not world-readable.
+
+**Residual risk:** None. The file permission requirement is now explicit and testable.
+
+---
+
+#### Additional Probe: PKCE S256-Only — Advertisement vs. Rejection
+
+**Finding: GAP FOUND — CLOSED**
+
+The doc mandated `code_challenge_methods_supported: ["S256"]` in the OASM and stated
+"PKCE S256 mandatory." However, advertising S256 in OASM is not the same as rejecting
+requests that submit `plain` — a malicious or non-compliant client that ignores the
+advertisement and submits `code_challenge_method=plain` would not be blocked unless the
+AS explicitly rejects it.
+
+**Resolution (applied):** A new "PKCE S256-Only: Advertisement Is Insufficient — Rejection
+Required" subsection was added to the AS/RS Boundary section. The AS MUST actively REJECT
+`/authorize` requests where `code_challenge_method=plain`, where `code_challenge_method`
+is absent, or where `code_challenge` itself is absent. Each case must return HTTP 400 with
+`error=invalid_request`. This must be a Phase 66/67 contract test, not just an OASM
+advertisement check.
+
+**Residual risk:** None. The S256-only enforcement is now specified at the protocol level.
+
+---
+
+#### Additional Probe: In-Memory Token Store Restart Trade-Off
+
+**Finding: PASS — adequately documented**
+
+The deployment shapes section explicitly calls out the in-memory token store trade-off:
+"A process restart invalidates all active sessions. Users must re-authenticate after a
+server restart. This is a known trade-off — document explicitly in operator guides."
+
+No gap found. This is a documented design decision, not an undisclosed risk.
+
+---
+
+#### Additional Probe: 2026-07-28 RC Staleness Acknowledgement
+
+**Finding: PASS — explicitly and accurately documented**
+
+The "Spec Version Citation" section explicitly acknowledges the 2026-07-28 RC, states
+it had not landed in the authorization spec as of the authoring date, and mandates that
+Phase 70 must re-verify the live spec before shipping. The mitigation (stateless-by-nature
+`RequireAuthMiddleware` validates every HTTP request independently of the `initialize`
+handshake) is correct.
+
+No gap found.
+
+---
+
+### Summary of Findings
+
+| # | Risk / Probe | Verdict | Action |
+|---|-------------|---------|--------|
+| 1 | Confused-deputy / token passthrough | PASS with gap | GAP CLOSED: termination contract updated to cover all 3 auth modes |
+| 2 | aud-claim omission | PASS with gap | GAP CLOSED: startup gate added for missing AGENT_BRAIN_OAUTH_RESOURCE |
+| 3 | Well-known-behind-auth deadlock | PASS with audit item | Phase 66 action added: audit /mcp/subscriptions auth-exempt status |
+| 4 | Per-tool scope escalation | PASS with gap | GAP CLOSED: drift guard changed from test-time to import-time RuntimeError |
+| 5 | CIMD SSRF allowlist | GAP | GAP CLOSED: DNS rebinding mitigation (post-resolution IP check) added as control #6 |
+| 6 | FileTokenStorage chmod 0o600 | GAP | GAP CLOSED: 0o600 permission requirement added with test assertion |
+| 7 | PKCE S256-only rejection | GAP | GAP CLOSED: AS rejection gate added for plain/absent challenge method |
+| 8 | In-memory token store trade-off | PASS | Adequately documented; no action needed |
+| 9 | 2026-07-28 RC staleness | PASS | Explicitly acknowledged with mitigation; no action needed |
+
+**All gaps have been closed by edits applied to the relevant sections of this document.**
+The design as amended is ready for human sign-off and Phase 66 implementation.
+
+---
 
 ### Human Sign-Off
 
-> To be completed by the project owner after Plan 65-02 review.
->
-> By signing off, the project owner confirms:
-> - The threat model is accurate and the four converged risks are adequately mitigated
->   by the countermeasures defined in this document.
-> - The scope-to-tool mapping is correct and complete.
-> - The CIMD-over-DCR decision is accepted.
-> - The DPoP deferral is accepted.
-> - The canonical resource URI contract (`AGENT_BRAIN_OAUTH_RESOURCE`) is understood and
->   will be enforced in all deployment configurations.
-> - Phase 66+ implementation may begin.
->
-> **Sign-off: PENDING**
+> **Status: PENDING — awaiting project owner approval**
+
+By signing off, the project owner confirms:
+- The threat model is accurate and the four converged risks are adequately mitigated
+  by the countermeasures defined in this document (including the seven gap-fixes applied
+  by the adversarial review).
+- The scope-to-tool mapping is correct and complete.
+- The CIMD-over-DCR decision is accepted.
+- The DPoP deferral is accepted.
+- The canonical resource URI contract (`AGENT_BRAIN_OAUTH_RESOURCE`) is understood,
+  including the startup gate requirement that rejects a missing/empty value in `oauth` mode.
+- The FileTokenStorage `chmod 0o600` requirement is accepted.
+- The PKCE S256-only rejection requirement is accepted.
+- The DNS rebinding SSRF mitigation requirement is accepted.
+- Phase 66+ implementation may begin once this section reads APPROVED.
+
+**Status: PENDING**
+
+_Approver: _
+_Date: _
+_Conditions: _
