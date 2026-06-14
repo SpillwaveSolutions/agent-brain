@@ -16,7 +16,7 @@
 
 ### OAuth 2.1 — Resource Server + Co-located Authorization Server (MUST per MCP spec)
 
-- [ ] **OAUTH-01**: v4 OAuth design doc filed and **independent security review gate passed before implementation** — cites the verified live MCP authorization spec version, includes an AS/RS/public-route boundary diagram, and shows the token-termination data flow (client OAuth token terminates at the MCP boundary; the MCP→REST leg keeps `AGENT_BRAIN_API_KEY`).
+- [x] **OAUTH-01**: v4 OAuth design doc filed and **independent security review gate passed before implementation** — cites the verified live MCP authorization spec version, includes an AS/RS/public-route boundary diagram, and shows the token-termination data flow (client OAuth token terminates at the MCP boundary; the MCP→REST leg keeps `AGENT_BRAIN_API_KEY`).
 - [ ] **OAUTH-02**: Protected Resource Metadata (RFC 9728) served at `/.well-known/oauth-protected-resource` (+ the path-suffixed variant), publicly reachable with NO token (returns 200) — verified by an unauthenticated `curl` before any other auth code lands.
 - [ ] **OAUTH-03**: Authorization Server Metadata (RFC 8414) served at `/.well-known/oauth-authorization-server`, advertising `code_challenge_methods_supported: ["S256"]` (absence makes compliant MCP clients abort).
 - [ ] **OAUTH-04**: Co-located Authorization Server issues tokens via authorization-code + PKCE (S256-only; rejects `plain`/missing challenge), mints JWTs (`PyJWT[crypto]`), and serves a JWKS endpoint — wired through the SDK `OAuthAuthorizationServerProvider`.
@@ -73,7 +73,7 @@ Which phases cover which requirements. Filled by roadmap creation.
 | GSTAB-01 | Phase 64 | Pending |
 | GSTAB-02 | Phase 64 | Pending |
 | GSTAB-03 | Phase 64 | Pending |
-| OAUTH-01 | Phase 65 | Pending |
+| OAUTH-01 | Phase 65 | Complete |
 | OAUTH-02 | Phase 66 | Pending |
 | OAUTH-03 | Phase 66 | Pending |
 | OAUTH-04 | Phase 67 | Pending |
