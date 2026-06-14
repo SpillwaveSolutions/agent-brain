@@ -30,7 +30,6 @@ from agent_brain_server.storage.graph_store import (
     reset_graph_store_manager,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fake kuzu infrastructure
 # ---------------------------------------------------------------------------
@@ -143,28 +142,32 @@ class TestLiveCountsFromKuzu:
         fake_conn = _FakeConnection(entity_count=42, rel_count=17)
         fake_kuzu = _make_fake_kuzu_module(lambda db: fake_conn)
 
-        with patch(
-            "agent_brain_server.storage.graph_store._graphrag_enabled",
-            return_value=True,
-        ), patch.dict(sys.modules, {"kuzu": fake_kuzu}):
+        with (
+            patch(
+                "agent_brain_server.storage.graph_store._graphrag_enabled",
+                return_value=True,
+            ),
+            patch.dict(sys.modules, {"kuzu": fake_kuzu}),
+        ):
             entities, rels, stale = mgr.live_counts()
 
         assert entities == 42
         assert rels == 17
         assert stale is False
 
-    def test_live_counts_ignores_bookkeeping_on_kuzu(
-        self, persist_dir: Path
-    ) -> None:
+    def test_live_counts_ignores_bookkeeping_on_kuzu(self, persist_dir: Path) -> None:
         """#184 regression: bookkeeping 0/100 but live 5677/4366 -> returns live."""
         mgr = _make_kuzu_manager(persist_dir, entity_count=0, rel_count=100)
         fake_conn = _FakeConnection(entity_count=5677, rel_count=4366)
         fake_kuzu = _make_fake_kuzu_module(lambda db: fake_conn)
 
-        with patch(
-            "agent_brain_server.storage.graph_store._graphrag_enabled",
-            return_value=True,
-        ), patch.dict(sys.modules, {"kuzu": fake_kuzu}):
+        with (
+            patch(
+                "agent_brain_server.storage.graph_store._graphrag_enabled",
+                return_value=True,
+            ),
+            patch.dict(sys.modules, {"kuzu": fake_kuzu}),
+        ):
             entities, rels, stale = mgr.live_counts()
 
         assert entities == 5677
@@ -195,10 +198,13 @@ class TestLiveCountsTTLCache:
 
         fake_kuzu = _make_fake_kuzu_module(conn_factory)
 
-        with patch(
-            "agent_brain_server.storage.graph_store._graphrag_enabled",
-            return_value=True,
-        ), patch.dict(sys.modules, {"kuzu": fake_kuzu}):
+        with (
+            patch(
+                "agent_brain_server.storage.graph_store._graphrag_enabled",
+                return_value=True,
+            ),
+            patch.dict(sys.modules, {"kuzu": fake_kuzu}),
+        ):
             # First call — issues the COUNT queries
             result1 = mgr.live_counts()
             # Second call within TTL — should use cached result
@@ -209,9 +215,7 @@ class TestLiveCountsTTLCache:
         # The connection was only created once (one pair of COUNT queries)
         assert connection_call_count == 1
 
-    def test_call_after_ttl_expires_issues_fresh_query(
-        self, persist_dir: Path
-    ) -> None:
+    def test_call_after_ttl_expires_issues_fresh_query(self, persist_dir: Path) -> None:
         """A live_counts() call after the TTL expires issues a fresh COUNT query."""
         mgr = _make_kuzu_manager(persist_dir)
         fake_conn1 = _FakeConnection(entity_count=10, rel_count=5)
@@ -227,16 +231,17 @@ class TestLiveCountsTTLCache:
 
         fake_kuzu = _make_fake_kuzu_module(conn_factory)
 
-        with patch(
-            "agent_brain_server.storage.graph_store._graphrag_enabled",
-            return_value=True,
-        ), patch.dict(sys.modules, {"kuzu": fake_kuzu}):
+        with (
+            patch(
+                "agent_brain_server.storage.graph_store._graphrag_enabled",
+                return_value=True,
+            ),
+            patch.dict(sys.modules, {"kuzu": fake_kuzu}),
+        ):
             # First call — issues the COUNT queries
             result1 = mgr.live_counts()
             # Expire the cache by back-dating cached_at
-            mgr._live_count_cached_at = (
-                time.monotonic() - LIVE_COUNT_TTL_SECONDS - 1.0
-            )
+            mgr._live_count_cached_at = time.monotonic() - LIVE_COUNT_TTL_SECONDS - 1.0
             # Second call after TTL — should issue fresh COUNT queries
             result2 = mgr.live_counts()
 
@@ -259,9 +264,7 @@ class TestLiveCountsTTLCache:
 class TestLiveCountsSimpleStore:
     """Test 3: simple store returns bookkeeping counts, never touches _kuzu_db."""
 
-    def test_simple_store_returns_bookkeeping_counts(
-        self, persist_dir: Path
-    ) -> None:
+    def test_simple_store_returns_bookkeeping_counts(self, persist_dir: Path) -> None:
         """live_counts() on a simple store returns (entity_count, rel_count, False)."""
         mgr = GraphStoreManager(persist_dir, store_type="simple")
         mgr._initialized = True
@@ -277,10 +280,13 @@ class TestLiveCountsSimpleStore:
 
         fake_kuzu = _make_fake_kuzu_module(conn_factory)
 
-        with patch(
-            "agent_brain_server.storage.graph_store._graphrag_enabled",
-            return_value=True,
-        ), patch.dict(sys.modules, {"kuzu": fake_kuzu}):
+        with (
+            patch(
+                "agent_brain_server.storage.graph_store._graphrag_enabled",
+                return_value=True,
+            ),
+            patch.dict(sys.modules, {"kuzu": fake_kuzu}),
+        ):
             result = mgr.live_counts()
 
         assert result == (30, 15, False)
@@ -329,10 +335,13 @@ class TestLiveCountsDegradedFallback:
 
         fake_kuzu = _make_fake_kuzu_module(raising_conn_factory)
 
-        with patch(
-            "agent_brain_server.storage.graph_store._graphrag_enabled",
-            return_value=True,
-        ), patch.dict(sys.modules, {"kuzu": fake_kuzu}):
+        with (
+            patch(
+                "agent_brain_server.storage.graph_store._graphrag_enabled",
+                return_value=True,
+            ),
+            patch.dict(sys.modules, {"kuzu": fake_kuzu}),
+        ):
             entities, rels, stale = mgr.live_counts()
 
         assert entities == 100
@@ -352,10 +361,13 @@ class TestLiveCountsDegradedFallback:
 
         fake_kuzu = _make_fake_kuzu_module(raising_conn_factory)
 
-        with patch(
-            "agent_brain_server.storage.graph_store._graphrag_enabled",
-            return_value=True,
-        ), patch.dict(sys.modules, {"kuzu": fake_kuzu}):
+        with (
+            patch(
+                "agent_brain_server.storage.graph_store._graphrag_enabled",
+                return_value=True,
+            ),
+            patch.dict(sys.modules, {"kuzu": fake_kuzu}),
+        ):
             entities, rels, stale = mgr.live_counts()
 
         # Must NOT return 0/0 when prior counts are known
@@ -376,10 +388,13 @@ class TestLiveCountsDegradedFallback:
 
         fake_kuzu = _make_fake_kuzu_module(raising_conn_factory)
 
-        with patch(
-            "agent_brain_server.storage.graph_store._graphrag_enabled",
-            return_value=True,
-        ), patch.dict(sys.modules, {"kuzu": fake_kuzu}):
+        with (
+            patch(
+                "agent_brain_server.storage.graph_store._graphrag_enabled",
+                return_value=True,
+            ),
+            patch.dict(sys.modules, {"kuzu": fake_kuzu}),
+        ):
             entities, rels, stale = mgr.live_counts()
 
         # Falls back to bookkeeping values
@@ -407,19 +422,20 @@ class TestLiveCountsRegression184:
         fake_conn = _FakeConnection(entity_count=5677, rel_count=4366)
         fake_kuzu = _make_fake_kuzu_module(lambda db: fake_conn)
 
-        with patch(
-            "agent_brain_server.storage.graph_store._graphrag_enabled",
-            return_value=True,
-        ), patch.dict(sys.modules, {"kuzu": fake_kuzu}):
+        with (
+            patch(
+                "agent_brain_server.storage.graph_store._graphrag_enabled",
+                return_value=True,
+            ),
+            patch.dict(sys.modules, {"kuzu": fake_kuzu}),
+        ):
             entities, rels, stale = mgr.live_counts()
 
         # Must return the live COUNT values, not the bookkeeping (0, 100)
-        assert entities == 5677, (
-            f"Expected 5677 entities, got {entities} (bookkeeping drift!)"
-        )
-        assert rels == 4366, (
-            f"Expected 4366 rels, got {rels} (bookkeeping drift!)"
-        )
+        assert (
+            entities == 5677
+        ), f"Expected 5677 entities, got {entities} (bookkeeping drift!)"
+        assert rels == 4366, f"Expected 4366 rels, got {rels} (bookkeeping drift!)"
         assert stale is False
 
     def test_graphrag_disabled_returns_zeros(self, persist_dir: Path) -> None:

@@ -686,10 +686,14 @@ class GraphStoreManager:
             return (cached_e, cached_r, False)
 
         # Issue live COUNT(*) queries against kuzu.
+        # Use getattr to get a typed local variable (avoids mypy arg-type error
+        # because self._kuzu_db is Any | None; kuzu_db is narrowed to non-None
+        # by the guard, matching the pattern in get_entity_by_id line 1229).
+        kuzu_db = getattr(self, "_kuzu_db", None)
         try:
-            import kuzu as _kuzu_module  # type: ignore[import-not-found]
+            import kuzu as _kuzu_module
 
-            conn = _kuzu_module.Connection(self._kuzu_db)
+            conn = _kuzu_module.Connection(kuzu_db)  # type: ignore[arg-type]
 
             # Entity COUNT
             raw_e = conn.execute("MATCH (n) RETURN COUNT(n)")

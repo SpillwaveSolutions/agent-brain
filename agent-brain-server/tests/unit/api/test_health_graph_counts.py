@@ -18,13 +18,11 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from agent_brain_server.api.routers.health import router
 from agent_brain_server.models.graph import GraphIndexStatus
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -214,7 +212,9 @@ class TestHealthStatusGraphCountsStale:
         data = client.get("/health/status").json()
         graph_index = data.get("graph_index") or {}
 
-        assert graph_index["entity_count"] != 0 or graph_index["relationship_count"] != 0
+        assert (
+            graph_index["entity_count"] != 0 or graph_index["relationship_count"] != 0
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -232,7 +232,7 @@ class TestHealthStatusNonChromaOverride:
     def test_non_chroma_backend_still_overrides_to_zeros(
         self, _mock_backend: MagicMock
     ) -> None:
-        """postgres backend forces graph_index entity_count=0, store_type=unavailable."""
+        """postgres backend forces graph_index entity_count=0, store_type=unavailable."""  # noqa: E501
         # Even if live_counts() would return real numbers, postgres backend
         # overrides them in health.py
         app = _make_app(live_counts_result=(5677, 4366, False), store_type="kuzu")
@@ -272,14 +272,10 @@ class TestHealthStatusSimpleStoreGraph:
         "agent_brain_server.api.routers.health.get_effective_backend_type",
         return_value="chroma",
     )
-    def test_simple_store_counts_stale_is_false(
-        self, _mock_backend: MagicMock
-    ) -> None:
+    def test_simple_store_counts_stale_is_false(self, _mock_backend: MagicMock) -> None:
         """Simple store graph_index has counts_stale=False."""
         # simple store: live_counts() returns bookkeeping with stale=False
-        app = _make_app(
-            live_counts_result=(30, 15, False), store_type="simple"
-        )
+        app = _make_app(live_counts_result=(30, 15, False), store_type="simple")
         client = TestClient(app)
         data = client.get("/health/status").json()
         graph_index = data.get("graph_index") or {}
@@ -292,9 +288,7 @@ class TestHealthStatusSimpleStoreGraph:
         "agent_brain_server.api.routers.health.get_effective_backend_type",
         return_value="chroma",
     )
-    def test_simple_store_type_is_simple(
-        self, _mock_backend: MagicMock
-    ) -> None:
+    def test_simple_store_type_is_simple(self, _mock_backend: MagicMock) -> None:
         """Simple store reports store_type='simple'."""
         app = _make_app(live_counts_result=(10, 5, False), store_type="simple")
         client = TestClient(app)
