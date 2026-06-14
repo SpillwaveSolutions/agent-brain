@@ -21,12 +21,9 @@ Tested invariants (Plan 64-04 Task 2 acceptance criteria):
 from __future__ import annotations
 
 import asyncio
-import threading
 from typing import Any
-from unittest.mock import MagicMock
 
 import httpx
-import pytest
 from starlette.testclient import TestClient
 
 from agent_brain_mcp.http import HEALTHZ_PATH, SUBSCRIPTIONS_PATH, build_asgi_app
@@ -151,7 +148,9 @@ def test_subscriptions_endpoint_reports_active_subscription() -> None:
         # Cancel pending tasks before closing.
         for task in asyncio.all_tasks(loop):
             task.cancel()
-        loop.run_until_complete(asyncio.gather(*asyncio.all_tasks(loop), return_exceptions=True))
+        loop.run_until_complete(
+            asyncio.gather(*asyncio.all_tasks(loop), return_exceptions=True)
+        )
         loop.close()
         manager.cleanup_all()
 

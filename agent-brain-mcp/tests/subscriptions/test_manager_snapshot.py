@@ -27,9 +27,7 @@ from agent_brain_mcp.subscriptions import SubscriptionManager
 # Fast poll interval keeps tests snappy.
 INTERVAL = 0.02
 
-ISO_8601_RE = re.compile(
-    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?\+00:00$"
-)
+ISO_8601_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?\+00:00$")
 
 
 class _OnChangeRecorder:
@@ -88,9 +86,9 @@ async def test_snapshot_after_start_polling_shape() -> None:
         assert entry["cadence_s"] == INTERVAL
         assert entry["started_at"] is not None
         # Verify ISO-8601 UTC format.
-        assert ISO_8601_RE.match(entry["started_at"]), (
-            f"started_at is not ISO-8601 UTC: {entry['started_at']!r}"
-        )
+        assert ISO_8601_RE.match(
+            entry["started_at"]
+        ), f"started_at is not ISO-8601 UTC: {entry['started_at']!r}"
         # No notification has fired yet.
         assert entry["last_notified_at"] is None
     finally:
@@ -121,9 +119,9 @@ async def test_snapshot_session_id_is_truncated() -> None:
         entry = snap["subscriptions"][0]
 
         expected = SubscriptionManager._truncate_session_id(session)
-        assert entry["session_id"] == expected, (
-            f"expected {expected!r}, got {entry['session_id']!r}"
-        )
+        assert (
+            entry["session_id"] == expected
+        ), f"expected {expected!r}, got {entry['session_id']!r}"
         # Must be at most 8 characters (the truncation).
         assert len(entry["session_id"]) <= 8
         # Full id should NOT be exposed.
@@ -156,12 +154,12 @@ async def test_snapshot_last_notified_at_stamped_after_on_change() -> None:
         assert snap["active_count"] == 1
         entry = snap["subscriptions"][0]
 
-        assert entry["last_notified_at"] is not None, (
-            "last_notified_at should be set after on_change fired"
-        )
-        assert ISO_8601_RE.match(entry["last_notified_at"]), (
-            f"last_notified_at is not ISO-8601 UTC: {entry['last_notified_at']!r}"
-        )
+        assert (
+            entry["last_notified_at"] is not None
+        ), "last_notified_at should be set after on_change fired"
+        assert ISO_8601_RE.match(
+            entry["last_notified_at"]
+        ), f"last_notified_at is not ISO-8601 UTC: {entry['last_notified_at']!r}"
     finally:
         mgr.cleanup_all()
         await asyncio.sleep(0.05)
