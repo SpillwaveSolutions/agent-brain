@@ -1,17 +1,19 @@
 # Project Research Summary
 
-**Project:** Agent Brain v8.0 — Performance & Developer Experience
-**Domain:** RAG System — File Watching, Embedding/Query Caching, UDS Transport
-**Researched:** 2026-03-06
-**Confidence:** HIGH (stack and pitfalls), MEDIUM (dual UDS+TCP transport pattern)
+**Project:** Agent Brain v10.4 — MCP v4: OAuth 2.1 + GraphRAG Stability (issue #188)
+**Domain:** OAuth 2.1 Authorization Server + Resource Server on FastAPI/MCP Streamable HTTP
+**Researched:** 2026-06-14
+**Confidence:** HIGH (MCP SDK auth module — Context7 + GitHub source verified; MCP spec 2025-11-25 fetched verbatim; existing codebase read directly)
+
+---
 
 ## Executive Summary
 
-Agent Brain v8.0 adds five new capabilities on top of the mature v7.0 RAG system: persistent embedding cache, in-memory query cache with event-driven invalidation, file system watcher with per-folder policies, background incremental indexing, and a hybrid UDS+TCP transport. These features are additive — the existing validated stack (FastAPI, ChromaDB, LlamaIndex, Poetry, Click, asyncio job queue, ManifestTracker) stays intact. The new features integrate through dependency injection at the lifespan layer, not by restructuring existing code.
+Agent Brain v10.4 adds OAuth 2.1 authorization to the remote MCP server (`agent-brain-mcp`). The most critical research finding is that the `mcp` Python SDK (v1.27.2, pin `mcp >= 1.27.2`) already ships all of the OAuth protocol machinery on both sides: `OAuthAuthorizationServerProvider` + `create_auth_routes()` supply the co-located AS endpoints (authorize, token, revoke, DCR, well-known metadata); `RequireAuthMiddleware` + `BearerAuthBackend` supply RS token enforcement; and `OAuthClientProvider` (implementing `httpx.Auth`) handles the full client-side 401-dance including PKCE, PRM discovery, AS metadata discovery, and token refresh. The implementation work is **wire + configure + mint JWTs**, not build-from-scratch. The new library additions are small and targeted: `PyJWT[crypto] ^2.13` (JWT signing and JWKS-cached verification — python-jose is dead), `authlib ^1.7` (OAuth grant handlers for `OAuthAuthorizationServerProvider` implementation if needed), and `pwdlib[argon2]` (password hashing — passlib is unmaintained).
 
-The recommended approach is to build in four sequenced phases ordered by dependency and blast radius: embedding cache first (because all other features benefit from it), query cache second (independent, high value), file watcher and background incremental third (requires embedding cache to be cost-effective), and UDS transport last (independent but touches server startup code with the widest blast radius). Three new production dependencies are needed: `watchfiles` (already a Uvicorn transitive dep), `aiosqlite` (async SQLite for disk-persistent embedding cache), and `cachetools` (TTLCache + LRUCache primitives). The `types-cachetools` stub must accompany cachetools for mypy strict mode.
+The authoritative spec is **MCP Authorization 2025-11-25**. It changes several design assumptions that older resources get wrong: Dynamic Client Registration (DCR) is now `MAY`/deprecated — Client ID Metadata Documents (CIMD) is the preferred `SHOULD` registration path; PKCE S256 is mandatory and `code_challenge_methods_supported: ["S256"]` MUST appear in AS metadata or compliant clients refuse to proceed; Resource Indicators (RFC 8707) `resource` parameter is `MUST` on both auth and token requests, with `aud` binding and `aud` validation also `MUST` on the RS side. A 2026-07-28 RC (MCP goes stateless — no initialize handshake) is in progress; the design doc must be written and signed off before this spec revision lands, and must acknowledge the staleness risk explicitly.
 
-The highest-risk elements are cache coherence on provider switch (stale vectors from wrong embedding space cause silent wrong results), the watchdog-to-asyncio thread boundary (calling async from a watchdog handler crashes at runtime but passes unit tests), and query cache staleness (TTL-only invalidation serves wrong results after reindex). All three have clear prevention patterns: include `provider:model` fingerprint in every cache key, use `watchfiles` native `async for` interface to avoid the thread boundary entirely, and include an `index_generation` counter in every query cache key rather than relying on TTL expiry.
+The dominant security risk for this milestone is not authentication bypass but **authorization confusion**: confused-deputy/token-passthrough (the MCP-to-REST leg must keep `AGENT_BRAIN_API_KEY`; the client's OAuth token MUST NOT be forwarded); `aud` claim omission (the single most common OAuth RS implementation error); well-known discovery endpoints accidentally placed behind auth middleware (deadlocks the OAuth dance before it can start); and per-tool scope enforcement gaps (middleware validates token existence but not per-tool scope, enabling scope escalation within a route). All four are addressed by the converged phase ordering all four researchers independently proposed: design doc + security review gate FIRST, then incremental server-side build, then client-side dance, then split AS topology, then integration tests with a 90% coverage gate.
 
 ---
 
@@ -19,202 +21,189 @@ The highest-risk elements are cache coherence on provider switch (stale vectors 
 
 ### Recommended Stack
 
-The v8.0 stack additions are intentionally minimal. All three new production dependencies are lightweight, async-native, and avoid adding external services. `watchfiles` (Rust-backed, already a Uvicorn transitive dep) is the correct choice for file watching — it exposes a native `async for` interface that eliminates the thread-safety complexity of `watchdog`. `aiosqlite` provides async-native SQLite for the disk-persistent embedding cache — avoiding `diskcache` (last release 2023, sync-only) and Redis (violates local-first design). `cachetools` TTLCache provides in-memory LRU+TTL query cache with standard `asyncio.Lock` for async safety. The CLI requires no new dependencies — `httpx` already in scope gains UDS transport via `httpx.AsyncHTTPTransport(uds=...)`.
+The existing stack (FastAPI, Uvicorn, mcp SDK, ChromaDB, LlamaIndex, httpx, Click, Poetry) is unchanged. The additions for v10.4 are minimal and targeted.
 
-**Core technologies (new):**
-- `watchfiles ^1.1`: File system watching — Rust-backed via `notify` crate, `awatch()` is a native async generator with built-in debounce; already in Uvicorn's dependency tree
-- `aiosqlite ^0.20`: Async SQLite for persistent embedding cache — non-blocking, no external services, cache survives server restarts
-- `cachetools ^7.0.3`: LRUCache + TTLCache primitives — pair with `asyncio.Lock` for async safety; `types-cachetools` required for mypy strict mode
-- `httpx ^0.27` (existing): CLI UDS transport client — `AsyncHTTPTransport(uds=...)` for same-host low-latency connections
+**Core OAuth additions (`agent-brain-mcp/pyproject.toml`):**
+- `mcp >= 1.27.2` (existing, pin version): AS protocol endpoints (`mcp.server.auth`), RS middleware (`RequireAuthMiddleware`, `BearerAuthBackend`), and client OAuth dance (`mcp.client.auth.OAuthClientProvider`) are all included — no additional install required.
+- `PyJWT[crypto] ^2.13`: JWT signing for co-located AS token issuance; JWKS-cached verification (`PyJWKClient` with built-in 5-min TTL) for split AS/RS. Replaces python-jose (abandoned 2021, Python 3.10+ compat issues, FastAPI docs migrated away per GitHub discussion #11345).
+- `authlib ^1.7.2` (2026-05-06, Python 3.10+): OAuth grant handlers for implementing the 9 abstract methods on `OAuthAuthorizationServerProvider` if the team prefers not to hand-roll them. No DPoP support — matches the "optional/defer" decision.
+- `pwdlib[argon2] >=0.2`: Argon2id password hashing for co-located AS user store. Replaces passlib (unmaintained).
+- `itsdangerous ^2.2`: CSRF state token signing for the authorization code flow. Already a Starlette transitive dep — verify before adding.
+
+**Dev/test additions:**
+- `pytest-httpx >=0.30` or `respx >=0.21`: Mock introspection endpoint and JWKS endpoint HTTP calls in unit tests. Pick one, be consistent.
 
 **What NOT to use:**
-- `watchdog`: Requires threading bridge for asyncio; watchfiles is the better choice and already a transitive dep
-- `diskcache`: Unmaintained (2023), sync-only, would require `run_in_executor` wrapping
-- Redis: Adds external service dependency; violates local-first philosophy
-- Dual lifespan on both Uvicorn servers: Must set `lifespan="off"` on UDS server or all services double-initialize against same storage paths causing corruption
+- `python-jose` — abandoned since 2021; do not use under any circumstances.
+- `passlib` — unmaintained.
+- DPoP (RFC 9449) — no production Python library exists (authlib issue #315 open since 2021); defer to v10.5+.
+- `fastapi-users` — opinionated coupling; harder to compose with existing structure.
+
+**Shape-specific notes:**
+- **Co-located AS/RS:** `PyJWT[crypto]` for local JWT signing and inline verification; custom `GET /.well-known/jwks.json` FastAPI route to expose the RS256 public key (the SDK does NOT provide this endpoint).
+- **Split AS/RS (Keycloak in CI):** `PyJWT[crypto]` + `PyJWKClient` for JWKS-cached verification. No Python lib dep on Keycloak itself — it speaks standard OIDC/OAuth 2.1.
 
 ### Expected Features
 
-The v8.0 feature set is divided into three launch tiers based on dependency and validation needs.
+The MCP Authorization 2025-11-25 spec defines what is `MUST`, `SHOULD`, and `MAY`. The features below are mapped to those levels.
 
-**Must have (table stakes — P1 for v8.0):**
-- Embedding cache persisting across restarts — users expect OpenAI API calls not to repeat for unchanged files; 80-95% cache hit rate on subsequent reindexes
-- File watcher respecting folder watch mode — users who mark a folder `read_only` expect zero auto-reindex
-- Watcher debounce consolidating burst changes (default 30s) — git checkout of 150 files must trigger one reindex job, not 150
-- Background updates that do not block queries — watcher enqueues to existing JSONL job queue; queries remain unblocked
-- UDS socket cleanup on startup — stale `.sock` from crashed process must not block restart
-- Watcher default exclusions: `.git/`, `__pycache__/`, `node_modules/`, `*.pyc`, `.DS_Store`
+**Must have (table stakes — MCP spec MUST, required for spec compliance):**
+- `AGENT_BRAIN_AUTH` toggle (`none` / `basic` / `oauth`, default `none`) — preserves all existing behavior; zero regression risk.
+- `401 Unauthorized` + `WWW-Authenticate: Bearer resource_metadata=...` on unauthenticated MCP requests.
+- `GET /.well-known/oauth-protected-resource` (PRM, RFC 9728) — publicly accessible, no auth, always returns 200.
+- `GET /.well-known/oauth-authorization-server` (OASM, RFC 8414) — must include `code_challenge_methods_supported: ["S256"]` or compliant clients refuse to proceed.
+- OAuth 2.1 authorization code flow with PKCE S256 — co-located AS via `OAuthAuthorizationServerProvider`.
+- Resource Indicators (RFC 8707) `resource` parameter in both `/authorize` and `/token` requests; `aud` claim bound to the MCP server's canonical URI in every issued token.
+- `aud` + `exp` + `iss` + `scope` validation on every inbound token in RS middleware.
+- Scope enforcement: four scopes (`agent-brain:read`, `agent-brain:index`, `agent-brain:admin`, `agent-brain:subscribe`) enforced per-tool via `scope_guard`, not just per-route.
+- `HTTP 403 + WWW-Authenticate: Bearer error="insufficient_scope"` on scope mismatch (not 401 — the token is valid, the scope is insufficient).
+- Rotating refresh tokens for public clients (all MCP clients are public per spec).
+- `McpHttpBackend` client-side OAuth dance via `OAuthClientProvider` + `FileTokenStorage` (keyed to `state_dir` so Pattern A per-call invocations reuse the cached token rather than re-triggering the full dance on every call).
+- `AGENT_BRAIN_AUTH=basic` LAN bridge — formalizes existing `AGENT_BRAIN_API_KEY`/`X-API-Key` path; low lift.
 
-**Should have (competitive differentiators — P2):**
-- Query cache with event-driven invalidation — repeat identical queries return sub-millisecond; invalidated immediately on reindex completion
-- Per-folder configurable debounce — high-churn test-output folders need 60s; fast-turnaround source needs 10s
-- Embedding cache keyed by `(content_hash, provider_name, model_name)` — silently invalidated on provider switch; no dimension mismatch
-- UDS as default transport for same-host CLI — 30-66% latency reduction per CLI call
-- Watcher auto-pause when same folder's job already PENDING or RUNNING
+**Should have (CIMD + split AS — SHOULD per spec or required by DoD):**
+- Client ID Metadata Documents (CIMD) — preferred registration path over DCR; AS fetches `client_id` URL to get client metadata JSON.
+- Split AS/RS deployment with Keycloak in CI — `JwksTokenVerifier` using `PyJWKClient` with 5-min TTL + `kid`-miss on-demand refresh.
+- Step-up authorization on `403 insufficient_scope` — client re-initiates with broader scope set.
+- Scope hints (`scope=agent-brain:read`) in the 401 `WWW-Authenticate` header.
+- `agent-brain:subscribe` scope guard on existing SUB-01..05 subscription machinery.
 
-**Defer to v9.0+:**
-- Semantic (embedding-similarity) query cache — lookup cost exceeds benefit; doubles latency on cache miss
-- Persistent query cache surviving restarts — invalidation on restart is unsolvable without external state
-- Sub-1s debounce — causes reindex storms during active editing
-- Watcher over NFS/SMB — inotify/kqueue do not work over network mounts
+**Defer to v2+:**
+- Dynamic Client Registration (DCR, RFC 7591) — now `MAY`/deprecated in 2025-11-25 spec; ship as CIMD fallback at most; consider omitting entirely for self-hosted single-user shape.
+- Token revocation endpoint (RFC 7009) — admin UX convenience; not MUST.
+- Audit log middleware — design doc says "may need its own milestone."
+- DPoP (RFC 9449) — no production Python library; defer to v10.5+.
+- Per-tool scope enforcement via SEP-1880 — open proposal, not in current spec.
+- Device Authorization Grant (RFC 8628) — spec does not require it; PKCE + loopback redirect is the standard MCP path.
 
-**Anti-features (commonly requested, do not build):**
-- Watching `.git/` for branch change auto-reindex — hundreds of temp file events per operation
-- Global TTL-only query cache — 5 minutes of stale results after reindex is unacceptable for local dev tooling
-- Real-time watcher with less than 1s debounce — editor save events fire 2-4x per save; sub-1s causes rapid reindex storms
+**Scope-to-tool mapping (source of truth — `_tool_matrix.py` pattern):**
+
+| Scope | Tools Covered |
+|-------|---------------|
+| `agent-brain:read` | `search_documents`, `explain_result`, `get_corpus_status`, `cache_status`, `list_folders`, `list_file_types`, `list_jobs`, `get_job`, all resources + prompts |
+| `agent-brain:index` | `index_folder`, `add_documents`, `inject_documents`, `wait_for_job` |
+| `agent-brain:admin` | `cancel_job`, `remove_folder`, `clear_cache` |
+| `agent-brain:subscribe` | `corpus://status`, `corpus://folders`, `job://<job_id>` subscriptions |
 
 ### Architecture Approach
 
-v8.0 follows a strict injection-first pattern: all new services (`EmbeddingCache`, `QueryCache`, `FileWatcherService`) are created in the FastAPI lifespan handler and injected into existing services via optional constructor parameters (`None` default). No global cache state. Tests pass `None` (no mock needed). Production passes real instances. The existing service layer is modified at two narrow points: `EmbeddingGenerator.embed_texts()` gains a cache bypass check, and `JobWorker._process_job()` gains a `query_cache.invalidate_all()` call on job DONE. Everything else (routers, storage backends, manifest tracker, job queue) remains unchanged.
+OAuth 2.1 integration is **additive and mode-gated** — the existing core pipeline (indexing, query, storage, job queue, BM25 hybrid retrieval, GraphRAG) is unchanged. The `AGENT_BRAIN_AUTH` toggle controls which auth dependency is wired at startup. In `none` or `basic` mode, the system behaves exactly as it does today. In `oauth` mode, the Starlette ASGI app gains `RequireAuthMiddleware` wrapping the `/mcp` mount, and the FastAPI server's `verify_bearer_token` dependency is replaced by `verify_oauth_token`. The two auth layers (MCP client to MCP server via OAuth; MCP server to REST API via `AGENT_BRAIN_API_KEY`) remain independent and must not be conflated.
 
-The dual UDS+TCP transport requires two `uvicorn.Server` instances sharing the same FastAPI `app` object via `asyncio.gather()`. The TCP server runs `lifespan="on"` (initializes `app.state`); the UDS server runs `lifespan="off"` (reads `app.state` without re-initializing). A custom `_NoSignalServer` subclass suppresses duplicate signal handler registration on the UDS server.
+**Two deployment topologies supported:**
+1. **Co-located AS/RS** — single binary; `agent-brain-mcp` serves both AS endpoints (`/authorize`, `/token`, `/register`, `/.well-known/*`) and RS endpoints (`/mcp`); JWT-signed tokens verified locally; no external IdP needed.
+2. **Split AS/RS** — `agent-brain-mcp` is RS only; PRM points to external IdP (Keycloak/Auth0/Cognito); `JwksTokenVerifier` fetches JWKS from IdP with 5-min TTL cache + `kid`-miss on-demand refresh.
 
 **Major components:**
-1. `EmbeddingCache` (new, `services/embedding_cache.py`) — SHA-256 keyed LRU in-memory + optional aiosqlite disk persistence; injected into `EmbeddingGenerator`
-2. `QueryCache` (new, `services/query_cache.py`) — TTLCache keyed by `(index_generation, query, mode, top_k, ...)`; injected into `QueryService` and `JobWorker`
-3. `FileWatcherService` (new, `services/file_watcher_service.py`) — watchfiles `awatch()` async generator with per-folder debounce; enqueues to `JobQueueService`
-4. `FolderRecord` (modify, `services/folder_manager.py`) — extend Pydantic model with `watch_enabled: bool = False` and `watch_debounce_seconds: int = 30`; backward-compatible via `data.get(key, default)` deserialization
-5. Dual Uvicorn transport (modify, `api/main.py`) — `asyncio.gather(tcp_server.serve(), uds_server.serve())`; UDS path written to `runtime.json` for CLI discovery
+1. `agent_brain_mcp/oauth/` (NEW MODULE) — `provider.py` (`OAuthAuthorizationServerProvider` full impl), `token_store.py` (in-memory stores for auth codes, access tokens, refresh tokens), `client_registry.py` (DCR/CIMD registry), `verifiers.py` (`JwksTokenVerifier` + `IntrospectionTokenVerifier`), `token_storage.py` (`FileTokenStorage` + `InMemoryTokenStorage` for `McpHttpBackend`), `metadata.py` (PRM + OASM route builders).
+2. `agent_brain_mcp/security/scope_guard.py` (NEW) — `require_scope(scope)` callable; reads `request.state.auth.scopes` (populated by `BearerAuthBackend`); raises `McpError(InvalidRequest)` if scope is absent; no-op in `none`/`basic` modes.
+3. `agent_brain_server/api/security.py` (MODIFY) — adds `verify_oauth_token` FastAPI dependency and `get_auth_dependency()` dispatch function that returns exactly ONE dependency based on `AGENT_BRAIN_AUTH` mode (mutually exclusive — no double-auth).
+4. `agent_brain_mcp/http.py` (MODIFY) — `build_asgi_app()` accepts `auth_mode`, `token_verifier`, `oauth_routes`; in `oauth` mode wraps the Starlette app with `RequireAuthMiddleware`; mounts well-known routes BEFORE the middleware wrapper (publicly accessible — this ordering is critical).
+5. `agent_brain_mcp/client.py` / `McpHttpBackend` (MODIFY) — passes `OAuthClientProvider` to `streamablehttp_client` via `auth=` kwarg; uses `FileTokenStorage` keyed to `state_dir` for token persistence across Pattern A per-call invocations.
 
-**Data flow (file change to fresh query result):**
-```
-File modified
-  -> watchfiles awatch() -> debounce 30s -> FileWatcherService._consume_events()
-  -> job_service.enqueue(force=False) -> JobWorker._process_job()
-  -> ManifestTracker mtime fast-path (95% unchanged files skipped)
-  -> EmbeddingGenerator.embed_texts()
-     -> EmbeddingCache: hit = 0 API calls; miss = provider call + cache.put()
-  -> StorageBackendProtocol.upsert_documents() -> ManifestTracker.save()
-  -> job DONE -> query_cache.invalidate_all()
-  -> Next query: QueryCache miss -> fresh storage lookup
-```
+**Critical architectural constraint:** The SDK does NOT provide a `GET /.well-known/jwks.json` endpoint. The co-located AS must add a custom FastAPI route that exposes the RS256 public key. This must be mounted outside auth middleware (publicly accessible).
+
+**Critical integration boundary:** The MCP-to-REST API leg continues to use `AGENT_BRAIN_API_KEY` (static Bearer). The OAuth access token from the MCP client is consumed and validated at the MCP server boundary only; it MUST NOT be forwarded to `agent-brain-server`. These two auth layers are architecturally independent.
 
 ### Critical Pitfalls
 
-1. **Cache incoherence on embedding provider/model change** — avoid by including `provider_name:model_name` fingerprint in every cache key from day one; detect config change on startup via sentinel key in cache; wipe entire cache on namespace mismatch. Silent wrong results with no error is the failure mode when omitted.
+The 13 pitfalls documented in PITFALLS.md converge on categories that roadmap phases must address:
 
-2. **Thundering herd on git checkout (per-file debounce)** — avoid by debouncing at folder granularity, not file granularity. A single timer per watched folder; any event in the folder resets the same timer. 500 file events must produce exactly 1 job. Also check for PENDING job on same folder before enqueuing.
+1. **Missing `aud` claim validation + Missing Resource Indicators (Pitfalls 1 + 3)** — These are twins. The RS must validate `aud` equals the canonical MCP server URI on every inbound token; the AS must bind `aud` to the `resource` parameter in every issued JWT; `McpHttpBackend` must include `resource=<canonical-uri>` in both `/authorize` and `/token` requests. Omitting either check enables cross-service token reuse. The canonical URI must derive from a single `AGENT_BRAIN_OAUTH_RESOURCE` setting — never hard-coded, never with trailing-slash inconsistency. Address in: design doc (canonical URI config), AS implementation, RS middleware, and contract tests.
 
-3. **Watchdog/watchfiles thread boundary violation** — using `watchfiles awatch()` eliminates this entirely by providing a native `async for` interface. If `watchdog` is ever used instead, all event handling must cross the thread boundary via `loop.call_soon_threadsafe()` only. Calling `await` or `asyncio.create_task()` directly from a watchdog handler causes `RuntimeError: no running event loop` at runtime but passes in single-threaded unit tests.
+2. **Confused deputy / token passthrough (Pitfall 2)** — The `AGENT_BRAIN_API_KEY` forwarding on the MCP-to-REST leg must be preserved exactly as it is today. Any code that extracts the inbound OAuth Bearer token and sets it on the outgoing REST call is a hard spec violation. Address in: design doc data-flow diagram; integration test that asserts `AGENT_BRAIN_API_KEY` is on the MCP-to-REST leg and the OAuth token is not.
 
-4. **UDS socket stale after crash** — avoid by calling `Path(sock_path).unlink(missing_ok=True)` before every bind. The OS does not clean up Unix domain socket files on process death. Add integration test: `kill -9` then restart must succeed without manual cleanup.
+3. **Well-known and AS endpoints behind auth middleware (Pitfalls 5 + 10)** — `/.well-known/oauth-protected-resource`, `/.well-known/oauth-authorization-server`, `/authorize`, `/token`, `/register` MUST all be publicly accessible without a Bearer token. The correct mount order: well-known routes are added to the Starlette `routes` list before the `Starlette` app instance is wrapped with `RequireAuthMiddleware`. The first automated test to write is `curl /.well-known/oauth-protected-resource` without a token returning 200. Block implementation from proceeding until this passes.
 
-5. **Query cache staleness after reindex (TTL-only)** — avoid by including `index_generation` (monotonically incrementing counter) in every cache key. Increment only on successful job completion, not on job start. TTL is the fallback safety net only. Without this, users see stale search results for minutes after explicit reindex.
+4. **PKCE S256-only enforcement (Pitfall 4)** — The co-located AS must advertise `code_challenge_methods_supported: ["S256"]` in OASM and reject any authorization request with `code_challenge_method=plain` or with the field absent. Compliant MCP clients (including the SDK's `OAuthClientProvider`) WILL refuse to proceed if this field is absent from OASM. Verify in contract tests before any end-to-end flow test.
 
-**Additional pitfalls (moderate severity):**
-- Debounce timer handle leak when folder is removed mid-debounce — cancel pending handle in `remove_folder_watcher()` before stopping the watcher
-- Embedding cache disk corruption on crash — use atomic temp+rename writes (already established pattern in `ManifestTracker`); wrap startup cache load in try/except that clears and continues without blocking startup
-- Query cache memory OOM from unbounded size — implement size-aware eviction with byte tracking; 64 MB ceiling for query cache, 256 MB for embedding cache as conservative developer-laptop defaults
-- Per-folder watcher config schema drift — extend `FolderRecord` Pydantic model with typed fields; never store watcher config in freeform `extra` dict
-- Double lifespan on both Uvicorn servers — must set `lifespan="off"` on UDS server; both servers share the same `app` object so TCP lifespan initializes `app.state` once
+5. **FileTokenStorage required for McpHttpBackend Pattern A + SDK refresh-token gap (Pitfall — Pattern A)** — `McpHttpBackend` uses Pattern A (fresh subprocess/client per call). In-memory `TokenStorage` is discarded on each call, re-triggering the full browser OAuth dance on every MCP tool invocation. `FileTokenStorage` keyed to `state_dir/mcp-oauth-tokens.json` (chmod 0o600) must be wired from the start. SDK PR #2039 (refresh-token support may be incomplete) is open as of June 2026 — implement `FileTokenStorage` defensively.
+
+6. **MCP spec staleness meta-pitfall** — The spec has gone through four substantively different revisions since 2024. A 2026-07-28 RC may introduce stateless changes (no initialize handshake) affecting session-based auth. Re-fetch the live spec at `https://modelcontextprotocol.io/specification/draft/basic/authorization` before design sign-off. Cite the spec version in the design doc. Address in: design doc phase (mandatory).
 
 ---
 
 ## Implications for Roadmap
 
-Based on research, suggested phase structure with explicit dependency ordering:
+All four researchers independently converged on the same phase ordering. The ordering is driven by hard dependencies (PRM discovery must exist before client can start the dance; AS must issue tokens before RS can validate them; working AS+RS must exist before `McpHttpBackend` can be tested end-to-end) and by the DoD requirement for a security review gate before any implementation code.
 
-### Phase 1: Embedding Cache
+### Phase 1: Design Doc + Security Review Gate
 
-**Rationale:** Independent of all other v8.0 features. Delivers immediate, measurable API cost reduction for every existing reindex workflow. All subsequent phases (especially file watcher + background incremental) depend on this being in place to be cost-effective — without the embedding cache, automatic reindexing re-embeds all chunks on every file change. Build this first, validate it works, then add the automation that benefits from it.
+**Rationale:** The DoD explicitly requires a design doc and independent security review before implementation. Spec-level decisions made wrong here (canonical URI format, scope hierarchy, token TTLs, DCR vs. CIMD vs. pre-registration, DPoP decision) are expensive to reverse in later phases. The 2026-07-28 RC may also change assumptions; this phase is the right time to track that.
+**Delivers:** Approved design doc covering: threat model, topology comparison (co-located vs. split), scope-to-tool mapping (source of truth), token lifecycle (15-min access / 30-day refresh), canonical URI contract (`AGENT_BRAIN_OAUTH_RESOURCE`), DCR policy (MAY — defer or CIMD-only), DPoP decision (defer to v10.5+), AS/RS data-flow diagram explicitly showing where OAuth tokens terminate and where `AGENT_BRAIN_API_KEY` continues. Security review sign-off is a gate before Phase 2 begins.
+**Addresses:** Pitfalls 2 (confused deputy), 5 (AS/RS co-location confusion), 7 (DCR abuse policy), meta-pitfall (spec staleness).
+**Avoids:** Starting implementation on a misunderstood spec; conflating OAuth token forwarding with API key forwarding.
+**Research flag:** Mandatory spec re-read before sign-off; check 2026-07-28 RC status.
 
-**Delivers:** Persistent SHA-256 keyed embedding cache (`aiosqlite` backend); LRU in-memory layer; cache integrated into `EmbeddingGenerator.embed_texts()`; provider/model fingerprint in cache key; atomic write pattern (temp+rename); corrupt-cache recovery on startup; cache size settings in `config/settings.py`
+### Phase 2: Settings Foundation + PRM/OASM Public Endpoints
 
-**Features addressed (from FEATURES.md):**
-- Embedding cache persists across restarts (P1 table stakes)
-- Provider-switch cache invalidation (P1 correctness requirement)
+**Rationale:** PRM is the root of all OAuth discovery. Everything downstream depends on the client being able to fetch PRM and OASM without authentication. Building and verifying these two routes before adding any auth enforcement proves the configuration is correct and eliminates the deadlock-before-start failure mode.
+**Delivers:** `AGENT_BRAIN_AUTH` toggle in settings; `AGENT_BRAIN_OAUTH_RESOURCE`, JWKS/introspect URI settings; `GET /.well-known/oauth-protected-resource` returning 200 without a token; `GET /.well-known/oauth-authorization-server` with `code_challenge_methods_supported: ["S256"]`; startup gate that validates OAuth config at boot; `agent_brain_mcp/oauth/metadata.py` (`build_prm_route()`, `build_oasm_route()`); `http.py` mount order with well-known routes outside auth middleware.
+**Uses:** `itsdangerous` (state signing), `mcp.server.auth.settings.AuthSettings`
+**Addresses:** Pitfalls 5 + 10 (well-known endpoints unauthenticated); Pitfall 4 (PKCE advertisement in OASM).
+**Contract test (must pass before Phase 3):** `curl /.well-known/oauth-protected-resource` without token returns 200; `curl /.well-known/oauth-authorization-server` without token returns 200 with `code_challenge_methods_supported: ["S256"]`.
+**Research flag:** Standard patterns; no additional research needed.
 
-**Pitfalls to prevent (from PITFALLS.md):**
-- Cache incoherence on provider change (include `provider:model` in key from day one — Pitfall 1)
-- Cache disk corruption on crash (atomic writes + startup recovery — Pitfall 8)
-- Unbounded cache size (configure max bytes on construction — Pitfall 9 pattern)
+### Phase 3: Co-Located AS (Topology A) + RS Middleware
 
-**Research flag:** Standard patterns — well-documented aiosqlite + SHA-256 hash pattern. Skip `research-phase`.
+**Rationale:** The RS (`RequireAuthMiddleware`) cannot be meaningfully tested until the AS is issuing tokens. Building them together in this phase enables immediate end-to-end unit tests of the token issuance → validation loop. The `get_auth_dependency()` dispatch ensures `basic` and `oauth` are mutually exclusive on the request path — no double-auth.
+**Delivers:** Full `OAuthAuthorizationServerProvider` implementation (`oauth/provider.py`); in-memory token store (`oauth/token_store.py`); client registry (`oauth/client_registry.py`); JWT signing with `PyJWT[crypto]` RS256; custom `GET /.well-known/jwks.json` route; `RequireAuthMiddleware` + `BearerAuthBackend` wired in `http.py` for `oauth` mode; `verify_oauth_token` + `get_auth_dependency()` in `agent-brain-server`'s `security.py`; all FastAPI routers switched to `get_auth_dependency()`.
+**Uses:** `mcp.server.auth.OAuthAuthorizationServerProvider`, `create_auth_routes()`, `RequireAuthMiddleware`, `BearerAuthBackend`; `PyJWT[crypto]`; `authlib` (grant handlers inside provider impl, optional); `pwdlib[argon2]` (user store if co-located AS has user auth).
+**Addresses:** Pitfall 1 (`aud` validation in RS middleware); Pitfall 3 (Resource Indicators `resource` param + `aud` binding in AS); Pitfall 4 (PKCE S256 enforcement in AS); Pitfall 12 (static Bearer rejected in oauth mode).
+**Research flag:** SDK `OAuthAuthorizationServerProvider` 9-method interface — verified via GitHub source (HIGH confidence). Authlib AS grant handlers — MEDIUM confidence; may need targeted implementation research if team uses Authlib route.
 
----
+### Phase 4: McpHttpBackend Client-Side OAuth Dance
 
-### Phase 2: Query Cache
+**Rationale:** The client dance can only be tested against a real working AS (Phase 3). `OAuthClientProvider` is already in the SDK; this phase is wiring it into `McpHttpBackend` and implementing `FileTokenStorage` to prevent the Pattern A token re-trigger problem.
+**Delivers:** `OAuthClientProvider` wired into `McpHttpBackend` via `streamablehttp_client(auth=provider)`; `FileTokenStorage` (chmod 0o600, keyed to `state_dir/mcp-oauth-tokens.json`); `InMemoryTokenStorage` (for tests); loopback callback server for authorization code capture; `_open_browser_redirect` handler; token refresh on expiry; step-up re-auth on `403 insufficient_scope`.
+**Uses:** `mcp.client.auth.OAuthClientProvider`, `mcp.shared.auth.OAuthClientMetadata`; `FileTokenStorage` (new, `oauth/token_storage.py`).
+**Addresses:** Pattern A per-call token persistence; SDK PR #2039 refresh-token gap (defensive implementation); Pitfall 13 (`iss` validation in callback handler — verify SDK handles this, add defensively if not).
+**Avoids:** In-memory storage that re-triggers the full OAuth dance (browser redirect, user interaction) on every MCP tool call.
+**Research flag:** SDK PR #2039 status — verify before Phase 4 sign-off; if incomplete, implement defensive token refresh in `FileTokenStorage`.
 
-**Rationale:** Independent of phases 3 and 4. High value for repeat-query workflows (Claude Code skill calls same queries dozens of times per session). Must be built with `index_generation` counter from day one — retrofitting cache key schema after the fact is error-prone. The `JobWorker` modification (invalidation on job DONE) is a one-line change. Build this before the watcher so the invalidation hook is in place before automatic reindexing begins.
+### Phase 5: Per-Tool Scope Enforcement
 
-**Delivers:** In-memory TTLCache for `QueryResponse` objects; `index_generation` counter in cache key; `invalidate_all()` called by `JobWorker` on DONE; GraphRAG/multi mode excluded from cache (non-deterministic LLM step); cache size config; hit/miss counters exposed in `/health/status`
+**Rationale:** Scope enforcement at the tool level requires the full token validation stack (Phases 3+4) to be working so the enforcement is testable. Adding scope guards before Phase 3 yields untestable code. Scope mismatch must return 403 (insufficient scope) not 401 (invalid token) — correct HTTP semantics signal to the client that it needs to step-up, not re-authenticate.
+**Delivers:** `agent_brain_mcp/security/scope_guard.py` (`require_scope(scope)` callable); scope guards on all 16 tools and subscription handlers; `TOOL_SCOPE_REQUIREMENTS` mapping as the `_tool_matrix.py` SOT; `403 + WWW-Authenticate: Bearer error="insufficient_scope"` returned on scope mismatch.
+**Addresses:** Pitfall 11 (scope escalation — read-only token cannot call admin tools); 4-scope hierarchy enforcement across all 16 tools.
+**Research flag:** Standard patterns; no additional research needed.
 
-**Features addressed:**
-- Query cache reduces repeat query latency (P2 should have)
-- Cache metrics in `/health/status` (P3 nice to have)
+### Phase 6: Split AS/RS (Topology B — Keycloak in CI)
 
-**Pitfalls to prevent:**
-- Query cache staleness after reindex (`index_generation` in key — Pitfall 5)
-- Cache memory OOM (size-aware eviction, 64 MB ceiling — Pitfall 9)
-- TTL-only invalidation anti-pattern
-- Non-deterministic graph/multi modes cached (explicit mode exclusion check)
+**Rationale:** The split topology reuses the Phase 3 middleware stack — only the `TokenVerifier` implementation changes. Adding it once Topology A is fully tested minimizes risk and isolates Keycloak CI complexity from earlier phases.
+**Delivers:** `JwksTokenVerifier` (`oauth/verifiers.py`) — `PyJWKClient` with 5-min TTL + `kid`-miss on-demand refresh + jitter; `IntrospectionTokenVerifier` (fallback for opaque tokens); `http.py` wiring for topology selection; Keycloak Docker container in CI with dedicated realm (not `master`); end-to-end test that Keycloak-issued JWT is accepted by RS.
+**Uses:** `PyJWT[crypto]` + `PyJWKClient`; Keycloak (Docker in CI — no Python lib dep).
+**Addresses:** Pitfall 6 (JWKS rotation cache stampede — `kid`-miss refresh + jitter on cache TTL); Pitfall 9 (clock skew — `leeway=30s` in JWT validation).
+**Research flag:** Keycloak realm configuration for RFC 8707 Resource Indicators — must be explicitly enabled per-client in Keycloak 22+; verify before CI setup.
 
-**Research flag:** Standard patterns — `cachetools.TTLCache` + `asyncio.Lock` is well-documented. Skip `research-phase`.
+### Phase 7: Integration Tests + 90% Coverage Gate
 
----
-
-### Phase 3: File Watcher and Background Incremental Updates
-
-**Rationale:** Depends on Phase 1 (embedding cache) being in place — watcher-triggered incremental reindexes would be prohibitively expensive without the embedding cache absorbing unchanged-content hits. The watcher itself is a new component; background incremental updates reuse existing `JobQueueService` + `IndexingService` + `ManifestTracker` without modification. This phase also extends `FolderRecord` with typed watcher config fields — this must be a Pydantic model extension, not an `extra` dict.
-
-**Delivers:** `FileWatcherService` with `watchfiles awatch()` async generator; per-folder `watch_enabled` + `watch_debounce_seconds` in `FolderRecord`; watcher state surfaced in `agent-brain status`; default exclusion patterns (`.git/`, `__pycache__/`, `node_modules/`, editor temp files); backward-compatible v7.0 manifest deserialization; watcher auto-pause when folder job already PENDING; `read_only` watch mode for vendor/dependency folders
-
-**Features addressed:**
-- File watcher with per-folder watch mode (P1 must have)
-- Configurable debounce per folder (P2 should have)
-- Background incremental updates (P1 must have)
-- Watcher exclusions (P1 — critical for usability)
-- Watcher auto-pause during active indexing (P2 should have)
-
-**Pitfalls to prevent:**
-- Thundering herd on git checkout (per-folder debounce, not per-file — Pitfall 2)
-- Thread boundary violation (watchfiles native `async for` eliminates the problem — Pitfall 3)
-- Debounce timer handle leak on folder removal (cancel timer before stopping watcher — Pitfall 6)
-- Config schema drift (extend `FolderRecord` Pydantic model, not `extra` dict — Pitfall 10)
-- Manifest lock contention between watcher and manual `--force` (job supersession for PENDING jobs — Pitfall 7)
-
-**Research flag:** Needs brief research during planning. Confirm `watchfiles awatch()` debounce-per-folder pattern with asyncio lifespan shutdown interaction. Verify the asyncio timer cancel-restart approach on `FileWatcherService.stop()`.
-
----
-
-### Phase 4: UDS Transport
-
-**Rationale:** Independent of phases 1-3. Shipped last because it touches the server startup code (`api/main.py` `run()` function) — the widest blast radius of any v8.0 change. The existing test suite will catch regressions if the TCP-only path is broken. The dual-server pattern has MEDIUM confidence (community-verified, not official Uvicorn docs); this needs careful integration testing before release.
-
-**Delivers:** Dual `uvicorn.Server` instances via `asyncio.gather()` with shared `app` object; `lifespan="off"` on UDS server; `_NoSignalServer` subclass suppressing duplicate signal registration; `uds_path` + `uds_url` written to `runtime.json`; CLI auto-detects and prefers UDS socket from `runtime.json`; graceful fallback to TCP when socket absent or connection refused; stale socket cleanup before bind; UDS socket mode `0o600`
-
-**Features addressed:**
-- UDS as default transport for same-host CLI (P1 must have)
-- Socket file cleanup on startup (table stakes)
-- CLI fallback to TCP on permission/connection error
-
-**Pitfalls to prevent:**
-- Stale socket blocking startup after crash (unlink before bind — Pitfall 4)
-- Double lifespan initialization corrupting shared state (`lifespan="off"` on UDS server — Architecture anti-pattern 1)
-- World-readable socket permissions (set `0o600`)
-- Socket path too long (Linux 104-char limit — document and validate)
-
-**Research flag:** Needs validation during planning. Confirm `asyncio.gather(tcp_server.serve(), uds_server.serve())` pattern against the exact Uvicorn version pinned in `pyproject.toml`. Mandatory integration test: `kill -9` server, restart, verify startup success without manual socket cleanup.
-
----
+**Rationale:** DoD requires 90% coverage on `agent_brain_mcp/oauth/` and a passing integration test suite including Keycloak. This phase is the validation gate before v10.4 ships.
+**Delivers:** Full E2E test: 401 challenge to PRM discovery to OASM discovery to PKCE dance to tool call; token refresh path; scope boundary tests for all 16 tools (read-only token + admin tool call returns 403); Topology B: Keycloak-issued JWT accepted; "Looks Done But Isn't" checklist from PITFALLS.md fully automated; coverage gate at 90% on `agent_brain_mcp/oauth/`.
+**Addresses:** All 13 pitfalls verified by automated tests; DoD coverage requirement.
+**Research flag:** Standard patterns; `pytest-httpx` or `respx` for mocking HTTP endpoints.
 
 ### Phase Ordering Rationale
 
-- **Embedding cache first:** Every feature that incurs API cost benefits from the cache. Watcher-triggered auto-reindex without a cache would be financially destructive on large codebases. This is the dependency anchor for Phase 3.
-- **Query cache second:** Independent of the watcher, but the `JobWorker` invalidation hook should be present before watcher starts generating automatic reindex events. The `index_generation` counter and invalidation path are easier to validate in isolation before the watcher adds concurrency.
-- **Watcher third:** Requires embedding cache for cost control. Benefits from query cache invalidation hook already being in place. Most new code; highest feature complexity; the only phase that introduces cross-thread coordination.
-- **UDS last:** Highest blast radius (server startup modification). Most MEDIUM-confidence pattern (dual Uvicorn servers). All earlier phases are single-server safe and validate the existing test suite is intact before touching startup.
-- **Phases 1-2 and 4 have no cross-dependencies:** If scheduling requires it, Phase 4 can be parallelized with Phases 2-3 since it touches orthogonal code paths (server startup, not service layer).
+- **Design doc first** — DoD requirement; spec decisions affect everything downstream. The 2026-07-28 RC risk makes this especially important.
+- **PRM/OASM second** — These are the root of OAuth discovery; nothing else can work until they return 200 without a token.
+- **Co-located AS/RS third** — The RS cannot be tested without the AS issuing tokens; building them together enables fast feedback.
+- **Client dance fourth** — Requires a working AS to dance against; cannot be tested in isolation.
+- **Per-tool scope enforcement fifth** — Requires full token validation stack to be testable.
+- **Split AS/RS sixth** — Reuses the Phase 3 middleware stack; Keycloak CI complexity is isolated to this phase.
+- **Integration tests last** — Validates the full stack end-to-end against the DoD.
 
 ### Research Flags
 
-**Needs `research-phase` during planning:**
-- **Phase 3 (File Watcher):** Confirm `watchfiles awatch()` debounce-per-folder cancel-restart pattern with lifespan shutdown interaction. The asyncio task cancellation path needs explicit testing to ensure pending debounce timers are cancelled cleanly on server shutdown.
-- **Phase 4 (UDS Transport):** Validate `asyncio.gather(tcp_server.serve(), uds_server.serve())` pattern against the exact Uvicorn version pinned in `pyproject.toml`. Community gist is MEDIUM confidence; official docs confirm `--uds` is mutually exclusive with `--host/--port` but do not document the two-server pattern directly. TCP startup ordering relative to UDS exposure needs verification.
+**Needs research during planning:**
+- **Pre-Phase 1:** Re-fetch live MCP Authorization spec (`https://modelcontextprotocol.io/specification/draft/basic/authorization`) before design sign-off; verify 2026-07-28 RC status and whether it affects session-based auth assumptions.
+- **Phase 3 (Co-located AS):** Authlib AS grant handlers for `OAuthAuthorizationServerProvider` implementation — MEDIUM confidence; targeted research recommended if team chooses Authlib route vs. hand-rolling the 9 abstract methods.
+- **Phase 4 (McpHttpBackend):** SDK PR #2039 (refresh-token support) status — verify before implementation; build `FileTokenStorage` defensively regardless of PR status.
+- **Phase 6 (Keycloak CI):** RFC 8707 Resource Indicators in Keycloak 22+ must be explicitly enabled per-client; verify configuration before CI setup.
 
-**Standard patterns (skip `research-phase`):**
-- **Phase 1 (Embedding Cache):** `aiosqlite` + SHA-256 is a fully documented, stable pattern. Cache key design is the only non-obvious decision; follow PITFALLS.md Pitfall 1 guidance exactly.
-- **Phase 2 (Query Cache):** `cachetools.TTLCache` + `asyncio.Lock` is standard. The `index_generation` counter pattern is the key design insight; implement per PITFALLS.md Pitfall 5.
+**Standard patterns (skip additional research):**
+- **Phase 2 (Settings + PRM/OASM):** RFC 9728 and RFC 8414 are canonical, stable; SDK `AuthSettings` verified via source.
+- **Phase 5 (Scope enforcement):** Standard FastAPI dependency injection pattern; `scope_guard.py` is pure policy logic with no external dependencies.
+- **Phase 7 (Integration tests):** Standard `pytest-httpx`/`respx` patterns; well-documented in FastAPI ecosystem.
 
 ---
 
@@ -222,61 +211,59 @@ Based on research, suggested phase structure with explicit dependency ordering:
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All three new deps (`watchfiles`, `aiosqlite`, `cachetools`) are stable, well-documented libraries. Alternatives evaluated and eliminated with clear rationale. `watchfiles` already in Uvicorn dep tree. |
-| Features | HIGH | Feature priority matrix is clear. Table stakes vs. anti-features distinction is well-reasoned. MVP phasing matches dependency order. Note: FEATURES.md references `watchdog` in its phase descriptions but STACK.md correctly recommends `watchfiles` — roadmap must standardize on `watchfiles`. |
-| Architecture | HIGH (phases 1-3) / MEDIUM (phase 4 UDS) | All injection patterns and data flows for phases 1-3 read directly from the codebase. The dual Uvicorn server pattern for Phase 4 is MEDIUM: confirmed working via community sources, not official Uvicorn docs. `lifespan="off"` on the UDS server is the critical invariant. |
-| Pitfalls | HIGH | Critical pitfalls cross-referenced with official CPython/asyncio issue trackers, ChromaDB bug reports, and POSIX documentation. The 10 pitfalls with the "Looks Done But Isn't" checklist provide actionable pre-ship verification criteria. |
+| Stack | HIGH | `mcp` SDK auth module verified via GitHub source + Context7; `PyJWT` + `authlib` versions confirmed via PyPI; python-jose abandonment confirmed via FastAPI GitHub discussion #11345; DPoP gap confirmed via authlib issue #315 (open since 2021) |
+| Features | HIGH | Primary source: MCP Authorization spec 2025-11-25 fetched verbatim 2026-06-14; secondary: Context7 `/modelcontextprotocol/modelcontextprotocol` (High reputation, benchmark 82.9); scope-to-tool mapping derived from existing 16-tool surface |
+| Architecture | HIGH | Existing codebase read directly (security.py, main.py, settings.py, http.py, client.py, security/__init__.py); SDK mount-path issues verified via GitHub issues #1751 and #1400; Pattern A per-call concern verified via multiple sources |
+| Pitfalls | MEDIUM-HIGH | Spec sections: HIGH (fetched current spec); ecosystem patterns: MEDIUM (multiple corroborating sources); JWKS rotation patterns and refresh token race conditions: MEDIUM (standard OAuth literature) |
 
-**Overall confidence:** HIGH for phases 1-3, MEDIUM for phase 4 (UDS transport dual-server pattern).
+**Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **watchfiles vs. watchdog inconsistency:** FEATURES.md phase 2 description references `watchdog` but STACK.md correctly recommends `watchfiles`. All implementation specs must standardize on `watchfiles`. The `watchdog` library should not appear in any new code.
+- **SDK PR #2039 (refresh-token gap):** The `OAuthClientProvider`'s refresh-token support may be incomplete as of June 2026. Build `FileTokenStorage` defensively with explicit refresh-token handling. Verify PR status before Phase 4 implementation begins.
 
-- **Dual UDS+TCP server startup ordering:** The `asyncio.gather(tcp_server.serve(), uds_server.serve())` pattern starts both servers concurrently. If TCP lifespan (which initializes `app.state`) has not completed before the first UDS request arrives, the UDS handler will receive an uninitialized `app.state`. Verify whether Uvicorn's startup sequence guarantees lifespan completion before accepting connections, or add explicit synchronization.
+- **2026-07-28 RC (MCP stateless migration):** The RC removes the initialize handshake and may introduce changes affecting session-based auth. This gap must be resolved during Phase 1 (design doc) before implementation begins. If the RC has landed and is stable, update the design doc to reflect the stateless model.
 
-- **SQLite WAL mode for embedding cache:** Under concurrent read/write during indexing, WAL mode (`PRAGMA journal_mode=WAL`) may be needed for aiosqlite. Test with concurrent connections during active indexing before shipping Phase 1.
+- **CIMD SSRF protection:** CIMD requires the AS to fetch the `client_id` URL to get client metadata. The AS must validate the URL against an allowlist of trusted domains to prevent SSRF. The exact mitigation approach (allowlist implementation) needs a decision during Phase 1 design.
 
-- **watchfiles as transitive dep verification:** Run `poetry show watchfiles` in `agent-brain-server` before implementing Phase 3 to determine if an explicit pin is needed or if the transitive dep from Uvicorn is sufficient for stability guarantees.
+- **Keycloak RFC 8707 Resource Indicators configuration:** Must be explicitly enabled per-client in Keycloak 22+; the exact configuration steps should be verified during Phase 6 planning before CI setup.
 
-- **Query cache: GraphRAG mode exclusion is mandatory:** The query cache must NOT cache `graph` or `multi` mode results (non-deterministic LLM extraction step). This must appear as an explicit check on `request.mode` in the Phase 2 implementation spec.
-
-- **Cache size constants:** 64 MB for query cache and 256 MB for embedding cache are proposed defaults. These need to be validated against real-world chunk sizes on a medium-scale codebase (10-50K chunks) before being committed as defaults in `settings.py`.
+- **Token store persistence (in-memory only for co-located AS):** The in-memory token store is sufficient for single-user self-hosted use. If the agent-brain process restarts, all sessions are invalidated. This is a known trade-off — document explicitly in the design doc so operators are not surprised.
 
 ---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-
-**Stack:**
-- [watchfiles PyPI v1.1.1](https://pypi.org/project/watchfiles/) — version, async API, debounce parameter
-- [watchfiles helpmanual awatch API](https://watchfiles.helpmanual.io/api/watch/) — debounce parameter (default 1600ms), watch_filter, recursive, force_polling
-- [aiosqlite PyPI v0.20](https://pypi.org/project/aiosqlite/) — async SQLite wrapper, Python 3.8+ support
-- [cachetools PyPI v7.0.3](https://pypi.org/project/cachetools/) — TTLCache API, thread safety requirement
-- [cachetools readthedocs](https://cachetools.readthedocs.io/) — TTLCache(maxsize, ttl), asyncio.Lock pairing requirement
-- [Uvicorn Settings](https://www.uvicorn.org/settings/) — `--uds` parameter for UDS binding; mutually exclusive with `--host/--port`
-- [HTTPX Transports docs](https://www.python-httpx.org/advanced/transports/) — `httpx.AsyncHTTPTransport(uds=...)` for UDS client connections
-
-**Architecture (codebase read directly — HIGH confidence):**
-- `api/main.py`, `services/indexing_service.py`, `services/query_service.py`, `job_queue/job_worker.py`, `services/folder_manager.py`, `services/manifest_tracker.py`, `indexing/embedding.py`, `storage/protocol.py`, `config/settings.py`, `runtime.py`
-
-**Pitfalls:**
-- [CPython issue #111246](https://github.com/python/cpython/issues/111246) — UDS socket not removed on process close
-- [ChromaDB issue #4368](https://github.com/chroma-core/chroma/issues/4368) — InvalidDimensionException on embedding model switch
-- [asyncio Event Loop thread safety docs](https://docs.python.org/3/library/asyncio-eventloop.html) — `call_soon_threadsafe()` requirement
+- MCP Authorization Specification 2025-11-25 — `https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization` — fetched verbatim 2026-06-14; scope MUST/SHOULD/MAY levels, Resource Indicators, PKCE S256 requirement, CIMD vs. DCR priority order
+- `/modelcontextprotocol/python-sdk` Context7 — verified `OAuthClientProvider`, `TokenVerifier`, `AuthSettings`, `OAuthAuthorizationServerProvider` class shapes; High reputation source
+- `github.com/modelcontextprotocol/python-sdk/blob/main/src/mcp/server/auth/provider.py` — confirmed 9 abstract methods on `OAuthAuthorizationServerProvider`
+- `deepwiki.com/modelcontextprotocol/python-sdk/8.4-oauth-authentication-flow-example` — confirmed full client-side OAuth dance in `OAuthClientProvider.async_auth_flow()`
+- `pypi.org/project/mcp/` — confirmed current stable version is 1.27.2 (released 2026-05-29)
+- `pyjwt.readthedocs.io` — confirmed PyJWT 2.13.0, `PyJWKClient` with 5-min TTL cache
+- `pypi.org/project/Authlib/` — confirmed Authlib 1.7.2, released 2026-05-06, Python 3.10+
+- `github.com/fastapi/fastapi/discussions/11345` — confirmed python-jose abandoned, FastAPI docs migrated to PyJWT
+- RFC 9728, RFC 8414, RFC 7591, RFC 8707, RFC 9449 (IETF canonical specifications)
+- Existing codebase (read directly): `agent_brain_server/api/security.py`, `agent_brain_server/api/main.py`, `agent_brain_server/config/settings.py`, `agent_brain_mcp/http.py`, `agent_brain_mcp/client.py`, `agent_brain_mcp/security/__init__.py`, `docs/roadmaps/mcp/v4-oauth-for-remote.md`, `.planning/PROJECT.md`
 
 ### Secondary (MEDIUM confidence)
+- `github.com/modelcontextprotocol/python-sdk/issues/1751` — mount-path well-known route issue; confirmed active
+- `github.com/modelcontextprotocol/python-sdk/issues/1400` — PRM URL mismatch issue
+- `github.com/authlib/authlib/issues/315` — DPoP feature request open since 2021; confirmed not implemented
+- `docs.authlib.org/en/v1.7.0/upgrades/changelog.html` — no DPoP support in 1.7.0+
+- Obsidian Security: "When MCP Meets OAuth" — confused-deputy and token passthrough pitfalls
+- WorkOS: "DCR in MCP" + "MCP 2025-11-25 spec update" — CIMD preferred over DCR; DCR demotion to deprecated/backwards-compat
+- Aaron Parecki: "Client Registration and Enterprise Management in the November 2025 MCP Authorization Spec"
+- SecureCoders blog: refresh-token gap in MCP CLI clients (SDK PR #2039 open as of June 2026)
+- RFC 9700 — Best Current Practice for OAuth 2.0 Security (IETF, Jan 2025)
+- OWASP OAuth 2.0 Cheat Sheet
 
-- [Multiple uvicorn instances gist](https://gist.github.com/tenuki/ff67f87cba5c4c04fd08d9c800437477) — asyncio.gather() dual TCP+UDS pattern
-- [Uvicorn dual-server discussion issue #541](https://github.com/Kludex/uvicorn/issues/541) — community-verified dual server approach
-- [watchdog asyncio bridge gist](https://gist.github.com/mivade/f4cb26c282d421a62e8b9a341c7c65f6) — `call_soon_threadsafe()` pattern (for watchdog; watchfiles eliminates this)
-- [BullMQ job deduplication docs](https://docs.bullmq.io/guide/jobs/deduplication) — job supersession pattern for debounce
-
-### Tertiary (LOW confidence — validate during implementation)
-
-- `asyncio.gather()` ordering guarantees for dual Uvicorn startup — TCP must fully complete lifespan before UDS begins serving; may need explicit startup sequencing guard beyond what `asyncio.gather()` provides by default
+### Tertiary (LOW confidence)
+- DPoP tracking in `modelcontextprotocol/java-sdk` issue #887 — implementation interest confirmed; production Python library status is still none
+- SEP-1880 (per-tool scope proposal) — open proposal, not in 2025-11-25 spec; cite only as "future consideration"
 
 ---
-*Research completed: 2026-03-06*
+
+*Research completed: 2026-06-14*
+*Spec version: MCP Authorization 2025-11-25*
 *Ready for roadmap: yes*
