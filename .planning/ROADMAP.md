@@ -87,7 +87,11 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
   2. `agent-brain graph restore-from-snapshot [--snapshot PATH] [--dry-run]` replays the latest kuzu snapshot from disk; `agent-brain doctor` surfaces the stale-graph condition as a warning instead of reporting `OK`
   3. `GET /health/status` graph `entity_count` and `relationship_count` match what `SELECT COUNT(*)` returns from kuzu at query time — the `0 / 100` vs actual `5677 / 4366` class of discrepancy is gone
   4. `GET /mcp/subscriptions` returns 200 with current active subscription state (session IDs, subscribed URIs, uptime) without requiring a token; operator can `curl` it for live diagnosis without restarting the server
-**Plans**: TBD
+**Plans**: 4 plans (1 wave — all independent across packages)
+- [ ] 64-01-PLAN.md — GSTAB-01: out-of-process kuzu isolation + graceful per-job degradation (server)
+- [ ] 64-02-PLAN.md — GSTAB-03: live kuzu COUNT(*) health counts with TTL cache + stale fallback (server)
+- [ ] 64-03-PLAN.md — GSTAB-02: graph restore-from-snapshot CLI + doctor stale-graph WARN/--fix (server+cli)
+- [ ] 64-04-PLAN.md — HOUSE-01: /mcp/subscriptions debug endpoint + SubscriptionManager snapshot (mcp)
 
 ### Phase 65: OAuth Design Doc + Security Review Gate
 **Goal**: A fully-specified, independently-reviewed design document exists on disk that governs all implementation decisions for Phases 66-70 — no OAuth code lands until this gate passes.
@@ -175,7 +179,7 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
 | 61. Python framework adapter matrix                         | v10.3     | 4/4            | Complete    | 2026-06-11 |
 | 62. TypeScript framework adapter matrix                     | v10.3     | 2/2            | Complete    | 2026-06-12 |
 | 63. Tooling + docs + integration page                       | v10.3     | 3/3            | Complete    | 2026-06-12 |
-| 64. GraphRAG stability + subscriptions debug endpoint       | v10.4     | 0/TBD          | Not started | -          |
+| 64. GraphRAG stability + subscriptions debug endpoint       | v10.4     | 0/4            | Planned     | -          |
 | 65. OAuth design doc + security review gate                 | v10.4     | 0/TBD          | Not started | -          |
 | 66. OAuth settings foundation + PRM/OASM public endpoints   | v10.4     | 0/TBD          | Not started | -          |
 | 67. Co-located AS + RS middleware                           | v10.4     | 0/TBD          | Not started | -          |
