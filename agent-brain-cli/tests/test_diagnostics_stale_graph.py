@@ -36,11 +36,7 @@ def state_dir(tmp_path: Path) -> Path:
     sd = tmp_path / ".agent-brain"
     sd.mkdir()
     config_yaml = sd / "config.yaml"
-    config_yaml.write_text(
-        "graphrag:\n"
-        "  enabled: true\n"
-        "  store_type: kuzu\n"
-    )
+    config_yaml.write_text("graphrag:\n" "  enabled: true\n" "  store_type: kuzu\n")
     return sd
 
 
@@ -114,12 +110,17 @@ class TestCheckGraphStalenessWarn:
         live_count = 0
 
         with (
-            patch("agent_brain_cli.diagnostics._read_graphrag_block",
-                  return_value={"enabled": True, "store_type": "kuzu"}),
-            patch("agent_brain_cli.diagnostics._graph_index_dir",
-                  return_value=graph_dir),
-            patch("agent_brain_cli.diagnostics._get_live_kuzu_relationship_count",
-                  return_value=live_count),
+            patch(
+                "agent_brain_cli.diagnostics._read_graphrag_block",
+                return_value={"enabled": True, "store_type": "kuzu"},
+            ),
+            patch(
+                "agent_brain_cli.diagnostics._graph_index_dir", return_value=graph_dir
+            ),
+            patch(
+                "agent_brain_cli.diagnostics._get_live_kuzu_relationship_count",
+                return_value=live_count,
+            ),
         ):
             result = _check_graph_staleness(state_dir)
 
@@ -146,12 +147,17 @@ class TestCheckGraphStalenessWarn:
         _seed_kuzu_db(graph_dir)
 
         with (
-            patch("agent_brain_cli.diagnostics._read_graphrag_block",
-                  return_value={"enabled": True, "store_type": "kuzu"}),
-            patch("agent_brain_cli.diagnostics._graph_index_dir",
-                  return_value=graph_dir),
-            patch("agent_brain_cli.diagnostics._get_live_kuzu_relationship_count",
-                  return_value=0),
+            patch(
+                "agent_brain_cli.diagnostics._read_graphrag_block",
+                return_value={"enabled": True, "store_type": "kuzu"},
+            ),
+            patch(
+                "agent_brain_cli.diagnostics._graph_index_dir", return_value=graph_dir
+            ),
+            patch(
+                "agent_brain_cli.diagnostics._get_live_kuzu_relationship_count",
+                return_value=0,
+            ),
         ):
             result = _check_graph_staleness(state_dir)
 
@@ -175,12 +181,17 @@ class TestCheckGraphStalenessOk:
         live_count = 3
 
         with (
-            patch("agent_brain_cli.diagnostics._read_graphrag_block",
-                  return_value={"enabled": True, "store_type": "kuzu"}),
-            patch("agent_brain_cli.diagnostics._graph_index_dir",
-                  return_value=graph_dir),
-            patch("agent_brain_cli.diagnostics._get_live_kuzu_relationship_count",
-                  return_value=live_count),
+            patch(
+                "agent_brain_cli.diagnostics._read_graphrag_block",
+                return_value={"enabled": True, "store_type": "kuzu"},
+            ),
+            patch(
+                "agent_brain_cli.diagnostics._graph_index_dir", return_value=graph_dir
+            ),
+            patch(
+                "agent_brain_cli.diagnostics._get_live_kuzu_relationship_count",
+                return_value=live_count,
+            ),
         ):
             result = _check_graph_staleness(state_dir)
 
@@ -201,12 +212,17 @@ class TestCheckGraphStalenessOk:
         live_count = 5
 
         with (
-            patch("agent_brain_cli.diagnostics._read_graphrag_block",
-                  return_value={"enabled": True, "store_type": "kuzu"}),
-            patch("agent_brain_cli.diagnostics._graph_index_dir",
-                  return_value=graph_dir),
-            patch("agent_brain_cli.diagnostics._get_live_kuzu_relationship_count",
-                  return_value=live_count),
+            patch(
+                "agent_brain_cli.diagnostics._read_graphrag_block",
+                return_value={"enabled": True, "store_type": "kuzu"},
+            ),
+            patch(
+                "agent_brain_cli.diagnostics._graph_index_dir", return_value=graph_dir
+            ),
+            patch(
+                "agent_brain_cli.diagnostics._get_live_kuzu_relationship_count",
+                return_value=live_count,
+            ),
         ):
             result = _check_graph_staleness(state_dir)
 
@@ -221,33 +237,35 @@ class TestCheckGraphStalenessSkipped:
         self, state_dir: Path, graph_dir: Path
     ) -> None:
         with (
-            patch("agent_brain_cli.diagnostics._read_graphrag_block",
-                  return_value={"enabled": True, "store_type": "simple"}),
+            patch(
+                "agent_brain_cli.diagnostics._read_graphrag_block",
+                return_value={"enabled": True, "store_type": "simple"},
+            ),
         ):
             result = _check_graph_staleness(state_dir)
         assert result is None
 
-    def test_no_graphrag_block_returns_none(
-        self, state_dir: Path
-    ) -> None:
+    def test_no_graphrag_block_returns_none(self, state_dir: Path) -> None:
         with (
-            patch("agent_brain_cli.diagnostics._read_graphrag_block",
-                  return_value=None),
+            patch(
+                "agent_brain_cli.diagnostics._read_graphrag_block", return_value=None
+            ),
         ):
             result = _check_graph_staleness(state_dir)
         assert result is None
 
-    def test_no_snapshot_returns_none(
-        self, state_dir: Path, graph_dir: Path
-    ) -> None:
+    def test_no_snapshot_returns_none(self, state_dir: Path, graph_dir: Path) -> None:
         # No snapshot written — snapshots/ dir does not exist
         _seed_kuzu_db(graph_dir)
 
         with (
-            patch("agent_brain_cli.diagnostics._read_graphrag_block",
-                  return_value={"enabled": True, "store_type": "kuzu"}),
-            patch("agent_brain_cli.diagnostics._graph_index_dir",
-                  return_value=graph_dir),
+            patch(
+                "agent_brain_cli.diagnostics._read_graphrag_block",
+                return_value={"enabled": True, "store_type": "kuzu"},
+            ),
+            patch(
+                "agent_brain_cli.diagnostics._graph_index_dir", return_value=graph_dir
+            ),
         ):
             result = _check_graph_staleness(state_dir)
         assert result is None
@@ -259,10 +277,13 @@ class TestCheckGraphStalenessSkipped:
         _seed_snapshot(graph_dir, sample_triplets)
 
         with (
-            patch("agent_brain_cli.diagnostics._read_graphrag_block",
-                  return_value={"enabled": True, "store_type": "kuzu"}),
-            patch("agent_brain_cli.diagnostics._graph_index_dir",
-                  return_value=graph_dir),
+            patch(
+                "agent_brain_cli.diagnostics._read_graphrag_block",
+                return_value={"enabled": True, "store_type": "kuzu"},
+            ),
+            patch(
+                "agent_brain_cli.diagnostics._graph_index_dir", return_value=graph_dir
+            ),
         ):
             result = _check_graph_staleness(state_dir)
         assert result is None
@@ -271,9 +292,7 @@ class TestCheckGraphStalenessSkipped:
 class TestRunDoctorIncludesStalenessCheck:
     """Test 4: run_doctor includes staleness check; WARN keeps exit_code 0."""
 
-    def test_stale_graph_warn_in_report_exit_code_zero(
-        self, tmp_path: Path
-    ) -> None:
+    def test_stale_graph_warn_in_report_exit_code_zero(self, tmp_path: Path) -> None:
         """A WARN (not FAIL) keeps exit_code 0."""
         stale_check = CheckResult(
             "graph_staleness",
@@ -311,38 +330,44 @@ class TestRunDoctorIncludesStalenessCheck:
         ) as mock_check:
             # patch everything else run_doctor needs
             with (
-                patch("agent_brain_cli.diagnostics.resolve_project_root_with_strategy",
-                      return_value=(tmp_path, "cwd_fallback")),
-                patch("agent_brain_cli.diagnostics.get_server_url",
-                      return_value="http://127.0.0.1:8000"),
-                patch("agent_brain_cli.diagnostics._check_python",
-                      return_value=CheckResult("python_version", SEVERITY_OK, "ok")),
-                patch("agent_brain_cli.diagnostics._check_version",
-                      return_value=CheckResult("cli_version", SEVERITY_OK, "ok")),
+                patch(
+                    "agent_brain_cli.diagnostics.resolve_project_root_with_strategy",
+                    return_value=(tmp_path, "cwd_fallback"),
+                ),
+                patch(
+                    "agent_brain_cli.diagnostics.get_server_url",
+                    return_value="http://127.0.0.1:8000",
+                ),
+                patch(
+                    "agent_brain_cli.diagnostics._check_python",
+                    return_value=CheckResult("python_version", SEVERITY_OK, "ok"),
+                ),
+                patch(
+                    "agent_brain_cli.diagnostics._check_version",
+                    return_value=CheckResult("cli_version", SEVERITY_OK, "ok"),
+                ),
                 patch(
                     "agent_brain_cli.diagnostics._check_project_init",
-                    return_value=CheckResult(
-                        "project_initialized", SEVERITY_OK, "ok"
-                    ),
+                    return_value=CheckResult("project_initialized", SEVERITY_OK, "ok"),
                 ),
                 patch(
                     "agent_brain_cli.diagnostics._check_provider_config",
                     return_value=CheckResult("provider_config", SEVERITY_OK, "ok"),
                 ),
-                patch("agent_brain_cli.diagnostics._check_api_keys",
-                      return_value=[]),
-                patch("agent_brain_cli.diagnostics._check_graph_store_health",
-                      return_value=None),
+                patch("agent_brain_cli.diagnostics._check_api_keys", return_value=[]),
+                patch(
+                    "agent_brain_cli.diagnostics._check_graph_store_health",
+                    return_value=None,
+                ),
                 patch(
                     "agent_brain_cli.diagnostics._check_gitignore",
-                    return_value=CheckResult(
-                        "gitignore_state_dir", SEVERITY_OK, "ok"
-                    ),
+                    return_value=CheckResult("gitignore_state_dir", SEVERITY_OK, "ok"),
                 ),
-                patch("agent_brain_cli.diagnostics._check_server",
-                      return_value=CheckResult("server", SEVERITY_OK, "ok")),
-                patch("agent_brain_cli.diagnostics.load_config",
-                      return_value=None),
+                patch(
+                    "agent_brain_cli.diagnostics._check_server",
+                    return_value=CheckResult("server", SEVERITY_OK, "ok"),
+                ),
+                patch("agent_brain_cli.diagnostics.load_config", return_value=None),
             ):
                 report = run_doctor()
 
@@ -381,40 +406,46 @@ class TestApplySafeFixesGraphStaleness:
             checks=[stale_check],
         )
 
-    def test_fix_calls_restore_when_server_stopped(
-        self, tmp_path: Path
-    ) -> None:
+    def test_fix_calls_restore_when_server_stopped(self, tmp_path: Path) -> None:
         report = self._make_stale_report(tmp_path, server_running=False)
         mgr_mock = MagicMock()
         mgr_mock.restore_from_snapshot.return_value = 3
 
         with (
-            patch("agent_brain_cli.diagnostics.GraphStoreManager",
-                  return_value=mgr_mock),
-            patch("agent_brain_cli.diagnostics._graph_index_dir",
-                  return_value=tmp_path / ".agent-brain" / "data" / "graph_index"),
+            patch(
+                "agent_brain_cli.diagnostics.GraphStoreManager", return_value=mgr_mock
+            ),
+            patch(
+                "agent_brain_cli.diagnostics._graph_index_dir",
+                return_value=tmp_path / ".agent-brain" / "data" / "graph_index",
+            ),
         ):
             actions = apply_safe_fixes(report)
 
         mgr_mock.restore_from_snapshot.assert_called_once_with(None)
-        assert any("3" in a and ("triplet" in a.lower() or "restore" in a.lower())
-                   for a in actions)
+        assert any(
+            "3" in a and ("triplet" in a.lower() or "restore" in a.lower())
+            for a in actions
+        )
 
-    def test_fix_skips_restore_when_server_running(
-        self, tmp_path: Path
-    ) -> None:
+    def test_fix_skips_restore_when_server_running(self, tmp_path: Path) -> None:
         report = self._make_stale_report(tmp_path, server_running=True)
         mgr_mock = MagicMock()
 
         with (
-            patch("agent_brain_cli.diagnostics.GraphStoreManager",
-                  return_value=mgr_mock),
-            patch("agent_brain_cli.diagnostics._graph_index_dir",
-                  return_value=tmp_path / ".agent-brain" / "data" / "graph_index"),
+            patch(
+                "agent_brain_cli.diagnostics.GraphStoreManager", return_value=mgr_mock
+            ),
+            patch(
+                "agent_brain_cli.diagnostics._graph_index_dir",
+                return_value=tmp_path / ".agent-brain" / "data" / "graph_index",
+            ),
         ):
             actions = apply_safe_fixes(report)
 
         mgr_mock.restore_from_snapshot.assert_not_called()
         # A "skipped" message is recorded
-        assert any("skip" in a.lower() or "server" in a.lower() or "stop" in a.lower()
-                   for a in actions)
+        assert any(
+            "skip" in a.lower() or "server" in a.lower() or "stop" in a.lower()
+            for a in actions
+        )

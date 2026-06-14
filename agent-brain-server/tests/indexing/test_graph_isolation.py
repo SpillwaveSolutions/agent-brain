@@ -34,7 +34,6 @@ from agent_brain_server.storage.graph_snapshot import (
     SnapshotTriplet,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -91,7 +90,8 @@ class TestBuildIsolatedSIGSEGVExit:
     def test_sigsegv_exit_code_via_spawn_raises_graph_build_failed(
         self,
     ) -> None:
-        """Simulate SIGSEGV: child calls os._exit(139), parent raises GraphBuildFailedError."""
+        """Simulate SIGSEGV: child calls os._exit(139), parent raises
+        GraphBuildFailedError."""
         with pytest.raises(GraphBuildFailedError) as exc_info:
             build_from_documents_isolated(
                 _SIMPLE_DOCS,
@@ -135,9 +135,9 @@ class TestGraphBuildFailedErrorIsRuntimeError:
 
     def test_is_runtime_error_subclass(self) -> None:
         err = GraphBuildFailedError("test message", exit_code=1)
-        assert isinstance(err, RuntimeError), (
-            "GraphBuildFailedError must be a subclass of RuntimeError"
-        )
+        assert isinstance(
+            err, RuntimeError
+        ), "GraphBuildFailedError must be a subclass of RuntimeError"
 
     def test_exit_code_attribute(self) -> None:
         err = GraphBuildFailedError("test message", exit_code=139)

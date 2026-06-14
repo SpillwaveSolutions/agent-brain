@@ -2,7 +2,7 @@
 
 [[package]]
 name = "agent-brain-cli"
-version = "10.3.0"
+version = "10.3.2"
 description = "Agent Brain CLI - Command-line interface for managing AI agent memory and knowledge retrieval"
 optional = false
 python-versions = "^3.10"
@@ -11,7 +11,7 @@ files = []
 develop = false
 
 [package.dependencies]
-agent-brain-rag = "^10.3.0"
+agent-brain-rag = "^10.3.2"
 agent-brain-uds = "^10.3.0"
 click = "^8.1.0"
 httpx = "^0.28.0"
@@ -26,7 +26,7 @@ url = "../agent-brain-cli"
 
 [[package]]
 name = "agent-brain-rag"
-version = "10.3.0"
+version = "10.3.2"
 description = "Agent Brain RAG - Intelligent document indexing and semantic search server that gives AI agents long-term memory"
 optional = false
 python-versions = "^3.10"
@@ -71,7 +71,7 @@ url = "../agent-brain-server"
 
 [[package]]
 name = "agent-brain-uds"
-version = "10.3.0"
+version = "10.3.2"
 description = "Agent Brain UDS - Unix-domain-socket transport for Agent Brain (socket path resolution, permission validation, httpx UDS client factory)"
 optional = false
 python-versions = "^3.10"

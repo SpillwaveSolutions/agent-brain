@@ -86,7 +86,8 @@ class TestRestoreFromSnapshotLatest:
         mgr = _make_manager_with_mock_store(persist_dir)
 
         with patch(
-            "agent_brain_server.storage.graph_store._graphrag_enabled", return_value=True
+            "agent_brain_server.storage.graph_store._graphrag_enabled",
+            return_value=True,
         ):
             count = mgr.restore_from_snapshot(None)
 
@@ -106,7 +107,8 @@ class TestRestoreFromSnapshotLatest:
         mgr._relationship_count = 0
 
         with patch(
-            "agent_brain_server.storage.graph_store._graphrag_enabled", return_value=True
+            "agent_brain_server.storage.graph_store._graphrag_enabled",
+            return_value=True,
         ):
             count = mgr.restore_from_snapshot(None)
 
@@ -126,13 +128,15 @@ class TestRestoreFromSnapshotExplicitPath:
         # Write two snapshots
         snap_mgr.write(sample_triplets[:1])  # older: 1 triplet
         import time
+
         time.sleep(0.01)  # ensure mtime difference
         snap_path = snap_mgr.write(sample_triplets)  # newest: 2 triplets
 
         mgr = _make_manager_with_mock_store(persist_dir)
 
         with patch(
-            "agent_brain_server.storage.graph_store._graphrag_enabled", return_value=True
+            "agent_brain_server.storage.graph_store._graphrag_enabled",
+            return_value=True,
         ):
             count = mgr.restore_from_snapshot(snap_path)
 
@@ -146,7 +150,8 @@ class TestRestoreFromSnapshotExplicitPath:
         mgr = _make_manager_with_mock_store(persist_dir)
 
         with patch(
-            "agent_brain_server.storage.graph_store._graphrag_enabled", return_value=True
+            "agent_brain_server.storage.graph_store._graphrag_enabled",
+            return_value=True,
         ):
             with pytest.raises((OSError, ValueError, RuntimeError)):
                 mgr.restore_from_snapshot(bad_path)
@@ -162,7 +167,8 @@ class TestRestoreFromSnapshotNoSnapshot:
         mgr = _make_manager_with_mock_store(persist_dir)
 
         with patch(
-            "agent_brain_server.storage.graph_store._graphrag_enabled", return_value=True
+            "agent_brain_server.storage.graph_store._graphrag_enabled",
+            return_value=True,
         ):
             count = mgr.restore_from_snapshot(None)
 
@@ -236,7 +242,8 @@ class TestRestoreDoesNotRequireCorruptionFlag:
         assert not getattr(mgr, "_recovered_from_corruption", False)
 
         with patch(
-            "agent_brain_server.storage.graph_store._graphrag_enabled", return_value=True
+            "agent_brain_server.storage.graph_store._graphrag_enabled",
+            return_value=True,
         ):
             count = mgr.restore_from_snapshot(None)
 
@@ -271,7 +278,8 @@ class TestRestoreDoesNotRequireCorruptionFlag:
         mgr._recovered_from_corruption = False
 
         with patch(
-            "agent_brain_server.storage.graph_store._graphrag_enabled", return_value=True
+            "agent_brain_server.storage.graph_store._graphrag_enabled",
+            return_value=True,
         ):
             count = mgr.restore_from_snapshot(None)
 

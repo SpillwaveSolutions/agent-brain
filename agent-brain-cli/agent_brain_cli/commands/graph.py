@@ -17,6 +17,8 @@ from pathlib import Path
 import click
 from rich.console import Console
 
+from agent_brain_cli.config import STATE_DIR_NAME, resolve_project_root
+
 # Re-use diagnostics helpers for state-dir + store-type resolution and the
 # server-running guard. These are local imports inside the CLI so the module
 # loads without requiring the server package to be installed.
@@ -25,8 +27,6 @@ from agent_brain_cli.diagnostics import (
     _read_graphrag_block,
     _server_is_running,
 )
-from agent_brain_cli.config import resolve_project_root
-from agent_brain_cli.config import STATE_DIR_NAME
 
 # agent-brain-rag is a declared dependency of agent-brain-cli (^10.x), so this
 # import is safe at module level. The lazy try/except below is a belt-and-braces
@@ -34,7 +34,7 @@ from agent_brain_cli.config import STATE_DIR_NAME
 try:
     from agent_brain_server.storage.graph_store import GraphStoreManager
 except ImportError:  # pragma: no cover
-    GraphStoreManager = None  # type: ignore[assignment,misc]
+    GraphStoreManager = None
 
 console = Console()
 

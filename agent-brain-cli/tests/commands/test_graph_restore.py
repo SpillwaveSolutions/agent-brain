@@ -100,9 +100,7 @@ class TestDryRun:
                 return_value=mgr,
             ),
         ):
-            result = runner.invoke(
-                graph_group, ["restore-from-snapshot", "--dry-run"]
-            )
+            result = runner.invoke(graph_group, ["restore-from-snapshot", "--dry-run"])
 
         assert result.exit_code == 0, result.output
         assert "42" in result.output
@@ -139,9 +137,7 @@ class TestYesFlag:
                 return_value=mgr,
             ),
         ):
-            result = runner.invoke(
-                graph_group, ["restore-from-snapshot", "--yes"]
-            )
+            result = runner.invoke(graph_group, ["restore-from-snapshot", "--yes"])
 
         assert result.exit_code == 0, result.output
         mgr.restore_from_snapshot.assert_called_once()
@@ -288,16 +284,18 @@ class TestServerRunningGuard:
 
         assert result.exit_code != 0
         output_lower = result.output.lower()
-        assert "stop" in output_lower or "server" in output_lower or "running" in output_lower
+        assert (
+            "stop" in output_lower
+            or "server" in output_lower
+            or "running" in output_lower
+        )
         mgr.restore_from_snapshot.assert_not_called()
 
 
 class TestNoSnapshotAvailable:
     """Test 6: No snapshot available exits non-zero."""
 
-    def test_no_snapshot_exits_nonzero(
-        self, runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_no_snapshot_exits_nonzero(self, runner: CliRunner, tmp_path: Path) -> None:
         mgr = _make_mgr_mock(plan_result=None)
 
         with (
