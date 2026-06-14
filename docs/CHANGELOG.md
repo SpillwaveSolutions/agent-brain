@@ -1,5 +1,5 @@
 ---
-last_validated: 2026-06-11
+last_validated: 2026-06-14
 ---
 
 # Changelog
@@ -8,6 +8,25 @@ All notable changes to Agent Brain will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [10.3.2] - 2026-06-14
+
+Closes the v10.3 MCP v3 milestone (CLI-via-MCP + framework matrix). The one functional
+package change is a fix to `agent-brain-cli`: the `--transport mcp` stdio backend now
+resolves the same corpus as `--transport uds` from any working directory. The rest is
+developer-facing test infrastructure, docs, and CI surfaced by the milestone audit.
+
+### Fixed
+
+- **`--transport mcp --mcp-transport stdio` now propagates the resolved state directory to the spawned `agent-brain-mcp` subprocess (CLI-MCP-04)** (`agent-brain-cli/agent_brain_cli/client/transport.py`). The milestone audit's cross-phase integration trace found that the byte-identical equivalence guarantee between `--transport mcp` and `--transport uds` held **only when the CLI was run from the project root**. `McpStdioBackend` filters the subprocess environment through `DEFAULT_ENV_ALLOWLIST` (the v10.3 subprocess-hygiene contract, which intentionally drops `OPENAI_API_KEY`/`ANTHROPIC_API_KEY`/`AGENT_BRAIN_STATE_DIR`), and the backend was constructed with no `--state-dir` argument — so under an `AGENT_BRAIN_STATE_DIR` override from a non-project cwd the spawned MCP server silently fell back to cwd-based discovery and could resolve a **different** backend than the UDS leg, returning divergent results with no error. A new `_stdio_command()` helper now threads the resolved state dir into the subprocess as an explicit `--state-dir <path>` argument (env override wins, mirroring the UDS leg's resolution), so the guarantee holds from any directory. Found by `/gsd:audit-milestone`; fixed test-first (RED→GREEN) with a new `TestMcpStdioStateDirForwarding` suite, and the byte-identical contract test hardened to run both transports from an isolated cwd so a fallback can no longer mask divergence.
+- **Stabilized the flaky sentence-transformer/CrossEncoder warm-up test and guarded a `task before-push` scope leak** ([#210](https://github.com/SpillwaveSolutions/agent-brain/pull/210)). The first model-download/warm-up assertion could intermittently fail on a cold cache; the warm-up is now mocked, and the monorepo `before-push` chain is guarded against per-package cwd scope leaks.
+
+### Added
+
+- **Framework adapter matrix — 7 LLM agent frameworks smoke-tested against the MCP server** (`framework-matrix/`, `framework-matrix/ts/`). Five Python adapters (OpenAI Agents SDK over both `MCPServerStdio` + `MCPServerStreamableHttp`, LangChain via `langchain-mcp-adapters`, LlamaIndex via `llama-index-tools-mcp`, Pydantic AI, Autogen/AG2 via `McpWorkbench`) and two TypeScript adapters (Mastra `@mastra/mcp`, Vercel AI SDK `experimental_createMCPClient`) each connect, call `search_documents`, and assert non-empty results. Every SDK is exact-pinned with source URL + pin date. The suite is **opt-in and excluded from `task before-push`** — run it via `FRAMEWORK_MATRIX=1 task mcp:framework-matrix` (`scripts/run_framework_matrix.sh`), or let the nightly advisory CI (`.github/workflows/framework-matrix.yml`, schedule + dispatch only, `continue-on-error`, never blocks PRs) track SDK drift.
+- **`docs/INTEGRATIONS.md`** — one copy-pasteable page per framework (server command, transport, capabilities) for all 7 smoke-tested frameworks, plus a Config Recipes section for 5 docs-only editor integrations (Goose, Continue.dev, Cline, Cursor, Cody) and an SDK-pinning note pointing at `framework-matrix/<fw>/requirements.txt` + `framework-matrix/ts/PINS.md`. Cross-linked from `README.md`.
 
 ---
 
