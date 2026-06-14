@@ -4,6 +4,7 @@ from .cache import cache_group
 from .config import config_group
 from .doctor import doctor_command
 from .folders import folders_group
+from .graph import graph_group
 from .index import index_command
 from .init import init_command
 from .inject import inject_command
@@ -26,6 +27,7 @@ __all__ = [
     "config_group",
     "doctor_command",
     "folders_group",
+    "graph_group",
     "index_command",
     "inject_command",
     "init_command",
