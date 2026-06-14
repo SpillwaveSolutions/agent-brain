@@ -179,7 +179,7 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
 | 61. Python framework adapter matrix                         | v10.3     | 4/4            | Complete    | 2026-06-11 |
 | 62. TypeScript framework adapter matrix                     | v10.3     | 2/2            | Complete    | 2026-06-12 |
 | 63. Tooling + docs + integration page                       | v10.3     | 3/3            | Complete    | 2026-06-12 |
-| 64. GraphRAG stability + subscriptions debug endpoint       | v10.4     | 0/4            | Planned     | -          |
+| 64. GraphRAG stability + subscriptions debug endpoint       | 1/4 | In Progress|  | -          |
 | 65. OAuth design doc + security review gate                 | v10.4     | 0/TBD          | Not started | -          |
 | 66. OAuth settings foundation + PRM/OASM public endpoints   | v10.4     | 0/TBD          | Not started | -          |
 | 67. Co-located AS + RS middleware                           | v10.4     | 0/TBD          | Not started | -          |
