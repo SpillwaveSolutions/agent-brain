@@ -115,7 +115,9 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
   2. `curl /.well-known/oauth-authorization-server` (no Authorization header) returns HTTP 200 with a valid RFC 8414 JSON document that includes `code_challenge_methods_supported: ["S256"]` — absence of this field causes compliant MCP SDK clients to abort
   3. Both well-known endpoints return 200 even when `RequireAuthMiddleware` is wired (they are mounted outside the auth middleware scope; this is verified by an automated test before any further auth enforcement is added)
   4. `AGENT_BRAIN_AUTH=basic` formalizes the existing shared-secret Bearer path under the exclusive toggle; `none` / `basic` / `oauth` are mutually exclusive — a startup gate rejects invalid combinations and logs a clear error at boot
-**Plans**: TBD
+**Plans**: 2 plans (2 waves — settings/startup-gate foundation, then well-known routes wired on top)
+- [ ] 66-01-PLAN.md — OAUTH-09: AGENT_BRAIN_AUTH AuthMode toggle + OAuth settings + boot startup gate (exit 2 on invalid mode / oauth-mode empty resource) + get_auth_dependency() selector
+- [ ] 66-02-PLAN.md — OAUTH-02 + OAUTH-03: hand-rolled PRM (RFC 9728) + path-suffixed variant + OASM (RFC 8414, code_challenge_methods_supported ["S256"]) mounted above /mcp (mount-order contract) + unauthenticated-200 / survives-Phase-67 test
 
 ### Phase 67: Co-Located AS + RS Middleware
 **Goal**: Token issuance and verification work end-to-end in a single binary — an MCP client can complete the authorization-code + PKCE dance against the co-located AS and receive a JWT that the RS validates on every subsequent call.
@@ -183,7 +185,7 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
 | 63. Tooling + docs + integration page                       | v10.3     | 3/3            | Complete    | 2026-06-12 |
 | 64. GraphRAG stability + subscriptions debug endpoint       | v10.4     | 0/4            | Planned     | -          |
 | 65. OAuth design doc + security review gate                 | 1/2 | Complete    | 2026-06-14 | -          |
-| 66. OAuth settings foundation + PRM/OASM public endpoints   | v10.4     | 0/TBD          | Not started | -          |
+| 66. OAuth settings foundation + PRM/OASM public endpoints   | v10.4     | 0/2            | Planned     | -          |
 | 67. Co-located AS + RS middleware                           | v10.4     | 0/TBD          | Not started | -          |
 | 68. Per-tool scope enforcement                              | v10.4     | 0/TBD          | Not started | -          |
 | 69. McpHttpBackend client-side OAuth dance                  | v10.4     | 0/TBD          | Not started | -          |
