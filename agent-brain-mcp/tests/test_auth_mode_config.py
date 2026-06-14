@@ -123,30 +123,22 @@ def test_resolve_oauth_settings_both_unset() -> None:
 
 
 def test_resolve_oauth_settings_resource_set(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv(
-        "AGENT_BRAIN_OAUTH_RESOURCE", "https://mcp.example.com/mcp"
-    )
+    monkeypatch.setenv("AGENT_BRAIN_OAUTH_RESOURCE", "https://mcp.example.com/mcp")
     resource, issuer = resolve_oauth_settings()
     assert resource == "https://mcp.example.com/mcp"
     assert issuer is None
 
 
 def test_resolve_oauth_settings_issuer_set(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv(
-        "AGENT_BRAIN_OAUTH_ISSUER", "https://auth.example.com"
-    )
+    monkeypatch.setenv("AGENT_BRAIN_OAUTH_ISSUER", "https://auth.example.com")
     resource, issuer = resolve_oauth_settings()
     assert resource is None
     assert issuer == "https://auth.example.com"
 
 
 def test_resolve_oauth_settings_both_set(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv(
-        "AGENT_BRAIN_OAUTH_RESOURCE", "https://mcp.example.com/mcp"
-    )
-    monkeypatch.setenv(
-        "AGENT_BRAIN_OAUTH_ISSUER", "https://auth.example.com"
-    )
+    monkeypatch.setenv("AGENT_BRAIN_OAUTH_RESOURCE", "https://mcp.example.com/mcp")
+    monkeypatch.setenv("AGENT_BRAIN_OAUTH_ISSUER", "https://auth.example.com")
     resource, issuer = resolve_oauth_settings()
     assert resource == "https://mcp.example.com/mcp"
     assert issuer == "https://auth.example.com"
