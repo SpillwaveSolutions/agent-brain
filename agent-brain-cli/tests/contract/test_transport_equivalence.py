@@ -28,6 +28,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -118,45 +119,56 @@ def test_uds_and_mcp_stdio_query_byte_identical(
     state_dir = transport_equivalence_corpus
     env = _cli_env(state_dir)
 
-    # UDS leg — real subprocess of the CLI, real UDS-backed server.
-    uds_proc = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "agent_brain_cli",
-            "--transport",
-            "uds",
-            "query",
-            "echo",
-            "--json",
-        ],
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=120,
-        check=True,
-    )
-    # MCP leg — real subprocess of the CLI, which itself spawns
-    # agent-brain-mcp --transport stdio as a child of itself.
-    mcp_proc = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "agent_brain_cli",
-            "--transport",
-            "mcp",
-            "--mcp-transport",
-            "stdio",
-            "query",
-            "echo",
-            "--json",
-        ],
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=120,
-        check=True,
-    )
+    # Pin both legs to an isolated cwd that has NO discoverable
+    # .agent-brain. This is the regression guard for CLI-MCP-04: the
+    # MCP leg spawns agent-brain-mcp, whose env is filtered through
+    # DEFAULT_ENV_ALLOWLIST (AGENT_BRAIN_STATE_DIR is dropped). The ONLY
+    # way the MCP server can reach the seeded corpus from here is if the
+    # CLI propagates the state dir as an explicit --state-dir arg. Run
+    # from project root (the prior implicit behavior) and a cwd-discovery
+    # fallback would mask the bug — so we deliberately run from nowhere.
+    with tempfile.TemporaryDirectory() as outside_cwd:
+        # UDS leg — real subprocess of the CLI, real UDS-backed server.
+        uds_proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "agent_brain_cli",
+                "--transport",
+                "uds",
+                "query",
+                "echo",
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=outside_cwd,
+            timeout=120,
+            check=True,
+        )
+        # MCP leg — real subprocess of the CLI, which itself spawns
+        # agent-brain-mcp --transport stdio as a child of itself.
+        mcp_proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "agent_brain_cli",
+                "--transport",
+                "mcp",
+                "--mcp-transport",
+                "stdio",
+                "query",
+                "echo",
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=outside_cwd,
+            timeout=120,
+            check=True,
+        )
 
     uds_payload = strip_volatile_fields(json.loads(uds_proc.stdout))
     mcp_payload = strip_volatile_fields(json.loads(mcp_proc.stdout))

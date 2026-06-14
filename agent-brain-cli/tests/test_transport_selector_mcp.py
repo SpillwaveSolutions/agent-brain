@@ -310,6 +310,162 @@ class TestOpenBackendImportSmoke:
         )
 
 
+class TestMcpStdioStateDirForwarding:
+    """CLI-MCP-04 DoD regression — stdio MCP must pin the resolved state dir.
+
+    ``open_backend`` / ``open_mcp_backend`` resolve the canonical state
+    dir (``_resolve_state_dir_for_discovery``) for http discovery, but
+    historically discarded it on the stdio branch — constructing
+    ``McpStdioBackend(command="agent-brain-mcp")`` with no ``--state-dir``.
+    Because ``McpStdioBackend`` filters env through
+    ``DEFAULT_ENV_ALLOWLIST`` (which drops ``AGENT_BRAIN_STATE_DIR``), the
+    spawned ``agent-brain-mcp`` then fell back to cwd-based discovery and
+    silently resolved a DIFFERENT backend than ``--transport uds`` when
+    run with a state-dir override from a non-project cwd — breaking the
+    byte-identical equivalence guarantee (CLI-MCP-04).
+
+    The fix: thread the resolved state dir into the subprocess as an
+    explicit ``--state-dir <path>`` argument (matching what the framework
+    matrix harnesses already do), so the MCP leg resolves the SAME
+    backend regardless of cwd.
+    """
+
+    def _mcp_ctx(self, mcp_transport: str = "stdio") -> object:
+        import click
+
+        ctx = click.Context(click.Command("x"))
+        ctx.obj = {
+            "transport_hint": "mcp",
+            "mcp_transport_hint": mcp_transport,
+        }
+        return ctx
+
+    def test_open_backend_stdio_pins_resolved_state_dir(
+        self, clean_env: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pytest.importorskip("agent_brain_mcp.client")
+        from agent_brain_mcp.client import McpStdioBackend
+
+        from agent_brain_cli.client import transport as t_mod
+
+        monkeypatch.setattr(
+            "shutil.which",
+            lambda cmd: (
+                "/usr/local/bin/agent-brain-mcp" if cmd == "agent-brain-mcp" else None
+            ),
+        )
+        state_dir = tmp_path / "proj" / ".agent-brain"
+        monkeypatch.setattr(
+            t_mod, "_resolve_state_dir_for_discovery", lambda: state_dir
+        )
+
+        backend = t_mod.open_backend(self._mcp_ctx())  # type: ignore[arg-type]
+
+        assert isinstance(backend, McpStdioBackend)
+        args = backend._stdio_params().args
+        assert "--state-dir" in args, (
+            f"stdio MCP subprocess must carry --state-dir so agent-brain-mcp "
+            f"resolves the same backend as --transport uds; got args={args!r}"
+        )
+        assert args[args.index("--state-dir") + 1] == str(
+            state_dir
+        ), f"expected --state-dir {state_dir!s}; got args={args!r}"
+
+    def test_open_mcp_backend_stdio_pins_resolved_state_dir(
+        self, clean_env: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pytest.importorskip("agent_brain_mcp.client")
+        from agent_brain_mcp.client import McpStdioBackend
+
+        from agent_brain_cli.client import transport as t_mod
+
+        monkeypatch.setattr(
+            "shutil.which",
+            lambda cmd: (
+                "/usr/local/bin/agent-brain-mcp" if cmd == "agent-brain-mcp" else None
+            ),
+        )
+        state_dir = tmp_path / "proj" / ".agent-brain"
+        monkeypatch.setattr(
+            t_mod, "_resolve_state_dir_for_discovery", lambda: state_dir
+        )
+
+        backend = t_mod.open_mcp_backend(self._mcp_ctx())  # type: ignore[arg-type]
+
+        assert isinstance(backend, McpStdioBackend)
+        args = backend._stdio_params().args
+        assert "--state-dir" in args, (
+            f"prompts/resources stdio MCP subprocess must carry --state-dir; "
+            f"got args={args!r}"
+        )
+        assert args[args.index("--state-dir") + 1] == str(
+            state_dir
+        ), f"expected --state-dir {state_dir!s}; got args={args!r}"
+
+    def test_open_backend_stdio_honors_env_override_over_discovery(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The audit's exact failure scenario: AGENT_BRAIN_STATE_DIR set +
+        # cwd discovery would resolve a DIFFERENT dir. The MCP leg must
+        # honor the env override (matching the UDS leg's resolution), not
+        # the project-root discovery value — otherwise byte-identical
+        # equivalence breaks when run from outside the project root.
+        pytest.importorskip("agent_brain_mcp.client")
+        from agent_brain_mcp.client import McpStdioBackend
+
+        from agent_brain_cli.client import transport as t_mod
+
+        monkeypatch.setattr(
+            "shutil.which",
+            lambda cmd: (
+                "/usr/local/bin/agent-brain-mcp" if cmd == "agent-brain-mcp" else None
+            ),
+        )
+        env_dir = tmp_path / "override" / ".agent-brain"
+        discovery_dir = tmp_path / "wrong-cwd-project" / ".agent-brain"
+        monkeypatch.setenv("AGENT_BRAIN_STATE_DIR", str(env_dir))
+        monkeypatch.setattr(
+            t_mod, "_resolve_state_dir_for_discovery", lambda: discovery_dir
+        )
+
+        backend = t_mod.open_backend(self._mcp_ctx())  # type: ignore[arg-type]
+
+        assert isinstance(backend, McpStdioBackend)
+        args = backend._stdio_params().args
+        assert args[args.index("--state-dir") + 1] == str(env_dir), (
+            f"AGENT_BRAIN_STATE_DIR override must win over cwd discovery so "
+            f"the MCP leg matches the UDS leg; got args={args!r}"
+        )
+
+    def test_open_backend_stdio_omits_state_dir_when_unresolvable(
+        self, clean_env: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # When state-dir resolution fails (None), fall back to the bare
+        # command — agent-brain-mcp does its own cwd discovery, preserving
+        # prior behavior rather than passing --state-dir None.
+        pytest.importorskip("agent_brain_mcp.client")
+        from agent_brain_mcp.client import McpStdioBackend
+
+        from agent_brain_cli.client import transport as t_mod
+
+        monkeypatch.setattr(
+            "shutil.which",
+            lambda cmd: (
+                "/usr/local/bin/agent-brain-mcp" if cmd == "agent-brain-mcp" else None
+            ),
+        )
+        monkeypatch.setattr(t_mod, "_resolve_state_dir_for_discovery", lambda: None)
+
+        backend = t_mod.open_backend(self._mcp_ctx())  # type: ignore[arg-type]
+
+        assert isinstance(backend, McpStdioBackend)
+        args = backend._stdio_params().args
+        assert "--state-dir" not in args, (
+            f"with no resolvable state dir, must not pass a bogus --state-dir; "
+            f"got args={args!r}"
+        )
+
+
 class TestMcpCase3StdioPathPrecheck:
     """§3.5 case 3 — --mcp-transport stdio with agent-brain-mcp not on PATH.
 

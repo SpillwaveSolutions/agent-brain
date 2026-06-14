@@ -124,6 +124,25 @@ tasks:
     cmds:
       - poetry run pytest {{.TEST_DIR}}/stress/test_orphan_subprocess.py -v -m stress
 
+  framework-matrix:
+    desc: |
+      Phase 63 (TOOLING-V3-01): All-framework smoke test runner. SLOW
+      (minutes to hours depending on venv cold-start). OPT-IN — NOT in
+      `task before-push`. Runs all 7 framework smoke tests sequentially
+      (5 Python: openai-agents, langchain, llama-index, pydantic-ai,
+      autogen; 2 TypeScript: Mastra + Vercel AI SDK) with per-framework
+      self-bootstrap and teardown. Gate: FRAMEWORK_MATRIX=1 env var or
+      pass --force.
+
+      Per-package task name is bare ``framework-matrix`` (NO ``mcp:``
+      prefix) — the root Taskfile's ``includes: mcp:`` alias adds the
+      ``mcp:`` namespace automatically, so the root surface is
+      ``task mcp:framework-matrix`` (same dispatch idiom as
+      ``task mcp:stress:orphan-test``). Pass --force via
+      ``task mcp:framework-matrix -- --force``.
+    cmds:
+      - bash "$(git rev-parse --show-toplevel)/scripts/run_framework_matrix.sh" {{.CLI_ARGS}}
+
   test:all:
     desc: Unit + integration + e2e
     deps: [install]

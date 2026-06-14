@@ -1,0 +1,11 @@
+# Framework: OpenAI Agents SDK
+# Test: FRAME-01 — smoke-test agent-brain-mcp via MCPServerStdio + MCPServerStreamableHttp
+# No API-key-gated extras (openai/anthropic auth is NOT required; test is keyless MCP-adapter-layer only)
+
+# openai-agents - OpenAI Agents SDK for Python (ships agents.mcp.MCPServerStdio + MCPServerStreamableHttp)
+# source: https://pypi.org/project/openai-agents/  pinned: 2026-06-11
+openai-agents==0.17.5
+
+# mcp - MCP Python SDK (transitive dep; openai-agents requires >=1.19.0,<2; pin to prevent drift)
+# source: https://pypi.org/project/mcp/  pinned: 2026-06-11
+mcp==1.27.2

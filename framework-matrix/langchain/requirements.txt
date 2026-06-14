@@ -1,0 +1,20 @@
+# Framework: LangChain (via langchain-mcp-adapters)
+# Test: FRAME-02 — smoke-test agent-brain-mcp via MultiServerMCPClient over stdio
+# No LLM/model API key required: test drives the MCP adapter layer only (keyless).
+# No langchain model extras, provider packages, or langchain meta-package.
+
+# langchain-mcp-adapters - lightweight LangChain wrapper for MCP tools
+# source: https://pypi.org/project/langchain-mcp-adapters/  pinned: 2026-06-11
+langchain-mcp-adapters==0.3.0
+
+# langchain-core - required by langchain-mcp-adapters (>=1.0.0,<2.0.0)
+# source: https://pypi.org/project/langchain-core/  pinned: 2026-06-11
+langchain-core==1.4.6
+
+# mcp - MCP Python SDK (transitive dep; langchain-mcp-adapters requires >=1.9.2; pin to prevent drift)
+# source: https://pypi.org/project/mcp/  pinned: 2026-06-11
+mcp==1.27.2
+
+# typing-extensions - required by langchain-mcp-adapters (>=4.14.0)
+# source: https://pypi.org/project/typing-extensions/  pinned: 2026-06-11
+typing-extensions==4.15.0

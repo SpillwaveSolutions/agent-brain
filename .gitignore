@@ -151,3 +151,9 @@ tmp/
 .claude/projects/
 .claude/scheduled_tasks.lock
 agent-brain-server/.agent-brain/
+# Repo-root runtime state created by framework-matrix seeded-server fixtures
+/.agent-brain/
+framework-matrix/.agent-brain/
+# TypeScript framework-matrix (Phase 62) Node deps + build/test artifacts
+framework-matrix/ts/node_modules/
+framework-matrix/ts/.agent-brain/

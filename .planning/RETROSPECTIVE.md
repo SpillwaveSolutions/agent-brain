@@ -115,12 +115,47 @@
 
 ---
 
+## Milestone: v10.3 — MCP v3 (CLI-via-MCP + Framework Matrix)
+
+**Shipped:** 2026-06-14
+**Phases:** 8 (56-63) | **Plans:** 24
+
+### What Was Built
+The `agent-brain` CLI became a reference MCP client: `--transport mcp` + `--mcp-transport stdio|http` with byte-identical results to `--transport uds` (the v3 DoD anchor), `mcp.runtime.json` auto-discovery, `agent-brain mcp start/stop` helpers, and `agent-brain prompt`/`resources` surfaces. Subprocess hygiene (env allowlist, pinned cwd, SIGTERM→SIGKILL, 1000-invocation orphan test) was locked as a contract *before* the framework matrix landed. Seven framework adapters were smoke-tested (5 Python: OpenAI Agents, LangChain, LlamaIndex, Pydantic AI, Autogen; 2 TS: Mastra, Vercel AI SDK), surfaced via an opt-in `task mcp:framework-matrix`, a nightly advisory CI, and `docs/INTEGRATIONS.md`.
+
+### What Worked
+- **Design-first + skeleton-first (Phase 56).** Filing the v3 design doc and landing `BackendClient`/`McpBackend` Protocols as skeletons (with a load-bearing `NotImplementedError("Wired in Phase 57+")` sentinel) let later phases grep for exactly what they had to wire. Zero ambiguity at the seams.
+- **Hygiene-before-frameworks ordering (Phase 60 → 61/62).** Locking subprocess teardown as a contract before any framework test meant no framework leg re-discovered orphan-process bugs independently.
+- **8/8 phases passed verification on first pass.** Same clean-execution streak as v10.2.
+
+### What Was Inefficient
+- **A cross-phase regression slipped past per-phase verification.** Phase 60's env allowlist (correctly) stripped `AGENT_BRAIN_STATE_DIR`, which Phase 57's stdio path implicitly relied on — breaking the CLI-MCP-04 DoD anchor under state-dir override. No single phase verifier could see it; only the milestone audit's cross-phase integration trace caught it. Cost: a post-ship fast-follow fix.
+- **The DoD-anchor test skipped without a key.** The byte-identical contract test `pytest.skip`ped without `OPENAI_API_KEY`, so it read green forever and never exercised the actual failure mode. "Asserted" masqueraded as "proven."
+
+### Patterns Established
+- **Separate `@runtime_checkable` Protocols with a negative-conformance pin** (`DocServeClient ⊄ McpBackend`) to prevent accidental shape conflation.
+- **Pattern A: fresh subprocess per MCP call** so hygiene applies per-call without session lifecycle complexity.
+- **Opt-in + nightly-advisory for drift-prone external suites** — gated env var + non-blocking CI status keeps PRs fast.
+
+### Key Lessons
+1. **Per-phase verification cannot catch cross-phase seams.** A security/hygiene change in a later phase can invalidate an implicit dependency from an earlier one. The milestone audit's integration trace is the safety net — it earned its keep this milestone.
+2. **Credential-gated tests are silent coverage holes on anchor requirements.** A DoD-anchor test that skips without a key should be a hard failure (or run against a keyless stub backend), not a silent skip.
+3. **Respect the security boundary when fixing discovery.** The fix passed state-dir as an explicit `--state-dir` argument rather than re-opening the env allowlist — closing the gap without weakening Phase 60's hygiene contract.
+
+### Cost Observations
+- Model mix: opus (orchestration + plan-check + verifier + audit) + sonnet (executors + integration checker). No haiku.
+- Timeline: 2026-06-05 → 2026-06-14 (~9 days).
+- Notable: 8/8 phases first-pass verified; the one defect was found by the milestone audit (not in production) and fixed test-first before ship. `task before-push` green at 544 MCP + 557 CLI.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
 
 | Milestone | Sessions | Phases | Key Change |
 |-----------|----------|--------|------------|
+| v10.3 | ~8 | 8 | Milestone audit's cross-phase integration trace caught a DoD-anchor regression invisible to per-phase verifiers; hygiene-before-frameworks ordering; design+skeleton-first with grep-able sentinels |
 | v10.2 | ~7 | 6 | Wave parallelism scheduled by file-collision analysis (not topic), not plan independence; `_tool_matrix.py` SOT pattern with import-time drift guard validated |
 | v9.4.0 | n/a | 10 | Audit-driven gap closure was formalized with dedicated closure phase planning |
 | v9.3.0 | 1 | 2 | Retroactive phase closure validated as pattern; spec-as-contract formalized |

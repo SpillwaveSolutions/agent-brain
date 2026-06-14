@@ -1,0 +1,19 @@
+# Framework: Pydantic AI
+# Test: FRAME-04 — smoke-test agent-brain-mcp via pydantic_ai.mcp.MCPServerStdio
+# No API-key-gated extras (model provider auth is NOT required; test is keyless MCP-adapter-layer only)
+
+# pydantic-ai - Pydantic AI agent framework (ships pydantic_ai.mcp.MCPServerStdio)
+# source: https://pypi.org/project/pydantic-ai/  pinned: 2026-06-11
+pydantic-ai==1.107.0
+
+# mcp - MCP Python SDK (transitive dep; pydantic-ai requires it for stdio_client)
+# source: https://pypi.org/project/mcp/  pinned: 2026-06-11
+mcp==1.9.4
+
+# anyio - async concurrency (transitive dep of pydantic-ai + mcp)
+# source: https://pypi.org/project/anyio/  pinned: 2026-06-11
+anyio==4.9.0
+
+# pytest-asyncio - required for @pytest.mark.asyncio in the smoke test
+# source: https://pypi.org/project/pytest-asyncio/  pinned: 2026-06-11
+pytest-asyncio==0.26.0

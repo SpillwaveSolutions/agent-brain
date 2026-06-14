@@ -233,6 +233,25 @@ tasks:
   # `mcp:` namespace prepended by Task's includes resolver. Mirrors the
   # `mcp:before-push` dispatch idiom used at line 221 above.
 
+  # Phase 63 (TOOLING-V3-01): All-framework smoke-test runner (SLOW, OPT-IN).
+  # Runs all 7 framework smoke tests sequentially:
+  #   Python (5): openai-agents, langchain, llama-index, pydantic-ai, autogen
+  #   TypeScript (2): Mastra + Vercel AI SDK (via one `pnpm test` invocation)
+  # Each Python framework is self-bootstrapped (bootstrap_venv.sh), run, and
+  # torn down before the next — heavy dep trees never collide. The TS suite
+  # runs `pnpm install --frozen-lockfile && pnpm test` in framework-matrix/ts/.
+  # Gate: FRAMEWORK_MATRIX=1 env var OR --force argument. Without either gate
+  # the runner prints the opt-in message and exits 0 — no-op. This target is
+  # DELIBERATELY NOT in the `before-push:` chain (lines 196-222 above).
+  #
+  # Discoverable as `task mcp:framework-matrix` via the `includes: mcp:`
+  # alias (line 33) — the per-package task is named bare `framework-matrix`
+  # in agent-brain-mcp/Taskfile.yml and gets the `mcp:` namespace prepended
+  # automatically. To forward --force: `task mcp:framework-matrix -- --force`.
+  # Invokes scripts/run_framework_matrix.sh at repo root via
+  # `git rev-parse --show-toplevel` so the cwd is always correct regardless of
+  # the Taskfile include dir.
+
   ci:
     desc: Simulate full CI pipeline locally
     cmds:
