@@ -267,6 +267,55 @@ def check_auth_startup_gate() -> None:
             sys.exit(2)
 
 
+def resolve_client_id_allowlist() -> list[str]:
+    """Read AGENT_BRAIN_OAUTH_CLIENT_ID_ALLOWLIST and return a list of allowed domains.
+
+    The allowlist gates the CIMD (Client ID Metadata Document) fetch in
+    OAUTH-10 client registration: only ``client_id`` URLs whose hostname
+    matches an entry in this list are permitted to initiate the CIMD fetch.
+
+    Parsing rules (mirror resolve_oauth_settings idiom):
+      - Env var unset or empty → empty list (no allowlist; CIMD disabled).
+      - Comma-separated values are split, each entry whitespace-stripped, and
+        empty entries (double-commas, trailing commas) are dropped.
+
+    Env var: ``AGENT_BRAIN_OAUTH_CLIENT_ID_ALLOWLIST``
+      Example: ``"example.com, trusted-client.org, another.io"``
+
+    Returns:
+        A list of allowed domain strings (may be empty if unset/empty).
+    """
+    raw = os.environ.get("AGENT_BRAIN_OAUTH_CLIENT_ID_ALLOWLIST") or ""
+    if not raw.strip():
+        return []
+    parts = raw.split(",")
+    return [p.strip() for p in parts if p.strip()]
+
+
+def resolve_signing_key_path() -> str | None:
+    """Read AGENT_BRAIN_OAUTH_SIGNING_KEY and return the PEM file path, or None.
+
+    When set to a non-empty value, the MCP server will attempt to load
+    the RS256 private key from this PEM file path instead of generating an
+    ephemeral key at boot. This allows JWKS stability across process restarts
+    (useful for multi-instance deployments or Phase 70 split AS/RS topology).
+
+    If unset or empty, ``get_or_create_signing_key()`` generates an ephemeral
+    in-memory keypair — the default and safe behaviour for Phase 67 Shape A.
+
+    Env var: ``AGENT_BRAIN_OAUTH_SIGNING_KEY``
+      Example: ``"/etc/mcp/signing.pem"``
+
+    Returns:
+        The PEM file path string, or None if unset or empty.
+    """
+    raw = os.environ.get("AGENT_BRAIN_OAUTH_SIGNING_KEY") or None
+    if raw is None:
+        return None
+    stripped = raw.strip()
+    return stripped if stripped else None
+
+
 def get_auth_dependency() -> object:
     """Return the single auth selector for the current AuthMode.
 
