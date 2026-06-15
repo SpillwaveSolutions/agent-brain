@@ -316,24 +316,53 @@ def resolve_signing_key_path() -> str | None:
     return stripped if stripped else None
 
 
+def verify_basic_bearer(token: str) -> bool:
+    """Constant-time comparison of a Bearer token against AGENT_BRAIN_API_KEY.
+
+    This helper is the basic-mode static-bearer check for the MCP server,
+    mirroring the SECURITY-01 pattern from agent-brain-server without importing
+    across packages.
+
+    Used by test_oauth_mode_exclusion.py (SC#5 proof) to assert mode isolation:
+    - A valid OAuth JWT FAILS this check (it is not the shared secret).
+    - The raw AGENT_BRAIN_API_KEY PASSES this check.
+
+    Args:
+        token: The raw Bearer token string from the Authorization header.
+
+    Returns:
+        True if the token matches AGENT_BRAIN_API_KEY exactly (constant-time);
+        False if AGENT_BRAIN_API_KEY is unset, empty, or does not match.
+    """
+    import hmac
+
+    api_key = os.environ.get("AGENT_BRAIN_API_KEY") or ""
+    if not api_key:
+        return False
+    # Constant-time comparison to prevent timing attacks (SECURITY-01 pattern)
+    return hmac.compare_digest(token.encode(), api_key.encode())
+
+
 def get_auth_dependency() -> object:
     """Return the single auth selector for the current AuthMode.
 
     This is the mutual-exclusion seam that structurally enforces exactly
-    one auth path. Phase 66 wires the selector + validation; the OAuth
-    middleware it selects for the ``oauth`` branch arrives in Phase 67
-    (RequireAuthMiddleware).
+    one auth path. Phase 66 wires the selector + validation; Phase 67
+    fills the oauth branch with the RequireAuthMiddleware selector
+    (replacing the placeholder that raised NotImplementedError).
 
-    Phase 66 wires the selector + validation; the oauth middleware it
-    selects arrives in Phase 67 (RequireAuthMiddleware).
+    Mutual-exclusion invariant:
+    - Exactly ONE of {None, "basic-bearer", "oauth-require-auth"} is returned.
+    - Callers MUST NOT compose the return value with another auth layer.
+    - The oauth branch and basic branch are structurally disjoint — no request
+      can be validated by both layers (SC#5 proof in test_oauth_mode_exclusion.py).
 
     Returns:
-        A single dependency/marker object — one per mode, never two.
+        A single dependency/marker object — one per mode, never two:
+          - ``None`` for AuthMode.none (no auth).
+          - ``"basic-bearer"`` for AuthMode.basic (AGENT_BRAIN_API_KEY check).
+          - ``"oauth-require-auth"`` for AuthMode.oauth (RequireAuthMiddleware).
         Callers MUST NOT compose the return value with another auth layer.
-
-    Raises:
-        NotImplementedError: For the oauth branch (Phase-67 placeholder).
-            Phase 67 replaces this placeholder with RequireAuthMiddleware.
     """
     mode = resolve_auth_mode()
 
@@ -348,12 +377,15 @@ def get_auth_dependency() -> object:
         # per OAUTH-09; enforcement is via the existing API-key middleware).
         return "basic-bearer"
 
-    # oauth mode — Phase-67 placeholder.
-    # Phase 67 replaces this with the RequireAuthMiddleware selector.
-    raise NotImplementedError(
-        "OAuth middleware selector is a Phase-67 placeholder. "
-        "RequireAuthMiddleware arrives in Phase 67."
-    )
+    # oauth mode — Phase 67 fills this branch.
+    # The actual RequireAuthMiddleware wrapping happens in http.py build_asgi_app
+    # (the middleware is built there where the provider + verifier are also
+    # constructed). This function returns a marker string to:
+    # 1. Signal to callers that the oauth path is active (for the mutual-
+    #    exclusion invariant test in SC#5).
+    # 2. Replace the Phase-66 NotImplementedError placeholder so callers
+    #    do not see an exception for a valid auth mode.
+    return "oauth-require-auth"
 
 
 # ---------------------------------------------------------------------------
