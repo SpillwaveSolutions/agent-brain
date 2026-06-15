@@ -15,9 +15,7 @@ Design doc: docs/plans/2026-06-14-mcp-v4-oauth-design.md
 
 from __future__ import annotations
 
-import importlib
 import json
-import os
 
 import jwt
 import pytest
@@ -190,7 +188,9 @@ class TestGetOrCreateSigningKey:
         sk = get_or_create_signing_key()
         entry = sk.jwks_dict["keys"][0]
         for private_field in ("d", "p", "q", "dp", "dq", "qi"):
-            assert private_field not in entry, f"Private field in jwks_dict: {private_field}"
+            assert (
+                private_field not in entry
+            ), f"Private field in jwks_dict: {private_field}"
 
 
 class TestResolveClientIdAllowlist:
@@ -233,7 +233,9 @@ class TestResolveClientIdAllowlist:
         result = resolve_client_id_allowlist()
         assert result == ["example.com", "another.org"]
 
-    def test_empty_string_returns_empty_list(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_empty_string_returns_empty_list(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Empty string env var -> empty list."""
         monkeypatch.setenv("AGENT_BRAIN_OAUTH_CLIENT_ID_ALLOWLIST", "")
         from agent_brain_mcp.config import resolve_client_id_allowlist

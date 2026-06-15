@@ -1,4 +1,4 @@
-"""JWT minting (RS256) and in-memory token/authorization-code/refresh store (Phase 67 Plan 02 Task 2).
+"""JWT minting (RS256) and in-memory token store (Phase 67 Plan 02 Task 2).
 
 Provides the "mint" half of "wire + configure + mint" for the co-located AS.
 The SDK's ``create_auth_routes()`` (wired in Plan 04) calls the provider
@@ -84,7 +84,7 @@ def mint_access_token(
     client_id: str,
     scopes: list[str],
     resource: str,
-    signing_key: "SigningKey",
+    signing_key: SigningKey,
     issuer: str,
 ) -> str:
     """Mint an RS256-signed JWT access token with the required OAuth 2.1 claim set.
@@ -123,7 +123,7 @@ def mint_access_token(
     }
     token: str = jwt.encode(
         claims,
-        signing_key.private_key,  # type: ignore[arg-type]
+        signing_key.private_key,
         algorithm="RS256",
         headers={"kid": signing_key.kid},
     )
@@ -309,7 +309,9 @@ class InMemoryTokenStore:
         """
         self._refresh_tokens.pop(token, None)
 
-    def revoke_all_for_token(self, access_token_str: str, refresh_token_str: str) -> None:
+    def revoke_all_for_token(
+        self, access_token_str: str, refresh_token_str: str
+    ) -> None:
         """Remove both an access token and a refresh token atomically.
 
         Convenience method for ``revoke_token`` in the provider, which

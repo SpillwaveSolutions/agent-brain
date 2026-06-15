@@ -1,4 +1,4 @@
-"""Tests for JWT minting (RS256) and in-memory token/code/refresh store (Phase 67 Plan 02 Task 2).
+"""Tests for JWT minting (RS256) and in-memory token store (Phase 67 Plan 02 Task 2).
 
 Tests verify:
   - mint_access_token produces a valid RS256 JWT with the required claim set
@@ -23,7 +23,6 @@ from __future__ import annotations
 import time
 
 import jwt
-import pytest
 
 from agent_brain_mcp.oauth.keys import get_or_create_signing_key
 from agent_brain_mcp.oauth.tokens import (
@@ -32,7 +31,6 @@ from agent_brain_mcp.oauth.tokens import (
     InMemoryTokenStore,
     mint_access_token,
 )
-
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -307,7 +305,7 @@ class TestInMemoryTokenStoreAuthCodes:
         )
 
     def test_store_and_load_roundtrip(self) -> None:
-        """store_authorization_code then load_authorization_code returns the same object."""
+        """store_authorization_code then load_authorization_code round-trips."""
         code_obj = self._make_auth_code("code-abc")
         self.store.store_authorization_code(code_obj)  # type: ignore[arg-type]
         loaded = self.store.load_authorization_code("code-abc")
@@ -427,7 +425,7 @@ class TestInMemoryTokenStoreRefreshTokens:
         assert self.store.load_refresh_token("rt-rev") is None
 
     def test_rotate_refresh_token_returns_new_token(self) -> None:
-        """rotate_refresh_token returns a NEW RefreshToken with a different token value."""
+        """rotate_refresh_token returns a NEW RefreshToken with a different value."""
         rt = self._make_refresh_token("rt-old")
         self.store.store_refresh_token(rt)  # type: ignore[arg-type]
 

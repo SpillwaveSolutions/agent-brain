@@ -37,7 +37,6 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -48,8 +47,6 @@ from cryptography.hazmat.primitives.asymmetric.rsa import (
 )
 from cryptography.hazmat.primitives.serialization import (
     Encoding,
-    NoEncryption,
-    PrivateFormat,
     PublicFormat,
     load_pem_private_key,
 )
@@ -272,7 +269,8 @@ def get_or_create_signing_key(
     else:
         private_key = generate_rs256_keypair()
         logger.debug(
-            "Generated ephemeral RS256 signing key (in-memory; restarts invalidate tokens)."
+            "Generated ephemeral RS256 signing key"
+            " (in-memory; restarts invalidate tokens)."
         )
 
     public_key = private_key.public_key()
