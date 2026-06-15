@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v10.4
 milestone_name: milestone
 current_phase: 67
-status: planning
-stopped_at: Phase 67 context gathered
-last_updated: "2026-06-15T00:06:59.418Z"
+status: executing
+stopped_at: "Completed 67-01-PLAN.md (mcp ^1.27.2 dep-bump gate)"
+last_updated: "2026-06-15T01:03:00.000Z"
 progress:
   total_phases: 7
   completed_phases: 2
-  total_plans: 8
+  total_plans: 12
   completed_plans: 4
 ---
 
@@ -17,20 +17,20 @@ progress:
 
 **Last Updated:** 2026-06-14
 **Current Milestone:** v10.4 — MCP v4: OAuth 2.1 + GraphRAG Stability
-**Status:** Ready to plan
+**Status:** Executing Phase 67
 **Current Phase:** 67
 
 ## Current Position
 
-Phase: 66 (oauth-settings-foundation-prm-oasm-public-endpoints) — EXECUTING
-Plan: 2 of 2
+Phase: 67 (co-located-as-rs-middleware) — EXECUTING
+Plan: 2 of 4
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-06-14)
 
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Phase 66 — oauth-settings-foundation-prm-oasm-public-endpoints
+**Current focus:** Phase 67 — co-located-as-rs-middleware
 
 ## Milestone Summary
 
@@ -88,6 +88,8 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 ## Accumulated Context
 
 ### Key Context Carried Forward
+
+- **Plan 67-01 complete (2026-06-15):** OAUTH-04 dep-bump gate shipped. mcp SDK bumped ^1.12.0 → ^1.27.2 (floor for OAuth machinery). Added PyJWT[crypto] 2.13.0, authlib 1.7.2, pwdlib 0.3.0+argon2. Zero SDK-drift regressions: 664 passed, 0 failures post-bump. `test_oauth_deps_smoke.py` (11 tests) proves all mcp.server.auth symbols + crypto libs importable; create_auth_routes() signature sentinel guards provider+issuer_url params. Key: itsdangerous is NOT a transitive dep via mcp 1.27.2/Starlette — add explicitly if needed in Plans 02-04. `task before-push` exits 0. Commits `9d584e3` (pyproject+lock) + `264951a` (smoke tests). OAUTH-04 prerequisite gate closed.
 
 - **Plan 66-02 complete (2026-06-14):** OAUTH-02 + OAUTH-03 public discovery routes shipped. RFC 9728 PRM (`/.well-known/oauth-protected-resource` + `/mcp` suffix) and RFC 8414 OASM (`/.well-known/oauth-authorization-server`) wired as auth-exempt Starlette Routes in `build_asgi_app()` ABOVE the `/mcp` Mount (mount-order contract, Risk 3). `oauth_metadata.py` provides `build_prm_document()` and `build_oasm_document()` — config-derived, testable in isolation. Key: `code_challenge_methods_supported: ["S256"]` hardcoded-from-spec; 4 locked scopes (agent-brain:read/index/admin/subscribe); OASM forward-references Phase-67 endpoints (/authorize /token /register /jwks). `/mcp/subscriptions` audit: NOT mounted in http.py (moot-for-66, carries to Phase 64 HOUSE-01). 58 new tests (25 doc-shape + 33 route acceptance). `task before-push` exits 0 (653 passed). Commits `1b7686f` (builders) + `1a5e1d6` (http.py) + `ef97ab9` (tests) + `2dd408d` (Black fix). OAUTH-02 + OAUTH-03 marked complete.
 
