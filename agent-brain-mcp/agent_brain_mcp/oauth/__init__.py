@@ -1,4 +1,4 @@
-"""OAuth 2.1 Authorization Server core for the Agent Brain MCP server (Phase 67 Plan 02).
+"""OAuth 2.1 Authorization Server core for Agent Brain MCP server (Phase 67 Plan 02).
 
 This package implements the co-located Authorization Server (AS) primitives
 required by OAUTH-04 and the AS half of Resource Indicators (OAUTH-08).
