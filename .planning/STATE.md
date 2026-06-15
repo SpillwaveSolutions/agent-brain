@@ -4,13 +4,13 @@ milestone: v10.4
 milestone_name: milestone
 current_phase: 67
 status: executing
-stopped_at: Completed 67-03-PLAN.md (CIMD SSRF stack + DNS-rebinding mitigation + provider register_client wiring)
-last_updated: "2026-06-15T01:29:07.237Z"
+stopped_at: Completed 67-04-PLAN.md
+last_updated: "2026-06-15T02:01:53.297Z"
 progress:
   total_phases: 7
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 12
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Agent Brain — Project State
@@ -22,8 +22,8 @@ progress:
 
 ## Current Position
 
-Phase: 67 (co-located-as-rs-middleware) — EXECUTING
-Plan: 3 of 4
+Phase: 67 (co-located-as-rs-middleware) — COMPLETE
+Plan: 4 of 4 (all plans complete)
 
 ## Project Reference
 
@@ -88,6 +88,8 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 ## Accumulated Context
 
 ### Key Context Carried Forward
+
+- **Plan 67-04 complete (2026-06-15):** OAUTH-05 + OAUTH-08 RS half shipped. New `agent_brain_mcp/oauth/verifier.py`: `LocalRs256Verifier` (checks #1-5: sig/exp/nbf+30s-leeway/iss/aud) + `build_local_verifier()` factory. `http.py` additions: `JWKS_PATH` constant + auth-exempt `/.well-known/jwks.json` route serving signing key JWKS; `/authorize` PKCE front-handler (ROADMAP SC#1 live contract) calls `reject_non_s256_pkce()` before SDK authorize handler (front-route-first, not ASGI wrap); `create_auth_routes()` + `AgentBrainAuthServerProvider` in oauth mode; `RequireAuthMiddleware(AuthenticationMiddleware(mcp_app, BearerAuthBackend(LocalRs256Verifier)), required_scopes=[])` wraps ONLY `/mcp` Mount. `config.py`: `get_auth_dependency()` oauth branch returns `"oauth-require-auth"` (replaces NotImplementedError); `verify_basic_bearer()` for SC#5 proof. Phase 66 mount-order tests (33) still green. 46 new tests (16+18+12). OAUTH-05+OAUTH-08 complete. Commits `cb2432e` (verifier) + `407bce3` (http.py+config.py) + `6937a34` (mode exclusion). Phase 67 is complete (4/4 plans).
 
 - **Plan 67-02 complete (2026-06-15):** OAUTH-04 + OAUTH-08 AS core shipped. New `agent_brain_mcp/oauth/` package: keys.py (RS256 keypair, compute_kid, build_jwks, get_or_create_signing_key, SigningKey dataclass), tokens.py (mint_access_token, InMemoryTokenStore, token_store singleton, ACCESS_TOKEN_TTL_SECONDS=900, REFRESH_TOKEN_TTL_SECONDS=30*24*3600), provider.py (AgentBrainAuthServerProvider 9-method impl + reject_non_s256_pkce helper). Key: aud claim bound to resource (OAUTH-08 AS half); reject_non_s256_pkce(Mapping) raises AuthorizeError invalid_request for plain/absent-method/absent-challenge; exact error_description="PKCE plain method not supported" is a stable Plan 04 contract. config.py additions: resolve_client_id_allowlist(), resolve_signing_key_path(). OAuthClientInformationFull.client_id is str|None → _require_client_id() guard. 81 new tests (26 + 32 + 23). `task before-push` exits 0 (745 passed). Commits `052dda7` (keys) + `26225ba` (tokens) + `b572ac1` (provider). OAUTH-04 + OAUTH-08 marked complete.
 
@@ -253,8 +255,8 @@ Feature backlog (#152, #154, #155, #156, #157, #158, #160, #162, #163, #164) and
 
 ## Session Continuity
 
-**Last Session:** 2026-06-15T01:29:07.233Z
-**Stopped At:** Completed 67-03-PLAN.md (CIMD SSRF stack + DNS-rebinding mitigation + provider register_client wiring)
+**Last Session:** 2026-06-15T02:01:53.293Z
+**Stopped At:** Completed 67-04-PLAN.md
 
 **Stopped At (Plan 55-01 — prior, for reference):** SDK-driven contract test scaffolding shipped. New `agent-brain-mcp/tests/contract/` directory + `mcp_stdio_session` fixture (callable returning async context manager — dodging anyio's exit-cancel-scope-in-different-task trap that bites async-generator fixtures wrapping `stdio_client` per Phase 52 Plan 02 Decision precedent) + autouse D-17 orphan-scan fixture (script-name-scoped `pgrep -f fake_contract_server.py` runs after EVERY contract test, fails the test if any subprocess survived, SIGKILLs them so subsequent tests don't inherit). Bundled fake-server script template (`_DEFAULT_CONTRACT_SERVER_SCRIPT`) wires `build_server + run_stdio` against `httpx.MockTransport` backend per CONTEXT D-04 (NOT a real `agent-brain-serve` subprocess). Backend responses passed to the subprocess via `AGENT_BRAIN_MCP_CONTRACT_RESPONSES_JSON` env var (JSON-serialized METHOD-path -> body table); Plans 02/03/04 inject per-test `response_overrides` without rewriting the script. `_DEFAULT_RESPONSES` extended with 8 v2 endpoint stubs (`DELETE /index/folders/`, `GET/DELETE /index/cache/`, `POST /index/add`, 3 terminal JobRecord variants `job_done/job_failed/job_cancelled` for `wait_for_job` contract assertions) — strictly additive, no existing v1 entries modified. `contract` pytest marker registered in `pyproject.toml` + `addopts` extended to exclude contract from default fast path (alongside `e2e + e2e_http`). `agent-brain-mcp/Taskfile.yml::contract` replaces Phase 4 placeholder echo with `poetry run pytest tests/contract -v -m contract`. ONE smoke test asserting `initialize()` over stdio returns `serverInfo.name == 'agent-brain'` — proves the fixture chain end-to-end (0.46s, 0 orphans, 0 anyio errors). Entry point: `sys.executable + bundled script path` (NOT `python -m agent_brain_mcp` against a real backend — `agent_brain_mcp` has no `__main__.py` and `main_async` needs a live backend; bundled script bypasses both per the Phase 4 / Phase 52 fake-server pattern). 3 atomic commits on `main`: `f0b5966` test (8 `_DEFAULT_RESPONSES` additions), `fb24ab9` test (contract dir + conftest + smoke + marker), `2e92dcc` chore (task contract wiring). TWO deviations auto-applied: Rule 1 — anyio task ownership forced `mcp_stdio_session` shape from yielding-generator to callable-returning-async-context-manager (consumed as `async with mcp_stdio_session() as session:`; public fixture name preserved so Plans 02/03/04 inherit verbatim); Rule 2 — autouse orphan-scan fixture moved OUT of `mcp_stdio_session` into independent autouse fixture so future direct-subprocess tests (Plan 04 HTTP) get the D-17 safety net without coupling to session consumption. +1 smoke test on contract suite (`-m contract` opt-in); fast-path 451 tests unchanged (no regression from `_DEFAULT_RESPONSES` additions); `task contract` exit 0; `task check:layering` 3/3 contracts kept (164 files, 414 deps); `task before-push` exit 0 (416 monorepo CLI tests, 80% coverage gate honored, all 1685 cross-package tests passing). 20/24 plans complete across v10.2 milestone. Phase 55 plan 1/5 done.
 **Resume File:** None
