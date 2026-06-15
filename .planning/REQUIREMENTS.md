@@ -23,7 +23,7 @@
 - [ ] **OAUTH-05**: Resource Server verifies inbound tokens (signature, `exp`/`nbf` with clock-skew leeway, `aud` == canonical resource URI), gated by `AGENT_BRAIN_AUTH=oauth` (default `none`); the well-known + `authorize`/`token` routes are excluded from the auth dependency.
 - [ ] **OAUTH-06**: Per-tool scope enforcement maps the 4 scopes (`agent-brain:read` / `:index` / `:admin` / `:subscribe`) to all 16 MCP tools via a single source-of-truth (`_tool_matrix.py`-style); a valid token with an insufficient scope returns **403** (distinct from a 401 missing/invalid-token).
 - [ ] **OAUTH-07**: `McpHttpBackend` handles the 401 + `WWW-Authenticate` challenge and the full OAuth dance via the SDK `OAuthClientProvider`, persisting tokens in a `FileTokenStorage` keyed to `state_dir` so per-call (Pattern A) invocations reuse the token instead of re-triggering the browser dance.
-- [ ] **OAUTH-08**: Resource Indicators (RFC 8707) — the client sends `resource` in both authorization and token requests, the AS binds `aud` to the resource URI, and the RS validates it; the MCP server NEVER forwards the client's OAuth token upstream to the REST backend (confused-deputy prevention).
+- [x] **OAUTH-08**: Resource Indicators (RFC 8707) — the client sends `resource` in both authorization and token requests, the AS binds `aud` to the resource URI, and the RS validates it; the MCP server NEVER forwards the client's OAuth token upstream to the REST backend (confused-deputy prevention).
 - [x] **OAUTH-09**: `AGENT_BRAIN_AUTH=basic` formalizes the existing shared-secret Bearer auth (SECURITY-01) under the new toggle as a LAN migration bridge; the toggle is exclusive (exactly one of `none` / `basic` / `oauth`, never double-auth).
 - [ ] **OAUTH-10**: Client registration via CIMD (Client ID Metadata Documents — the spec's preferred SHOULD path) and static pre-registration; DCR (RFC 7591) optional/MAY, rate-limited + domain-allowlisted (with SSRF protection on metadata fetches) if enabled.
 
@@ -80,7 +80,7 @@ Which phases cover which requirements. Filled by roadmap creation.
 | OAUTH-05 | Phase 67 | Pending |
 | OAUTH-06 | Phase 68 | Pending |
 | OAUTH-07 | Phase 69 | Pending |
-| OAUTH-08 | Phase 67 | Pending |
+| OAUTH-08 | Phase 67 | Complete |
 | OAUTH-09 | Phase 66 | Complete |
 | OAUTH-10 | Phase 67 | Pending |
 | OAUTH-11 | Phase 70 | Pending |

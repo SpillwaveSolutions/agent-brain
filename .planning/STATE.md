@@ -4,8 +4,8 @@ milestone: v10.4
 milestone_name: milestone
 current_phase: 67
 status: executing
-stopped_at: "Completed 67-01-PLAN.md (mcp ^1.27.2 dep-bump gate)"
-last_updated: "2026-06-15T01:03:00.000Z"
+stopped_at: "Completed 67-02-PLAN.md (co-located AS core: RS256 keypair + JWT minting + provider)"
+last_updated: "2026-06-15T01:12:00.000Z"
 progress:
   total_phases: 7
   completed_phases: 2
@@ -23,7 +23,7 @@ progress:
 ## Current Position
 
 Phase: 67 (co-located-as-rs-middleware) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 
 ## Project Reference
 
@@ -88,6 +88,8 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 ## Accumulated Context
 
 ### Key Context Carried Forward
+
+- **Plan 67-02 complete (2026-06-15):** OAUTH-04 + OAUTH-08 AS core shipped. New `agent_brain_mcp/oauth/` package: keys.py (RS256 keypair, compute_kid, build_jwks, get_or_create_signing_key, SigningKey dataclass), tokens.py (mint_access_token, InMemoryTokenStore, token_store singleton, ACCESS_TOKEN_TTL_SECONDS=900, REFRESH_TOKEN_TTL_SECONDS=30*24*3600), provider.py (AgentBrainAuthServerProvider 9-method impl + reject_non_s256_pkce helper). Key: aud claim bound to resource (OAUTH-08 AS half); reject_non_s256_pkce(Mapping) raises AuthorizeError invalid_request for plain/absent-method/absent-challenge; exact error_description="PKCE plain method not supported" is a stable Plan 04 contract. config.py additions: resolve_client_id_allowlist(), resolve_signing_key_path(). OAuthClientInformationFull.client_id is str|None → _require_client_id() guard. 81 new tests (26 + 32 + 23). `task before-push` exits 0 (745 passed). Commits `052dda7` (keys) + `26225ba` (tokens) + `b572ac1` (provider). OAUTH-04 + OAUTH-08 marked complete.
 
 - **Plan 67-01 complete (2026-06-15):** OAUTH-04 dep-bump gate shipped. mcp SDK bumped ^1.12.0 → ^1.27.2 (floor for OAuth machinery). Added PyJWT[crypto] 2.13.0, authlib 1.7.2, pwdlib 0.3.0+argon2. Zero SDK-drift regressions: 664 passed, 0 failures post-bump. `test_oauth_deps_smoke.py` (11 tests) proves all mcp.server.auth symbols + crypto libs importable; create_auth_routes() signature sentinel guards provider+issuer_url params. Key: itsdangerous is NOT a transitive dep via mcp 1.27.2/Starlette — add explicitly if needed in Plans 02-04. `task before-push` exits 0. Commits `9d584e3` (pyproject+lock) + `264951a` (smoke tests). OAUTH-04 prerequisite gate closed.
 
