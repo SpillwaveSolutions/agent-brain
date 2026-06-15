@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v10.4
 milestone_name: milestone
-current_phase: 66
+current_phase: 67
 status: planning
-stopped_at: Phase 65 — awaiting human security sign-off (gate before Phase 66)
-last_updated: "2026-06-14T21:21:44.297Z"
+stopped_at: Completed 66-02-PLAN.md (PRM/OASM public discovery routes)
+last_updated: "2026-06-14T22:24:59.723Z"
 progress:
   total_phases: 7
-  completed_phases: 1
-  total_plans: 6
-  completed_plans: 2
+  completed_phases: 2
+  total_plans: 8
+  completed_plans: 4
 ---
 
 # Agent Brain — Project State
@@ -18,19 +18,19 @@ progress:
 **Last Updated:** 2026-06-14
 **Current Milestone:** v10.4 — MCP v4: OAuth 2.1 + GraphRAG Stability
 **Status:** Ready to plan
-**Current Phase:** 66
+**Current Phase:** 67
 
 ## Current Position
 
-Phase: 65 (oauth-design-doc-security-review-gate) — EXECUTING
-Plan: 2 of 2 (Plan 01 complete — awaiting Plan 02: adversarial security review + human sign-off)
+Phase: 66 (oauth-settings-foundation-prm-oasm-public-endpoints) — EXECUTING
+Plan: 2 of 2
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-06-14)
 
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Phase 65 — oauth-design-doc-security-review-gate
+**Current focus:** Phase 66 — oauth-settings-foundation-prm-oasm-public-endpoints
 
 ## Milestone Summary
 
@@ -88,6 +88,10 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 ## Accumulated Context
 
 ### Key Context Carried Forward
+
+- **Plan 66-02 complete (2026-06-14):** OAUTH-02 + OAUTH-03 public discovery routes shipped. RFC 9728 PRM (`/.well-known/oauth-protected-resource` + `/mcp` suffix) and RFC 8414 OASM (`/.well-known/oauth-authorization-server`) wired as auth-exempt Starlette Routes in `build_asgi_app()` ABOVE the `/mcp` Mount (mount-order contract, Risk 3). `oauth_metadata.py` provides `build_prm_document()` and `build_oasm_document()` — config-derived, testable in isolation. Key: `code_challenge_methods_supported: ["S256"]` hardcoded-from-spec; 4 locked scopes (agent-brain:read/index/admin/subscribe); OASM forward-references Phase-67 endpoints (/authorize /token /register /jwks). `/mcp/subscriptions` audit: NOT mounted in http.py (moot-for-66, carries to Phase 64 HOUSE-01). 58 new tests (25 doc-shape + 33 route acceptance). `task before-push` exits 0 (653 passed). Commits `1b7686f` (builders) + `1a5e1d6` (http.py) + `ef97ab9` (tests) + `2dd408d` (Black fix). OAUTH-02 + OAUTH-03 marked complete.
+
+- **Plan 66-01 complete (2026-06-14):** OAUTH-09 auth-mode settings foundation shipped. `AuthMode(str, Enum)` with members {none, basic, oauth} added to `agent_brain_mcp/config.py`. Key design decisions: (1) `class AuthMode(str, Enum)` NOT `enum.StrEnum` (Python 3.10+ compat); (2) gate-before-accessor split: `_raw_auth_mode()` for startup gate, `resolve_auth_mode()` for post-gate app code — all `sys.exit(2)` paths in one place (`check_auth_startup_gate()`); (3) `resolve_oauth_settings()` pure-read (no exceptions), gate owns all validation; (4) `get_auth_dependency()` oauth branch raises `NotImplementedError` — Phase-67 placeholder for `RequireAuthMiddleware`; (5) startup gate rejects fragment URIs per RFC 8707 §2. 51 new tests green (20 in test_auth_mode_config.py + 31 in test_mcp_startup_gate.py). `task before-push` exits 0 (595 passed, 111 deselected). Commits `0ce436e` (Task 1) + `44901ce` (Task 2). OAUTH-09 marked complete.
 
 - **Plan 65-01 complete (2026-06-14):** OAUTH-01 design doc authored at `docs/plans/2026-06-14-mcp-v4-oauth-design.md` (697 lines). All 10 mandatory sections present. Live spec re-verified via context7 on 2026-06-14: MCP Authorization 2025-11-25 baseline confirmed; 2026-07-28 RC (MCP-goes-stateless) had NOT landed in authorization spec as of authoring date. Key locked decisions: (1) CIMD preferred (SHOULD) over DCR (MAY/deprecated); (2) DPoP deferred to v10.5+ — confirmed no MUST violation; (3) AGENT_BRAIN_OAUTH_RESOURCE = canonical resource URI env var; RFC 8707 aud binding in all issued JWTs; (4) AGENT_BRAIN_API_KEY / X-API-Key MCP-to-REST leg preserved; OAuth client token NEVER forwarded (confused-deputy prevention OAUTH-08); (5) AGENT_BRAIN_AUTH ∈ {none, basic, oauth} mutually exclusive; startup gate rejects invalid combos; (6) In-memory token store for co-located AS: process restart invalidates sessions (known trade-off); (7) SDK gap: mcp SDK does NOT ship GET /.well-known/jwks.json — Phase 67 adds custom public route; (8) Token lifecycle: 15-min access / 30-day rotating refresh. Phase 65 Plan 02 (adversarial security review + human sign-off) is next — Plan 65-01 gate: doc exists, all structural checks pass, commit 9b70c52.
 
@@ -245,11 +249,11 @@ Feature backlog (#152, #154, #155, #156, #157, #158, #160, #162, #163, #164) and
 
 ## Session Continuity
 
-**Last Session:** 2026-06-14T15:40:27.165Z
-**Stopped At:** Phase 65 — awaiting human security sign-off (gate before Phase 66)
+**Last Session:** 2026-06-14T22:21:07.062Z
+**Stopped At:** Completed 66-02-PLAN.md (PRM/OASM public discovery routes)
 
 **Stopped At (Plan 55-01 — prior, for reference):** SDK-driven contract test scaffolding shipped. New `agent-brain-mcp/tests/contract/` directory + `mcp_stdio_session` fixture (callable returning async context manager — dodging anyio's exit-cancel-scope-in-different-task trap that bites async-generator fixtures wrapping `stdio_client` per Phase 52 Plan 02 Decision precedent) + autouse D-17 orphan-scan fixture (script-name-scoped `pgrep -f fake_contract_server.py` runs after EVERY contract test, fails the test if any subprocess survived, SIGKILLs them so subsequent tests don't inherit). Bundled fake-server script template (`_DEFAULT_CONTRACT_SERVER_SCRIPT`) wires `build_server + run_stdio` against `httpx.MockTransport` backend per CONTEXT D-04 (NOT a real `agent-brain-serve` subprocess). Backend responses passed to the subprocess via `AGENT_BRAIN_MCP_CONTRACT_RESPONSES_JSON` env var (JSON-serialized METHOD-path -> body table); Plans 02/03/04 inject per-test `response_overrides` without rewriting the script. `_DEFAULT_RESPONSES` extended with 8 v2 endpoint stubs (`DELETE /index/folders/`, `GET/DELETE /index/cache/`, `POST /index/add`, 3 terminal JobRecord variants `job_done/job_failed/job_cancelled` for `wait_for_job` contract assertions) — strictly additive, no existing v1 entries modified. `contract` pytest marker registered in `pyproject.toml` + `addopts` extended to exclude contract from default fast path (alongside `e2e + e2e_http`). `agent-brain-mcp/Taskfile.yml::contract` replaces Phase 4 placeholder echo with `poetry run pytest tests/contract -v -m contract`. ONE smoke test asserting `initialize()` over stdio returns `serverInfo.name == 'agent-brain'` — proves the fixture chain end-to-end (0.46s, 0 orphans, 0 anyio errors). Entry point: `sys.executable + bundled script path` (NOT `python -m agent_brain_mcp` against a real backend — `agent_brain_mcp` has no `__main__.py` and `main_async` needs a live backend; bundled script bypasses both per the Phase 4 / Phase 52 fake-server pattern). 3 atomic commits on `main`: `f0b5966` test (8 `_DEFAULT_RESPONSES` additions), `fb24ab9` test (contract dir + conftest + smoke + marker), `2e92dcc` chore (task contract wiring). TWO deviations auto-applied: Rule 1 — anyio task ownership forced `mcp_stdio_session` shape from yielding-generator to callable-returning-async-context-manager (consumed as `async with mcp_stdio_session() as session:`; public fixture name preserved so Plans 02/03/04 inherit verbatim); Rule 2 — autouse orphan-scan fixture moved OUT of `mcp_stdio_session` into independent autouse fixture so future direct-subprocess tests (Plan 04 HTTP) get the D-17 safety net without coupling to session consumption. +1 smoke test on contract suite (`-m contract` opt-in); fast-path 451 tests unchanged (no regression from `_DEFAULT_RESPONSES` additions); `task contract` exit 0; `task check:layering` 3/3 contracts kept (164 files, 414 deps); `task before-push` exit 0 (416 monorepo CLI tests, 80% coverage gate honored, all 1685 cross-package tests passing). 20/24 plans complete across v10.2 milestone. Phase 55 plan 1/5 done.
-**Resume File:** docs/plans/2026-06-14-mcp-v4-oauth-design.md
+**Resume File:** None
 **Next Action:** Phase 55 Plan 03 (subscription lifecycle VAL-02) is the next workable plan. Plan 02 closed VAL-01 — `tests/contract/_tool_matrix.py::TOOLS` is the locked SOT for both Layer 1 (`tests/test_each_tool.py`) and Layer 2 (`tests/contract/test_tools_contract.py`); 32 SDK contract assertions + 6 resources contract assertions all green at 16.65s. Plan 03 inherits `mcp_stdio_session` factory + the matrix conventions verbatim and adds subscription-lifecycle tests (subscribe → notifications/resources/updated arrives within cadence × 1.5 → unsubscribe → no further notifications) across the 3 subscribable URIs from Phase 52 (`job://`, `corpus://status`, `corpus://folders`). Plan 04 (HTTP transport VAL-03) follows. Plan 05 (root QA gate VAL-04) closes Phase 55.
 
 ## Recommended Execution Order
@@ -312,3 +316,5 @@ Per workflow summarizer (verified ready_to_execute: true):
 | Phase 62 P01 | 13m | 3 tasks | 11 files |
 | Phase 63 P03 | 160 | 2 tasks | 2 files |
 | Phase 65 P01 | 35 | 2 tasks | 1 files |
+| Phase 66 P01 | 656 | 2 tasks | 3 files |
+| Phase 66 P02 | 924 | 3 tasks | 4 files |

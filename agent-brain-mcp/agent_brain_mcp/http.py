@@ -56,6 +56,8 @@ from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 from starlette.types import Receive, Scope, Send
 
+from . import config as _config
+from . import oauth_metadata as _oauth_metadata
 from .subscriptions import SubscriptionManager
 
 logger = logging.getLogger(__name__)
@@ -72,6 +74,19 @@ MCP_MOUNT_PATH: Final[str] = "/mcp"
 
 HEALTHZ_PATH: Final[str] = "/healthz"
 """Liveness probe path returning ``{"status":"ok","transport":"http"}``."""
+
+# OAuth 2.1 well-known discovery paths (Phase 66 Plan 02 — OAUTH-02 / OAUTH-03).
+# These routes are AUTH-EXEMPT public endpoints required by the MCP Authorization
+# spec (2025-11-25).  They MUST precede any future RequireAuthMiddleware wrap
+# (see MOUNT-ORDER CONTRACT comment in build_asgi_app).
+PRM_PATH: Final[str] = "/.well-known/oauth-protected-resource"
+"""RFC 9728 Protected Resource Metadata discovery path (OAUTH-02)."""
+
+PRM_PATH_SUFFIXED: Final[str] = "/.well-known/oauth-protected-resource/mcp"
+"""RFC 9728 resource-path-insertion variant — returns the same PRM document."""
+
+OASM_PATH: Final[str] = "/.well-known/oauth-authorization-server"
+"""RFC 8414 Authorization Server Metadata discovery path (OAUTH-03)."""
 
 # Exact error message wording — pinned by tests.
 LOOPBACK_REJECTION_MESSAGE: Final[str] = (
@@ -146,11 +161,19 @@ def validate_loopback_host(host: str) -> None:
 def build_asgi_app(server: Server) -> Starlette:
     """Compose the Starlette ASGI app served by :func:`run_http`.
 
+    Phase 66 Plan 02 additions (OAUTH-02 / OAUTH-03):
+    * ``GET /.well-known/oauth-protected-resource`` → RFC 9728 PRM JSON
+    * ``GET /.well-known/oauth-protected-resource/mcp`` → same PRM document
+      (RFC 9728 resource-path-insertion variant)
+    * ``GET /.well-known/oauth-authorization-server`` → RFC 8414 OASM JSON
+
     Layout:
 
     * ``GET /healthz`` → JSON ``{"status": "ok", "transport": "http"}``
       (D-07 probe — operators curl-check without driving the MCP
       handshake).
+    * ``GET /.well-known/oauth-*`` → public OAuth discovery documents
+      (auth-exempt; mounted ABOVE /mcp per mount-order contract).
     * ``POST /mcp`` → MCP SDK's
       :class:`StreamableHTTPSessionManager.handle_request` (raw ASGI
       callable; Mount routes any sub-path including the bare ``/mcp``
@@ -168,6 +191,11 @@ def build_asgi_app(server: Server) -> Starlette:
     :class:`FastMCP` does, in its own ``__init__``), so the
     ``run_http`` path wires it here.
 
+    Phase 66 startup gate: :func:`agent_brain_mcp.config.check_auth_startup_gate`
+    is called at the TOP of this function so invalid ``AGENT_BRAIN_AUTH``
+    or oauth-mode missing ``AGENT_BRAIN_OAUTH_RESOURCE`` exits code 2 at
+    app-build time rather than silently producing a broken app.
+
     Args:
         server: The configured low-level MCP :class:`Server` from
             :func:`agent_brain_mcp.server.build_server`.
@@ -176,6 +204,12 @@ def build_asgi_app(server: Server) -> Starlette:
         A Starlette ``ASGI`` app suitable for ``uvicorn.Server(
         uvicorn.Config(app, ...))``.
     """
+    # --- Phase 66 startup gate (OAUTH-09 / Plan 01) -------------------------
+    # Validate AGENT_BRAIN_AUTH + AGENT_BRAIN_OAUTH_RESOURCE BEFORE building
+    # any routes. On misconfiguration this calls sys.exit(2) — the app never
+    # reaches the route-construction block below.
+    _config.check_auth_startup_gate()
+
     session_manager = StreamableHTTPSessionManager(
         app=server,
         event_store=None,
@@ -186,6 +220,48 @@ def build_asgi_app(server: Server) -> Starlette:
 
     async def healthz(_request: Request) -> JSONResponse:
         return JSONResponse({"status": "ok", "transport": "http"})
+
+    async def oauth_protected_resource(request: Request) -> JSONResponse:
+        """Serve RFC 9728 PRM document (auth-exempt — discovery-first contract).
+
+        Returns the Protected Resource Metadata document for this MCP server.
+        The document is live in ALL auth modes (none/basic/oauth) so that
+        compliant MCP clients can always discover the resource's capabilities.
+
+        When AGENT_BRAIN_OAUTH_RESOURCE is unset (none/basic mode), the
+        resource field falls back to the request's own base URL so the
+        document remains well-formed and the route returns 200.
+        """
+        resource_env, issuer_env = _config.resolve_oauth_settings()
+        base_url = str(request.base_url).rstrip("/")
+        resource = resource_env or base_url
+        auth_servers = [issuer_env or base_url]
+        doc = _oauth_metadata.build_prm_document(
+            resource=resource,
+            authorization_servers=auth_servers,
+        )
+        return JSONResponse(doc)
+
+    async def oauth_authorization_server(request: Request) -> JSONResponse:
+        """Serve RFC 8414 OASM document (auth-exempt — discovery-first contract).
+
+        Returns the Authorization Server Metadata document. When
+        AGENT_BRAIN_OAUTH_ISSUER is unset (co-located AS+RS shape), the
+        issuer falls back to the MCP server's own base URL.
+
+        NOTE: The OASM advertises forward-reference endpoint URIs for
+        /authorize, /token, /register, and /.well-known/jwks.json — routes
+        Phase 67 adds. The document is RFC 8414-valid even while those
+        endpoints do not yet resolve (Phase 66 scope boundary).
+        """
+        _, issuer_env = _config.resolve_oauth_settings()
+        base_url = str(request.base_url).rstrip("/")
+        issuer = issuer_env or base_url
+        doc = _oauth_metadata.build_oasm_document(
+            issuer=issuer,
+            base_url=base_url,
+        )
+        return JSONResponse(doc)
 
     async def mcp_asgi_app(scope: Scope, receive: Receive, send: Send) -> None:
         # Thin wrapper around the raw-ASGI callable on the session
@@ -209,7 +285,16 @@ def build_asgi_app(server: Server) -> Starlette:
 
     return Starlette(
         routes=[
+            # MOUNT-ORDER CONTRACT (design doc Risk 3):
+            # well-known + healthz routes are AUTH-EXEMPT and MUST precede
+            # any future RequireAuthMiddleware wrap (Phase 67). Reversing
+            # this deadlocks the OAuth dance — a client asking
+            # /.well-known/oauth-protected-resource would itself need a
+            # token it cannot yet obtain.
             Route(HEALTHZ_PATH, healthz, methods=["GET"]),
+            Route(PRM_PATH, oauth_protected_resource, methods=["GET"]),
+            Route(PRM_PATH_SUFFIXED, oauth_protected_resource, methods=["GET"]),
+            Route(OASM_PATH, oauth_authorization_server, methods=["GET"]),
             Mount(MCP_MOUNT_PATH, app=mcp_asgi_app),
         ],
         lifespan=lifespan,
@@ -413,6 +498,9 @@ __all__: list[str] = [
     "HEALTHZ_PATH",
     "LOOPBACK_REJECTION_MESSAGE",
     "MCP_MOUNT_PATH",
+    "OASM_PATH",
+    "PRM_PATH",
+    "PRM_PATH_SUFFIXED",
     "PortInUseError",
     "build_asgi_app",
     "build_uvicorn_server",
