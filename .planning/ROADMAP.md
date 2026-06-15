@@ -129,7 +129,11 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
   3. Every issued JWT has an `aud` claim bound to the canonical `AGENT_BRAIN_OAUTH_RESOURCE` URI (Resource Indicators, RFC 8707); the RS validates `aud` on every inbound token and rejects tokens where `aud` does not match — cross-service token reuse is prevented
   4. Client registration via CIMD (Client ID Metadata Document) and static pre-registration both work; the co-located AS fetches the `client_id` URL on CIMD registration with SSRF protection (domain allowlist)
   5. `AGENT_BRAIN_AUTH=oauth` and `AGENT_BRAIN_AUTH=basic` are mutually exclusive on the request path — an automated test proves a valid JWT fails the static-bearer check and a raw API key passes the static-bearer check, never crossing modes
-**Plans**: TBD
+**Plans**: 4 plans (3 waves — dep bump gates the rest; AS core then registration + RS in parallel)
+- [ ] 67-01-PLAN.md — OAUTH-04 (deps): bump mcp ^1.27.2 + add PyJWT[crypto]/authlib/pwdlib[argon2] + SDK-drift regression gate
+- [ ] 67-02-PLAN.md — OAUTH-04 + OAUTH-08 (AS): RS256 keypair + JWKS + JWT minting (15min/30d rotating) + 9-method OAuthAuthorizationServerProvider + PKCE S256-only rejection
+- [ ] 67-03-PLAN.md — OAUTH-10: CIMD registration + static pre-registration + SSRF stack (allowlist + private-IP block + DNS-rebinding post-resolution check + 5s timeout)
+- [ ] 67-04-PLAN.md — OAUTH-05 + OAUTH-08 (RS): local RS256 TokenVerifier (sig/exp/nbf/iss/aud) + RequireAuthMiddleware wrap of /mcp + auth-exempt JWKS/AS routes + get_auth_dependency oauth branch + SC#5 mode-exclusion proof
 
 ### Phase 68: Per-Tool Scope Enforcement
 **Goal**: Every MCP tool enforces exactly the scope it requires; a token with an insufficient scope returns 403 (not 401); the scope-to-tool mapping is the single source of truth co-located with `_tool_matrix.py`.
@@ -186,7 +190,7 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
 | 64. GraphRAG stability + subscriptions debug endpoint       | v10.4     | 0/4            | Planned     | -          |
 | 65. OAuth design doc + security review gate                 | 1/2 | Complete    | 2026-06-14 | -          |
 | 66. OAuth settings foundation + PRM/OASM public endpoints   | 2/2 | Complete    | 2026-06-14 | -          |
-| 67. Co-located AS + RS middleware                           | v10.4     | 0/TBD          | Not started | -          |
+| 67. Co-located AS + RS middleware                           | v10.4     | 0/4            | Planned     | -          |
 | 68. Per-tool scope enforcement                              | v10.4     | 0/TBD          | Not started | -          |
 | 69. McpHttpBackend client-side OAuth dance                  | v10.4     | 0/TBD          | Not started | -          |
 | 70. Split AS/RS + Keycloak-in-CI + integration tests        | v10.4     | 0/TBD          | Not started | -          |
