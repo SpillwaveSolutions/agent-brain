@@ -2,18 +2,19 @@
 
 Phase 67 Plan 03 — Tasks 1 + 2.
 
-Tests the full mandatory SSRF control stack defined in the design doc
-§"SSRF Mitigation (Mandatory)" and CONTEXT.md §"Client registration + SSRF mitigation":
+Tests the full mandatory SSRF control stack (design doc §"SSRF Mitigation
+(Mandatory)" and CONTEXT.md §"Client registration + SSRF mitigation"):
 
-  1. ``is_blocked_ip`` — True for RFC-1918/loopback/link-local addresses; False for public.
-  2. ``validate_client_id_host`` — raises 400-class error for non-allowlisted hostnames.
-  3. ``validate_client_id_host`` — raises unconditionally for blocked-IP literals even if
-     they somehow appear in the allowlist.
+  1. ``is_blocked_ip`` — True for RFC-1918/loopback/link-local; False for public.
+  2. ``validate_client_id_host`` — raises 400-class for non-allowlisted hosts.
+  3. ``validate_client_id_host`` — raises unconditionally for blocked-IP literals
+     even if they appear in the allowlist.
   4. ``fetch_client_metadata`` — uses a ~5s httpx timeout.
   5. A non-allowlisted host never reaches the network (no fetch attempted).
-  6. DNS-rebinding mitigation (MANDATORY): an allowlisted hostname whose DNS resolves to an
-     RFC-1918 address is rejected even when the hostname passes the allowlist check.
-  7. An allowlisted hostname resolving to a PUBLIC IP proceeds to fetch (happy path).
+  6. DNS-rebinding mitigation (MANDATORY): an allowlisted hostname whose DNS
+     resolves to an RFC-1918 address is rejected even when it passes the
+     allowlist check.
+  7. An allowlisted hostname resolving to a PUBLIC IP proceeds to fetch.
   8. ``provider.register_client``:
        - URL-shaped client_id → calls ``fetch_client_metadata`` (SSRF-guarded).
        - Static/non-URL client_id → registers without a fetch.
@@ -23,7 +24,7 @@ from __future__ import annotations
 
 import socket
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import httpx
 import pytest
@@ -34,7 +35,6 @@ from agent_brain_mcp.oauth.registration import (
     is_blocked_ip,
     validate_client_id_host,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -114,7 +114,9 @@ class TestValidateClientIdHost:
     def test_missing_scheme_raises_400(self) -> None:
         """A URL with no scheme raises RegistrationError400."""
         with pytest.raises(RegistrationError400):
-            validate_client_id_host("mcp-client.example.com/metadata", allowlist=_ALLOWLIST)
+            validate_client_id_host(
+                "mcp-client.example.com/metadata", allowlist=_ALLOWLIST
+            )
 
     def test_empty_string_raises_400(self) -> None:
         """An empty client_id URL raises RegistrationError400."""
@@ -175,7 +177,7 @@ class TestFetchClientMetadataTimeout:
             def __init__(self, **kwargs: object) -> None:
                 captured_kwargs.update(kwargs)
 
-            async def __aenter__(self) -> "_CapturingClient":
+            async def __aenter__(self) -> _CapturingClient:
                 return self
 
             async def __aexit__(self, *args: object) -> None:
@@ -190,7 +192,9 @@ class TestFetchClientMetadataTimeout:
             "agent_brain_mcp.oauth.registration.httpx.AsyncClient",
             _CapturingClient,
         ):
-            with patch("agent_brain_mcp.oauth.registration.socket.getaddrinfo") as mock_dns:
+            with patch(
+                "agent_brain_mcp.oauth.registration.socket.getaddrinfo"
+            ) as mock_dns:
                 mock_dns.return_value = [
                     (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 443))
                 ]
@@ -205,9 +209,9 @@ class TestFetchClientMetadataTimeout:
         assert timeout_arg is not None, "httpx.AsyncClient called without timeout"
         assert isinstance(timeout_arg, httpx.Timeout)
         # Connect + read timeouts should both be 5.0
-        assert timeout_arg.connect == 5.0 or timeout_arg.read == 5.0, (
-            f"Expected ~5s timeout, got {timeout_arg!r}"
-        )
+        assert (
+            timeout_arg.connect == 5.0 or timeout_arg.read == 5.0
+        ), f"Expected ~5s timeout, got {timeout_arg!r}"
 
 
 class TestFetchClientMetadataNoNetworkOnRejection:
@@ -250,7 +254,9 @@ class TestDnsRebindingMitigation:
             mock_dns.return_value = [
                 (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("10.1.2.3", 443))
             ]
-            with patch("agent_brain_mcp.oauth.registration.httpx.AsyncClient") as mock_cls:
+            with patch(
+                "agent_brain_mcp.oauth.registration.httpx.AsyncClient"
+            ) as mock_cls:
                 with pytest.raises(RegistrationError400) as exc_info:
                     await fetch_client_metadata(
                         "https://mcp-client.example.com/.well-known/mcp-client",
@@ -263,12 +269,14 @@ class TestDnsRebindingMitigation:
 
     @pytest.mark.asyncio
     async def test_allowlisted_hostname_imds_dns_rejected(self) -> None:
-        """MANDATORY variant: allowlisted hostname + IMDS IP (169.254.169.254) → rejected."""
+        """MANDATORY: allowlisted hostname + IMDS IP (169.254.169.254) → rejected."""
         with patch("agent_brain_mcp.oauth.registration.socket.getaddrinfo") as mock_dns:
             mock_dns.return_value = [
                 (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("169.254.169.254", 80))
             ]
-            with patch("agent_brain_mcp.oauth.registration.httpx.AsyncClient") as mock_cls:
+            with patch(
+                "agent_brain_mcp.oauth.registration.httpx.AsyncClient"
+            ) as mock_cls:
                 with pytest.raises(RegistrationError400):
                     await fetch_client_metadata(
                         "https://mcp-client.example.com/.well-known/mcp-client",
@@ -283,7 +291,9 @@ class TestDnsRebindingMitigation:
             mock_dns.return_value = [
                 (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("127.0.0.1", 443))
             ]
-            with patch("agent_brain_mcp.oauth.registration.httpx.AsyncClient") as mock_cls:
+            with patch(
+                "agent_brain_mcp.oauth.registration.httpx.AsyncClient"
+            ) as mock_cls:
                 with pytest.raises(RegistrationError400):
                     await fetch_client_metadata(
                         "https://mcp-client.example.com/.well-known/mcp-client",
@@ -293,7 +303,7 @@ class TestDnsRebindingMitigation:
 
     @pytest.mark.asyncio
     async def test_allowlisted_hostname_public_dns_proceeds_to_fetch(self) -> None:
-        """Happy path: allowlisted hostname + public IP → fetch proceeds + metadata returned."""
+        """Happy path: allowlisted hostname + public IP → fetch + metadata returned."""
         fake_metadata = {
             "client_id": "https://mcp-client.example.com/.well-known/mcp-client",
             "client_name": "Test MCP Client",
@@ -306,7 +316,7 @@ class TestDnsRebindingMitigation:
             def __init__(self, **kwargs: object) -> None:
                 pass
 
-            async def __aenter__(self) -> "_FakeClient":
+            async def __aenter__(self) -> _FakeClient:
                 return self
 
             async def __aexit__(self, *args: object) -> None:
@@ -359,7 +369,7 @@ class TestProviderRegisterClientCimdWiring:
 
     @pytest.mark.asyncio
     async def test_url_client_id_delegates_to_fetch_cimd(self) -> None:
-        """A URL-shaped client_id causes register_client to call fetch_client_metadata."""
+        """A URL-shaped client_id causes register_client to call fetch_client_metadata."""  # noqa: E501
         from mcp.shared.auth import OAuthClientInformationFull
         from pydantic import AnyUrl
 
@@ -383,7 +393,10 @@ class TestProviderRegisterClientCimdWiring:
         mock_fetch.assert_called_once()
         call_kwargs = mock_fetch.call_args
         # First positional arg should be the client_id URL
-        assert cimd_url in call_kwargs.args or call_kwargs.kwargs.get("client_id_url") == cimd_url
+        assert (
+            cimd_url in call_kwargs.args
+            or call_kwargs.kwargs.get("client_id_url") == cimd_url
+        )
 
     @pytest.mark.asyncio
     async def test_non_url_client_id_registers_without_fetch(self) -> None:
@@ -409,8 +422,10 @@ class TestProviderRegisterClientCimdWiring:
         assert stored.client_id == "claude-desktop"
 
     @pytest.mark.asyncio
-    async def test_url_client_id_ssrf_rejection_propagates_from_register(self) -> None:
-        """A SSRF-rejected client_id causes register_client to raise RegistrationError400."""
+    async def test_url_client_id_ssrf_rejection_propagates_from_register(
+        self,
+    ) -> None:
+        """A SSRF-rejected client_id causes register_client to raise RegistrationError400."""  # noqa: E501
         from mcp.shared.auth import OAuthClientInformationFull
         from pydantic import AnyUrl
 

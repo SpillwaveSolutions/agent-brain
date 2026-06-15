@@ -58,6 +58,7 @@ from __future__ import annotations
 import logging
 import secrets
 import time
+import urllib.parse
 from collections.abc import Mapping
 
 from mcp.server.auth.provider import (
@@ -72,7 +73,11 @@ from mcp.server.auth.provider import (
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 from pydantic import AnyUrl
 
+from agent_brain_mcp.config import resolve_client_id_allowlist
 from agent_brain_mcp.oauth.keys import SigningKey
+from agent_brain_mcp.oauth.registration import (
+    fetch_client_metadata,
+)
 from agent_brain_mcp.oauth.tokens import (
     REFRESH_TOKEN_TTL_SECONDS,
     InMemoryTokenStore,
@@ -316,18 +321,72 @@ class AgentBrainAuthServerProvider(
     # ------------------------------------------------------------------
 
     async def register_client(self, client_info: OAuthClientInformationFull) -> None:
-        """Register a client dynamically.
+        """Register a client dynamically with CIMD fetch for URL-shaped client_ids.
 
-        Stores the client in the in-memory client registry keyed by
-        ``client_info.client_id``. Plan 03 extends this with CIMD fetch
-        and SSRF validation before this store step.
+        Dispatches on the ``client_id`` shape:
+
+        - **URL-shaped** (has an HTTP/HTTPS scheme + host): the ``client_id``
+          is treated as a CIMD URL. ``fetch_client_metadata()`` is called with
+          the full SSRF control stack (allowlist, unconditional IP block,
+          DNS-rebinding post-resolution re-validation, 5s timeout). If the
+          fetch is rejected by any SSRF control, ``RegistrationError400`` is
+          propagated to the caller.
+
+          After a successful fetch the provided ``client_info`` (which already
+          carries the validated metadata the SDK parsed from the ``/register``
+          request body) is stored directly. The CIMD fetch result is validated
+          by ``fetch_client_metadata``; callers may wish to merge it into
+          ``client_info`` in a future revision, but for Phase 67 we store the
+          SDK-supplied object and use the fetch for SSRF validation only.
+
+        - **Non-URL / opaque** (no scheme or no host): treated as a static
+          pre-registration ID and stored directly without any network call.
+          This preserves the existing static pre-registration path.
+
+        SSRF note: DCR (RFC 7591) is omitted for the single-user shape
+        (design doc §"Registration Policy: CIMD over DCR"). CIMD fetch is
+        the ONLY dynamic registration path.
 
         Args:
             client_info: The full client metadata to register.
+
+        Raises:
+            ValueError: If ``client_info.client_id`` is None.
+            RegistrationError400: If the SSRF controls reject the ``client_id``
+                URL (non-allowlisted host, private IP, DNS-rebinding detected).
         """
         if client_info.client_id is None:
             raise ValueError("Cannot register a client with a null client_id")
-        self._clients[client_info.client_id] = client_info
+
+        client_id = client_info.client_id
+
+        # Determine if the client_id is URL-shaped (CIMD path)
+        parsed = urllib.parse.urlparse(client_id)
+        is_url_shaped = bool(parsed.scheme and parsed.netloc)
+
+        if is_url_shaped:
+            # CIMD path: fetch + full SSRF control stack
+            allowlist = resolve_client_id_allowlist()
+            logger.debug(
+                "register_client: URL-shaped client_id %r — initiating CIMD fetch "
+                "(allowlist has %d entries)",
+                client_id,
+                len(allowlist),
+            )
+            # fetch_client_metadata raises RegistrationError400 on any SSRF rejection
+            await fetch_client_metadata(client_id, allowlist=allowlist)
+            logger.info(
+                "register_client: CIMD fetch succeeded for client_id %r", client_id
+            )
+        else:
+            # Static/opaque path: no network call
+            logger.debug(
+                "register_client: non-URL client_id %r — static registration "
+                "(no CIMD fetch)",
+                client_id,
+            )
+
+        self._clients[client_id] = client_info
 
     # ------------------------------------------------------------------
     # 3. authorize

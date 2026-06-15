@@ -56,7 +56,6 @@ Design doc: docs/plans/2026-06-14-mcp-v4-oauth-design.md
 
 from __future__ import annotations
 
-import ipaddress
 import socket
 import urllib.parse
 from ipaddress import IPv4Address, IPv4Network, IPv6Address, IPv6Network, ip_address
@@ -88,8 +87,11 @@ _BLOCKED_NETWORKS: list[IPv4Network | IPv6Network] = [
 # ---------------------------------------------------------------------------
 
 
-class RegistrationError400(Exception):
+class RegistrationError400(Exception):  # noqa: N818
     """Raised when a CIMD registration is rejected with a 400-class error.
+
+    N818 suppressed: the "400" suffix signals the HTTP status rather than
+    naming the error type, consistent with the RFC 7591 §3.2.2 shape.
 
     Shape: ``invalid_client_metadata`` per the OAuth 2.0 Dynamic Client
     Registration Protocol (RFC 7591 §3.2.2).
@@ -114,7 +116,7 @@ class RegistrationError400(Exception):
 
 
 def is_blocked_ip(ip: str | IPv4Address | IPv6Address) -> bool:
-    """Return True if the IP address is in a blocked (private/loopback/link-local) range.
+    """Return True if the IP is in a blocked (private/loopback/link-local) range.
 
     Checks two things (belt-and-suspenders per the design doc):
 
@@ -177,7 +179,8 @@ def validate_client_id_host(client_id_url: str, allowlist: list[str]) -> str:
     """
     if not client_id_url:
         raise RegistrationError400(
-            "client_id URL is empty — a valid HTTPS URL is required for CIMD registration."
+            "client_id URL is empty — a valid HTTPS URL is required "
+            "for CIMD registration."
         )
 
     parsed = urllib.parse.urlparse(client_id_url)
@@ -214,7 +217,8 @@ def validate_client_id_host(client_id_url: str, allowlist: list[str]) -> str:
     # Control #3: allowlist check
     if hostname not in allowlist:
         raise RegistrationError400(
-            f"client_id hostname {hostname!r} is not in the AGENT_BRAIN_OAUTH_CLIENT_ID_ALLOWLIST. "
+            f"client_id hostname {hostname!r} is not in "
+            "AGENT_BRAIN_OAUTH_CLIENT_ID_ALLOWLIST. "
             "Only pre-approved hostnames may initiate CIMD registration. "
             "Set AGENT_BRAIN_OAUTH_CLIENT_ID_ALLOWLIST to include this hostname."
         )
@@ -280,14 +284,17 @@ async def fetch_client_metadata(
 
     for addr_info in addr_infos:
         # addr_info is (family, type, proto, canonname, sockaddr)
-        # sockaddr is (host, port) for IPv4 or (host, port, flowinfo, scope_id) for IPv6
-        resolved_ip = addr_info[4][0]
+        # sockaddr[0] is always the host string for both IPv4 and IPv6
+        sockaddr = addr_info[4]
+        resolved_ip = str(sockaddr[0])
         if is_blocked_ip(resolved_ip):
             raise RegistrationError400(
-                f"DNS-rebinding mitigation: client_id hostname {hostname!r} resolved to "
-                f"{resolved_ip!r} which is a private/loopback/link-local address. "
-                "Registration rejected to prevent SSRF. This may indicate a DNS rebinding "
-                "attack or misconfigured allowlist entry."
+                f"DNS-rebinding mitigation: client_id hostname {hostname!r} "
+                f"resolved to {resolved_ip!r} which is a "
+                "private/loopback/link-local address. "
+                "Registration rejected to prevent SSRF. "
+                "This may indicate a DNS rebinding attack or misconfigured "
+                "allowlist entry."
             )
 
     # Control #5: HTTP fetch with ~5s timeout
