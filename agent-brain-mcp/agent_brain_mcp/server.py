@@ -50,7 +50,7 @@ from .client import ApiClient
 from .config import AuthMode, resolve_auth_mode
 from .errors import INVALID_PARAMS, raise_backend_unavailable
 from .http import run_http
-from .oauth.scopes import InsufficientScopeError, require_scope
+from .oauth.scopes import require_scope
 from .prompts import PROMPT_REGISTRY
 from .resources import (
     PARAMETERIZED_HANDLERS,

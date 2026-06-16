@@ -5,6 +5,23 @@ in-process uvicorn server that mounts the MCP SDK's
 :class:`mcp.server.streamable_http_manager.StreamableHTTPSessionManager`
 at ``/mcp`` and serves a tiny ``/healthz`` probe alongside it.
 
+Phase 68 Plan 02 additions (OAUTH-06 SC#2/SC#3):
+* ``ScopeEnforcementMiddleware`` — a pre-dispatch ASGI guard that buffers
+  the JSON-RPC request body (handling multi-part ``http.request`` frames),
+  maps ``method(+params.name)`` to a required scope, reads the granted
+  scopes from ``scope["user"].scopes`` (set by AuthenticationMiddleware),
+  and on insufficient scope emits HTTP **403** with
+  ``WWW-Authenticate: Bearer error="insufficient_scope"`` BEFORE the
+  session manager runs. Engages only in oauth mode.
+* The guard is wired INSIDE ``AuthenticationMiddleware`` (so
+  ``scope["user"]`` is set before it reads scopes) and INSIDE
+  ``RequireAuthMiddleware`` (so unauthenticated requests still 401 first):
+  ``RequireAuthMiddleware(
+      AuthenticationMiddleware(ScopeEnforcementMiddleware(...), ...),
+      required_scopes=[], ...
+  )``
+  The none/basic mount stays the bare ``Mount(MCP_MOUNT_PATH, mcp_asgi_app)``.
+
 Design decisions cross-referenced from
 ``.planning/phases/53-streamable-http-transport/53-CONTEXT.md``:
 
@@ -72,9 +89,10 @@ Phase 66 OASM test green without any changes.
 from __future__ import annotations
 
 import contextlib
+import json
 import logging
 import socket
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, MutableMapping
 from typing import Any, Final
 
 import click
@@ -98,7 +116,9 @@ from starlette.types import Receive, Scope, Send
 
 from . import config as _config
 from . import oauth_metadata as _oauth_metadata
+from .oauth.scopes import InsufficientScopeError, require_scope
 from .subscriptions import SubscriptionManager
+from .tools import TOOL_SCOPE_REQUIREMENTS
 
 logger = logging.getLogger(__name__)
 
@@ -176,6 +196,190 @@ class PortInUseError(click.ClickException):
     """
 
     exit_code = 2
+
+
+class ScopeEnforcementMiddleware:
+    """Pre-dispatch per-tool OAuth scope guard for POST /mcp (Phase 68, design Risk 4).
+
+    Buffers the JSON-RPC request body (handling multi-part ``http.request``
+    frames), maps ``method(+params.name)`` to a required scope, reads the
+    caller's granted scopes off ``scope["user"].scopes`` (set by the wrapping
+    ``AuthenticationMiddleware``), and on insufficient scope emits HTTP 403 +
+    ``WWW-Authenticate: Bearer error="insufficient_scope"`` WITHOUT calling the
+    downstream app. On sufficient scope (or a non-scoped method) it replays the
+    buffered body to the downstream app. Engages only in oauth mode.
+
+    Rationale: the MCP low-level server's ``_handle_request()`` catches every
+    handler exception and returns it as a JSON-RPC error inside an HTTP 200
+    (mcp/server/lowlevel/server.py ~lines 785-788). An ``InsufficientScopeError``
+    raised inside ``call_tool`` / ``read_resource`` / ``get_prompt`` /
+    ``handle_subscribe`` therefore NEVER propagates out to an outer ASGI
+    middleware — the client would see HTTP 200 + JSON-RPC error, violating
+    SC#2/SC#3 which require HTTP 403. The 403 MUST be decided and emitted
+    BEFORE the session manager runs.
+
+    Composition contract (Phase 68 LOCKED):
+    ``RequireAuthMiddleware(                       # outermost — 401 if no token
+        AuthenticationMiddleware(                  # sets scope["user"]
+            ScopeEnforcementMiddleware(...),       # INSIDE Auth; sees scope["user"]
+            backend=BearerAuthBackend(verifier),
+        ),
+        required_scopes=[],                        # mount-wide empty; guard is per-tool
+        resource_metadata_url=<PRM url>,
+    )``
+    """
+
+    def __init__(self, app: Any, *, resource_metadata_url: str) -> None:
+        """Initialise the middleware.
+
+        Args:
+            app: The wrapped ASGI application (the raw ``mcp_asgi_app`` callable).
+            resource_metadata_url: The RFC 9728 Protected Resource Metadata URL
+                for this server (= ``AGENT_BRAIN_OAUTH_RESOURCE``). Included in
+                the ``WWW-Authenticate`` header's ``resource_metadata`` field so
+                the client can discover the AS and request a higher scope.
+        """
+        self.app = app
+        self.resource_metadata_url = resource_metadata_url
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """ASGI entry point — guard POST /mcp in oauth mode; pass through otherwise.
+
+        Args:
+            scope: The ASGI connection scope.
+            receive: The ASGI receive callable (request body / events).
+            send: The ASGI send callable (response headers / body).
+        """
+        # Pass through anything that is not an in-oauth-mode POST to /mcp.
+        if (
+            scope["type"] != "http"
+            or scope.get("method") != "POST"
+            or _config.resolve_auth_mode() != _config.AuthMode.oauth
+        ):
+            await self.app(scope, receive, send)
+            return
+
+        # 1) Buffer the full request body (handle multi-part http.request
+        #    frames).  The MCP SDK typically sends a single frame, but the
+        #    ASGI spec allows ``more_body=True`` chains from proxies / test
+        #    clients.
+        body = b""
+        more = True
+        messages: list[MutableMapping[str, Any]] = []
+        while more:
+            message = await receive()
+            messages.append(message)
+            if message["type"] == "http.request":
+                body += message.get("body", b"")
+                more = message.get("more_body", False)
+            elif message["type"] == "http.disconnect":
+                more = False
+
+        # 2) Build a replay receive() so the downstream app still sees the
+        #    same frames — the body must be consumed by the session manager.
+        replay = iter(messages)
+
+        async def replay_receive() -> MutableMapping[str, Any]:
+            try:
+                return next(replay)
+            except StopIteration:
+                # After buffered frames are exhausted, defer to the real
+                # receive (handles any follow-up events e.g. disconnect).
+                return await receive()
+
+        # 3) Decide the required scope from the JSON-RPC body.
+        required = self._required_scope(body)
+        if required is None:
+            # Non-scoped method / unparseable body / unknown tool name →
+            # let dispatch handle it (unknown tool → JSON-RPC INVALID_PARAMS,
+            # NOT a false 403).
+            await self.app(scope, replay_receive, send)
+            return
+
+        # 4) Read granted scopes set by AuthenticationMiddleware (BearerAuthBackend
+        #    stores the AccessToken on scope["user"]; .scopes is the list of
+        #    granted scope strings from the JWT "scope" claim).
+        user = scope.get("user")
+        granted = list(getattr(user, "scopes", []) or [])
+
+        # 5) Enforce. require_scope raises InsufficientScopeError on failure.
+        try:
+            require_scope(required, granted)
+        except InsufficientScopeError as exc:
+            await self._send_403(send, required=exc.required)
+            return
+
+        # 6) Sufficient scope → downstream with the replayed body.
+        await self.app(scope, replay_receive, send)
+
+    def _required_scope(self, body: bytes) -> str | None:
+        """Map a JSON-RPC body to the required scope, or None for non-scoped methods.
+
+        Args:
+            body: The raw JSON-RPC request body bytes.
+
+        Returns:
+            The required scope string, or ``None`` if no scope check is
+            needed (non-scoped method, malformed body, unknown tool name).
+        """
+        try:
+            payload = json.loads(body)
+        except (ValueError, TypeError):
+            return None
+        # JSON-RPC batch is a list; scope-check is per the MCP single-request shape.
+        if not isinstance(payload, dict):
+            return None
+        method = payload.get("method")
+        params = payload.get("params") or {}
+        if method == "tools/call":
+            name = params.get("name")
+            if not name:
+                return None
+            # Unknown tool name → None (let dispatch surface INVALID_PARAMS,
+            # NOT a false 403 from the guard).
+            return TOOL_SCOPE_REQUIREMENTS.get(name)
+        if method == "resources/read":
+            return "agent-brain:read"
+        if method == "resources/subscribe":
+            return "agent-brain:subscribe"
+        if method == "prompts/get":
+            return "agent-brain:read"
+        # initialize, tools/list, resources/list, prompts/list, ping,
+        # notifications, etc. → no scope check; pass through untouched.
+        return None
+
+    async def _send_403(self, send: Send, *, required: str) -> None:
+        """Emit an HTTP 403 Forbidden response with the insufficient_scope header.
+
+        Args:
+            send: The ASGI send callable.
+            required: The scope the token was required to carry. Placed in the
+                ``scope`` field of the ``WWW-Authenticate`` header so the client
+                knows which scope to request via step-up.
+        """
+        www = (
+            f'Bearer error="insufficient_scope", '
+            f'scope="{required}", '
+            f'resource_metadata="{self.resource_metadata_url}"'
+        )
+        payload = json.dumps(
+            {
+                "error": "insufficient_scope",
+                "error_description": f"Required scope: {required}",
+            }
+        ).encode()
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 403,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(payload)).encode()),
+                    (b"www-authenticate", www.encode()),
+                ],
+            }
+        )
+        await send({"type": "http.response.body", "body": payload})
 
 
 def loopback_transport_security() -> TransportSecuritySettings:
@@ -501,9 +705,21 @@ def build_asgi_app(server: Server) -> Starlette:
         prm_url_str = resource_env  # PRM URL is the resource URI per RFC 9728
         verifier = build_local_verifier(issuer_override=issuer)
         backend = BearerAuthBackend(token_verifier=verifier)
+        # Phase 68 Plan 02: wire ScopeEnforcementMiddleware INSIDE
+        # AuthenticationMiddleware so scope["user"] is set before the guard
+        # reads scopes. RequireAuthMiddleware stays outermost so an
+        # unauthenticated request still 401s (RequireAuth) BEFORE the guard
+        # (ScopeEnforcementMiddleware) runs.  required_scopes=[] preserves
+        # mount-wide semantics; per-tool enforcement is the guard's job.
         auth_mcp_app = RequireAuthMiddleware(
-            AuthenticationMiddleware(mcp_asgi_app, backend=backend),
-            required_scopes=[],  # Phase 68 scope enforcement
+            AuthenticationMiddleware(
+                ScopeEnforcementMiddleware(
+                    mcp_asgi_app,
+                    resource_metadata_url=prm_url_str,
+                ),
+                backend=backend,
+            ),
+            required_scopes=[],  # mount-wide empty; per-tool scope = guard
             resource_metadata_url=AnyHttpUrl(prm_url_str),
         )
         mcp_mount: Any = Mount(MCP_MOUNT_PATH, app=auth_mcp_app)
@@ -721,6 +937,7 @@ __all__: list[str] = [
     "PRM_PATH",
     "PRM_PATH_SUFFIXED",
     "PortInUseError",
+    "ScopeEnforcementMiddleware",
     "build_asgi_app",
     "build_uvicorn_server",
     "loopback_transport_security",
