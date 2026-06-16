@@ -47,8 +47,10 @@ from pydantic import AnyUrl, ValidationError
 
 from . import __version__
 from .client import ApiClient
+from .config import AuthMode, resolve_auth_mode
 from .errors import INVALID_PARAMS, raise_backend_unavailable
 from .http import run_http
+from .oauth.scopes import require_scope
 from .prompts import PROMPT_REGISTRY
 from .resources import (
     PARAMETERIZED_HANDLERS,
@@ -63,7 +65,7 @@ from .subscriptions import (
     SubscriptionManager,
     resolve_policy,
 )
-from .tools import TOOL_REGISTRY
+from .tools import TOOL_REGISTRY, TOOL_SCOPE_REQUIREMENTS
 
 if TYPE_CHECKING:
     # Phase 54 Plan 04: type-only import. ``ProgressNotifier`` is the
@@ -73,6 +75,50 @@ if TYPE_CHECKING:
     from .tools.wait import ProgressNotifier  # noqa: F401
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Per-tool scope guard — defense-in-depth for in-process / stdio callers
+# (Phase 68 Plan 02, Task 1).  The HTTP /mcp path is guarded by the
+# ScopeEnforcementMiddleware pre-dispatch guard in http.py (Task 2), which
+# fires BEFORE the session manager runs.  This helper covers callers that
+# never traverse that middleware (in-process unit tests, stdio transport).
+# ---------------------------------------------------------------------------
+
+
+def _enforce_scope(server: Server, required: str) -> None:
+    """Per-tool scope guard (design Risk 4), defense-in-depth.
+
+    No-op unless AGENT_BRAIN_AUTH=oauth. Reads the authenticated token's
+    scopes off the Starlette Request carried in the MCP request context
+    (set by Phase 67 AuthenticationMiddleware) and delegates to
+    oauth.scopes.require_scope. Raises InsufficientScopeError on
+    insufficient scope. For the HTTP /mcp path the pre-dispatch
+    ScopeEnforcementMiddleware (http.py) already emits the 403 BEFORE
+    this runs; this guard covers in-process / stdio callers that never
+    traverse that middleware.
+
+    Args:
+        server: The low-level MCP Server instance. Used to reach the
+            current request context via ``server.request_context``.
+        required: The scope string the current operation requires
+            (one of the 4 locked scopes from TOOL_SCOPE_REQUIREMENTS or
+            the resource/subscription constants).
+
+    Raises:
+        InsufficientScopeError: When the token lacks the required scope
+            (including the empty-scopes case — deny by default).
+    """
+    if resolve_auth_mode() != AuthMode.oauth:
+        return  # none/basic: no token scopes — dispatch unchanged
+    try:
+        req = server.request_context.request
+    except LookupError:
+        req = None
+    user = getattr(req, "user", None)
+    token_scopes = list(getattr(user, "scopes", []) or [])
+    require_scope(required, token_scopes)
+
 
 SERVER_NAME = "agent-brain"
 # Lowest server /health/ ``version`` that this MCP build is compatible with.
@@ -282,6 +328,11 @@ def build_server(
             raise McpError(
                 ErrorData(code=INVALID_PARAMS, message=f"Unknown tool: {name}")
             )
+        # Phase 68 Plan 02 (Task 1): defense-in-depth scope enforcement.
+        # The pre-dispatch ScopeEnforcementMiddleware in http.py already
+        # emits a real HTTP 403 BEFORE this runs for /mcp HTTP callers.
+        # This guard covers in-process / stdio callers. Mode-gated to oauth.
+        _enforce_scope(server, TOOL_SCOPE_REQUIREMENTS[name])
         try:
             args = spec.input_model.model_validate(arguments)
         except ValidationError as e:
@@ -346,6 +397,10 @@ def build_server(
 
     @server.read_resource()
     async def read_resource(uri: AnyUrl) -> list[ReadResourceContents]:
+        # Phase 68 Plan 02 (Task 1): defense-in-depth scope enforcement.
+        # All resource reads require agent-brain:read (design Scope Table).
+        # Mode-gated to oauth; no-op in none/basic.
+        _enforce_scope(server, "agent-brain:read")
         # Strip at most a single trailing '/' so 'job://abc/' → 'job://abc'
         # without collapsing 'job://' (empty netloc) into 'job:'. The v1
         # ``.rstrip('/')`` form mangled empty-netloc URIs that we now
@@ -435,6 +490,10 @@ def build_server(
     async def get_prompt(
         name: str, arguments: dict[str, str] | None
     ) -> types.GetPromptResult:
+        # Phase 68 Plan 02 (Task 1): defense-in-depth scope enforcement.
+        # All registered prompts require agent-brain:read (CONTEXT locked).
+        # Mode-gated to oauth; no-op in none/basic.
+        _enforce_scope(server, "agent-brain:read")
         spec = PROMPT_REGISTRY.get(name)
         if spec is None:
             raise McpError(
@@ -487,6 +546,10 @@ def build_server(
         ``read_resource`` target (``chunk://``, ``graph-entity://``,
         ``file://``, ``corpus://config``, etc.).
         """
+        # Phase 68 Plan 02 (Task 1): defense-in-depth scope enforcement.
+        # Subscription requests require agent-brain:subscribe.
+        # Mode-gated to oauth; no-op in none/basic.
+        _enforce_scope(server, "agent-brain:subscribe")
         uri_str = _normalize_uri(uri)
 
         # (2) Is the URI even known to this server?

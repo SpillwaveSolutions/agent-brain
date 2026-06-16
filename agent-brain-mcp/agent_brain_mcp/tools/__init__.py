@@ -316,4 +316,128 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
     ),
 }
 
-__all__ = ["TOOL_REGISTRY", "ToolSpec", "ToolHandler", "file_types"]
+# ---------------------------------------------------------------------------
+# Per-tool scope single source of truth (OAUTH-06 SC#4)
+#
+# Each TOOL_REGISTRY key maps to exactly ONE of the 4 locked OAuth scopes.
+# This map + the import-time guard below close design Risk 4 ("a tool added
+# without a scope silently gets admin access via the is-authenticated check"):
+# the server refuses to start if any registry key lacks a scope entry.
+#
+# Scope assignment (design doc §"Scope-to-Tool Mapping", locked 2026-06-14):
+#   agent-brain:read      — read-only queries and status tools
+#   agent-brain:index     — indexing / mutation tools
+#   agent-brain:admin     — destructive / admin tools
+#   (agent-brain:subscribe is for subscription channels; not a call_tool scope)
+#
+# Notes on two tools absent from the design table:
+#   server_health  → agent-brain:read  (matches get_corpus_status in the table;
+#                    naming resolved: registry key wins over table label)
+#   query_count    → agent-brain:read  (read-only document count)
+# ---------------------------------------------------------------------------
+
+TOOL_SCOPE_REQUIREMENTS: dict[str, str] = {
+    # agent-brain:read — read-only tools
+    "search_documents": "agent-brain:read",
+    "explain_result": "agent-brain:read",
+    "server_health": "agent-brain:read",  # design table calls this get_corpus_status
+    "query_count": "agent-brain:read",  # not named in design table — read
+    "cache_status": "agent-brain:read",
+    "list_folders": "agent-brain:read",
+    "list_file_types": "agent-brain:read",
+    "list_jobs": "agent-brain:read",
+    "get_job": "agent-brain:read",
+    # agent-brain:index — index/mutation tools
+    "index_folder": "agent-brain:index",
+    "add_documents": "agent-brain:index",
+    "inject_documents": "agent-brain:index",
+    "wait_for_job": "agent-brain:index",
+    # agent-brain:admin — destructive/admin tools
+    "cancel_job": "agent-brain:admin",
+    "remove_folder": "agent-brain:admin",
+    "clear_cache": "agent-brain:admin",
+}
+
+# Import VALID_SCOPES for the drift guard.  Uses a local frozenset literal as
+# the canonical set to avoid a circular-import if oauth.scopes ever imports
+# from tools.  A test asserts that this literal matches VALID_SCOPES exactly.
+_VALID_SCOPES_LOCAL: frozenset[str] = frozenset(
+    {
+        "agent-brain:read",
+        "agent-brain:index",
+        "agent-brain:admin",
+        "agent-brain:subscribe",
+    }
+)
+
+
+def _scope_drift(
+    registry: set[str],
+    scoped: set[str],
+    scope_map: dict[str, str],
+    valid_scopes: frozenset[str],
+) -> tuple[set[str], set[str], dict[str, str]]:
+    """Return the three diff sets used by the drift guard.
+
+    Extracted as a pure helper so tests can call it without monkeypatching the
+    module-level guard (which fires once at import time).
+
+    Args:
+        registry: The set of tool names in TOOL_REGISTRY.
+        scoped: The set of keys in TOOL_SCOPE_REQUIREMENTS.
+        scope_map: The full scope map (for bad-value checking).
+        valid_scopes: The frozenset of accepted scope strings.
+
+    Returns:
+        A 3-tuple (unassigned, unknown, bad_values) where:
+          - unassigned: registry tools that lack a scope entry.
+          - unknown: scope entries with no matching registry tool.
+          - bad_values: mapping of tool name → invalid scope string.
+    """
+    unassigned = registry - scoped
+    unknown = scoped - registry
+    bad_values: dict[str, str] = {
+        name: scope for name, scope in scope_map.items() if scope not in valid_scopes
+    }
+    return unassigned, unknown, bad_values
+
+
+def _assert_every_tool_has_scope() -> None:
+    """Raise RuntimeError if TOOL_SCOPE_REQUIREMENTS is out of sync with TOOL_REGISTRY.
+
+    Called once at module import time.  The server refuses to start (import
+    fails) if any registered tool lacks a scope assignment, any scope entry has
+    no matching tool, or any scope value is not in the 4-value locked set.
+
+    This mirrors the ``_assert_matrix_covers_registry()`` guard in
+    ``tests/contract/_tool_matrix.py`` — same fail-fast philosophy, but lives
+    in production code so it fires on server startup, not just during test runs.
+
+    Raises:
+        RuntimeError: Naming the unassigned tool(s), orphan scope entries, or
+            invalid scope values detected at import time.
+    """
+    unassigned, unknown, bad_values = _scope_drift(
+        set(TOOL_REGISTRY.keys()),
+        set(TOOL_SCOPE_REQUIREMENTS.keys()),
+        TOOL_SCOPE_REQUIREMENTS,
+        _VALID_SCOPES_LOCAL,
+    )
+    if unassigned or unknown or bad_values:
+        raise RuntimeError(
+            "TOOL_SCOPE_REQUIREMENTS is out of sync with TOOL_REGISTRY.\n"
+            f"  tools missing a scope assignment: {sorted(unassigned)}\n"
+            f"  scope entries with no matching tool: {sorted(unknown)}\n"
+            f"  entries with an invalid scope value: {bad_values}"
+        )
+
+
+_assert_every_tool_has_scope()
+
+__all__ = [
+    "TOOL_REGISTRY",
+    "TOOL_SCOPE_REQUIREMENTS",
+    "ToolSpec",
+    "ToolHandler",
+    "file_types",
+]
