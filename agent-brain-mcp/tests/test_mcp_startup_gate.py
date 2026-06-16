@@ -323,22 +323,23 @@ def test_get_auth_dependency_basic_mode_returns_single_value(
     assert result == "basic-bearer"
 
 
-def test_get_auth_dependency_oauth_mode_raises_not_implemented(
+def test_get_auth_dependency_oauth_mode_returns_oauth_selector(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """oauth mode raises NotImplementedError — Phase-67 placeholder.
+    """oauth mode returns 'oauth-require-auth' selector (Phase 67 fills the seam).
 
-    The oauth branch of get_auth_dependency() is structurally wired in
-    Phase 66 but RequireAuthMiddleware arrives in Phase 67. The seam
-    exists; the middleware does not yet.
+    The oauth branch was a NotImplementedError placeholder in Phase 66.
+    Phase 67 Plan 04 replaced it with the RequireAuthMiddleware selector.
+    This test updates the acceptance contract to the Phase 67 behaviour.
     """
     monkeypatch.setenv("AGENT_BRAIN_AUTH", "oauth")
 
-    with pytest.raises(NotImplementedError) as exc_info:
-        get_auth_dependency()
+    result = get_auth_dependency()
 
-    # Error message must name Phase 67
-    assert "Phase 67" in str(exc_info.value)
+    # Phase 67: oauth branch returns the oauth selector marker, not an exception
+    assert (
+        result == "oauth-require-auth"
+    ), f"oauth mode must return 'oauth-require-auth', got {result!r}"
 
 
 def test_get_auth_dependency_none_and_basic_are_distinct(

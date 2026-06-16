@@ -25,10 +25,17 @@ agent-brain-mcp = "agent_brain_mcp.cli:main"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-mcp = "^1.12.0"
+mcp = "^1.27.2"
 httpx = "^0.28.0"
 pydantic = "^2.10.0"
 click = "^8.1.0"
+# Phase 67: OAuth 2.1 AS + RS middleware dependencies.
+# PyJWT[crypto]: RS256 JWT minting and verification (crypto extra installs cryptography).
+# authlib: OAuth 2.1 grant-handler logic composable with the SDK provider.
+# pwdlib[argon2]: password / secret hashing for co-located AS user records.
+pyjwt = {extras = ["crypto"], version = "^2.13"}
+authlib = "^1.7.2"
+pwdlib = {extras = ["argon2"], version = ">=0.2"}
 # Path-installed for local dev (plan §13 + need Phase 2 ConfigStatus model).
 # Release process swaps both to PyPI pins before publishing.
 #
