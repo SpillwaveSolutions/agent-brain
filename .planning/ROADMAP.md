@@ -193,7 +193,7 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
 | 65. OAuth design doc + security review gate                 | 1/2 | Complete    | 2026-06-14 | -          |
 | 66. OAuth settings foundation + PRM/OASM public endpoints   | 2/2 | Complete    | 2026-06-14 | -          |
 | 67. Co-located AS + RS middleware                           | 4/4 | Complete    | 2026-06-15 | -          |
-| 68. Per-tool scope enforcement                              | 1/2 | In Progress|  | -          |
+| 68. Per-tool scope enforcement                              | 2/2 | Complete   | 2026-06-16 | -          |
 | 69. McpHttpBackend client-side OAuth dance                  | v10.4     | 0/TBD          | Not started | -          |
 | 70. Split AS/RS + Keycloak-in-CI + integration tests        | v10.4     | 0/TBD          | Not started | -          |
 
