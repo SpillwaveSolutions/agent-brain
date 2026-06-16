@@ -19,7 +19,7 @@ provides:
 
 affects:
   - phase-70-split-as-rs
-  - OAUTH-07 (token endpoint — now has enforcement infrastructure)
+  - OAUTH-06 (token endpoint — now has enforcement infrastructure)
 
 tech-stack:
   added: []
@@ -46,7 +46,7 @@ patterns-established:
   - "Body buffering pattern: read full body into bytes, build replay coroutine that pops from list, forward replay to downstream app — reusable for any pre-dispatch ASGI guard"
   - "RFC 9396 WWW-Authenticate emission: Bearer error='insufficient_scope', scope='<required>', resource_metadata='<PRM URL>'"
 
-requirements-completed: [OAUTH-07]
+requirements-completed: [OAUTH-06]
 
 duration: 90min
 completed: 2026-06-16
