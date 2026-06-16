@@ -4,7 +4,7 @@ Covers:
 - Round-trip for OAuthToken (get_tokens / set_tokens)
 - Round-trip for OAuthClientInformationFull (get_client_info / set_client_info)
 - Coexistence: tokens and client_info live in one file without clobbering each other
-- File permission gate: after any write (st_mode & 0o077) == 0 (not group/world readable)
+- File permission gate: after any write (st_mode & 0o077) == 0 (no group/world bits)
 - Cold-start: get_tokens on a non-existent file returns None (no crash)
 - Corrupt file: get_tokens / get_client_info log a warning and return None (no raise)
 """
@@ -16,9 +16,7 @@ import stat
 from pathlib import Path
 
 import pytest
-
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -243,7 +241,7 @@ async def test_get_tokens_on_corrupt_file_returns_none_and_logs_warning(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """get_tokens on a corrupt JSON file returns None and emits a WARNING log."""
-    from agent_brain_mcp.oauth.token_storage import FileTokenStorage, TOKEN_FILE_NAME
+    from agent_brain_mcp.oauth.token_storage import TOKEN_FILE_NAME, FileTokenStorage
 
     corrupt_path = tmp_path / TOKEN_FILE_NAME
     corrupt_path.write_text("this is not valid json {{{{")
@@ -267,7 +265,7 @@ async def test_get_client_info_on_corrupt_file_returns_none_and_logs_warning(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """get_client_info on a corrupt JSON file returns None and emits a WARNING log."""
-    from agent_brain_mcp.oauth.token_storage import FileTokenStorage, TOKEN_FILE_NAME
+    from agent_brain_mcp.oauth.token_storage import TOKEN_FILE_NAME, FileTokenStorage
 
     corrupt_path = tmp_path / TOKEN_FILE_NAME
     corrupt_path.write_text("{not_json_at_all")
@@ -295,10 +293,12 @@ async def test_get_tokens_returns_none_when_only_client_info_in_file(
     tmp_path: Path,
 ) -> None:
     """get_tokens returns None if the file exists but has no 'tokens' key."""
-    from agent_brain_mcp.oauth.token_storage import FileTokenStorage, TOKEN_FILE_NAME
+    from agent_brain_mcp.oauth.token_storage import TOKEN_FILE_NAME, FileTokenStorage
 
     token_path = tmp_path / TOKEN_FILE_NAME
-    token_path.write_text(json.dumps({"client_info": {"client_id": "x", "redirect_uris": []}}))
+    token_path.write_text(
+        json.dumps({"client_info": {"client_id": "x", "redirect_uris": []}})
+    )
 
     storage = FileTokenStorage(state_dir=tmp_path)
     result = await storage.get_tokens()
@@ -310,7 +310,7 @@ async def test_get_client_info_returns_none_when_only_tokens_in_file(
     tmp_path: Path,
 ) -> None:
     """get_client_info returns None if the file exists but has no 'client_info' key."""
-    from agent_brain_mcp.oauth.token_storage import FileTokenStorage, TOKEN_FILE_NAME
+    from agent_brain_mcp.oauth.token_storage import TOKEN_FILE_NAME, FileTokenStorage
 
     token_path = tmp_path / TOKEN_FILE_NAME
     token_path.write_text(
