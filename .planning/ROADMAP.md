@@ -158,7 +158,7 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
   3. When the access token is expired but a refresh token exists, `McpHttpBackend` silently refreshes the token via `POST /token grant_type=refresh_token` and retries the original call — no user interaction required
   4. The MCP-to-REST API leg continues to use `AGENT_BRAIN_API_KEY` (static Bearer); an automated integration test asserts the outgoing REST call carries `X-API-Key: <api_key>` and does NOT carry the OAuth access token (confused-deputy prevention)
 **Plans**: 4 plans (3 waves — storage + handlers in parallel, then backend wiring, then confused-deputy + dance e2e tests)
-- [ ] 69-01-PLAN.md — OAUTH-07: FileTokenStorage (TokenStorage 4-method protocol, state_dir/mcp-oauth-tokens.json, chmod 0o600, corrupt-file graceful) + unit tests
+- [x] 69-01-PLAN.md — OAUTH-07: FileTokenStorage (TokenStorage 4-method protocol, state_dir/mcp-oauth-tokens.json, chmod 0o600, corrupt-file graceful) + unit tests
 - [ ] 69-02-PLAN.md — OAUTH-07: browser redirect_handler (webbrowser + stderr) + ephemeral loopback callback server (OS-assigned port, captures code+state) + unit tests
 - [ ] 69-03-PLAN.md — OAUTH-07: OAuthClientProvider factory + centralize 17 streamablehttp_client sites into one _http_session() with optional auth= + AGENT_BRAIN_MCP_AUTH opt-in (default OFF) + thread transport.py state_dir
 - [ ] 69-04-PLAN.md — OAUTH-07: confused-deputy integration test (SC#4/OAUTH-08 — X-API-Key upstream, OAuth token never forwarded) + 401→dance→retry / persist→reuse / expired→refresh e2e tests

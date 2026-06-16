@@ -3,34 +3,34 @@ gsd_state_version: 1.0
 milestone: v10.4
 milestone_name: milestone
 current_phase: 69
-status: planning
-stopped_at: Phase 69 context gathered
-last_updated: "2026-06-16T22:52:00.054Z"
+status: executing
+stopped_at: Completed 69-01-PLAN.md (FileTokenStorage)
+last_updated: "2026-06-16T23:31:00Z"
 progress:
   total_phases: 7
   completed_phases: 5
-  total_plans: 14
-  completed_plans: 14
+  total_plans: 18
+  completed_plans: 15
 ---
 
 # Agent Brain — Project State
 
 **Last Updated:** 2026-06-14
 **Current Milestone:** v10.4 — MCP v4: OAuth 2.1 + GraphRAG Stability
-**Status:** Ready to plan
+**Status:** Executing Phase 69
 **Current Phase:** 69
 
 ## Current Position
 
-Phase: 68 (per-tool-scope-enforcement) — EXECUTING
-Plan: 1 of 2
+Phase: 69 (mcphttpbackend-client-side-oauth-dance) — EXECUTING
+Plan: 2 of 4
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-06-14)
 
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Phase 68 — per-tool-scope-enforcement
+**Current focus:** Phase 69 — mcphttpbackend-client-side-oauth-dance
 
 ## Milestone Summary
 
@@ -88,6 +88,8 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 ## Accumulated Context
 
 ### Key Context Carried Forward
+
+- **Plan 69-01 complete (2026-06-16):** OAUTH-07 FileTokenStorage shipped. New `agent_brain_mcp/oauth/token_storage.py`: `FileTokenStorage` implementing SDK `TokenStorage` Protocol (4 async methods: get_tokens, set_tokens, get_client_info, set_client_info). Persists both `OAuthToken` and `OAuthClientInformationFull` in single JSON file at `state_dir/mcp-oauth-tokens.json`. Key decisions: (1) `os.chmod(path, 0o600)` called unconditionally after every write — mandatory security gate; (2) `_read_raw()` degrades gracefully: absent file → `{}`; corrupt JSON → log WARNING + return `{}` (never raises); (3) `_write_raw()` mirrors `write_mcp_runtime` idiom from `agent_brain_cli/mcp_runtime.py` (`mkdir + write_text + os.chmod`); (4) sync I/O wrapped in `async def` — Pattern A subprocess lifetime; (5) model_validate + model_dump(mode="json") for de/serialization; (6) single JSON file with "tokens" + "client_info" top-level keys, each setter reads first to preserve the other. 11 tests pass (round-trip, coexistence, 0o600 gate `(st_mode & 0o077) == 0`, cold-start None, corrupt-file None+WARNING, absent-key None). Exported from oauth `__init__.py`. `task before-push` exits 0 (939 passed, 111 deselected). Commits: `c1a2130` (TDD RED: tests) + `34224d3` (TDD GREEN: impl + __init__.py export) + `500df1a` (Black + Ruff fix). OAUTH-07 foundation (Plan 01 of 4) complete.
 
 - **Plan 67-04 complete (2026-06-15):** OAUTH-05 + OAUTH-08 RS half shipped. New `agent_brain_mcp/oauth/verifier.py`: `LocalRs256Verifier` (checks #1-5: sig/exp/nbf+30s-leeway/iss/aud) + `build_local_verifier()` factory. `http.py` additions: `JWKS_PATH` constant + auth-exempt `/.well-known/jwks.json` route serving signing key JWKS; `/authorize` PKCE front-handler (ROADMAP SC#1 live contract) calls `reject_non_s256_pkce()` before SDK authorize handler (front-route-first, not ASGI wrap); `create_auth_routes()` + `AgentBrainAuthServerProvider` in oauth mode; `RequireAuthMiddleware(AuthenticationMiddleware(mcp_app, BearerAuthBackend(LocalRs256Verifier)), required_scopes=[])` wraps ONLY `/mcp` Mount. `config.py`: `get_auth_dependency()` oauth branch returns `"oauth-require-auth"` (replaces NotImplementedError); `verify_basic_bearer()` for SC#5 proof. Phase 66 mount-order tests (33) still green. 46 new tests (16+18+12). OAUTH-05+OAUTH-08 complete. Commits `cb2432e` (verifier) + `407bce3` (http.py+config.py) + `6937a34` (mode exclusion). Phase 67 is complete (4/4 plans).
 
