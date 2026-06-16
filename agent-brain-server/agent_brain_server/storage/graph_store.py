@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import shutil
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -31,6 +32,11 @@ from agent_brain_server.storage.graph_snapshot import (
 )
 
 logger = logging.getLogger(__name__)
+
+# TTL for the live kuzu COUNT(*) cache (GSTAB-03 / Phase 64 Plan 02).
+# Health-poll storms should not issue a graph query per request; a ~5s window
+# amortises the cost while keeping numbers fresh enough for operators.
+LIVE_COUNT_TTL_SECONDS: float = 5.0
 
 
 class KuzuUnavailableError(RuntimeError):
@@ -170,6 +176,9 @@ class GraphStoreManager:
         self._entity_count = 0
         self._relationship_count = 0
         self._last_updated: datetime | None = None
+        # Live COUNT(*) TTL cache fields (GSTAB-03).
+        self._live_count_cache: tuple[int, int] | None = None
+        self._live_count_cached_at: float = 0.0  # time.monotonic() timestamp
 
     @classmethod
     def get_instance(
@@ -457,6 +466,102 @@ class GraphStoreManager:
         )
         return restored
 
+    def plan_restore(
+        self, snapshot_path: Path | None = None
+    ) -> tuple[Path, int] | None:
+        """Return (snapshot_path, triplet_count) for the snapshot that WOULD be
+        restored, without mutating the store.
+
+        ``snapshot_path=None`` selects the latest valid snapshot via
+        ``GraphSnapshotManager.load_latest_valid()``. An explicit path loads
+        that specific file via ``GraphSnapshotManager.load()``.
+
+        Returns ``None`` if no valid snapshot exists (nothing to restore).
+        Used to back ``--dry-run`` in the ``agent-brain graph
+        restore-from-snapshot`` CLI command.
+
+        Args:
+            snapshot_path: Specific snapshot file to preview, or ``None``
+                to select the latest valid snapshot on disk.
+
+        Returns:
+            ``(path, triplet_count)`` tuple, or ``None`` if no snapshot.
+        """
+        snapshot_mgr = GraphSnapshotManager(self.persist_dir)
+        if snapshot_path is None:
+            loaded = snapshot_mgr.load_latest_valid()
+            if loaded is None:
+                return None
+            snap_path, triplets = loaded
+        else:
+            triplets = snapshot_mgr.load(snapshot_path)
+            snap_path = snapshot_path
+        return snap_path, len(triplets)
+
+    def restore_from_snapshot(self, snapshot_path: Path | None = None) -> int:
+        """Replay a snapshot's triplets into the graph store on demand.
+
+        Unlike ``_restore_from_snapshot_if_available``, this public method
+        does NOT require ``self._recovered_from_corruption`` to be True —
+        operators invoke it explicitly to recover a stale graph (e.g. after
+        an ``AGENT_BRAIN_JOB_TIMEOUT`` rollback in Phase 64).
+
+        ``snapshot_path=None`` selects the latest valid snapshot via
+        ``GraphSnapshotManager.load_latest_valid()``. An explicit path loads
+        that specific file via ``GraphSnapshotManager.load()`` — raises
+        ``ValueError`` or ``OSError`` on a bad snapshot so the caller can
+        surface a clear message naming the offending file.
+
+        Calls ``self.initialize()`` if the store is not yet initialized,
+        then applies each triplet through ``_apply_triplet_to_store``,
+        updates ``_relationship_count`` and ``_last_updated``, and calls
+        ``persist()``.
+
+        Args:
+            snapshot_path: Snapshot file to replay, or ``None`` for the
+                latest valid snapshot on disk.
+
+        Returns:
+            Number of triplets successfully applied (0 when no snapshot).
+        """
+        snapshot_mgr = GraphSnapshotManager(self.persist_dir)
+        if snapshot_path is None:
+            loaded = snapshot_mgr.load_latest_valid()
+            if loaded is None:
+                logger.info(
+                    "graph_store.restore_from_snapshot: no snapshot available at %s",
+                    self.persist_dir,
+                )
+                return 0
+            snap_path, triplets = loaded
+        else:
+            # Raises ValueError / OSError on a bad snapshot — let it propagate
+            # so the caller can name the bad file in the error message.
+            triplets = snapshot_mgr.load(snapshot_path)
+            snap_path = snapshot_path
+
+        if not self._initialized:
+            self.initialize()
+
+        restored = 0
+        for triplet in triplets:
+            if self._apply_triplet_to_store(triplet):
+                restored += 1
+
+        self._relationship_count = restored
+        self._last_updated = datetime.now(timezone.utc)
+
+        logger.warning(
+            "graph_store.restore_from_snapshot: restored %d triplets from "
+            "snapshot %s at %s",
+            restored,
+            snap_path.name,
+            self.persist_dir / "kuzu_db",
+        )
+
+        self.persist()
+        return restored
+
     def _apply_triplet_to_store(self, triplet: SnapshotTriplet) -> bool:
         """Insert a triplet into the underlying graph store backend.
 
@@ -547,6 +652,81 @@ class GraphStoreManager:
             return True
         self.initialize()
         return True
+
+    def live_counts(self) -> tuple[int, int, bool]:
+        """Return (entity_count, relationship_count, counts_stale).
+
+        For store_type == 'kuzu': evaluate a live SELECT COUNT(*) against the
+        kuzu DB, cached for LIVE_COUNT_TTL_SECONDS (~5s) so health-poll storms
+        don't issue a graph query per request.  If the COUNT query itself raises
+        (kuzu unreachable), return the last-known counts with stale=True --
+        NEVER 0/0 (issue #184: 0 reads as 'empty graph' and hides an outage).
+
+        For store_type != 'kuzu' (simple / minimal): return the existing
+        bookkeeping counts with stale=False (no live query issued).
+
+        Returns:
+            Tuple of (entity_count, relationship_count, counts_stale).
+            counts_stale is True only when kuzu failed and we fell back to
+            the last-known values.
+        """
+        if not _graphrag_enabled():
+            return (0, 0, False)
+
+        if self.store_type != "kuzu":
+            return (self._entity_count, self._relationship_count, False)
+
+        # Kuzu path: check TTL cache first.
+        now = time.monotonic()
+        if (
+            self._live_count_cache is not None
+            and (now - self._live_count_cached_at) < LIVE_COUNT_TTL_SECONDS
+        ):
+            cached_e, cached_r = self._live_count_cache
+            return (cached_e, cached_r, False)
+
+        # Issue live COUNT(*) queries against kuzu.
+        # Use getattr to get a typed local variable (avoids mypy arg-type error
+        # because self._kuzu_db is Any | None; kuzu_db is narrowed to non-None
+        # by the guard, matching the pattern in get_entity_by_id line 1229).
+        kuzu_db = getattr(self, "_kuzu_db", None)
+        try:
+            import kuzu as _kuzu_module
+
+            conn = _kuzu_module.Connection(kuzu_db)  # type: ignore[arg-type]
+
+            # Entity COUNT
+            raw_e = conn.execute("MATCH (n) RETURN COUNT(n)")
+            result_e: Any = raw_e[0] if isinstance(raw_e, list) else raw_e
+            entity_row = result_e.get_next()
+            entity_count = int(entity_row[0])
+
+            # Relationship COUNT
+            raw_r = conn.execute("MATCH ()-[r]->() RETURN COUNT(r)")
+            result_r: Any = raw_r[0] if isinstance(raw_r, list) else raw_r
+            rel_row = result_r.get_next()
+            rel_count = int(rel_row[0])
+
+            # Success: update cache and bookkeeping.
+            self._live_count_cache = (entity_count, rel_count)
+            self._live_count_cached_at = time.monotonic()
+            self._entity_count = entity_count
+            self._relationship_count = rel_count
+            return (entity_count, rel_count, False)
+
+        except (IndexError, RuntimeError, OSError) as exc:
+            # kuzu unreachable / catalog corruption — degrade gracefully.
+            # NEVER return 0/0 when a prior count is known (issue #184).
+            logger.warning(
+                "graph_store.live_counts: kuzu COUNT(*) failed, returning "
+                "last-known counts with stale=True: %s",
+                exc,
+            )
+            if self._live_count_cache is not None:
+                cached_e, cached_r = self._live_count_cache
+                return (cached_e, cached_r, True)
+            # No prior live-count cache — fall back to in-memory bookkeeping.
+            return (self._entity_count, self._relationship_count, True)
 
     def persist(self) -> None:
         """Persist graph to disk.

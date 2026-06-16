@@ -33,6 +33,10 @@ def mock_graph_store():
     mock.relationship_count = 20
     mock.store_type = "simple"
     mock.last_updated = None
+    # live_counts() is called by get_status() (GSTAB-03 / Plan 64-02).
+    # Return (entity_count, relationship_count, stale=False) to match the
+    # fixture's entity_count/relationship_count bookkeeping values.
+    mock.live_counts.return_value = (10, 20, False)
     mock.add_triplet.return_value = True
     mock.graph_store = MagicMock()
     mock.graph_store._relationships = []
@@ -399,6 +403,9 @@ class TestGraphIndexManagerStatus:
         mock_graph_store.is_initialized = True
         mock_graph_store.entity_count = 50
         mock_graph_store.relationship_count = 100
+        # get_status() calls live_counts() (GSTAB-03 / Plan 64-02); configure it
+        # to return the expected counts so assertions below still hold.
+        mock_graph_store.live_counts.return_value = (50, 100, False)
 
         manager = GraphIndexManager(
             graph_store=mock_graph_store,
