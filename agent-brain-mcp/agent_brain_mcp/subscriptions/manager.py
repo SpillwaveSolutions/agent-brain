@@ -38,6 +38,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
+from datetime import datetime, timezone
 from typing import Any
 
 from .errors import SubscriptionTerminated
@@ -95,6 +96,11 @@ class SubscriptionManager:
         # for the first polled value (so subscribers see the initial
         # state — they don't have to wait for a *change* to arrive).
         self._last_hash: dict[tuple[int, str], str] = {}
+        # Per-subscription metadata for the GET /mcp/subscriptions debug
+        # endpoint (HOUSE-01). Keyed by the same (id(session), uri) as
+        # _tasks. Populated in start_polling and stamped in _poll_loop
+        # after on_change fires. Scrubbed everywhere _last_hash is popped.
+        self._meta: dict[tuple[int, str], dict[str, Any]] = {}
 
     @staticmethod
     def _key(session: Any, uri: str) -> tuple[int, str]:
@@ -177,6 +183,16 @@ class SubscriptionManager:
             name=f"agent-brain-mcp-poll:{uri}:{id(session)}",
         )
         self._tasks[key] = task
+        # Record per-subscription metadata for the debug endpoint (HOUSE-01).
+        # Stamped synchronously here so snapshot() can report it immediately
+        # after start_polling returns (before any poll fires).
+        self._meta[key] = {
+            "session_id": self._truncate_session_id(session),
+            "uri": uri,
+            "cadence_s": interval_s,
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "last_notified_at": None,
+        }
         logger.info(
             "subscribe session=%s uri=%s interval=%.1fs (active=%d)",
             self._truncate_session_id(session),
@@ -296,6 +312,13 @@ class SubscriptionManager:
                 if h != prior:
                     self._last_hash[key] = h
                     await on_change(uri, payload)
+                    # Stamp last_notified_at after a successful on_change
+                    # so snapshot() can report the last emission time.
+                    meta = self._meta.get(key)
+                    if meta is not None:
+                        meta["last_notified_at"] = datetime.now(
+                            timezone.utc
+                        ).isoformat()
 
                 await asyncio.sleep(interval_s)
         finally:
@@ -311,6 +334,7 @@ class SubscriptionManager:
             if current is None or current is asyncio.current_task():
                 self._tasks.pop(key, None)
                 self._last_hash.pop(key, None)
+                self._meta.pop(key, None)
             logger.info(
                 "poll_loop exit session=%s uri=%s (active=%d)",
                 self._truncate_session_id(session),
@@ -336,9 +360,11 @@ class SubscriptionManager:
         task = self._tasks.pop(key, None)
         if task is None:
             return False
-        # Also drop the last-hash so a future re-subscribe starts
-        # clean (first poll emits as if no prior payload existed).
+        # Also drop the last-hash and per-subscription metadata so a future
+        # re-subscribe starts clean (first poll emits as if no prior payload
+        # existed) and snapshot() no longer reports this subscription.
         self._last_hash.pop(key, None)
+        self._meta.pop(key, None)
         task.cancel()
         logger.info(
             "unsubscribe session=%s uri=%s (active=%d)",
@@ -368,6 +394,7 @@ class SubscriptionManager:
         for key in victims:
             task = self._tasks.pop(key, None)
             self._last_hash.pop(key, None)
+            self._meta.pop(key, None)
             if task is not None:
                 task.cancel()
         if victims:
@@ -395,6 +422,7 @@ class SubscriptionManager:
         tasks = list(self._tasks.values())
         self._tasks.clear()
         self._last_hash.clear()
+        self._meta.clear()
         for task in tasks:
             task.cancel()
         if count:
@@ -412,6 +440,28 @@ class SubscriptionManager:
         ``active_count() == 0`` after a clean disconnect.
         """
         return len(self._tasks)
+
+    def snapshot(self) -> dict[str, Any]:
+        """Return a JSON-serializable read-only view of active subscriptions.
+
+        Does NOT mutate state. Backs the ``GET /mcp/subscriptions`` debug
+        endpoint (HOUSE-01). Session ids are already truncated in
+        ``self._meta`` — never the full ``id(session)`` integer.
+
+        Returns:
+            A dict with keys:
+
+            * ``active_count`` — total active polling tasks.
+            * ``subscriptions`` — list of per-subscription dicts, each
+              with ``session_id`` (8-char truncated hex), ``uri``,
+              ``cadence_s`` (float), ``started_at`` (ISO-8601 UTC
+              string), and ``last_notified_at`` (ISO-8601 UTC string or
+              ``None`` if on_change has not yet fired).
+        """
+        return {
+            "active_count": len(self._tasks),
+            "subscriptions": [dict(meta) for meta in self._meta.values()],
+        }
 
     @staticmethod
     def _truncate_session_id(session: Any) -> str:

@@ -10,9 +10,9 @@
 
 ### GraphRAG Stability (bugs first)
 
-- [ ] **GSTAB-01**: Sustained GraphRAG indexing with `graphrag.store_type: kuzu` no longer crashes the server with SIGSEGV (#178) — eliminated at root cause OR robustly mitigated (bounded memory / batch-commit / checkpoint) with graceful degradation so a kuzu-native failure never kills the indexing job or server process. The `simple` store remains the documented fallback.
-- [ ] **GSTAB-02**: Operator can replay the latest graph snapshot into kuzu when kuzu opens cleanly but the live graph is stale after an `AGENT_BRAIN_JOB_TIMEOUT` rollback (#184 bug 1), via `agent-brain graph restore-from-snapshot [--snapshot PATH] [--dry-run]` (and/or a `doctor` restore mode); `doctor` surfaces the stale-graph condition instead of reporting `OK`.
-- [ ] **GSTAB-03**: `/health/status` graph `entity_count` / `relationship_count` are derived from a live kuzu COUNT at query time and match kuzu's actual contents (#184 bug 2) — no stale-counter under-reporting (the `0 / 100` vs real `5677 / 4366` discrepancy is gone).
+- [x] **GSTAB-01**: Sustained GraphRAG indexing with `graphrag.store_type: kuzu` no longer crashes the server with SIGSEGV (#178) — eliminated at root cause OR robustly mitigated (bounded memory / batch-commit / checkpoint) with graceful degradation so a kuzu-native failure never kills the indexing job or server process. The `simple` store remains the documented fallback.
+- [x] **GSTAB-02**: Operator can replay the latest graph snapshot into kuzu when kuzu opens cleanly but the live graph is stale after an `AGENT_BRAIN_JOB_TIMEOUT` rollback (#184 bug 1), via `agent-brain graph restore-from-snapshot [--snapshot PATH] [--dry-run]` (and/or a `doctor` restore mode); `doctor` surfaces the stale-graph condition instead of reporting `OK`.
+- [x] **GSTAB-03**: `/health/status` graph `entity_count` / `relationship_count` are derived from a live kuzu COUNT at query time and match kuzu's actual contents (#184 bug 2) — no stale-counter under-reporting (the `0 / 100` vs real `5677 / 4366` discrepancy is gone).
 
 ### OAuth 2.1 — Resource Server + Co-located Authorization Server (MUST per MCP spec)
 
@@ -34,7 +34,7 @@
 
 ### Housekeeping
 
-- [ ] **HOUSE-01**: `/mcp/subscriptions` debug endpoint exposes active subscription state for operators (#194 — deferred from v10.2 VAL-02, where disconnect-cleanup tests fell back to stderr-scraping).
+- [x] **HOUSE-01**: `/mcp/subscriptions` debug endpoint exposes active subscription state for operators (#194 — deferred from v10.2 VAL-02, where disconnect-cleanup tests fell back to stderr-scraping).
 
 ## v2 Requirements (deferred to future milestone)
 
@@ -70,9 +70,9 @@ Which phases cover which requirements. Filled by roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GSTAB-01 | Phase 64 | Pending |
-| GSTAB-02 | Phase 64 | Pending |
-| GSTAB-03 | Phase 64 | Pending |
+| GSTAB-01 | Phase 64 | Complete |
+| GSTAB-02 | Phase 64 | Complete |
+| GSTAB-03 | Phase 64 | Complete |
 | OAUTH-01 | Phase 65 | Complete |
 | OAUTH-02 | Phase 66 | Complete |
 | OAUTH-03 | Phase 66 | Complete |
@@ -85,7 +85,7 @@ Which phases cover which requirements. Filled by roadmap creation.
 | OAUTH-10 | Phase 67 | Complete |
 | OAUTH-11 | Phase 70 | Pending |
 | OAUTH-12 | Phase 70 | Pending |
-| HOUSE-01 | Phase 64 | Pending |
+| HOUSE-01 | Phase 64 | Complete |
 
 **Coverage:**
 - v1 requirements: 16 total (3 GraphRAG stability + 12 OAuth + 1 housekeeping)

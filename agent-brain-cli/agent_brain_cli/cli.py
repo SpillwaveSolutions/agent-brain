@@ -12,6 +12,7 @@ from .commands import (
     config_group,
     doctor_command,
     folders_group,
+    graph_group,
     index_command,
     init_command,
     inject_command,
@@ -163,6 +164,9 @@ cli.add_command(list_command, name="list")
 cli.add_command(mcp_group, name="mcp")
 cli.add_command(prompt_command, name="prompt")
 cli.add_command(resources_group, name="resources")
+
+# Register graph management commands
+cli.add_command(graph_group, name="graph")
 
 # Register server interaction commands
 cli.add_command(status_command, name="status")

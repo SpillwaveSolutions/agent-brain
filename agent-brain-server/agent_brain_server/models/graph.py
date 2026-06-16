@@ -325,6 +325,15 @@ class GraphIndexStatus(BaseModel):
         default="simple",
         description="Type of graph store backend (simple or kuzu)",
     )
+    counts_stale: bool = Field(
+        default=False,
+        description=(
+            "True when the entity/relationship counts are from a cached "
+            "last-known value (kuzu unreachable at query time). "
+            "False on a successful live COUNT(*) or on non-kuzu backends. "
+            "GSTAB-03 / Phase 64 Plan 02."
+        ),
+    )
 
 
 class GraphQueryContext(BaseModel):

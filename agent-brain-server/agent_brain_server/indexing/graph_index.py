@@ -2,9 +2,25 @@
 
 Manages graph index building and querying for the knowledge graph.
 Coordinates between extractors, graph store, and vector store.
+
+Out-of-process isolation (Phase 64 / GSTAB-01)
+------------------------------------------------
+build_from_documents_isolated() isolates the kuzu write/commit path in a
+separate OS process using multiprocessing.get_context("spawn"). A native
+kuzu crash (SIGSEGV, SIGABRT, catalog corruption) exits the child with a
+non-zero code; the parent converts that to a catchable GraphBuildFailedError.
+
+Why spawn (not fork)?
+- fork() inherits the open kuzu handle AND the parent's threads, which
+  re-triggers the catalog corruption that caused #178.
+- spawn starts a fresh interpreter; the child re-resolves the singleton
+  via get_graph_index_manager() so the kuzu handle is opened only in the
+  child (never inherited from the parent).
 """
 
 import logging
+import multiprocessing
+import multiprocessing.queues
 import time
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -44,6 +60,7 @@ def _graphrag_enabled() -> bool:
     return bool(settings.ENABLE_GRAPH_INDEX)
 
 
+from agent_brain_server.storage.graph_errors import GraphBuildFailedError  # noqa: E402
 from agent_brain_server.storage.graph_store import (  # noqa: E402
     GraphStoreManager,
     get_graph_store_manager,
@@ -54,6 +71,195 @@ logger = logging.getLogger(__name__)
 
 # Type for progress callbacks
 ProgressCallback = Callable[[int, int, str], None]
+
+
+# ---------------------------------------------------------------------------
+# Out-of-process isolation (Phase 64 / GSTAB-01)
+# ---------------------------------------------------------------------------
+
+_BUILD_FAILED_MESSAGE_TEMPLATE = (
+    "Graph index build failed in isolated worker (exit_code={code}); "
+    "vector and BM25 indexing for this job are unaffected. The graph was "
+    "NOT updated for this run. To switch backends permanently, set "
+    "graphrag.store_type=simple in your config (the server does not change "
+    "it automatically)."
+)
+
+_BUILD_TIMEOUT_MESSAGE_TEMPLATE = (
+    "Graph index build timed out in isolated worker (timeout={timeout_s}s); "
+    "vector and BM25 indexing for this job are unaffected. The graph was "
+    "NOT updated for this run. To switch backends permanently, set "
+    "graphrag.store_type=simple in your config (the server does not change "
+    "it automatically)."
+)
+
+
+def _child_build_worker(
+    docs: list[Any],
+    source_job_id: str | None,
+    result_queue: "multiprocessing.Queue[int | BaseException]",
+) -> None:
+    """Worker function that runs inside the spawned child process.
+
+    Constructs a fresh GraphIndexManager (does NOT inherit the parent's
+    singleton — see module docstring for why) and calls build_from_documents.
+    On success, puts the triplet count into result_queue.
+    On any Python-level exception, puts the exception into result_queue.
+    On a native crash (SIGSEGV, SIGABRT), the process dies with a non-zero
+    exit code — the parent detects this via proc.exitcode.
+
+    Args:
+        docs: Documents to index.
+        source_job_id: Job ID for snapshot attribution.
+        result_queue: Multiprocessing queue to return the result or error.
+    """
+    try:
+        # Re-resolve singleton INSIDE the child (never inherit kuzu handle).
+        manager = get_graph_index_manager()
+        count = manager.build_from_documents(docs, source_job_id=source_job_id)
+        result_queue.put(count)
+    except BaseException as exc:  # noqa: BLE001
+        result_queue.put(exc)
+
+
+def _run_build_in_child(
+    docs: list[Any],
+    source_job_id: str | None,
+    result_queue: "multiprocessing.Queue[int | BaseException]",
+    timeout_s: float | None,
+    child_target: Any,
+) -> int:
+    """Spawn the child process and wait for it to complete.
+
+    Args:
+        docs: Documents to pass to the child.
+        source_job_id: Job ID for snapshot attribution.
+        result_queue: Queue for the child to return its result.
+        timeout_s: Seconds to wait before killing the child. None = no limit.
+        child_target: The worker function to run in the child process.
+            Defaults to _child_build_worker; overridden in tests for
+            simulating crashes via os._exit().
+
+    Returns:
+        Triplet count returned by the child.
+
+    Raises:
+        GraphBuildFailedError: On non-zero child exit OR timeout.
+    """
+    ctx = multiprocessing.get_context("spawn")
+    proc = ctx.Process(
+        target=child_target,
+        args=(docs, source_job_id, result_queue),
+        daemon=True,
+    )
+    proc.start()
+
+    timed_out = False
+    try:
+        proc.join(timeout=timeout_s)
+    except Exception:
+        pass
+
+    if proc.is_alive():
+        # Timeout: escalate SIGTERM -> SIGKILL (Phase 60 McpStdioBackend pattern)
+        timed_out = True
+        proc.terminate()
+        proc.join(timeout=5.0)
+        if proc.is_alive():
+            proc.kill()
+            proc.join(timeout=2.0)
+
+    exit_code = proc.exitcode  # None if process never exited (shouldn't happen)
+
+    if timed_out:
+        raise GraphBuildFailedError(
+            _BUILD_TIMEOUT_MESSAGE_TEMPLATE.format(timeout_s=timeout_s),
+            exit_code=exit_code,
+        )
+
+    if exit_code != 0:
+        raise GraphBuildFailedError(
+            _BUILD_FAILED_MESSAGE_TEMPLATE.format(code=exit_code),
+            exit_code=exit_code,
+        )
+
+    # Child exited cleanly: read the result from the queue.
+    try:
+        result = result_queue.get_nowait()
+    except Exception as exc:
+        raise GraphBuildFailedError(
+            _BUILD_FAILED_MESSAGE_TEMPLATE.format(code=0),
+            exit_code=0,
+        ) from exc
+
+    if isinstance(result, BaseException):
+        # Child caught a Python exception and forwarded it through the queue.
+        raise GraphBuildFailedError(
+            f"Graph index build raised exception in isolated worker: {result}; "
+            "vector and BM25 indexing for this job are unaffected. The graph was "
+            "NOT updated for this run. To switch backends permanently, set "
+            "graphrag.store_type=simple in your config (the server does not "
+            "change it automatically).",
+            exit_code=0,
+        ) from result
+
+    return int(result)
+
+
+def build_from_documents_isolated(
+    documents: list[Any],
+    *,
+    source_job_id: str | None = None,
+    timeout_s: float | None = None,
+    _child_target_override: Any = None,
+) -> int:
+    """Build the graph index in an isolated subprocess.
+
+    Runs the kuzu write/commit path (build_from_documents + snapshot cadence)
+    in a separate OS process using multiprocessing.get_context("spawn") so
+    that a native kuzu crash (SIGSEGV / catalog corruption) becomes a
+    catchable non-zero child exit rather than killing the parent server.
+
+    Why spawn (not fork)?
+    - fork() inherits the open kuzu handle and parent threads, re-triggering
+      the corruption that caused issue #178.
+    - spawn starts a fresh interpreter; the child re-resolves the singleton
+      via get_graph_index_manager() so the kuzu handle is opened only in
+      the child.
+
+    The hybrid snapshot cadence (GraphSnapshotManager.write/rotate) runs
+    inside the child exactly as it does in the in-process build — a crash
+    loses at most ~one batch of chunks, not the full extraction.
+
+    This function NEVER mutates settings.GRAPH_STORE_TYPE or the
+    graphrag.store_type YAML config.
+
+    Args:
+        documents: List of document chunks to build the graph from.
+        source_job_id: Optional job ID for snapshot attribution and logging.
+        timeout_s: Seconds before the child is killed (SIGTERM then SIGKILL).
+            None means no wrapper-level timeout; the job-level timeout still
+            governs the overall job. Default: None.
+        _child_target_override: Internal. Replaces the default child worker
+            function. Used only in tests to simulate os._exit() crashes
+            without actually sending SIGSEGV.
+
+    Returns:
+        Total number of triplets extracted and stored by the child.
+
+    Raises:
+        GraphBuildFailedError: If the child exits with a non-zero code
+            (including -11/139 for SIGSEGV or any native abort) or times out.
+            The parent server process is unaffected. Vector + BM25 indexing
+            already committed for the same job are preserved.
+    """
+    child_target = _child_target_override or _child_build_worker
+    ctx = multiprocessing.get_context("spawn")
+    result_queue: multiprocessing.Queue[int | BaseException] = ctx.Queue()
+
+    return _run_build_in_child(
+        documents, source_job_id, result_queue, timeout_s, child_target
+    )
 
 
 class GraphIndexManager:
@@ -761,13 +967,17 @@ class GraphIndexManager:
                 store_type=settings.GRAPH_STORE_TYPE,
             )
 
+        # Use live_counts() instead of the drifting bookkeeping properties so
+        # the health status reflects kuzu reality (GSTAB-03 / Phase 64 Plan 02).
+        entities, relationships, counts_stale = self.graph_store.live_counts()
         return GraphIndexStatus(
             enabled=True,
             initialized=self.graph_store.is_initialized,
-            entity_count=self.graph_store.entity_count,
-            relationship_count=self.graph_store.relationship_count,
+            entity_count=entities,
+            relationship_count=relationships,
             last_updated=self.graph_store.last_updated,
             store_type=self.graph_store.store_type,
+            counts_stale=counts_stale,
         )
 
     def clear(self) -> None:
