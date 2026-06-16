@@ -1,6 +1,6 @@
 """OAuth 2.1 browser redirect handler and ephemeral loopback callback server.
 
-Phase 69 Plan 02 — browser/loopback UX for the OAuthClientProvider dance.
+Phase 69 Plan 02 -- browser/loopback UX for the OAuthClientProvider dance.
 
 Provides
 --------
@@ -26,8 +26,8 @@ Decision C (69-CONTEXT.md)
 - ``redirect_handler``: ``webbrowser.open(url)`` AND print URL to stderr.
 - ``callback_handler``: ephemeral localhost HTTP on OS-assigned port; captures
   ``code + state``; returns a friendly "close this tab" page.
-- Headless/CI: print URL and run the listener anyway; if no browser is available
-  the dance blocks until timeout.  Never raise on a missing browser.
+- Headless/CI: print URL and run the listener anyway; if no browser is
+  available the dance blocks until timeout.  Never raise on a missing browser.
 
 Design doc: docs/plans/2026-06-14-mcp-v4-oauth-design.md
 """
@@ -39,11 +39,11 @@ import http.server
 import sys
 import urllib.parse
 import webbrowser
-from typing import IO, Awaitable, Callable, Optional, Tuple
-
+from collections.abc import Awaitable, Callable
+from typing import IO
 
 # ---------------------------------------------------------------------------
-# Internal HTTP request handler
+# Internal HTTP response bodies
 # ---------------------------------------------------------------------------
 
 _CLOSE_TAB_BODY = """\
@@ -69,6 +69,30 @@ _ERROR_BODY = """\
 """
 
 
+# ---------------------------------------------------------------------------
+# Typed HTTPServer subclass
+# ---------------------------------------------------------------------------
+
+
+class _OAuthHTTPServer(http.server.HTTPServer):
+    """HTTPServer subclass that carries the captured OAuth callback data.
+
+    The request handler writes ``oauth_code`` and ``oauth_state`` onto this
+    instance after parsing the redirect GET request.
+    """
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        """Initialise with empty callback state."""
+        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+        self.oauth_code: str | None = None
+        self.oauth_state: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Request handler factory
+# ---------------------------------------------------------------------------
+
+
 def _make_handler_class(callback_path: str) -> type:
     """Create a ``BaseHTTPRequestHandler`` subclass for *callback_path*.
 
@@ -85,13 +109,13 @@ def _make_handler_class(callback_path: str) -> type:
     class _CallbackHandler(http.server.BaseHTTPRequestHandler):
         """Single-shot callback handler for the OAuth loopback redirect."""
 
-        def do_GET(self) -> None:  # noqa: N802 — required by BaseHTTPRequestHandler
+        def do_GET(self) -> None:  # noqa: N802 -- required by BaseHTTPRequestHandler
             """Handle GET /callback?code=...&state=..."""
             parsed = urllib.parse.urlparse(self.path)
             qs = urllib.parse.parse_qs(parsed.query)
 
-            code: Optional[str] = None
-            state: Optional[str] = None
+            code: str | None = None
+            state: str | None = None
 
             if parsed.path == callback_path:
                 code_list = qs.get("code")
@@ -121,8 +145,10 @@ def _make_handler_class(callback_path: str) -> type:
                 self.wfile.write(body)
 
             # Stash on server so LoopbackCallbackServer can retrieve them.
-            self.server.oauth_code = code  # type: ignore[attr-defined]
-            self.server.oauth_state = state  # type: ignore[attr-defined]
+            srv = self.server
+            if isinstance(srv, _OAuthHTTPServer):
+                srv.oauth_code = code
+                srv.oauth_state = state
 
         def log_message(self, format: str, *args: object) -> None:
             """Silence default Apache-style access log output."""
@@ -170,10 +196,7 @@ class LoopbackCallbackServer:
         self._host = host
         self._path = path
         handler_cls = _make_handler_class(path)
-        self._httpd = http.server.HTTPServer((host, 0), handler_cls)
-        # Initialise the attributes that the handler writes to.
-        self._httpd.oauth_code: Optional[str] = None  # type: ignore[attr-defined]
-        self._httpd.oauth_state: Optional[str] = None  # type: ignore[attr-defined]
+        self._httpd = _OAuthHTTPServer((host, 0), handler_cls)
         self.port: int = self._httpd.server_address[1]
 
     # ------------------------------------------------------------------
@@ -190,7 +213,7 @@ class LoopbackCallbackServer:
         """
         return f"http://{self._host}:{self.port}{self._path}"
 
-    async def wait_for_callback(self) -> Tuple[str, Optional[str]]:
+    async def wait_for_callback(self) -> tuple[str, str | None]:
         """Serve exactly one request and return the captured ``(code, state)``.
 
         Runs ``HTTPServer.handle_request()`` in a thread pool executor so the
@@ -204,8 +227,8 @@ class LoopbackCallbackServer:
             RuntimeError: If the redirect did not include an authorization code.
         """
         await asyncio.to_thread(self._httpd.handle_request)
-        code: Optional[str] = self._httpd.oauth_code  # type: ignore[attr-defined]
-        state: Optional[str] = self._httpd.oauth_state  # type: ignore[attr-defined]
+        code: str | None = self._httpd.oauth_code
+        state: str | None = self._httpd.oauth_state
         if code is None:
             raise RuntimeError(
                 "OAuth callback received no authorization code. "
@@ -221,17 +244,17 @@ class LoopbackCallbackServer:
     # Context manager
     # ------------------------------------------------------------------
 
-    def __enter__(self) -> "LoopbackCallbackServer":
-        """Enter context — return self (server already bound in __init__)."""
+    def __enter__(self) -> LoopbackCallbackServer:
+        """Enter context -- return self (server already bound in __init__)."""
         return self
 
     def __exit__(
         self,
-        exc_type: Optional[type],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[object],
+        exc_type: type | None,
+        exc_val: BaseException | None,
+        exc_tb: object | None,
     ) -> None:
-        """Exit context — close the server socket."""
+        """Exit context -- close the server socket."""
         self.close()
 
 
@@ -241,8 +264,8 @@ class LoopbackCallbackServer:
 
 
 def build_redirect_handler(
-    opener: Optional[Callable[[str], bool]] = None,
-    stream: Optional[IO[str]] = None,
+    opener: Callable[[str], bool] | None = None,
+    stream: IO[str] | None = None,
 ) -> Callable[[str], Awaitable[None]]:
     """Create an async redirect handler for ``OAuthClientProvider``.
 
@@ -253,7 +276,7 @@ def build_redirect_handler(
        fallback.
     2. Calls *opener* (defaults to :func:`webbrowser.open`) with the URL.
        Any exception raised by *opener* is swallowed so that running without a
-       browser (e.g. in CI) does not crash the dance — the printed URL is the
+       browser (e.g. in CI) does not crash the dance -- the printed URL is the
        only required output in that scenario.
 
     Args:
@@ -281,7 +304,7 @@ def build_redirect_handler(
         try:
             _opener(url)
         except Exception:  # noqa: BLE001
-            # Headless box or no browser — the printed URL is the fallback.
+            # Headless box or no browser -- the printed URL is the fallback.
             pass
 
     return _handler
@@ -294,10 +317,11 @@ def build_redirect_handler(
 
 def build_callback_handler(
     server: LoopbackCallbackServer,
-) -> Callable[[], Awaitable[Tuple[str, Optional[str]]]]:
+) -> Callable[[], Awaitable[tuple[str, str | None]]]:
     """Create an async callback handler wrapping *server*.
 
-    The returned coroutine delegates to :meth:`LoopbackCallbackServer.wait_for_callback`.
+    The returned coroutine delegates to
+    :meth:`LoopbackCallbackServer.wait_for_callback`.
 
     Args:
         server: A :class:`LoopbackCallbackServer` instance that is already
@@ -309,7 +333,7 @@ def build_callback_handler(
         ``OAuthClientProvider``.
     """
 
-    async def _handler() -> Tuple[str, Optional[str]]:
+    async def _handler() -> tuple[str, str | None]:
         """Wait for the OAuth redirect and return ``(code, state)``.
 
         Returns:

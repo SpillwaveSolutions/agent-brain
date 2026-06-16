@@ -22,7 +22,6 @@ from typing import Any
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -150,7 +149,9 @@ class TestBuildRedirectHandler:
         calls: list[str] = []
         stream = io.StringIO()
 
-        handler = build_redirect_handler(opener=lambda u: calls.append(u) or True, stream=stream)
+        handler = build_redirect_handler(
+            opener=lambda u: calls.append(u) or True, stream=stream
+        )
         asyncio.run(handler("https://example.com/auth"))
 
         assert calls == ["https://example.com/auth"]
@@ -181,8 +182,9 @@ class TestBuildRedirectHandler:
 
     def test_default_stream_is_stderr(self) -> None:
         """build_redirect_handler with no args defaults stream to sys.stderr."""
-        from agent_brain_mcp.oauth.oauth_handlers import build_redirect_handler
         import sys
+
+        from agent_brain_mcp.oauth.oauth_handlers import build_redirect_handler
 
         # Just check it's constructable and the closure runs without TypeError
         handler = build_redirect_handler(opener=lambda u: True)
