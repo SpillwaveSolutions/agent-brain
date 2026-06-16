@@ -4,13 +4,13 @@ milestone: v10.4
 milestone_name: milestone
 current_phase: 69
 status: executing
-stopped_at: Completed 69-01-PLAN.md (FileTokenStorage)
-last_updated: "2026-06-16T23:31:00Z"
+stopped_at: Completed 69-02-PLAN.md (redirect handler + loopback callback server)
+last_updated: "2026-06-16T23:55:00Z"
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 18
-  completed_plans: 15
+  completed_plans: 16
 ---
 
 # Agent Brain — Project State
@@ -23,7 +23,7 @@ progress:
 ## Current Position
 
 Phase: 69 (mcphttpbackend-client-side-oauth-dance) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 
 ## Project Reference
 
@@ -88,6 +88,8 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 ## Accumulated Context
 
 ### Key Context Carried Forward
+
+- **Plan 69-02 complete (2026-06-16):** OAUTH-07 loopback callback UX shipped. New `agent_brain_mcp/oauth/oauth_handlers.py`: `build_redirect_handler(opener, stream)` (opens webbrowser + prints URL to stderr; swallows opener exceptions for headless CI), `LoopbackCallbackServer` (binds `_OAuthHTTPServer("127.0.0.1", 0)` -- OS-assigned ephemeral port; `redirect_uri` known at `__init__` time for DCR; `wait_for_callback()` runs `handle_request()` via `asyncio.to_thread`; context manager), `build_callback_handler(server)` (wraps `wait_for_callback`). Key decisions: (1) stdlib `http.server` -- no new dependency; (2) `_OAuthHTTPServer` typed subclass carries `oauth_code`/`oauth_state` attrs -- avoids mypy `[attr-defined]` suppression; (3) opener exceptions swallowed unconditionally -- headless-CI safety. 15 tests pass. Exported from `oauth/__init__.py` alongside `FileTokenStorage`. `task before-push` exits 0 (954 passed, 111 deselected). Commits: `edd0fbb` (TDD RED) + `de93f17` (TDD GREEN) + `bc3bcee` (Ruff/mypy/Black fixes). OAUTH-07 Plan 02 of 4 complete.
 
 - **Plan 69-01 complete (2026-06-16):** OAUTH-07 FileTokenStorage shipped. New `agent_brain_mcp/oauth/token_storage.py`: `FileTokenStorage` implementing SDK `TokenStorage` Protocol (4 async methods: get_tokens, set_tokens, get_client_info, set_client_info). Persists both `OAuthToken` and `OAuthClientInformationFull` in single JSON file at `state_dir/mcp-oauth-tokens.json`. Key decisions: (1) `os.chmod(path, 0o600)` called unconditionally after every write — mandatory security gate; (2) `_read_raw()` degrades gracefully: absent file → `{}`; corrupt JSON → log WARNING + return `{}` (never raises); (3) `_write_raw()` mirrors `write_mcp_runtime` idiom from `agent_brain_cli/mcp_runtime.py` (`mkdir + write_text + os.chmod`); (4) sync I/O wrapped in `async def` — Pattern A subprocess lifetime; (5) model_validate + model_dump(mode="json") for de/serialization; (6) single JSON file with "tokens" + "client_info" top-level keys, each setter reads first to preserve the other. 11 tests pass (round-trip, coexistence, 0o600 gate `(st_mode & 0o077) == 0`, cold-start None, corrupt-file None+WARNING, absent-key None). Exported from oauth `__init__.py`. `task before-push` exits 0 (939 passed, 111 deselected). Commits: `c1a2130` (TDD RED: tests) + `34224d3` (TDD GREEN: impl + __init__.py export) + `500df1a` (Black + Ruff fix). OAUTH-07 foundation (Plan 01 of 4) complete.
 
