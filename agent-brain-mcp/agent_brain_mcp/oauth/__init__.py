@@ -23,8 +23,21 @@ provider
     (Plan 04 wires this into the live /authorize route).
     Provides: ``AgentBrainAuthServerProvider``, ``reject_non_s256_pkce``.
 
+token_storage
+    Client-side ``TokenStorage`` Protocol implementation (Phase 69 Plan 01).
+    Persists both the ``OAuthToken`` and ``OAuthClientInformationFull`` in a
+    single JSON file at ``state_dir/mcp-oauth-tokens.json`` with mode ``0o600``
+    so that Pattern A (fresh subprocess per CLI call) reuses cached tokens
+    without re-triggering the browser OAuth dance.
+    Provides: ``FileTokenStorage``, ``TOKEN_FILE_NAME``.
+
 Design doc: docs/plans/2026-06-14-mcp-v4-oauth-design.md
   §"Deployment Shape A: Co-Located AS + RS"
   §"AS / RS / Public-Route Boundary"
   §"Token Termination Data Flow"
+  §"Client-Side Token Storage: FileTokenStorage chmod 0o600 Required (Pattern A)"
 """
+
+from agent_brain_mcp.oauth.token_storage import FileTokenStorage
+
+__all__ = ["FileTokenStorage"]
