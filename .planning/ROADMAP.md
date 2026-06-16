@@ -144,7 +144,9 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
   2. An `agent-brain:read`-only token calling an `agent-brain:index` tool (`index_folder`, `add_documents`, `inject_documents`, `wait_for_job`) receives HTTP 403 with `WWW-Authenticate: Bearer error="insufficient_scope"` — not 401
   3. An `agent-brain:read`-only token calling an `agent-brain:admin` tool (`cancel_job`, `remove_folder`, `clear_cache`) receives HTTP 403 with `insufficient_scope`
   4. The scope-to-tool mapping is maintained as a single source of truth in `_tool_matrix.py` (or equivalent SOT) — a drift guard test at import time detects any tool added to the registry without a scope assignment
-**Plans**: TBD
+**Plans**: 2 plans (2 waves — scope SOT + import-time drift guard, then dispatch-layer enforcement + acceptance tests)
+- [ ] 68-01-PLAN.md — OAUTH-06: TOOL_SCOPE_REQUIREMENTS SOT (16 tools) + oauth/scopes.py (require_scope/InsufficientScopeError) + import-time RuntimeError drift guard + SOT tests (SC#4)
+- [ ] 68-02-PLAN.md — OAUTH-06: require_scope enforcement at server.py dispatch (call_tool + read_resource + subscribe), mode-gated to oauth, HTTP 403 insufficient_scope (not 401) + minimal-scope-token acceptance tests (SC#1/#2/#3)
 
 ### Phase 69: McpHttpBackend Client-Side OAuth Dance
 **Goal**: `McpHttpBackend` handles the full OAuth dance transparently — the CLI user authenticates once, tokens persist across Pattern A per-call invocations via `FileTokenStorage`, and subsequent calls reuse the cached token without re-triggering the browser redirect.
@@ -191,7 +193,7 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
 | 65. OAuth design doc + security review gate                 | 1/2 | Complete    | 2026-06-14 | -          |
 | 66. OAuth settings foundation + PRM/OASM public endpoints   | 2/2 | Complete    | 2026-06-14 | -          |
 | 67. Co-located AS + RS middleware                           | 4/4 | Complete    | 2026-06-15 | -          |
-| 68. Per-tool scope enforcement                              | v10.4     | 0/TBD          | Not started | -          |
+| 68. Per-tool scope enforcement                              | v10.4     | 0/2            | Planned     | -          |
 | 69. McpHttpBackend client-side OAuth dance                  | v10.4     | 0/TBD          | Not started | -          |
 | 70. Split AS/RS + Keycloak-in-CI + integration tests        | v10.4     | 0/TBD          | Not started | -          |
 
