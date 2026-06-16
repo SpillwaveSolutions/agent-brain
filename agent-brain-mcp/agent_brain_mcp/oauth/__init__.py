@@ -2,7 +2,7 @@
 
 This package implements the co-located Authorization Server (AS) primitives
 required by OAUTH-04 and the AS half of Resource Indicators (OAUTH-08), plus
-the client-side browser/loopback UX pieces from Phase 69 Plans 01-02.
+the client-side browser/loopback UX pieces from Phase 69 Plans 01-03.
 
 Sub-modules
 -----------
@@ -45,6 +45,14 @@ oauth_handlers
     Provides: ``build_redirect_handler``, ``LoopbackCallbackServer``,
     ``build_callback_handler``.
 
+oauth_client
+    Client-side OAuthClientProvider factory (Phase 69 Plan 03).  Assembles
+    the SDK ``OAuthClientProvider`` from ``FileTokenStorage``, the loopback
+    handlers, and ``OAuthClientMetadata`` requesting the full CLI scope union
+    (read + index + admin) with a 300 s dance timeout.  DCR path (no
+    ``client_metadata_url``).
+    Provides: ``build_oauth_client_provider``, ``CLIENT_SCOPES``.
+
 Design doc: docs/plans/2026-06-14-mcp-v4-oauth-design.md
   "Deployment Shape A: Co-Located AS + RS"
   "AS / RS / Public-Route Boundary"
@@ -53,6 +61,7 @@ Design doc: docs/plans/2026-06-14-mcp-v4-oauth-design.md
   "Decision C: Browser / Loopback UX"
 """
 
+from agent_brain_mcp.oauth.oauth_client import CLIENT_SCOPES, build_oauth_client_provider
 from agent_brain_mcp.oauth.oauth_handlers import (
     LoopbackCallbackServer,
     build_callback_handler,
@@ -65,4 +74,6 @@ __all__ = [
     "build_redirect_handler",
     "LoopbackCallbackServer",
     "build_callback_handler",
+    "build_oauth_client_provider",
+    "CLIENT_SCOPES",
 ]
