@@ -30,12 +30,30 @@ is reserved for a future v3 micro-plan if the 5s active cadence proves
 insufficient. Both knobs read env vars at import time — there is NO
 hot-reload (Phase 52 CONTEXT specifics: "read at MCP server startup, no
 hot-reload in v2").
+
+Phase 66 (Plan 01) adds the auth-mode toggle settings foundation (OAUTH-09):
+  - ``AuthMode`` — typed enum over {none, basic, oauth}; default none
+  - ``resolve_auth_mode()`` — reads AGENT_BRAIN_AUTH; unset → AuthMode.none
+  - ``resolve_oauth_settings()`` — reads AGENT_BRAIN_OAUTH_RESOURCE and
+    AGENT_BRAIN_OAUTH_ISSUER; pure-read, no validation (gate validates)
+  - ``_raw_auth_mode()`` — raw lowercased env value used by the startup gate
+  - ``check_auth_startup_gate()`` — boot-time gate; exits code 2 on misconfig
+  - ``get_auth_dependency()`` — single mutual-exclusion auth selector seam
+
+Design doc: docs/plans/2026-06-14-mcp-v4-oauth-design.md
+  §"Auth-Mode Toggle and Deployment Shapes" (three-mode table)
+  §"Canonical Resource URI Contract" (AGENT_BRAIN_OAUTH_RESOURCE format)
+  §"Startup Gate: AGENT_BRAIN_OAUTH_RESOURCE Must Be Non-Empty in oauth Mode"
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import os
+import sys
+import urllib.parse
+from enum import Enum
 from pathlib import Path
 from typing import Literal
 
@@ -53,6 +71,321 @@ from pydantic import BaseModel, Field, ValidationError
 DEFAULT_HTTP_BASE_URL = "http://127.0.0.1:8000"
 DEFAULT_TIMEOUT = 30.0
 STATE_DIR_NAME = ".agent-brain"
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Auth-mode toggle (Phase 66 Plan 01 — OAUTH-09)
+# ---------------------------------------------------------------------------
+
+_VALID_AUTH_MODES = {"none", "basic", "oauth"}
+
+
+class AuthMode(str, Enum):
+    """Typed auth-mode toggle for the MCP server (OAUTH-09).
+
+    Controls which authentication path the MCP server enforces on
+    incoming connections. The toggle is mutually exclusive — exactly one
+    mode is active at any time.
+
+    Members:
+        none:  No authentication (default). Loopback dev / trusted
+               private network. No credentials required.
+        basic: AGENT_BRAIN_API_KEY shared-secret Bearer token (the
+               existing SECURITY-01 contract from Phase 66). No OAuth
+               infrastructure needed.
+        oauth: OAuth 2.1 Authorization Code flow via the Authorization
+               Server embedded in the MCP server. Requires a valid
+               AGENT_BRAIN_OAUTH_RESOURCE (RFC 8707 resource URI).
+
+    Python 3.10 note: ``enum.StrEnum`` was added in 3.11. This repo
+    targets 3.10+, so we use ``class AuthMode(str, Enum)`` — the same
+    effect: members are both enum values AND strings, satisfying
+    ``isinstance(AuthMode.none, str)``.
+
+    Design doc: docs/plans/2026-06-14-mcp-v4-oauth-design.md
+      §"Auth-Mode Toggle and Deployment Shapes"
+    """
+
+    none = "none"
+    basic = "basic"
+    oauth = "oauth"
+
+
+def _raw_auth_mode() -> str | None:
+    """Return the raw lowercased AGENT_BRAIN_AUTH value, or None if unset.
+
+    This is the primitive the startup gate reads to detect invalid values
+    BEFORE constructing an AuthMode enum. Separating raw-read from
+    enum-construction keeps the exit-code-2 path in one place
+    (check_auth_startup_gate) and lets resolve_auth_mode() remain a
+    clean typed accessor that callers use AFTER the gate has passed.
+
+    Returns:
+        The lowercased env value string, or None if AGENT_BRAIN_AUTH is
+        not set (or empty).
+    """
+    raw = os.environ.get("AGENT_BRAIN_AUTH")
+    if not raw:
+        return None
+    return raw.lower()
+
+
+def resolve_auth_mode() -> AuthMode | None:
+    """Resolve AGENT_BRAIN_AUTH to a typed AuthMode.
+
+    Reads AGENT_BRAIN_AUTH from the environment, lowercases the value,
+    and maps it to an AuthMode member.
+
+    Resolution rules:
+      - Unset / empty → AuthMode.none (the safe default)
+      - "none" / "basic" / "oauth" (case-insensitive) → matching member
+      - Any other value → None (caller should be the startup gate which
+        will log a CRITICAL message and call sys.exit(2))
+
+    This function is called AFTER check_auth_startup_gate() has already
+    validated the value. Treat a None return as "unknown — gate rejected
+    this value". Normal application code should never see None here
+    because the gate runs at startup.
+
+    Returns:
+        The resolved AuthMode, or None if the env value is invalid.
+    """
+    raw = _raw_auth_mode()
+    if raw is None:
+        return AuthMode.none
+    try:
+        return AuthMode(raw)
+    except ValueError:
+        return None
+
+
+def resolve_oauth_settings() -> tuple[str | None, str | None]:
+    """Read OAuth env vars and return (resource, issuer), normalising empty→None.
+
+    Pure read — no validation. The startup gate (check_auth_startup_gate)
+    validates presence and URI format when AGENT_BRAIN_AUTH=oauth.
+
+    Env vars consumed:
+      - AGENT_BRAIN_OAUTH_RESOURCE: The canonical resource URI that
+        identifies THIS MCP server (RFC 8707 ``resource`` parameter).
+        Fed into PRM discovery metadata and used as the ``aud`` claim in
+        all issued JWTs (design doc §"Canonical Resource URI Contract").
+      - AGENT_BRAIN_OAUTH_ISSUER: The Authorization Server issuer URI
+        (used in /.well-known/oauth-authorization-server metadata and
+        as the ``iss`` claim in issued tokens). Optional — defaults to
+        None if not set.
+
+    Returns:
+        (resource, issuer) — each is the env-var string value, or None
+        if unset or set to an empty string.
+    """
+    resource_raw = os.environ.get("AGENT_BRAIN_OAUTH_RESOURCE") or None
+    issuer_raw = os.environ.get("AGENT_BRAIN_OAUTH_ISSUER") or None
+    # Normalise whitespace-only strings to None too
+    resource = resource_raw.strip() if resource_raw else None
+    issuer = issuer_raw.strip() if issuer_raw else None
+    return (resource or None, issuer or None)
+
+
+def check_auth_startup_gate() -> None:
+    """Validate auth-mode configuration at MCP server boot time.
+
+    This is the MCP-side mirror of agent_brain_server's
+    _check_api_key_startup_gate (SECURITY-01 contract). It validates the
+    AGENT_BRAIN_AUTH toggle and — in oauth mode — the OAuth resource URI,
+    before the server begins accepting any connections.
+
+    Gate logic:
+      1. Read raw AGENT_BRAIN_AUTH (lowercased). Unset → treat as "none"
+         (valid, return None silently).
+      2. If raw value is NOT in {none, basic, oauth}: CRITICAL log +
+         sys.exit(2).
+      3. In oauth mode only: AGENT_BRAIN_OAUTH_RESOURCE must be set,
+         non-empty, and a syntactically valid URI with a scheme. On
+         failure: CRITICAL log + sys.exit(2).
+      4. none/basic modes: AGENT_BRAIN_OAUTH_RESOURCE is NOT required.
+
+    Design doc risk rationale: Risk 2 (aud-omission attack) — an absent
+    or scheme-less resource URI cannot be used as the RFC 8707 aud
+    binding, silently weakening the token audience check. The gate
+    catches this at startup rather than per-request.
+
+    Raises:
+        SystemExit: With code 2 on any misconfiguration (invalid toggle
+            value, or oauth mode with absent/empty/scheme-less resource).
+
+    Returns:
+        None on valid configuration (silent, no log output).
+    """
+    raw = _raw_auth_mode()
+    if raw is None:
+        # Unset → default "none" — always valid and silent.
+        return
+
+    if raw not in _VALID_AUTH_MODES:
+        logger.critical(
+            "AGENT_BRAIN_AUTH must be one of {none, basic, oauth}, got %r. "
+            "Set AGENT_BRAIN_AUTH to a valid value or unset it to use the "
+            "default (none).",
+            raw,
+        )
+        sys.exit(2)
+
+    if raw == "oauth":
+        resource, _ = resolve_oauth_settings()
+        if not resource:
+            logger.critical(
+                "AGENT_BRAIN_AUTH=oauth requires AGENT_BRAIN_OAUTH_RESOURCE "
+                "to be set to a non-empty URI (e.g. https://mcp.example.com/mcp). "
+                "AGENT_BRAIN_OAUTH_RESOURCE is missing or empty. "
+                "Risk: without a resource URI the RFC 8707 aud binding cannot "
+                "be enforced (aud-omission attack surface)."
+            )
+            sys.exit(2)
+
+        # Validate URI has a scheme (and is not just a bare hostname).
+        parsed = urllib.parse.urlparse(resource)
+        if not parsed.scheme or not (parsed.netloc or parsed.path):
+            logger.critical(
+                "AGENT_BRAIN_OAUTH_RESOURCE must be an absolute URI with a "
+                "scheme (e.g. https://mcp.example.com/mcp), got %r. "
+                "A bare hostname or path-only string is not a valid resource "
+                "URI per the design doc §Canonical Resource URI Contract.",
+                resource,
+            )
+            sys.exit(2)
+
+        # Reject URIs with fragments (RFC 8707 MUST NOT contain fragment).
+        if parsed.fragment:
+            logger.critical(
+                "AGENT_BRAIN_OAUTH_RESOURCE must NOT contain a fragment (#), "
+                "got %r. RFC 8707 §2 prohibits fragments in resource URIs.",
+                resource,
+            )
+            sys.exit(2)
+
+
+def resolve_client_id_allowlist() -> list[str]:
+    """Read AGENT_BRAIN_OAUTH_CLIENT_ID_ALLOWLIST and return a list of allowed domains.
+
+    The allowlist gates the CIMD (Client ID Metadata Document) fetch in
+    OAUTH-10 client registration: only ``client_id`` URLs whose hostname
+    matches an entry in this list are permitted to initiate the CIMD fetch.
+
+    Parsing rules (mirror resolve_oauth_settings idiom):
+      - Env var unset or empty → empty list (no allowlist; CIMD disabled).
+      - Comma-separated values are split, each entry whitespace-stripped, and
+        empty entries (double-commas, trailing commas) are dropped.
+
+    Env var: ``AGENT_BRAIN_OAUTH_CLIENT_ID_ALLOWLIST``
+      Example: ``"example.com, trusted-client.org, another.io"``
+
+    Returns:
+        A list of allowed domain strings (may be empty if unset/empty).
+    """
+    raw = os.environ.get("AGENT_BRAIN_OAUTH_CLIENT_ID_ALLOWLIST") or ""
+    if not raw.strip():
+        return []
+    parts = raw.split(",")
+    return [p.strip() for p in parts if p.strip()]
+
+
+def resolve_signing_key_path() -> str | None:
+    """Read AGENT_BRAIN_OAUTH_SIGNING_KEY and return the PEM file path, or None.
+
+    When set to a non-empty value, the MCP server will attempt to load
+    the RS256 private key from this PEM file path instead of generating an
+    ephemeral key at boot. This allows JWKS stability across process restarts
+    (useful for multi-instance deployments or Phase 70 split AS/RS topology).
+
+    If unset or empty, ``get_or_create_signing_key()`` generates an ephemeral
+    in-memory keypair — the default and safe behaviour for Phase 67 Shape A.
+
+    Env var: ``AGENT_BRAIN_OAUTH_SIGNING_KEY``
+      Example: ``"/etc/mcp/signing.pem"``
+
+    Returns:
+        The PEM file path string, or None if unset or empty.
+    """
+    raw = os.environ.get("AGENT_BRAIN_OAUTH_SIGNING_KEY") or None
+    if raw is None:
+        return None
+    stripped = raw.strip()
+    return stripped if stripped else None
+
+
+def verify_basic_bearer(token: str) -> bool:
+    """Constant-time comparison of a Bearer token against AGENT_BRAIN_API_KEY.
+
+    This helper is the basic-mode static-bearer check for the MCP server,
+    mirroring the SECURITY-01 pattern from agent-brain-server without importing
+    across packages.
+
+    Used by test_oauth_mode_exclusion.py (SC#5 proof) to assert mode isolation:
+    - A valid OAuth JWT FAILS this check (it is not the shared secret).
+    - The raw AGENT_BRAIN_API_KEY PASSES this check.
+
+    Args:
+        token: The raw Bearer token string from the Authorization header.
+
+    Returns:
+        True if the token matches AGENT_BRAIN_API_KEY exactly (constant-time);
+        False if AGENT_BRAIN_API_KEY is unset, empty, or does not match.
+    """
+    import hmac
+
+    api_key = os.environ.get("AGENT_BRAIN_API_KEY") or ""
+    if not api_key:
+        return False
+    # Constant-time comparison to prevent timing attacks (SECURITY-01 pattern)
+    return hmac.compare_digest(token.encode(), api_key.encode())
+
+
+def get_auth_dependency() -> object:
+    """Return the single auth selector for the current AuthMode.
+
+    This is the mutual-exclusion seam that structurally enforces exactly
+    one auth path. Phase 66 wires the selector + validation; Phase 67
+    fills the oauth branch with the RequireAuthMiddleware selector
+    (replacing the placeholder that raised NotImplementedError).
+
+    Mutual-exclusion invariant:
+    - Exactly ONE of {None, "basic-bearer", "oauth-require-auth"} is returned.
+    - Callers MUST NOT compose the return value with another auth layer.
+    - The oauth branch and basic branch are structurally disjoint — no request
+      can be validated by both layers (SC#5 proof in test_oauth_mode_exclusion.py).
+
+    Returns:
+        A single dependency/marker object — one per mode, never two:
+          - ``None`` for AuthMode.none (no auth).
+          - ``"basic-bearer"`` for AuthMode.basic (AGENT_BRAIN_API_KEY check).
+          - ``"oauth-require-auth"`` for AuthMode.oauth (RequireAuthMiddleware).
+        Callers MUST NOT compose the return value with another auth layer.
+    """
+    mode = resolve_auth_mode()
+
+    if mode is AuthMode.none:
+        # No-op: no auth on the request path for "none" mode.
+        return None
+
+    if mode is AuthMode.basic:
+        # SECURITY-01 shared-secret path: AGENT_BRAIN_API_KEY Bearer token.
+        # The existing verify_bearer_token logic (Phase 66 does NOT change
+        # request-path behaviour — this branch names it under the toggle
+        # per OAUTH-09; enforcement is via the existing API-key middleware).
+        return "basic-bearer"
+
+    # oauth mode — Phase 67 fills this branch.
+    # The actual RequireAuthMiddleware wrapping happens in http.py build_asgi_app
+    # (the middleware is built there where the provider + verifier are also
+    # constructed). This function returns a marker string to:
+    # 1. Signal to callers that the oauth path is active (for the mutual-
+    #    exclusion invariant test in SC#5).
+    # 2. Replace the Phase-66 NotImplementedError placeholder so callers
+    #    do not see an exception for a valid auth mode.
+    return "oauth-require-auth"
 
 
 # ---------------------------------------------------------------------------

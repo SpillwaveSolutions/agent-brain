@@ -35,6 +35,38 @@ inherits :func:`agent_brain_mcp.server.run_stdio`'s symmetric
 :meth:`SubscriptionManager.cleanup_all` on every exit path so no
 polling task survives a server exit (graceful shutdown, SIGINT,
 port-in-use, unhandled exception).
+
+Phase 67 Plan 04 additions (OAUTH-05 / OAUTH-08 RS half):
+* ``GET /.well-known/jwks.json`` — auth-exempt public JWKS route
+  (SDK gap: mcp SDK does NOT ship a JWKS endpoint). Serves the
+  process-lifetime RS256 public key as a public-only JWKS document.
+* ``create_auth_routes()`` — SDK AS route set (/authorize, /token,
+  /register, /.well-known/oauth-authorization-server) added to the
+  auth-exempt ``routes=[...]`` list ABOVE the ``/mcp`` Mount.
+* ``/authorize`` PKCE front-handler — a thin auth-exempt
+  :class:`starlette.routing.Route` that calls
+  :func:`agent_brain_mcp.oauth.provider.reject_non_s256_pkce` BEFORE
+  delegating to the SDK authorize handler. This is the live PKCE
+  S256-only enforcement gate (ROADMAP SC#1). The front-handler Route
+  is placed BEFORE the SDK's ``/authorize`` Route in the list so
+  Starlette's first-match semantics ensure the pre-check always runs.
+* ``RequireAuthMiddleware`` + ``BearerAuthBackend`` — wrap ONLY the
+  ``/mcp`` Mount when ``AGENT_BRAIN_AUTH=oauth``. The ``/mcp`` Mount
+  is wrapped:
+  ``RequireAuthMiddleware(
+      AuthenticationMiddleware(mcp_app, BearerAuthBackend(...)),
+      required_scopes=[],   # Phase 68 fills this
+      resource_metadata_url=<PRM url>)``
+  The remaining routes stay auth-exempt.
+
+OASM reconciliation note: Phase 66 ships a hand-rolled OASM handler at
+``OASM_PATH``. Phase 67's ``create_auth_routes()`` also emits its own
+``/.well-known/oauth-authorization-server`` route. We keep BOTH in the
+routes list; Starlette uses first-match, so the Phase 66 hand-rolled
+handler wins for ``OASM_PATH`` (consistent Phase 66 document format).
+The SDK metadata route is also present as a harmless second entry that
+never matches because the first route takes precedence. This keeps the
+Phase 66 OASM test green without any changes.
 """
 
 from __future__ import annotations
@@ -48,15 +80,25 @@ from typing import Any, Final
 
 import click
 import uvicorn
+from mcp.server.auth.middleware.bearer_auth import (
+    BearerAuthBackend,
+    RequireAuthMiddleware,
+)
+from mcp.server.auth.routes import create_auth_routes
+from mcp.server.auth.settings import ClientRegistrationOptions
 from mcp.server.lowlevel import Server
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from mcp.server.transport_security import TransportSecuritySettings
+from pydantic import AnyHttpUrl
 from starlette.applications import Starlette
+from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 from starlette.types import Receive, Scope, Send
 
+from . import config as _config
+from . import oauth_metadata as _oauth_metadata
 from .subscriptions import SubscriptionManager
 
 logger = logging.getLogger(__name__)
@@ -90,6 +132,36 @@ does not exist under stdio mode. Operators needing the debug view must run
 the HTTP transport (``agent-brain mcp start --transport http``). No shim is
 provided — there is no HTTP listener to mount the route on under stdio.
 """
+
+# OAuth 2.1 well-known discovery paths (Phase 66 Plan 02 — OAUTH-02 / OAUTH-03).
+# These routes are AUTH-EXEMPT public endpoints required by the MCP Authorization
+# spec (2025-11-25).  They MUST precede any future RequireAuthMiddleware wrap
+# (see MOUNT-ORDER CONTRACT comment in build_asgi_app).
+PRM_PATH: Final[str] = "/.well-known/oauth-protected-resource"
+"""RFC 9728 Protected Resource Metadata discovery path (OAUTH-02)."""
+
+PRM_PATH_SUFFIXED: Final[str] = "/.well-known/oauth-protected-resource/mcp"
+"""RFC 9728 resource-path-insertion variant — returns the same PRM document."""
+
+OASM_PATH: Final[str] = "/.well-known/oauth-authorization-server"
+"""RFC 8414 Authorization Server Metadata discovery path (OAUTH-03)."""
+
+JWKS_PATH: Final[str] = "/.well-known/jwks.json"
+"""JWKS endpoint path — serves the RS256 public key (Phase 67 Plan 04, OAUTH-04).
+
+The MCP SDK does NOT ship a built-in JWKS endpoint — this is a documented
+SDK gap (design doc §"SDK Gap: No Built-In JWKS Endpoint"). Phase 67
+hand-rolls this auth-exempt route to expose the in-process signing key so
+RS-only deployments and Phase 70 split AS/RS clients can fetch the public key.
+"""
+
+# 4 agent-brain scopes advertised in PRM/OASM (Phase 66 CONTEXT, locked)
+_OAUTH_SCOPES: Final[list[str]] = [
+    "agent-brain:read",
+    "agent-brain:index",
+    "agent-brain:admin",
+    "agent-brain:subscribe",
+]
 
 # Exact error message wording — pinned by tests.
 LOOPBACK_REJECTION_MESSAGE: Final[str] = (
@@ -167,6 +239,12 @@ def build_asgi_app(
 ) -> Starlette:
     """Compose the Starlette ASGI app served by :func:`run_http`.
 
+    Phase 66 Plan 02 additions (OAUTH-02 / OAUTH-03):
+    * ``GET /.well-known/oauth-protected-resource`` → RFC 9728 PRM JSON
+    * ``GET /.well-known/oauth-protected-resource/mcp`` → same PRM document
+      (RFC 9728 resource-path-insertion variant)
+    * ``GET /.well-known/oauth-authorization-server`` → RFC 8414 OASM JSON
+
     Layout:
 
     * ``GET /healthz`` → JSON ``{"status": "ok", "transport": "http"}``
@@ -176,6 +254,8 @@ def build_asgi_app(
       state (HOUSE-01 debug endpoint). No token required; loopback-only.
       Reports ``active_count 0`` and empty ``subscriptions`` when
       ``subscription_manager`` is ``None`` (backward-compat default).
+    * ``GET /.well-known/oauth-*`` → public OAuth discovery documents
+      (auth-exempt; mounted ABOVE /mcp per mount-order contract).
     * ``/mcp`` (Mount) → MCP SDK's
       :class:`StreamableHTTPSessionManager.handle_request` (raw ASGI
       callable; Mount routes any sub-path including the bare ``/mcp``
@@ -194,6 +274,11 @@ def build_asgi_app(
     :class:`FastMCP` does, in its own ``__init__``), so the
     ``run_http`` path wires it here.
 
+    Phase 66 startup gate: :func:`agent_brain_mcp.config.check_auth_startup_gate`
+    is called at the TOP of this function so invalid ``AGENT_BRAIN_AUTH``
+    or oauth-mode missing ``AGENT_BRAIN_OAUTH_RESOURCE`` exits code 2 at
+    app-build time rather than silently producing a broken app.
+
     Args:
         server: The configured low-level MCP :class:`Server` from
             :func:`agent_brain_mcp.server.build_server`.
@@ -211,6 +296,12 @@ def build_asgi_app(
     # reflects time since the ASGI app was composed (a proxy for server
     # start time that is always available without global state).
     started_monotonic = time.monotonic()
+
+    # --- Phase 66 startup gate (OAUTH-09 / Plan 01) -------------------------
+    # Validate AGENT_BRAIN_AUTH + AGENT_BRAIN_OAUTH_RESOURCE BEFORE building
+    # any routes. On misconfiguration this calls sys.exit(2) — the app never
+    # reaches the route-construction block below.
+    _config.check_auth_startup_gate()
 
     mcp_session_manager = StreamableHTTPSessionManager(
         app=server,
@@ -243,6 +334,71 @@ def build_asgi_app(
             }
         )
 
+    async def oauth_protected_resource(request: Request) -> JSONResponse:
+        """Serve RFC 9728 PRM document (auth-exempt — discovery-first contract).
+
+        Returns the Protected Resource Metadata document for this MCP server.
+        The document is live in ALL auth modes (none/basic/oauth) so that
+        compliant MCP clients can always discover the resource's capabilities.
+
+        When AGENT_BRAIN_OAUTH_RESOURCE is unset (none/basic mode), the
+        resource field falls back to the request's own base URL so the
+        document remains well-formed and the route returns 200.
+        """
+        resource_env, issuer_env = _config.resolve_oauth_settings()
+        base_url = str(request.base_url).rstrip("/")
+        resource = resource_env or base_url
+        auth_servers = [issuer_env or base_url]
+        doc = _oauth_metadata.build_prm_document(
+            resource=resource,
+            authorization_servers=auth_servers,
+        )
+        return JSONResponse(doc)
+
+    async def oauth_authorization_server(request: Request) -> JSONResponse:
+        """Serve RFC 8414 OASM document (auth-exempt — discovery-first contract).
+
+        Returns the Authorization Server Metadata document. When
+        AGENT_BRAIN_OAUTH_ISSUER is unset (co-located AS+RS shape), the
+        issuer falls back to the MCP server's own base URL.
+
+        NOTE: The OASM advertises forward-reference endpoint URIs for
+        /authorize, /token, /register, and /.well-known/jwks.json — routes
+        Phase 67 adds. The document is RFC 8414-valid even while those
+        endpoints do not yet resolve (Phase 66 scope boundary).
+
+        OASM reconciliation (Phase 67): create_auth_routes() also emits its
+        own /.well-known/oauth-authorization-server route. We keep the Phase 66
+        hand-rolled handler FIRST in the routes list so Starlette's first-match
+        semantics serve the consistent Phase 66 document format. The SDK's
+        metadata route is also present but never matches this path.
+        """
+        _, issuer_env = _config.resolve_oauth_settings()
+        base_url = str(request.base_url).rstrip("/")
+        issuer = issuer_env or base_url
+        doc = _oauth_metadata.build_oasm_document(
+            issuer=issuer,
+            base_url=base_url,
+        )
+        return JSONResponse(doc)
+
+    async def jwks_document(_request: Request) -> JSONResponse:
+        """Serve the RS256 public JWKS document (auth-exempt, Phase 67 OAUTH-04).
+
+        The MCP SDK does NOT ship a built-in JWKS endpoint (documented SDK gap).
+        This hand-rolled route exposes the process-lifetime RS256 public key so:
+        1. The OASM ``jwks_uri`` forward-reference resolves (Phase 66/67 contract).
+        2. The Resource Server verifier and Phase 70 remote JwksTokenVerifier can
+           fetch the public key.
+
+        SECURITY: serves a PUBLIC-ONLY JWKS document (no private key material).
+        The SigningKey.jwks_dict is pre-computed at startup with only n/e fields.
+        """
+        from agent_brain_mcp.oauth.keys import get_or_create_signing_key
+
+        sk = get_or_create_signing_key()
+        return JSONResponse(sk.jwks_dict)
+
     async def mcp_asgi_app(scope: Scope, receive: Receive, send: Send) -> None:
         # Thin wrapper around the raw-ASGI callable on the session
         # manager. ``Mount(..., app=callable)`` accepts any ASGI3
@@ -263,16 +419,162 @@ def build_asgi_app(
         async with mcp_session_manager.run():
             yield
 
+    # --- Build the auth-exempt routes list (MOUNT-ORDER CONTRACT) ----------
+    # MOUNT-ORDER CONTRACT (design doc Risk 3):
+    # well-known + healthz + AS routes are AUTH-EXEMPT and MUST precede
+    # any RequireAuthMiddleware wrap (Phase 67 / OAUTH-05). Reversing this
+    # deadlocks the OAuth dance — a client asking
+    # /.well-known/oauth-protected-resource would itself need a token it
+    # cannot yet obtain.
+    #
+    # Phase 67 additions — still auth-exempt, before the /mcp Mount:
+    #   1. JWKS_PATH route (SDK gap workaround)
+    #   2. /authorize PKCE pre-check front-handler (ROADMAP SC#1)
+    #   3. create_auth_routes() SDK set (authorize/token/register/oasm)
+    #
+    # The /authorize front-handler MUST be placed BEFORE create_auth_routes()
+    # in the list so Starlette's first-match semantics ensure the PKCE
+    # pre-check runs before the SDK's own authorize handler for every request.
+    # Approach: front-route-first (Route("/authorize", precheck, ...) before
+    # the SDK Route("/authorize", sdk_handler, ...)).
+
+    auth_mode = _config.resolve_auth_mode()
+    resource_env, issuer_env = _config.resolve_oauth_settings()
+
+    exempt_routes: list[Any] = [
+        Route(HEALTHZ_PATH, healthz, methods=["GET"]),
+        # Phase 64 (HOUSE-01): /mcp/subscriptions debug endpoint. Auth-exempt,
+        # loopback-only. MUST be registered BEFORE the greedy /mcp Mount (appended
+        # last) so Starlette first-match serves the specific Route, not the Mount.
+        Route(SUBSCRIPTIONS_PATH, subscriptions_debug, methods=["GET"]),
+        # Phase 66 OASM hand-rolled handler — MUST precede create_auth_routes()
+        # output because Starlette first-match wins. This preserves the Phase 66
+        # document format and keeps test_well_known_routes.py green.
+        Route(OASM_PATH, oauth_authorization_server, methods=["GET"]),
+        Route(PRM_PATH, oauth_protected_resource, methods=["GET"]),
+        Route(PRM_PATH_SUFFIXED, oauth_protected_resource, methods=["GET"]),
+        # Phase 67: JWKS public key route (auth-exempt, SDK gap)
+        Route(JWKS_PATH, jwks_document, methods=["GET"]),
+    ]
+
+    if auth_mode is _config.AuthMode.oauth and resource_env:
+        # Resolve issuer: env var or fall back to resource base URL
+        from urllib.parse import urlparse
+
+        parsed = urlparse(resource_env)
+        base_url_from_resource = (
+            f"{parsed.scheme}://{parsed.netloc}" if parsed.netloc else resource_env
+        )
+        issuer: str = issuer_env or base_url_from_resource
+
+        # Build the provider + SDK AS routes
+        from agent_brain_mcp.oauth.keys import get_or_create_signing_key
+        from agent_brain_mcp.oauth.provider import (
+            AgentBrainAuthServerProvider,
+            reject_non_s256_pkce,
+        )
+        from agent_brain_mcp.oauth.tokens import token_store
+
+        sk = get_or_create_signing_key()
+        provider = AgentBrainAuthServerProvider(
+            signing_key=sk,
+            store=token_store,
+            issuer=issuer,
+            resource=resource_env,
+        )
+        sdk_auth_routes = create_auth_routes(
+            provider=provider,
+            issuer_url=AnyHttpUrl(issuer),
+            client_registration_options=ClientRegistrationOptions(
+                enabled=True,
+                valid_scopes=list(_OAUTH_SCOPES),
+                default_scopes=["agent-brain:read"],
+            ),
+        )
+
+        # Extract the SDK's /authorize handler so the pre-check can delegate
+        # to it. The SDK route list order is: oasm, /authorize, /token,
+        # /register. Find by path attribute.
+        sdk_authorize_handler: Any = None
+        for sdk_route in sdk_auth_routes:
+            if getattr(sdk_route, "path", None) == "/authorize":
+                sdk_authorize_handler = sdk_route.endpoint
+                break
+
+        async def authorize_pkce_precheck(request: Request) -> Any:
+            """Auth-exempt /authorize PKCE front-handler (ROADMAP SC#1).
+
+            Calls reject_non_s256_pkce(request.query_params) BEFORE delegating
+            to the SDK authorize handler. This is the live PKCE S256-only gate
+            (plan §"pkce_live_wiring_note").
+
+            For GET requests the PKCE params are in query_params.
+            For POST requests the SDK reads params from the query string too
+            (the /authorize endpoint uses GET redirects per OAuth 2.1).
+
+            Return behaviour:
+            - plain / method-absent / challenge-absent → 400 invalid_request
+            - valid S256 → pass through to the SDK authorize handler
+            """
+            from mcp.server.auth.provider import AuthorizeError
+
+            try:
+                reject_non_s256_pkce(request.query_params)
+            except AuthorizeError as exc:
+                # Return the exact error body the plan requires
+                return JSONResponse(
+                    {
+                        "error": exc.error,
+                        "error_description": exc.error_description or "",
+                    },
+                    status_code=400,
+                )
+
+            # Valid S256 — delegate to the SDK authorize handler
+            if sdk_authorize_handler is not None:
+                return await sdk_authorize_handler(request)
+            # Fallback if SDK handler not found (should not happen)
+            return JSONResponse(
+                {"error": "server_error", "error_description": "AS unavailable"},
+                status_code=500,
+            )
+
+        # /authorize PKCE pre-check front-handler MUST precede the SDK route
+        # so first-match picks up the pre-check for ALL /authorize requests.
+        exempt_routes.append(
+            Route("/authorize", authorize_pkce_precheck, methods=["GET", "POST"])
+        )
+        # Add the remaining SDK AS routes (token, register, SDK's oasm)
+        # The SDK's /authorize route is now shadowed by the front-handler above.
+        exempt_routes.extend(sdk_auth_routes)
+
+        # Build the /mcp mount wrapped with auth middleware
+        # Composition (inside-out):
+        #   1. mcp_asgi_app — the raw MCP session handler
+        #   2. AuthenticationMiddleware(backend=BearerAuthBackend) — sets
+        #      scope["user"] = AuthenticatedUser when token is valid
+        #   3. RequireAuthMiddleware — checks scope["user"] is AuthenticatedUser,
+        #      returns 401+WWW-Authenticate if not.
+        # required_scopes=[] in Phase 67 — scope enforcement is Phase 68.
+        from agent_brain_mcp.oauth.verifier import build_local_verifier
+
+        prm_url_str = resource_env  # PRM URL is the resource URI per RFC 9728
+        verifier = build_local_verifier(issuer_override=issuer)
+        backend = BearerAuthBackend(token_verifier=verifier)
+        auth_mcp_app = RequireAuthMiddleware(
+            AuthenticationMiddleware(mcp_asgi_app, backend=backend),
+            required_scopes=[],  # Phase 68 scope enforcement
+            resource_metadata_url=AnyHttpUrl(prm_url_str),
+        )
+        mcp_mount: Any = Mount(MCP_MOUNT_PATH, app=auth_mcp_app)
+    else:
+        # none / basic modes — /mcp mount is unwrapped (behavior unchanged)
+        mcp_mount = Mount(MCP_MOUNT_PATH, app=mcp_asgi_app)
+
+    exempt_routes.append(mcp_mount)
+
     return Starlette(
-        routes=[
-            Route(HEALTHZ_PATH, healthz, methods=["GET"]),
-            # SUBSCRIPTIONS_PATH must be registered BEFORE the /mcp Mount so
-            # Starlette matches the specific /mcp/subscriptions Route first
-            # (Mounts are greedy sub-path catchers; Routes take priority in
-            # list order).
-            Route(SUBSCRIPTIONS_PATH, subscriptions_debug, methods=["GET"]),
-            Mount(MCP_MOUNT_PATH, app=mcp_asgi_app),
-        ],
+        routes=exempt_routes,
         lifespan=lifespan,
     )
 
@@ -472,8 +774,12 @@ probe_port_available = _probe_port_available
 __all__: list[str] = [
     "ALLOWED_LOOPBACK_HOSTS",
     "HEALTHZ_PATH",
+    "JWKS_PATH",
     "LOOPBACK_REJECTION_MESSAGE",
     "MCP_MOUNT_PATH",
+    "OASM_PATH",
+    "PRM_PATH",
+    "PRM_PATH_SUFFIXED",
     "SUBSCRIPTIONS_PATH",
     "PortInUseError",
     "build_asgi_app",

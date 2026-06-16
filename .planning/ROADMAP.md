@@ -102,7 +102,9 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
   2. Design doc cites the verified live MCP Authorization spec version (and explicitly acknowledges whether the 2026-07-28 RC has landed and what it changes)
   3. An independent security reviewer has signed off on the design doc (documented in the doc's sign-off section) before any Phase 66+ implementation code is committed
   4. The design doc records the explicit decision on CIMD-vs-DCR registration and confirms DPoP can be deferred without violating any current-spec MUST
-**Plans**: TBD
+**Plans**: 2 plans (2 waves — design authoring then independent review + human sign-off gate)
+- [ ] 65-01-PLAN.md — OAUTH-01: author the v4 OAuth design doc (all 10 mandatory sections; spec re-verification)
+- [ ] 65-02-PLAN.md — OAUTH-01: independent adversarial security review + project-owner sign-off gate (autonomous: false)
 
 ### Phase 66: OAuth Settings Foundation + PRM/OASM Public Endpoints
 **Goal**: The OAuth discovery root is live — unauthenticated clients can find the authorization server and learn the PKCE requirement; the `basic` mode is formalized as the LAN bridge; all three auth-mode toggle paths are wired at the settings layer.
@@ -113,7 +115,9 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
   2. `curl /.well-known/oauth-authorization-server` (no Authorization header) returns HTTP 200 with a valid RFC 8414 JSON document that includes `code_challenge_methods_supported: ["S256"]` — absence of this field causes compliant MCP SDK clients to abort
   3. Both well-known endpoints return 200 even when `RequireAuthMiddleware` is wired (they are mounted outside the auth middleware scope; this is verified by an automated test before any further auth enforcement is added)
   4. `AGENT_BRAIN_AUTH=basic` formalizes the existing shared-secret Bearer path under the exclusive toggle; `none` / `basic` / `oauth` are mutually exclusive — a startup gate rejects invalid combinations and logs a clear error at boot
-**Plans**: TBD
+**Plans**: 2 plans (2 waves — settings/startup-gate foundation, then well-known routes wired on top)
+- [ ] 66-01-PLAN.md — OAUTH-09: AGENT_BRAIN_AUTH AuthMode toggle + OAuth settings + boot startup gate (exit 2 on invalid mode / oauth-mode empty resource) + get_auth_dependency() selector
+- [ ] 66-02-PLAN.md — OAUTH-02 + OAUTH-03: hand-rolled PRM (RFC 9728) + path-suffixed variant + OASM (RFC 8414, code_challenge_methods_supported ["S256"]) mounted above /mcp (mount-order contract) + unauthenticated-200 / survives-Phase-67 test
 
 ### Phase 67: Co-Located AS + RS Middleware
 **Goal**: Token issuance and verification work end-to-end in a single binary — an MCP client can complete the authorization-code + PKCE dance against the co-located AS and receive a JWT that the RS validates on every subsequent call.
@@ -125,7 +129,11 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
   3. Every issued JWT has an `aud` claim bound to the canonical `AGENT_BRAIN_OAUTH_RESOURCE` URI (Resource Indicators, RFC 8707); the RS validates `aud` on every inbound token and rejects tokens where `aud` does not match — cross-service token reuse is prevented
   4. Client registration via CIMD (Client ID Metadata Document) and static pre-registration both work; the co-located AS fetches the `client_id` URL on CIMD registration with SSRF protection (domain allowlist)
   5. `AGENT_BRAIN_AUTH=oauth` and `AGENT_BRAIN_AUTH=basic` are mutually exclusive on the request path — an automated test proves a valid JWT fails the static-bearer check and a raw API key passes the static-bearer check, never crossing modes
-**Plans**: TBD
+**Plans**: 4 plans (3 waves — dep bump gates the rest; AS core then registration + RS in parallel)
+- [ ] 67-01-PLAN.md — OAUTH-04 (deps): bump mcp ^1.27.2 + add PyJWT[crypto]/authlib/pwdlib[argon2] + SDK-drift regression gate
+- [ ] 67-02-PLAN.md — OAUTH-04 + OAUTH-08 (AS): RS256 keypair + JWKS + JWT minting (15min/30d rotating) + 9-method OAuthAuthorizationServerProvider + PKCE S256-only rejection
+- [ ] 67-03-PLAN.md — OAUTH-10: CIMD registration + static pre-registration + SSRF stack (allowlist + private-IP block + DNS-rebinding post-resolution check + 5s timeout)
+- [ ] 67-04-PLAN.md — OAUTH-05 + OAUTH-08 (RS): local RS256 TokenVerifier (sig/exp/nbf/iss/aud) + RequireAuthMiddleware wrap of /mcp + auth-exempt JWKS/AS routes + get_auth_dependency oauth branch + SC#5 mode-exclusion proof
 
 ### Phase 68: Per-Tool Scope Enforcement
 **Goal**: Every MCP tool enforces exactly the scope it requires; a token with an insufficient scope returns 403 (not 401); the scope-to-tool mapping is the single source of truth co-located with `_tool_matrix.py`.
@@ -180,9 +188,9 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
 | 62. TypeScript framework adapter matrix                     | v10.3     | 2/2            | Complete    | 2026-06-12 |
 | 63. Tooling + docs + integration page                       | v10.3     | 3/3            | Complete    | 2026-06-12 |
 | 64. GraphRAG stability + subscriptions debug endpoint       | 4/4 | Complete    | 2026-06-14 | -          |
-| 65. OAuth design doc + security review gate                 | v10.4     | 0/TBD          | Not started | -          |
-| 66. OAuth settings foundation + PRM/OASM public endpoints   | v10.4     | 0/TBD          | Not started | -          |
-| 67. Co-located AS + RS middleware                           | v10.4     | 0/TBD          | Not started | -          |
+| 65. OAuth design doc + security review gate                 | 1/2 | Complete    | 2026-06-14 | -          |
+| 66. OAuth settings foundation + PRM/OASM public endpoints   | 2/2 | Complete    | 2026-06-14 | -          |
+| 67. Co-located AS + RS middleware                           | 4/4 | Complete    | 2026-06-15 | -          |
 | 68. Per-tool scope enforcement                              | v10.4     | 0/TBD          | Not started | -          |
 | 69. McpHttpBackend client-side OAuth dance                  | v10.4     | 0/TBD          | Not started | -          |
 | 70. Split AS/RS + Keycloak-in-CI + integration tests        | v10.4     | 0/TBD          | Not started | -          |

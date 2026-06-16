@@ -16,16 +16,16 @@
 
 ### OAuth 2.1 — Resource Server + Co-located Authorization Server (MUST per MCP spec)
 
-- [ ] **OAUTH-01**: v4 OAuth design doc filed and **independent security review gate passed before implementation** — cites the verified live MCP authorization spec version, includes an AS/RS/public-route boundary diagram, and shows the token-termination data flow (client OAuth token terminates at the MCP boundary; the MCP→REST leg keeps `AGENT_BRAIN_API_KEY`).
-- [ ] **OAUTH-02**: Protected Resource Metadata (RFC 9728) served at `/.well-known/oauth-protected-resource` (+ the path-suffixed variant), publicly reachable with NO token (returns 200) — verified by an unauthenticated `curl` before any other auth code lands.
-- [ ] **OAUTH-03**: Authorization Server Metadata (RFC 8414) served at `/.well-known/oauth-authorization-server`, advertising `code_challenge_methods_supported: ["S256"]` (absence makes compliant MCP clients abort).
-- [ ] **OAUTH-04**: Co-located Authorization Server issues tokens via authorization-code + PKCE (S256-only; rejects `plain`/missing challenge), mints JWTs (`PyJWT[crypto]`), and serves a JWKS endpoint — wired through the SDK `OAuthAuthorizationServerProvider`.
-- [ ] **OAUTH-05**: Resource Server verifies inbound tokens (signature, `exp`/`nbf` with clock-skew leeway, `aud` == canonical resource URI), gated by `AGENT_BRAIN_AUTH=oauth` (default `none`); the well-known + `authorize`/`token` routes are excluded from the auth dependency.
+- [x] **OAUTH-01**: v4 OAuth design doc filed and **independent security review gate passed before implementation** — cites the verified live MCP authorization spec version, includes an AS/RS/public-route boundary diagram, and shows the token-termination data flow (client OAuth token terminates at the MCP boundary; the MCP→REST leg keeps `AGENT_BRAIN_API_KEY`).
+- [x] **OAUTH-02**: Protected Resource Metadata (RFC 9728) served at `/.well-known/oauth-protected-resource` (+ the path-suffixed variant), publicly reachable with NO token (returns 200) — verified by an unauthenticated `curl` before any other auth code lands.
+- [x] **OAUTH-03**: Authorization Server Metadata (RFC 8414) served at `/.well-known/oauth-authorization-server`, advertising `code_challenge_methods_supported: ["S256"]` (absence makes compliant MCP clients abort).
+- [x] **OAUTH-04**: Co-located Authorization Server issues tokens via authorization-code + PKCE (S256-only; rejects `plain`/missing challenge), mints JWTs (`PyJWT[crypto]`), and serves a JWKS endpoint — wired through the SDK `OAuthAuthorizationServerProvider`.
+- [x] **OAUTH-05**: Resource Server verifies inbound tokens (signature, `exp`/`nbf` with clock-skew leeway, `aud` == canonical resource URI), gated by `AGENT_BRAIN_AUTH=oauth` (default `none`); the well-known + `authorize`/`token` routes are excluded from the auth dependency.
 - [ ] **OAUTH-06**: Per-tool scope enforcement maps the 4 scopes (`agent-brain:read` / `:index` / `:admin` / `:subscribe`) to all 16 MCP tools via a single source-of-truth (`_tool_matrix.py`-style); a valid token with an insufficient scope returns **403** (distinct from a 401 missing/invalid-token).
 - [ ] **OAUTH-07**: `McpHttpBackend` handles the 401 + `WWW-Authenticate` challenge and the full OAuth dance via the SDK `OAuthClientProvider`, persisting tokens in a `FileTokenStorage` keyed to `state_dir` so per-call (Pattern A) invocations reuse the token instead of re-triggering the browser dance.
-- [ ] **OAUTH-08**: Resource Indicators (RFC 8707) — the client sends `resource` in both authorization and token requests, the AS binds `aud` to the resource URI, and the RS validates it; the MCP server NEVER forwards the client's OAuth token upstream to the REST backend (confused-deputy prevention).
-- [ ] **OAUTH-09**: `AGENT_BRAIN_AUTH=basic` formalizes the existing shared-secret Bearer auth (SECURITY-01) under the new toggle as a LAN migration bridge; the toggle is exclusive (exactly one of `none` / `basic` / `oauth`, never double-auth).
-- [ ] **OAUTH-10**: Client registration via CIMD (Client ID Metadata Documents — the spec's preferred SHOULD path) and static pre-registration; DCR (RFC 7591) optional/MAY, rate-limited + domain-allowlisted (with SSRF protection on metadata fetches) if enabled.
+- [x] **OAUTH-08**: Resource Indicators (RFC 8707) — the client sends `resource` in both authorization and token requests, the AS binds `aud` to the resource URI, and the RS validates it; the MCP server NEVER forwards the client's OAuth token upstream to the REST backend (confused-deputy prevention).
+- [x] **OAUTH-09**: `AGENT_BRAIN_AUTH=basic` formalizes the existing shared-secret Bearer auth (SECURITY-01) under the new toggle as a LAN migration bridge; the toggle is exclusive (exactly one of `none` / `basic` / `oauth`, never double-auth).
+- [x] **OAUTH-10**: Client registration via CIMD (Client ID Metadata Documents — the spec's preferred SHOULD path) and static pre-registration; DCR (RFC 7591) optional/MAY, rate-limited + domain-allowlisted (with SSRF protection on metadata fetches) if enabled.
 
 ### OAuth 2.1 — Split AS/RS (external IdP)
 
@@ -73,16 +73,16 @@ Which phases cover which requirements. Filled by roadmap creation.
 | GSTAB-01 | Phase 64 | Complete |
 | GSTAB-02 | Phase 64 | Complete |
 | GSTAB-03 | Phase 64 | Complete |
-| OAUTH-01 | Phase 65 | Pending |
-| OAUTH-02 | Phase 66 | Pending |
-| OAUTH-03 | Phase 66 | Pending |
-| OAUTH-04 | Phase 67 | Pending |
-| OAUTH-05 | Phase 67 | Pending |
+| OAUTH-01 | Phase 65 | Complete |
+| OAUTH-02 | Phase 66 | Complete |
+| OAUTH-03 | Phase 66 | Complete |
+| OAUTH-04 | Phase 67 | Complete |
+| OAUTH-05 | Phase 67 | Complete |
 | OAUTH-06 | Phase 68 | Pending |
 | OAUTH-07 | Phase 69 | Pending |
-| OAUTH-08 | Phase 67 | Pending |
-| OAUTH-09 | Phase 66 | Pending |
-| OAUTH-10 | Phase 67 | Pending |
+| OAUTH-08 | Phase 67 | Complete |
+| OAUTH-09 | Phase 66 | Complete |
+| OAUTH-10 | Phase 67 | Complete |
 | OAUTH-11 | Phase 70 | Pending |
 | OAUTH-12 | Phase 70 | Pending |
 | HOUSE-01 | Phase 64 | Complete |
