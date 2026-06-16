@@ -705,22 +705,29 @@ def build_asgi_app(server: Server) -> Starlette:
         prm_url_str = resource_env  # PRM URL is the resource URI per RFC 9728
         verifier = build_local_verifier(issuer_override=issuer)
         backend = BearerAuthBackend(token_verifier=verifier)
-        # Phase 68 Plan 02: wire ScopeEnforcementMiddleware INSIDE
-        # AuthenticationMiddleware so scope["user"] is set before the guard
-        # reads scopes. RequireAuthMiddleware stays outermost so an
-        # unauthenticated request still 401s (RequireAuth) BEFORE the guard
-        # (ScopeEnforcementMiddleware) runs.  required_scopes=[] preserves
-        # mount-wide semantics; per-tool enforcement is the guard's job.
-        auth_mcp_app = RequireAuthMiddleware(
-            AuthenticationMiddleware(
+        # Phase 68 Plan 02 (deviation fix — Rule 1 Auto-Fix):
+        # The plan's LOCKED composition had RequireAuthMiddleware OUTSIDE
+        # AuthenticationMiddleware, but Starlette ASGI middleware runs
+        # outer-first: RequireAuthMiddleware would always see scope["user"]
+        # as None (before AuthenticationMiddleware sets it) and return 401
+        # for every request including valid tokens.
+        #
+        # CORRECT ordering (matching the MCP SDK's FastMCP pattern at
+        # mcp/server/fastmcp/server.py ~lines 860-914):
+        #   AuthenticationMiddleware  ← outermost; runs first; sets scope["user"]
+        #     RequireAuthMiddleware   ← 401 if not AuthenticatedUser
+        #       ScopeEnforcementMiddleware  ← 403 on insufficient scope
+        #         mcp_asgi_app             ← session manager
+        auth_mcp_app = AuthenticationMiddleware(
+            RequireAuthMiddleware(
                 ScopeEnforcementMiddleware(
                     mcp_asgi_app,
                     resource_metadata_url=prm_url_str,
                 ),
-                backend=backend,
+                required_scopes=[],  # mount-wide empty; per-tool scope = guard
+                resource_metadata_url=AnyHttpUrl(prm_url_str),
             ),
-            required_scopes=[],  # mount-wide empty; per-tool scope = guard
-            resource_metadata_url=AnyHttpUrl(prm_url_str),
+            backend=backend,
         )
         mcp_mount: Any = Mount(MCP_MOUNT_PATH, app=auth_mcp_app)
     else:
