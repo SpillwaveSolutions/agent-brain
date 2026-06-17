@@ -186,7 +186,14 @@ def open_backend(ctx: click.Context, *, timeout: float = 30.0) -> BackendClient:
         # mcp_transport == "http" — resolve_mcp_transport guarantees
         # mcp_target is not None for the http branch.
         assert mcp_target is not None  # noqa: S101
-        return cast(BackendClient, McpHttpBackend(url=mcp_target, timeout=timeout))
+        # Thread state_dir so FileTokenStorage is keyed correctly when
+        # AGENT_BRAIN_MCP_AUTH=oauth is set (Phase 69 Plan 03).
+        # The opt-in flows via the AGENT_BRAIN_MCP_AUTH env var — no extra
+        # param needed here.
+        return cast(
+            BackendClient,
+            McpHttpBackend(url=mcp_target, timeout=timeout, state_dir=state_dir),
+        )
 
     # --- HTTP / UDS branch (existing v1/v2 path) -----------------
     transport, target = resolve_transport(
