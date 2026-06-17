@@ -40,18 +40,16 @@ Phase context: .planning/phases/69-mcphttpbackend-client-side-oauth-dance/69-CON
 
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import time
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
 from mcp.shared.auth import OAuthClientInformationFull, OAuthClientMetadata, OAuthToken
-
 
 # ---------------------------------------------------------------------------
 # Shared helpers
@@ -166,7 +164,9 @@ class TestSC2PersistReuseWithoutRedance:
         Layer documented: storage level.  The redirect_handler assertion follows
         below.
         """
-        from agent_brain_mcp.oauth.token_storage import FileTokenStorage  # noqa: PLC0415
+        from agent_brain_mcp.oauth.token_storage import (
+            FileTokenStorage,
+        )  # noqa: PLC0415
 
         seeded = _make_token(access_token="reuse-me-token", expires_in=3600)
         _seed_storage(tmp_path, token=seeded)
@@ -183,7 +183,9 @@ class TestSC2PersistReuseWithoutRedance:
         assert loaded.expires_in == 3600
 
     @pytest.mark.asyncio
-    async def test_redirect_spy_not_called_when_token_cached(self, tmp_path: Path) -> None:
+    async def test_redirect_spy_not_called_when_token_cached(
+        self, tmp_path: Path
+    ) -> None:
         """Redirect handler spy is NOT called when a valid cached token exists.
 
         This is the core SC#2 behavioral assertion.
@@ -201,7 +203,9 @@ class TestSC2PersistReuseWithoutRedance:
         """
         from mcp.client.auth.oauth2 import OAuthClientProvider  # noqa: PLC0415
 
-        from agent_brain_mcp.oauth.token_storage import FileTokenStorage  # noqa: PLC0415
+        from agent_brain_mcp.oauth.token_storage import (
+            FileTokenStorage,
+        )  # noqa: PLC0415
 
         seeded = _make_token(access_token="cached-valid-token", expires_in=9999)
         seeded_ci = _make_client_info()
@@ -230,9 +234,9 @@ class TestSC2PersistReuseWithoutRedance:
         provider._initialized = True  # noqa: SLF001
 
         # Sanity: the provider sees the token as valid (it is not expired).
-        assert provider.context.is_token_valid(), (
-            "Seeded non-expired token must be valid per is_token_valid()"
-        )
+        assert (
+            provider.context.is_token_valid()
+        ), "Seeded non-expired token must be valid per is_token_valid()"
 
         # Assert: because the token is valid, the provider would NOT invoke
         # redirect_handler on a call — the spy must be un-called.
@@ -249,7 +253,9 @@ class TestSC2PersistReuseWithoutRedance:
 
         This prevents re-registration on every Pattern A invocation.
         """
-        from agent_brain_mcp.oauth.token_storage import FileTokenStorage  # noqa: PLC0415
+        from agent_brain_mcp.oauth.token_storage import (
+            FileTokenStorage,
+        )  # noqa: PLC0415
 
         ci = _make_client_info(client_id="persistent-client-id")
         _seed_storage(tmp_path, client_info=ci)
@@ -258,9 +264,9 @@ class TestSC2PersistReuseWithoutRedance:
         loaded_ci = await fresh.get_client_info()
 
         assert loaded_ci is not None
-        assert loaded_ci.client_id == "persistent-client-id", (
-            "SC#2: client_info must persist so DCR is not repeated per-invocation"
-        )
+        assert (
+            loaded_ci.client_id == "persistent-client-id"
+        ), "SC#2: client_info must persist so DCR is not repeated per-invocation"
 
 
 # ---------------------------------------------------------------------------
@@ -273,7 +279,7 @@ class TestSC2PersistReuseWithoutRedance:
 # The mocked AS sequence:
 #   Step 0: yield initial_request → receive 401 with WWW-Authenticate
 #   Step 1 (PRM discovery): yield GET /mcp/.well-known/... → receive PRM JSON
-#   Step 2 (OASM discovery): yield GET /.../.well-known/oauth-authorization-server → receive OASM JSON
+#   Step 2 (OASM): yield GET /.../.well-known/oauth-authorization-server → OASM JSON
 #   Step 3 (DCR): yield POST /register → receive client_id JSON
 #   Step 4 (token exchange): yield POST /token → receive access_token JSON
 #   Step 5 (retry): yield original_request-with-Bearer → receive 200
@@ -311,26 +317,26 @@ def _make_401_response(server_url: str) -> httpx.Response:
         ``WWW-Authenticate`` header.
     """
     # Resource metadata URL per RFC 9728 (PRM discovery)
-    resource_metadata_url = server_url.rstrip("/") + "/.well-known/oauth-protected-resource"
+    resource_metadata_url = (
+        server_url.rstrip("/") + "/.well-known/oauth-protected-resource"
+    )
     return httpx.Response(
         status_code=401,
         headers={
-            "WWW-Authenticate": (
-                f'Bearer resource_metadata="{resource_metadata_url}"'
-            )
+            "WWW-Authenticate": (f'Bearer resource_metadata="{resource_metadata_url}"')
         },
         content=b"",
     )
 
 
 class TestSC1DanceAndRetry:
-    """SC#1 — 401→dance→retry; redirect spy called once; token persisted to FileTokenStorage."""
+    """SC#1 — 401→dance→retry: redirect spy called once; token persisted."""
 
     @pytest.mark.asyncio
     async def test_dance_fires_redirect_spy_once_and_persists_token(
         self, tmp_path: Path
     ) -> None:
-        """Full SC#1 proof: 401 triggers dance, redirect_handler called once, token persisted.
+        """Full SC#1 proof: 401 triggers dance, redirect_handler called once.
 
         Strategy: drive the OAuthClientProvider.async_auth_flow generator manually,
         feeding it the exact sequence of AS responses the SDK expects.  After the
@@ -343,7 +349,9 @@ class TestSC1DanceAndRetry:
         """
         from mcp.client.auth.oauth2 import OAuthClientProvider  # noqa: PLC0415
 
-        from agent_brain_mcp.oauth.token_storage import FileTokenStorage  # noqa: PLC0415
+        from agent_brain_mcp.oauth.token_storage import (
+            FileTokenStorage,
+        )  # noqa: PLC0415
 
         server_url = "http://127.0.0.1:9999/mcp"
         as_url = "http://127.0.0.1:9999"
@@ -440,7 +448,9 @@ class TestSC1DanceAndRetry:
 
         # Step 0: SDK yields the initial request; we return a 401.
         req0 = await gen.__anext__()
-        assert req0.url.path == initial_request.url.path or True  # any first request is ok
+        assert (
+            req0.url.path == initial_request.url.path or True
+        )  # any first request is ok
 
         # Feed 401 → SDK starts the OAuth flow.
         try:
@@ -449,10 +459,11 @@ class TestSC1DanceAndRetry:
             pytest.fail("Generator stopped before PRM discovery request")
             return
 
-        # Step 1: PRM discovery (GET /.well-known/oauth-protected-resource or with /mcp suffix).
-        # The SDK may try up to 2 PRM URLs (with and without the /mcp suffix).
-        # Feed the first one → return 200 with PRM doc.
-        assert req1.method == "GET", f"Expected GET for PRM discovery, got {req1.method}"
+        # Step 1: PRM discovery (GET /.well-known/oauth-protected-resource).
+        # The SDK may try up to 2 PRM URLs; feed the first → return 200 with PRM doc.
+        assert (
+            req1.method == "GET"
+        ), f"Expected GET for PRM discovery, got {req1.method}"
 
         try:
             req2 = await gen.asend(_make_json_response(prm_doc))
@@ -461,7 +472,9 @@ class TestSC1DanceAndRetry:
             return
 
         # Step 2: OASM discovery (GET /.well-known/oauth-authorization-server).
-        assert req2.method == "GET", f"Expected GET for OASM discovery, got {req2.method}"
+        assert (
+            req2.method == "GET"
+        ), f"Expected GET for OASM discovery, got {req2.method}"
 
         try:
             req3 = await gen.asend(_make_json_response(oasm_doc))
@@ -471,9 +484,9 @@ class TestSC1DanceAndRetry:
 
         # Step 3: DCR (POST /register).
         assert req3.method == "POST", f"Expected POST for DCR, got {req3.method}"
-        assert "register" in str(req3.url), (
-            f"Expected DCR /register URL, got {req3.url}"
-        )
+        assert "register" in str(
+            req3.url
+        ), f"Expected DCR /register URL, got {req3.url}"
 
         # Feed DCR response → SDK calls redirect_handler (via _perform_authorization).
         # After DCR, the SDK will call redirect_handler (our spy) and callback_handler,
@@ -485,17 +498,17 @@ class TestSC1DanceAndRetry:
             return
 
         # Step 4: Token exchange (POST /token).
-        assert req4.method == "POST", f"Expected POST for token exchange, got {req4.method}"
-        assert "token" in str(req4.url), (
-            f"Expected /token URL, got {req4.url}"
-        )
+        assert (
+            req4.method == "POST"
+        ), f"Expected POST for token exchange, got {req4.method}"
+        assert "token" in str(req4.url), f"Expected /token URL, got {req4.url}"
 
         # Feed token response → SDK stores the token and retries original request.
         try:
-            req5 = await gen.asend(_make_json_response(token_doc))
+            _req5 = await gen.asend(_make_json_response(token_doc))
         except StopAsyncIteration:
             # Some SDK versions yield the retry request and then stop immediately
-            # after the last send. That's fine — what matters is the token was stored.
+            # after the last send.  That's fine — token was stored.
             pass
         else:
             # SDK yielded the retried request; feed 200 to complete the flow.
@@ -510,16 +523,16 @@ class TestSC1DanceAndRetry:
 
         # (a) redirect_handler spy was called exactly once.
         assert redirect_call_count == 1, (
-            f"SC#1: redirect_handler must be called exactly once (browser opened once); "
+            f"SC#1: redirect_handler must be called exactly once; "
             f"called {redirect_call_count} time(s)"
         )
 
         # (b) Token was persisted to FileTokenStorage.
         fresh_storage = FileTokenStorage(tmp_path)
         persisted = await fresh_storage.get_tokens()
-        assert persisted is not None, (
-            "SC#1: token must be persisted to FileTokenStorage after the dance"
-        )
+        assert (
+            persisted is not None
+        ), "SC#1: token must be persisted to FileTokenStorage after the dance"
         assert persisted.access_token == access_token_value, (
             f"SC#1: persisted token must match the dance result; "
             f"got {persisted.access_token!r}"
@@ -558,10 +571,11 @@ class TestSC3SilentRefresh:
         """
         from mcp.client.auth.oauth2 import OAuthClientProvider  # noqa: PLC0415
 
-        from agent_brain_mcp.oauth.token_storage import FileTokenStorage  # noqa: PLC0415
+        from agent_brain_mcp.oauth.token_storage import (
+            FileTokenStorage,
+        )  # noqa: PLC0415
 
         server_url = "http://127.0.0.1:9999/mcp"
-        as_url = "http://127.0.0.1:9999"
         old_access_token = "expired-access-token"
         refresh_token_value = "valid-refresh-token"
         new_access_token = "fresh-access-token-after-refresh"
@@ -603,9 +617,9 @@ class TestSC3SilentRefresh:
 
         # Sanity checks.
         assert not provider.context.is_token_valid(), "Token must be expired for SC#3"
-        assert provider.context.can_refresh_token(), (
-            "Must have refresh_token + client_info to attempt SC#3"
-        )
+        assert (
+            provider.context.can_refresh_token()
+        ), "Must have refresh_token + client_info to attempt SC#3"
 
         # Fresh token response that the AS returns for the refresh grant.
         fresh_token_doc = {
@@ -631,21 +645,23 @@ class TestSC3SilentRefresh:
 
         # The first yield should be a POST to /token for refresh.
         assert refresh_req.method == "POST", (
-            f"SC#3: expected POST for token refresh, got {refresh_req.method} {refresh_req.url}"
+            f"SC#3: expected POST for token refresh, "
+            f"got {refresh_req.method} {refresh_req.url}"
         )
-        assert "token" in str(refresh_req.url), (
-            f"SC#3: expected /token URL for refresh, got {refresh_req.url}"
-        )
+        assert "token" in str(
+            refresh_req.url
+        ), f"SC#3: expected /token URL for refresh, got {refresh_req.url}"
 
         # Verify the refresh request body contains grant_type=refresh_token.
         body_text = refresh_req.content.decode()
         assert "refresh_token" in body_text, (
-            f"SC#3: refresh request must contain grant_type=refresh_token; body={body_text!r}"
+            "SC#3: refresh request must contain grant_type=refresh_token; "
+            f"body={body_text!r}"
         )
 
         # Feed the fresh token response.
         try:
-            next_req = await gen.asend(_make_json_response(fresh_token_doc))
+            _next_req = await gen.asend(_make_json_response(fresh_token_doc))
         except StopAsyncIteration:
             # Generator finished after processing the refresh response.
             pass
@@ -670,9 +686,9 @@ class TestSC3SilentRefresh:
         # (b) Fresh token is persisted to FileTokenStorage.
         fresh_storage = FileTokenStorage(tmp_path)
         persisted = await fresh_storage.get_tokens()
-        assert persisted is not None, (
-            "SC#3: refreshed token must be persisted to FileTokenStorage"
-        )
+        assert (
+            persisted is not None
+        ), "SC#3: refreshed token must be persisted to FileTokenStorage"
         assert persisted.access_token == new_access_token, (
             f"SC#3: persisted token must be the refreshed token; "
             f"got {persisted.access_token!r}"
@@ -686,7 +702,9 @@ class TestSC3SilentRefresh:
         a set_tokens call (simulating what the SDK does after _handle_refresh_response),
         and verify the storage reflects the new token.
         """
-        from agent_brain_mcp.oauth.token_storage import FileTokenStorage  # noqa: PLC0415
+        from agent_brain_mcp.oauth.token_storage import (
+            FileTokenStorage,
+        )  # noqa: PLC0415
 
         expired = _make_token(
             access_token="old-expired",
@@ -703,9 +721,9 @@ class TestSC3SilentRefresh:
 
         loaded = await storage.get_tokens()
         assert loaded is not None
-        assert loaded.access_token == "new-refreshed", (
-            "SC#3: storage must reflect the refreshed token after set_tokens"
-        )
+        assert (
+            loaded.access_token == "new-refreshed"
+        ), "SC#3: storage must reflect the refreshed token after set_tokens"
 
 
 # ---------------------------------------------------------------------------
@@ -728,7 +746,9 @@ class TestBuildOAuthClientProviderSmoke:
         The returned provider is an OAuthClientProvider which subclasses
         httpx.Auth — suitable for passing as auth= to streamablehttp_client.
         """
-        from agent_brain_mcp.oauth.oauth_client import build_oauth_client_provider  # noqa: PLC0415
+        from agent_brain_mcp.oauth.oauth_client import (
+            build_oauth_client_provider,
+        )  # noqa: PLC0415
 
         provider = build_oauth_client_provider(
             server_url="http://127.0.0.1:9999/mcp",

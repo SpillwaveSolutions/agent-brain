@@ -1,33 +1,32 @@
 """SC#4 / OAUTH-08 — Confused-deputy prevention integration tests (Phase 69 Plan 04).
 
-The MCP→REST leg uses AGENT_BRAIN_API_KEY (X-API-Key); the client's OAuth access
+The MCP->REST leg uses AGENT_BRAIN_API_KEY (X-API-Key); the client's OAuth access
 token terminates at the MCP boundary and is NEVER forwarded upstream (confused-deputy
 prevention).
 
 The three tests below prove the upstream REST call:
-  1. Carries ``X-API-Key`` and has NO ``Authorization`` header (OAuth absent case).
-  2. Contains ``X-API-Key`` but does NOT carry any OAuth access-token value in any header
-     (the explicit confused-deputy assertion — even when an OAuth token exists in storage,
-     it must NOT appear in any outgoing REST header value).
-  3. Has neither ``X-API-Key`` nor ``Authorization`` when no API key is set (clean baseline).
+  1. Carries X-API-Key and has NO Authorization header (OAuth absent case).
+  2. Contains X-API-Key but does NOT carry any OAuth access-token value in any
+     header (the explicit confused-deputy assertion -- even when an OAuth token exists
+     in storage, it must NOT appear in any outgoing REST header value).
+  3. Has neither X-API-Key nor Authorization when no API key is set (clean baseline).
 
 Design doc reference:
   docs/plans/2026-06-14-mcp-v4-oauth-design.md
   §"Risk 1: Confused-Deputy / Token Passthrough (OAUTH-08)"
 
 Context: .planning/phases/69-mcphttpbackend-client-side-oauth-dance/69-CONTEXT.md
-  §"Locked (carried forward — NOT revisited)"
+  §"Locked (carried forward -- NOT revisited)"
     SC#4 / OAUTH-08: X-API-Key static Bearer; OAuth token NEVER sent upstream.
 
-The MCP→REST X-API-Key injection lives in ``agent_brain_mcp/config.py``:
-  ``_open_http_client(backend_url, timeout, api_key=None)`` — sets X-API-Key header.
-  ``open_backend_client(...)`` — resolves the api_key and passes it through.
+The MCP->REST X-API-Key injection lives in ``agent_brain_mcp/config.py``:
+  ``_open_http_client(backend_url, timeout, api_key=None)`` -- sets X-API-Key.
+  ``open_backend_client(...)`` -- resolves the api_key and passes it through.
 
-The client's OAuth token lives ONLY on the CLI-side ``McpHttpBackend`` (a different
-component/process).  It is presented to the MCP server over the HTTP transport; the MCP
-server's ``open_backend_client`` independently sets X-API-Key for the upstream REST call.
-The OAuth token has no path into that httpx client.  These tests prove the absence of
-any such leak.
+The client's OAuth token lives ONLY on the CLI-side ``McpHttpBackend``.  The MCP
+server's ``open_backend_client`` independently sets X-API-Key for the upstream REST
+call.  The OAuth token has no path into that httpx client.  These tests prove the
+absence of any such leak.
 """
 
 from __future__ import annotations
@@ -35,8 +34,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import httpx
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -47,14 +46,14 @@ def _make_rest_client(
     api_key: str | None,
     backend_url: str = "http://127.0.0.1:8000",
     timeout: float = 5.0,
-) -> object:
+) -> httpx.Client:
     """Build the upstream REST httpx client via _open_http_client.
 
     Calls the real ``_open_http_client`` from ``agent_brain_mcp.config`` which
-    is the sole X-API-Key injection point for the MCP→REST leg.
+    is the sole X-API-Key injection point for the MCP->REST leg.
 
     Args:
-        api_key: Value to inject as ``X-API-Key``. ``None`` → no header set.
+        api_key: Value to inject as ``X-API-Key``. ``None`` -> no header set.
         backend_url: Base URL for the upstream REST server.
         timeout: Request timeout.
 
@@ -94,7 +93,7 @@ def _seed_token_file(state_dir: Path, access_token: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Test 1 — X-API-Key present, OAuth bearer absent on the upstream client
+# Test 1 -- X-API-Key present, OAuth bearer absent on the upstream client
 # ---------------------------------------------------------------------------
 
 
@@ -110,32 +109,31 @@ class TestXApiKeyPresentOAuthAbsent:
 
         client = _make_rest_client(api_key="test-rest-key")
 
-        assert client.headers.get("X-API-Key") == "test-rest-key"  # type: ignore[union-attr]
+        assert client.headers.get("X-API-Key") == "test-rest-key"
 
     def test_no_authorization_header_on_upstream_client(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """The upstream REST client has NO Authorization header.
 
-        The MCP→REST leg authenticates via X-API-Key exclusively.  An OAuth
-        bearer header must NEVER appear on this client — that would be a
+        The MCP->REST leg authenticates via X-API-Key exclusively.  An OAuth
+        bearer header must NEVER appear on this client -- that would be a
         confused-deputy vulnerability (OAUTH-08).
         """
         monkeypatch.setenv("AGENT_BRAIN_API_KEY", "test-rest-key")
 
         client = _make_rest_client(api_key="test-rest-key")
 
-        lower_keys = {k.lower() for k in client.headers.keys()}  # type: ignore[union-attr]
+        lower_keys = {k.lower() for k in client.headers.keys()}
         assert "authorization" not in lower_keys, (
             "The upstream REST httpx client MUST NOT carry an Authorization header "
-            "(OAUTH-08 confused-deputy prevention). "
-            f"Found headers: {dict(client.headers)}"  # type: ignore[arg-type]
+            "(OAUTH-08 confused-deputy prevention)."
         )
 
     def test_x_api_key_and_no_authorization_together(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """X-API-Key is present AND Authorization is absent — the two conditions simultaneously.
+        """X-API-Key present AND Authorization absent -- both conditions simultaneously.
 
         This is the combined assertion the plan requires.
         """
@@ -144,17 +142,17 @@ class TestXApiKeyPresentOAuthAbsent:
 
         client = _make_rest_client(api_key=api_key_value)
 
-        # X-API-Key must be set
-        assert client.headers.get("X-API-Key") == api_key_value  # type: ignore[union-attr]
-        # Authorization must NOT be set
-        lower_keys = {k.lower() for k in client.headers.keys()}  # type: ignore[union-attr]
-        assert "authorization" not in lower_keys, (
-            "Upstream REST client must not carry Authorization (OAUTH-08)"
-        )
+        # X-API-Key must be set.
+        assert client.headers.get("X-API-Key") == api_key_value
+        # Authorization must NOT be set.
+        lower_keys = {k.lower() for k in client.headers.keys()}
+        assert (
+            "authorization" not in lower_keys
+        ), "Upstream REST client must not carry Authorization (OAUTH-08)"
 
 
 # ---------------------------------------------------------------------------
-# Test 2 — OAuth access token does NOT leak into the upstream client headers
+# Test 2 -- OAuth access token does NOT leak into the upstream client headers
 # ---------------------------------------------------------------------------
 
 
@@ -170,7 +168,7 @@ class TestOAuthTokenDoesNotLeakUpstream:
     def test_oauth_token_string_absent_from_all_upstream_headers(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """SC#4 confused-deputy assertion: the OAuth access_token is absent from all headers.
+        """SC#4 confused-deputy: the OAuth access_token is absent from all headers.
 
         Setup:
           - Seed FileTokenStorage with a known access_token.
@@ -180,7 +178,7 @@ class TestOAuthTokenDoesNotLeakUpstream:
         Assertion:
           ``assert all(oauth_access_token not in v for v in client.headers.values())``
 
-        This proves the upstream leg carries X-API-Key only — the OAuth token string
+        This proves the upstream leg carries X-API-Key only -- the OAuth token string
         has no path into the upstream httpx client (OAUTH-08 boundary enforced).
         """
         oauth_access_token = "oauth-token-that-must-never-reach-rest"
@@ -196,16 +194,14 @@ class TestOAuthTokenDoesNotLeakUpstream:
         client = _make_rest_client(api_key=api_key_value)
 
         # X-API-Key is present with the correct REST API key.
-        assert client.headers.get("X-API-Key") == api_key_value  # type: ignore[union-attr]
+        assert client.headers.get("X-API-Key") == api_key_value
 
         # The OAuth access_token string must NOT appear in ANY header value.
         leaked_headers = [
-            (k, v)
-            for k, v in client.headers.items()  # type: ignore[union-attr]
-            if oauth_access_token in v
+            (k, v) for k, v in client.headers.items() if oauth_access_token in v
         ]
         assert not leaked_headers, (
-            f"OAUTH-08 VIOLATION: OAuth access_token found in upstream REST headers: "
+            "OAUTH-08 VIOLATION: OAuth access_token found in upstream REST headers: "
             f"{leaked_headers}.  The OAuth token must terminate at the MCP boundary."
         )
 
@@ -226,30 +222,33 @@ class TestOAuthTokenDoesNotLeakUpstream:
         client = _make_rest_client(api_key=api_key_value)
 
         # Sanity: X-API-Key is correct.
-        assert client.headers.get("X-API-Key") == api_key_value  # type: ignore[union-attr]
+        assert client.headers.get("X-API-Key") == api_key_value
 
-        # The Authorization header must not exist, and certainly not carry the OAuth token.
-        auth_header = client.headers.get("Authorization") or client.headers.get("authorization")  # type: ignore[union-attr]
+        # Authorization must not exist, and must not carry the OAuth token.
+        auth_header = client.headers.get("Authorization") or client.headers.get(
+            "authorization"
+        )
         if auth_header is not None:
             assert oauth_access_token not in auth_header, (
-                f"OAUTH-08 VIOLATION: OAuth token found in Authorization header: {auth_header!r}"
+                "OAUTH-08 VIOLATION: OAuth token found in Authorization header: "
+                f"{auth_header!r}"
             )
 
         # Double-check: token string not in ANY header value.
         assert all(
-            oauth_access_token not in v for v in client.headers.values()  # type: ignore[union-attr]
+            oauth_access_token not in v for v in client.headers.values()
         ), "OAUTH-08: OAuth bearer must not appear in any upstream REST header value"
 
 
 # ---------------------------------------------------------------------------
-# Test 3 — No API key set → no X-API-Key AND no Authorization (clean baseline)
+# Test 3 -- No API key set => no X-API-Key AND no Authorization (clean baseline)
 # ---------------------------------------------------------------------------
 
 
 class TestNoApiKeyNoAuthHeaders:
-    """When AGENT_BRAIN_API_KEY is unset, upstream client has no X-API-Key AND no Authorization.
+    """AGENT_BRAIN_API_KEY unset => upstream client has no X-API-Key nor Authorization.
 
-    The unauthed-backend case must stay clean — no credentials of any kind
+    The unauthed-backend case must stay clean -- no credentials of any kind
     appear on the upstream client.
     """
 
@@ -266,7 +265,7 @@ class TestNoApiKeyNoAuthHeaders:
         # Build with api_key=None (the path taken when _resolve_api_key returns None).
         client = _make_rest_client(api_key=None)
 
-        assert "X-API-Key" not in client.headers  # type: ignore[operator]
+        assert "X-API-Key" not in client.headers
 
     def test_no_api_key_env_no_authorization_header(
         self, monkeypatch: pytest.MonkeyPatch
@@ -281,10 +280,10 @@ class TestNoApiKeyNoAuthHeaders:
 
         client = _make_rest_client(api_key=None)
 
-        lower_keys = {k.lower() for k in client.headers.keys()}  # type: ignore[union-attr]
-        assert "authorization" not in lower_keys, (
-            "Unauthed upstream client must not carry Authorization header"
-        )
+        lower_keys = {k.lower() for k in client.headers.keys()}
+        assert (
+            "authorization" not in lower_keys
+        ), "Unauthed upstream client must not carry Authorization header"
 
     def test_no_api_key_x_api_key_absent_combined(
         self, monkeypatch: pytest.MonkeyPatch
@@ -299,6 +298,6 @@ class TestNoApiKeyNoAuthHeaders:
 
         client = _make_rest_client(api_key=None)
 
-        lower_keys = {k.lower() for k in client.headers.keys()}  # type: ignore[union-attr]
+        lower_keys = {k.lower() for k in client.headers.keys()}
         assert "x-api-key" not in lower_keys, "No X-API-Key expected"
         assert "authorization" not in lower_keys, "No Authorization expected"
