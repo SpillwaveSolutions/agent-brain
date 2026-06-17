@@ -25,12 +25,10 @@ calls streamablehttp_client().
 from __future__ import annotations
 
 import inspect
-import os
 from pathlib import Path
 
 import httpx
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -108,9 +106,9 @@ def test_get_auth_oauth_returns_provider_and_caches(
 
     first = backend._get_auth()  # type: ignore[union-attr]
     assert first is not None, "_get_auth() returned None when OAuth is enabled"
-    assert isinstance(first, httpx.Auth), (
-        f"Expected httpx.Auth instance, got {type(first)}"
-    )
+    assert isinstance(
+        first, httpx.Auth
+    ), f"Expected httpx.Auth instance, got {type(first)}"
 
     # Second call must return the SAME object (lazy-once caching).
     second = backend._get_auth()  # type: ignore[union-attr]

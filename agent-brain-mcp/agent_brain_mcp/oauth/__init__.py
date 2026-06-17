@@ -61,7 +61,10 @@ Design doc: docs/plans/2026-06-14-mcp-v4-oauth-design.md
   "Decision C: Browser / Loopback UX"
 """
 
-from agent_brain_mcp.oauth.oauth_client import CLIENT_SCOPES, build_oauth_client_provider
+from agent_brain_mcp.oauth.oauth_client import (
+    CLIENT_SCOPES,
+    build_oauth_client_provider,
+)
 from agent_brain_mcp.oauth.oauth_handlers import (
     LoopbackCallbackServer,
     build_callback_handler,

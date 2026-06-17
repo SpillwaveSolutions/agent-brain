@@ -60,7 +60,7 @@ CLIENT_SCOPES = "agent-brain:read agent-brain:index agent-brain:admin"
 def build_oauth_client_provider(
     server_url: str,
     state_dir: Path,
-) -> "OAuthClientProvider":
+) -> OAuthClientProvider:
     """Assemble the SDK OAuthClientProvider for the client-side OAuth dance.
 
     All SDK imports are kept *inside* this function so that agent-brain-mcp

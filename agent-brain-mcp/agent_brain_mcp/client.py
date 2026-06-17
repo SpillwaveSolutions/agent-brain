@@ -1216,9 +1216,7 @@ class McpHttpBackend:
         self._closed = False
         # Phase 69 Plan 03 — OAuth opt-in + lazy provider cache.
         self._state_dir = state_dir
-        self._oauth_enabled = (
-            os.environ.get(MCP_CLIENT_AUTH_ENV, "").lower() == "oauth"
-        )
+        self._oauth_enabled = os.environ.get(MCP_CLIENT_AUTH_ENV, "").lower() == "oauth"
         self._auth_provider: Any | None = None
 
     @staticmethod
@@ -1277,7 +1275,7 @@ class McpHttpBackend:
     # Phase 69 Plan 03 — OAuth opt-in + single auth-injection seam
     # ------------------------------------------------------------------
 
-    def _get_auth(self) -> "httpx.Auth | None":
+    def _get_auth(self) -> httpx.Auth | None:
         """Return the OAuthClientProvider when OAuth is enabled, else None.
 
         Builds the provider lazily ONCE per McpHttpBackend instance and
@@ -1307,13 +1305,13 @@ class McpHttpBackend:
         if self._auth_provider is None:
             from agent_brain_mcp.oauth.oauth_client import build_oauth_client_provider
 
-            self._auth_provider = build_oauth_client_provider(
-                self.url, self._state_dir
-            )
-        return self._auth_provider  # type: ignore[return-value]
+            self._auth_provider = build_oauth_client_provider(self.url, self._state_dir)
+        return (
+            self._auth_provider
+        )  # noqa: return-value — Any stored, httpx.Auth returned
 
     @asynccontextmanager
-    async def _http_session(self) -> AsyncIterator["Any"]:
+    async def _http_session(self) -> AsyncIterator[Any]:
         """Single auth-injection seam for all HTTP tool calls (Context decision B).
 
         Centralises the 17 former per-method transport call sites; injects
@@ -1568,7 +1566,8 @@ class McpHttpBackend:
     ) -> dict[str, Any]:
         async with self._http_session() as session:
             result = await session.get_prompt(name, arguments)
-        return result.model_dump(mode="json", exclude_none=False)
+        dumped: dict[str, Any] = result.model_dump(mode="json", exclude_none=False)
+        return dumped
 
     def list_prompts(self) -> list[dict[str, Any]]:
         return asyncio.run(self._async_list_prompts())
@@ -1605,7 +1604,8 @@ class McpHttpBackend:
 
         async with self._http_session() as session:
             result = await session.read_resource(AnyUrl(uri))
-        return result.model_dump(mode="json", exclude_none=False)
+        dumped: dict[str, Any] = result.model_dump(mode="json", exclude_none=False)
+        return dumped
 
 
 __all__: list[str] = ["ApiClient", "McpStdioBackend", "McpHttpBackend"]
