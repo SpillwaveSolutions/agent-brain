@@ -1,8 +1,9 @@
 # MCP Keycloak Integration Tests
 #
-# Runs the @pytest.mark.keycloak test suite (SC#1-3: JWT accept via JWKS,
-# opaque-token introspection, revoked-token rejection) against a real
-# Keycloak >=22 container on ubuntu-latest.
+# Runs the @pytest.mark.keycloak test suite (SC#1-4: JWT accept via JWKS,
+# opaque-token introspection, revoked-token rejection, SC#4 Keycloak RS path)
+# against a real Keycloak >=22 container on ubuntu-latest. Also runs the
+# BINDING 90% oauth-module coverage gate (SC#5 DoD requirement).
 #
 # Trigger: PRs touching agent-brain-mcp/** (path filter) + workflow_dispatch.
 # Nightly: see e2e-nightly.yml (mcp-keycloak-nightly job).
@@ -112,3 +113,22 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: task mcp:keycloak
+
+      # BINDING 90% oauth-module coverage gate (SC#5 — BLOCKS THE MILESTONE).
+      # Runs the full suite (fast + keycloak-marked) so Keycloak-only lines
+      # count toward the 90% threshold. Locally the soft gate is 85% because
+      # keycloak paths are skipped without a container (task mcp:oauth-cov
+      # defaults COV_FAIL_UNDER=85). This step is the AUTHORITATIVE measurement.
+      - name: OAuth module coverage gate (90% CI hard — SC#5 DoD)
+        env:
+          KEYCLOAK_URL: http://localhost:8080
+          AGENT_BRAIN_OAUTH_RESOURCE: http://localhost:8000
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          cd agent-brain-mcp
+          poetry run pytest tests/ \
+            -m 'not e2e and not contract and not stress' \
+            --cov=agent_brain_mcp.oauth \
+            --cov-report=term-missing \
+            --cov-fail-under=90

@@ -222,3 +222,32 @@ tasks:
       - task: lint
       - task: typecheck
       - poetry run pytest {{.TEST_DIR}} --cov={{.SRC_DIR}} --cov-report=term-missing --cov-report=xml:coverage-mcp.xml --cov-fail-under=80
+
+  oauth-cov:
+    desc: >
+      OAuth module coverage gate (90% CI hard / 85% local soft per 70-RESEARCH.md
+      Open Q4). Locally defaults to 85% because keycloak-marked paths are skipped
+      without a container (Pitfall 4). The BINDING 90% gate runs authoritatively in
+      the CI Keycloak job (mcp-keycloak-integration.yml) which includes keycloak-
+      marked tests and measures the full picture. Override threshold with
+      COV_FAIL_UNDER=90 to reproduce the CI gate locally with a live container.
+    vars:
+      COV_FAIL_UNDER: '85'
+    deps: [install]
+    cmds:
+      - >
+        poetry run pytest {{.TEST_DIR}}
+        --cov=agent_brain_mcp.oauth
+        --cov-report=term-missing
+        --cov-fail-under={{.COV_FAIL_UNDER | default "85"}}
+
+  keycloak:
+    desc: >
+      Run the Keycloak-backed integration suite (CI/nightly — requires a running
+      Keycloak container bootstrapped by scripts/keycloak_bootstrap.sh; opt-in).
+      Runs all @pytest.mark.keycloak tests and skips cleanly when no container
+      is present. Use KEYCLOAK_URL and AGENT_BRAIN_OAUTH_RESOURCE env vars to
+      point at a non-default Keycloak instance.
+    deps: [install]
+    cmds:
+      - poetry run pytest {{.TEST_DIR}} -v -m keycloak
