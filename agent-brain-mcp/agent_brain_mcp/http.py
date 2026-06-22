@@ -760,10 +760,10 @@ def build_asgi_app(
         #   3. RequireAuthMiddleware — checks scope["user"] is AuthenticatedUser,
         #      returns 401+WWW-Authenticate if not.
         # required_scopes=[] in Phase 67 — scope enforcement is Phase 68.
-        from agent_brain_mcp.oauth.verifier import build_local_verifier
+        from agent_brain_mcp.oauth.verifier import build_verifier
 
         prm_url_str = resource_env  # PRM URL is the resource URI per RFC 9728
-        verifier = build_local_verifier(issuer_override=issuer)
+        verifier = build_verifier(issuer_override=issuer)
         backend = BearerAuthBackend(token_verifier=verifier)
         # Phase 68 Plan 02 (deviation fix — Rule 1 Auto-Fix):
         # The plan's LOCKED composition had RequireAuthMiddleware OUTSIDE

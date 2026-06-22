@@ -267,6 +267,60 @@ def check_auth_startup_gate() -> None:
             sys.exit(2)
 
 
+def resolve_split_as_settings() -> (
+    tuple[str | None, str | None, str | None, str | None, str | None]
+):
+    """Read split-AS env vars and return (jwks_uri, introspection_url, intro_client_id, intro_client_secret, issuer).
+
+    Pure read — no validation. Enables the split Authorization Server / Resource
+    Server topology (Phase 70 — OAUTH-11 JWKS, OAUTH-12 introspection).
+
+    All values are normalized: unset or empty/whitespace-only strings → None.
+    This mirrors the ``resolve_oauth_settings()`` idiom throughout this module.
+
+    Env vars consumed:
+      - AGENT_BRAIN_OAUTH_JWKS_URI: The external IdP's JWKS endpoint URL.
+        When set, ``build_verifier()`` selects ``JwksTokenVerifier``.
+        Example (Keycloak): ``http://localhost:8080/realms/agent-brain/
+        protocol/openid-connect/certs``
+      - AGENT_BRAIN_OAUTH_INTROSPECTION_URL: RFC 7662 token introspection endpoint.
+        When set (and JWKS_URI is not set), selects ``IntrospectionTokenVerifier``.
+      - AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_ID: RS client ID for authenticating
+        to the introspection endpoint.
+      - AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_SECRET: RS client secret.
+      - AGENT_BRAIN_OAUTH_ISSUER: The Authorization Server issuer URI.
+        For Keycloak, this includes the realm path — e.g.,
+        ``http://localhost:8080/realms/agent-brain`` (Pitfall 7: Keycloak iss
+        format differs from simple base-URL issuers like Auth0). Must match
+        the ``iss`` claim in JWTs issued by the IdP exactly.
+
+    Returns:
+        A 5-tuple:
+        (jwks_uri, introspection_url, introspection_client_id,
+         introspection_client_secret, issuer)
+        Each element is a non-empty string or None.
+    """
+    jwks_uri_raw = os.environ.get("AGENT_BRAIN_OAUTH_JWKS_URI") or None
+    introspection_url_raw = os.environ.get("AGENT_BRAIN_OAUTH_INTROSPECTION_URL") or None
+    intro_id_raw = os.environ.get("AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_ID") or None
+    intro_secret_raw = os.environ.get("AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_SECRET") or None
+    issuer_raw = os.environ.get("AGENT_BRAIN_OAUTH_ISSUER") or None
+
+    jwks_uri = jwks_uri_raw.strip() if jwks_uri_raw else None
+    introspection_url = introspection_url_raw.strip() if introspection_url_raw else None
+    intro_id = intro_id_raw.strip() if intro_id_raw else None
+    intro_secret = intro_secret_raw.strip() if intro_secret_raw else None
+    issuer = issuer_raw.strip() if issuer_raw else None
+
+    return (
+        jwks_uri or None,
+        introspection_url or None,
+        intro_id or None,
+        intro_secret or None,
+        issuer or None,
+    )
+
+
 def resolve_client_id_allowlist() -> list[str]:
     """Read AGENT_BRAIN_OAUTH_CLIENT_ID_ALLOWLIST and return a list of allowed domains.
 

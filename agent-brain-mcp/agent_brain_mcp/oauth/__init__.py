@@ -71,6 +71,12 @@ from agent_brain_mcp.oauth.oauth_handlers import (
     build_redirect_handler,
 )
 from agent_brain_mcp.oauth.token_storage import FileTokenStorage
+from agent_brain_mcp.oauth.verifier import (
+    IntrospectionTokenVerifier,
+    JwksTokenVerifier,
+    LocalRs256Verifier,
+    build_verifier,
+)
 
 __all__ = [
     "FileTokenStorage",
@@ -79,4 +85,9 @@ __all__ = [
     "build_callback_handler",
     "build_oauth_client_provider",
     "CLIENT_SCOPES",
+    # Phase 70 verifier classes and selector (OAUTH-11, OAUTH-12)
+    "JwksTokenVerifier",
+    "IntrospectionTokenVerifier",
+    "LocalRs256Verifier",
+    "build_verifier",
 ]

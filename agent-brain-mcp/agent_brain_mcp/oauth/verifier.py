@@ -63,7 +63,7 @@ import jwt
 from jwt import PyJWKClient
 from mcp.server.auth.provider import AccessToken
 
-from agent_brain_mcp.config import resolve_oauth_settings
+from agent_brain_mcp.config import resolve_oauth_settings, resolve_split_as_settings
 from agent_brain_mcp.oauth.keys import get_or_create_signing_key
 from agent_brain_mcp.oauth.tokens import token_store
 
@@ -480,3 +480,64 @@ def build_local_verifier(
         issuer=issuer,
         resource=resource,
     )
+
+
+def build_verifier(
+    *,
+    issuer_override: str | None = None,
+) -> LocalRs256Verifier | JwksTokenVerifier | IntrospectionTokenVerifier:
+    """Factory: build the correct TokenVerifier by config (Phase 70 — OAUTH-11/12).
+
+    Selects the verifier based on environment variables in priority order:
+      1. ``AGENT_BRAIN_OAUTH_JWKS_URI`` set → ``JwksTokenVerifier`` (split AS/RS,
+         remote JWKS, e.g. Keycloak).
+      2. ``AGENT_BRAIN_OAUTH_INTROSPECTION_URL`` set (and no JWKS URI) →
+         ``IntrospectionTokenVerifier`` (opaque tokens, RFC 7662).
+      3. Neither set → ``LocalRs256Verifier`` (co-located AS, backward-compatible
+         default — behavior identical to calling ``build_local_verifier()``).
+
+    ``AGENT_BRAIN_OAUTH_RESOURCE`` is required regardless of which verifier is
+    selected (it provides the ``aud`` binding in all cases).
+
+    Args:
+        issuer_override: Optional issuer URI override.  Takes precedence over
+            ``AGENT_BRAIN_OAUTH_ISSUER`` from the environment.  Useful for
+            testability and for the co-located shape where the issuer defaults
+            to the server's own base URL (supplied by ``http.py`` at startup).
+
+    Returns:
+        The appropriate verifier instance:
+        - ``JwksTokenVerifier`` if JWKS URI is configured.
+        - ``IntrospectionTokenVerifier`` if introspection URL is configured.
+        - ``LocalRs256Verifier`` if neither is configured (co-located default).
+
+    Raises:
+        RuntimeError: If ``AGENT_BRAIN_OAUTH_RESOURCE`` is not set.
+    """
+    resource, issuer_env = resolve_oauth_settings()
+    jwks_uri, introspection_url, intro_id, intro_secret, _ = resolve_split_as_settings()
+
+    if not resource:
+        raise RuntimeError(
+            "AGENT_BRAIN_OAUTH_RESOURCE is required for build_verifier() "
+            "(used as the expected aud claim in token validation)."
+        )
+
+    issuer: str = issuer_override or issuer_env or resource
+
+    if jwks_uri:
+        return JwksTokenVerifier(
+            jwks_uri=jwks_uri,
+            issuer=issuer,
+            resource=resource,
+        )
+
+    if introspection_url:
+        return IntrospectionTokenVerifier(
+            introspection_endpoint=introspection_url,
+            client_id=intro_id or "",
+            client_secret=intro_secret or "",
+            resource=resource,
+        )
+
+    return build_local_verifier(issuer_override=issuer_override)
