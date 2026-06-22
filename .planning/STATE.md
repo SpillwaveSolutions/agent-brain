@@ -4,26 +4,26 @@ milestone: v10.4
 milestone_name: milestone
 current_phase: 70
 status: executing
-stopped_at: Completed Phase 70 Plan 02 (70-02-PLAN.md)
-last_updated: "2026-06-22T19:10:00.000Z"
+stopped_at: Completed Phase 70 Plan 03 (70-03-PLAN.md)
+last_updated: "2026-06-22T19:02:12.028Z"
 progress:
   total_phases: 7
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 21
-  completed_plans: 20
+  completed_plans: 21
 ---
 
 # Agent Brain — Project State
 
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-06-22
 **Current Milestone:** v10.4 — MCP v4: OAuth 2.1 + GraphRAG Stability
-**Status:** Executing Phase 70
+**Status:** Phase 70 Complete
 **Current Phase:** 70
 
 ## Current Position
 
-Phase: 70 (split-as-rs-keycloak-in-ci-integration-tests) — EXECUTING
-Plan: 2 of 3
+Phase: 70 (split-as-rs-keycloak-in-ci-integration-tests) — COMPLETE
+Plan: 3 of 3 (all plans complete)
 
 ## Project Reference
 
@@ -88,6 +88,8 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 ## Accumulated Context
 
 ### Key Context Carried Forward
+
+- **Plan 70-03 complete (2026-06-22):** Phase 70 COMPLETE — SC#4 Keycloak E2E tests + binding 90% coverage gate + spec re-verification + operator docs. 3 new @pytest.mark.keycloak tests in test_oauth_keycloak_e2e.py (test_full_oauth_dance_tool_call, test_token_refresh_path, test_scope_boundary_403 — SC#4 DoD). task mcp:oauth-cov (85% local soft / 90% CI hard via COV_FAIL_UNDER var); task mcp:keycloak. mcp-keycloak-integration.yml binding 90% oauth-module coverage step (SC#5 DoD). Design doc: Phase 70 Spec Re-Verification (2026-06-22) — SEP-2575 confirms RequireAuthMiddleware per-request is forward-compatible with stateless RC; no SDK bump required. SPLIT_AS_RS.md: operator doc for Shape A (co-located) vs Shape B (split) deployment, AGENT_BRAIN_OAUTH_JWKS_URI/INTROSPECTION_URL/ISSUER env vars, Keycloak RFC 8707 deviation (audience scope mapper), Pitfall 7 (realm path in iss), revocation behavior, no public /revoke (deferred v10.4.1). task before-push: 1021 passed, 118 deselected, 91% overall coverage. mcp:oauth-cov: 90.53% oauth module coverage (85% local gate, 90% CI gate). Commits: 08dd178 (SC#4 tests) + a52d834 (coverage gate targets + CI) + c36dd21 (spec re-verify + operator docs).
 
 - **Plan 70-02 complete (2026-06-22):** Keycloak CI integration tests + bootstrap shipped. New `scripts/keycloak_bootstrap.sh`: Admin REST API realm bootstrap (realm agent-brain, public client agent-brain-mcp with directAccessGrantsEnabled + oidc-audience-mapper, confidential RS client agent-brain-rs/rs-secret, test user testuser/testpass, 4 agent-brain scopes); RFC 8707 deviation documented in header comment. New `tests/conftest_keycloak.py`: session-scoped `keycloak_available` skip gate, `keycloak_token_for_scope(scope)->str` ROPC factory, `keycloak_access_token` convenience wrapper. Bridge import in `tests/conftest.py` re-exports all 3 fixtures. New `tests/test_oauth_keycloak_e2e.py`: 4 @pytest.mark.keycloak tests (SC#1 JWT-accept via JwksTokenVerifier, SC#1-supporting kid-in-JWKS, SC#2 introspection roundtrip, SC#3 revoked-token rejection). New `.github/workflows/mcp-keycloak-integration.yml`: path-filtered on agent-brain-mcp/**, step-level docker run keycloak:26.1 start-dev + health on :9000 + bootstrap + task mcp:keycloak. `mcp-keycloak-nightly` job added to e2e-nightly.yml. keycloak marker registered + addopts exclusion extended. Fast tier: 1021 passed, 115 deselected. Commits: `91cc5c5` (marker+bootstrap) + `4508156` (fixtures+tests) + `b79a2c6` (CI workflows). OAUTH-11 + OAUTH-12 marked complete (70-02 done; 70-03 scope-boundary tests next).
 
@@ -261,8 +263,8 @@ Feature backlog (#152, #154, #155, #156, #157, #158, #160, #162, #163, #164) and
 
 ## Session Continuity
 
-**Last Session:** 2026-06-22T18:32:16.645Z
-**Stopped At:** Completed Phase 70 Plan 01 (70-01-PLAN.md)
+**Last Session:** 2026-06-22T19:02:12.023Z
+**Stopped At:** Completed Phase 70 Plan 03 (70-03-PLAN.md)
 
 **Stopped At (Plan 55-01 — prior, for reference):** SDK-driven contract test scaffolding shipped. New `agent-brain-mcp/tests/contract/` directory + `mcp_stdio_session` fixture (callable returning async context manager — dodging anyio's exit-cancel-scope-in-different-task trap that bites async-generator fixtures wrapping `stdio_client` per Phase 52 Plan 02 Decision precedent) + autouse D-17 orphan-scan fixture (script-name-scoped `pgrep -f fake_contract_server.py` runs after EVERY contract test, fails the test if any subprocess survived, SIGKILLs them so subsequent tests don't inherit). Bundled fake-server script template (`_DEFAULT_CONTRACT_SERVER_SCRIPT`) wires `build_server + run_stdio` against `httpx.MockTransport` backend per CONTEXT D-04 (NOT a real `agent-brain-serve` subprocess). Backend responses passed to the subprocess via `AGENT_BRAIN_MCP_CONTRACT_RESPONSES_JSON` env var (JSON-serialized METHOD-path -> body table); Plans 02/03/04 inject per-test `response_overrides` without rewriting the script. `_DEFAULT_RESPONSES` extended with 8 v2 endpoint stubs (`DELETE /index/folders/`, `GET/DELETE /index/cache/`, `POST /index/add`, 3 terminal JobRecord variants `job_done/job_failed/job_cancelled` for `wait_for_job` contract assertions) — strictly additive, no existing v1 entries modified. `contract` pytest marker registered in `pyproject.toml` + `addopts` extended to exclude contract from default fast path (alongside `e2e + e2e_http`). `agent-brain-mcp/Taskfile.yml::contract` replaces Phase 4 placeholder echo with `poetry run pytest tests/contract -v -m contract`. ONE smoke test asserting `initialize()` over stdio returns `serverInfo.name == 'agent-brain'` — proves the fixture chain end-to-end (0.46s, 0 orphans, 0 anyio errors). Entry point: `sys.executable + bundled script path` (NOT `python -m agent_brain_mcp` against a real backend — `agent_brain_mcp` has no `__main__.py` and `main_async` needs a live backend; bundled script bypasses both per the Phase 4 / Phase 52 fake-server pattern). 3 atomic commits on `main`: `f0b5966` test (8 `_DEFAULT_RESPONSES` additions), `fb24ab9` test (contract dir + conftest + smoke + marker), `2e92dcc` chore (task contract wiring). TWO deviations auto-applied: Rule 1 — anyio task ownership forced `mcp_stdio_session` shape from yielding-generator to callable-returning-async-context-manager (consumed as `async with mcp_stdio_session() as session:`; public fixture name preserved so Plans 02/03/04 inherit verbatim); Rule 2 — autouse orphan-scan fixture moved OUT of `mcp_stdio_session` into independent autouse fixture so future direct-subprocess tests (Plan 04 HTTP) get the D-17 safety net without coupling to session consumption. +1 smoke test on contract suite (`-m contract` opt-in); fast-path 451 tests unchanged (no regression from `_DEFAULT_RESPONSES` additions); `task contract` exit 0; `task check:layering` 3/3 contracts kept (164 files, 414 deps); `task before-push` exit 0 (416 monorepo CLI tests, 80% coverage gate honored, all 1685 cross-package tests passing). 20/24 plans complete across v10.2 milestone. Phase 55 plan 1/5 done.
 **Resume File:** None
@@ -335,3 +337,4 @@ Per workflow summarizer (verified ready_to_execute: true):
 | Phase 68-per-tool-scope-enforcement P02 | 90 | 3 tasks | 3 files |
 | Phase 69 P03 | 21 | 3 tasks | 6 files |
 | Phase 70 P01 | 28 | 3 tasks | 9 files |
+| Phase 70 P03 | 35 | 3 tasks | 5 files |
