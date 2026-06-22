@@ -65,6 +65,7 @@ from mcp.server.auth.provider import AccessToken
 
 from agent_brain_mcp.config import resolve_oauth_settings
 from agent_brain_mcp.oauth.keys import get_or_create_signing_key
+from agent_brain_mcp.oauth.tokens import token_store
 
 if TYPE_CHECKING:
     from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
@@ -176,6 +177,15 @@ class LocalRs256Verifier:
             # ExpiredSignatureError, InvalidAudienceError, InvalidIssuerError,
             # DecodeError, MissingRequiredClaimError, etc.
             logger.debug("Token verification failed: %s", exc)
+            return None
+
+        # Phase 70 (OAUTH-12 SC#3): check the co-located jti denylist AFTER
+        # successful signature/claim verification, BEFORE building AccessToken.
+        # Only the co-located LocalRs256Verifier uses this denylist; split/external
+        # token paths use introspection active:false for revocation instead.
+        jti = claims.get("jti")
+        if jti and token_store.is_jti_revoked(jti):
+            logger.debug("Token rejected: jti %s is on the revocation denylist", jti)
             return None
 
         # Extract claims for the AccessToken model
