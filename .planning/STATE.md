@@ -4,13 +4,13 @@ milestone: v10.4
 milestone_name: milestone
 current_phase: 70
 status: executing
-stopped_at: Completed Phase 70 Plan 01 (70-01-PLAN.md)
-last_updated: "2026-06-22T18:32:16.650Z"
+stopped_at: Completed Phase 70 Plan 02 (70-02-PLAN.md)
+last_updated: "2026-06-22T19:10:00.000Z"
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 21
-  completed_plans: 19
+  completed_plans: 20
 ---
 
 # Agent Brain — Project State
@@ -23,7 +23,7 @@ progress:
 ## Current Position
 
 Phase: 70 (split-as-rs-keycloak-in-ci-integration-tests) — EXECUTING
-Plan: 1 of 3
+Plan: 2 of 3
 
 ## Project Reference
 
@@ -88,6 +88,8 @@ Full cross-phase risk register: 17 items in the workflow summarizer output (save
 ## Accumulated Context
 
 ### Key Context Carried Forward
+
+- **Plan 70-02 complete (2026-06-22):** Keycloak CI integration tests + bootstrap shipped. New `scripts/keycloak_bootstrap.sh`: Admin REST API realm bootstrap (realm agent-brain, public client agent-brain-mcp with directAccessGrantsEnabled + oidc-audience-mapper, confidential RS client agent-brain-rs/rs-secret, test user testuser/testpass, 4 agent-brain scopes); RFC 8707 deviation documented in header comment. New `tests/conftest_keycloak.py`: session-scoped `keycloak_available` skip gate, `keycloak_token_for_scope(scope)->str` ROPC factory, `keycloak_access_token` convenience wrapper. Bridge import in `tests/conftest.py` re-exports all 3 fixtures. New `tests/test_oauth_keycloak_e2e.py`: 4 @pytest.mark.keycloak tests (SC#1 JWT-accept via JwksTokenVerifier, SC#1-supporting kid-in-JWKS, SC#2 introspection roundtrip, SC#3 revoked-token rejection). New `.github/workflows/mcp-keycloak-integration.yml`: path-filtered on agent-brain-mcp/**, step-level docker run keycloak:26.1 start-dev + health on :9000 + bootstrap + task mcp:keycloak. `mcp-keycloak-nightly` job added to e2e-nightly.yml. keycloak marker registered + addopts exclusion extended. Fast tier: 1021 passed, 115 deselected. Commits: `91cc5c5` (marker+bootstrap) + `4508156` (fixtures+tests) + `b79a2c6` (CI workflows). OAUTH-11 + OAUTH-12 marked complete (70-02 done; 70-03 scope-boundary tests next).
 
 - **Plan 69-02 complete (2026-06-16):** OAUTH-07 loopback callback UX shipped. New `agent_brain_mcp/oauth/oauth_handlers.py`: `build_redirect_handler(opener, stream)` (opens webbrowser + prints URL to stderr; swallows opener exceptions for headless CI), `LoopbackCallbackServer` (binds `_OAuthHTTPServer("127.0.0.1", 0)` -- OS-assigned ephemeral port; `redirect_uri` known at `__init__` time for DCR; `wait_for_callback()` runs `handle_request()` via `asyncio.to_thread`; context manager), `build_callback_handler(server)` (wraps `wait_for_callback`). Key decisions: (1) stdlib `http.server` -- no new dependency; (2) `_OAuthHTTPServer` typed subclass carries `oauth_code`/`oauth_state` attrs -- avoids mypy `[attr-defined]` suppression; (3) opener exceptions swallowed unconditionally -- headless-CI safety. 15 tests pass. Exported from `oauth/__init__.py` alongside `FileTokenStorage`. `task before-push` exits 0 (954 passed, 111 deselected). Commits: `edd0fbb` (TDD RED) + `de93f17` (TDD GREEN) + `bc3bcee` (Ruff/mypy/Black fixes). OAUTH-07 Plan 02 of 4 complete.
 
