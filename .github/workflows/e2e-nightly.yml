@@ -24,6 +24,94 @@ on:
         type: string
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # MCP Keycloak Integration (nightly)
+  # Runs SC#1-3 keycloak-marked tests against a real Keycloak container.
+  # Uses step-level docker run start-dev — NOT a services: block (see
+  # .github/workflows/mcp-keycloak-integration.yml header for the reason).
+  # ---------------------------------------------------------------------------
+  mcp-keycloak-nightly:
+    name: MCP Keycloak Integration (Nightly)
+    runs-on: ubuntu-latest
+    environment: ci-testing
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.7.1
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.43.3
+
+      - name: Cache Poetry dependencies (MCP)
+        uses: actions/cache@v4
+        with:
+          path: agent-brain-mcp/.venv
+          key: mcp-venv-${{ runner.os }}-${{ hashFiles('agent-brain-mcp/poetry.lock') }}
+          restore-keys: |
+            mcp-venv-${{ runner.os }}-
+
+      - name: Install MCP package dependencies
+        run: |
+          cd agent-brain-mcp
+          poetry install
+
+      - name: Start Keycloak (start-dev)
+        run: |
+          # Step-level docker run — NOT a services: block (RESEARCH Pitfall 5/6).
+          docker run -d --name keycloak \
+            -p 8080:8080 -p 9000:9000 \
+            -e KEYCLOAK_ADMIN=admin \
+            -e KEYCLOAK_ADMIN_PASSWORD=admin \
+            -e KC_HEALTH_ENABLED=true \
+            quay.io/keycloak/keycloak:26.1 start-dev
+
+      - name: Wait for Keycloak health
+        run: |
+          # Health endpoint is on management port 9000 (Pitfall 3 — NOT 8080).
+          echo "Waiting for Keycloak to become healthy..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9000/health/ready; then
+              echo "Keycloak is healthy after ${i} attempts."
+              break
+            fi
+            echo "Attempt ${i}/30 — not ready yet, sleeping 5s..."
+            sleep 5
+          done
+          curl -sf http://localhost:9000/health/ready
+
+      - name: Bootstrap Keycloak realm
+        env:
+          AGENT_BRAIN_OAUTH_RESOURCE: http://localhost:8000
+          KC: http://localhost:8080
+        run: |
+          bash scripts/keycloak_bootstrap.sh
+
+      - name: Run Keycloak integration tests
+        env:
+          KEYCLOAK_URL: http://localhost:8080
+          AGENT_BRAIN_OAUTH_RESOURCE: http://localhost:8000
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: task mcp:keycloak
+
+  # ---------------------------------------------------------------------------
+  # E2E CLI tests (Claude Code headless — existing job, unchanged)
+  # ---------------------------------------------------------------------------
   e2e-cli:
     name: E2E CLI Tests
     runs-on: ubuntu-latest
