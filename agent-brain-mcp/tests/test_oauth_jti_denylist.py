@@ -1,4 +1,4 @@
-"""Tests for jti denylist on InMemoryTokenStore + LocalRs256Verifier revocation check (Phase 70 Plan 01 Task 2).
+"""Tests for jti denylist on InMemoryTokenStore + LocalRs256Verifier (Phase 70).
 
 TDD RED → GREEN: tests written BEFORE implementation.
 
@@ -143,7 +143,6 @@ class TestLocalRs256VerifierJtiRevocation:
     ) -> None:
         """A freshly minted valid token → verify_token returns AccessToken."""
         # Ensure the singleton token_store is fresh (no stale revocations)
-        from agent_brain_mcp.oauth.tokens import token_store
 
         result = await verifier.verify_token(valid_token)
         assert result is not None, "Fresh valid token should return AccessToken"

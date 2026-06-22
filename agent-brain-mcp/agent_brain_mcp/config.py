@@ -270,7 +270,10 @@ def check_auth_startup_gate() -> None:
 def resolve_split_as_settings() -> (
     tuple[str | None, str | None, str | None, str | None, str | None]
 ):
-    """Read split-AS env vars and return (jwks_uri, introspection_url, intro_client_id, intro_client_secret, issuer).
+    """Read split-AS env vars and return split-AS settings tuple.
+
+    Returns (jwks_uri, introspection_url, intro_client_id, intro_client_secret,
+    issuer).
 
     Pure read — no validation. Enables the split Authorization Server / Resource
     Server topology (Phase 70 — OAUTH-11 JWKS, OAUTH-12 introspection).
@@ -301,9 +304,13 @@ def resolve_split_as_settings() -> (
         Each element is a non-empty string or None.
     """
     jwks_uri_raw = os.environ.get("AGENT_BRAIN_OAUTH_JWKS_URI") or None
-    introspection_url_raw = os.environ.get("AGENT_BRAIN_OAUTH_INTROSPECTION_URL") or None
+    introspection_url_raw = (
+        os.environ.get("AGENT_BRAIN_OAUTH_INTROSPECTION_URL") or None
+    )
     intro_id_raw = os.environ.get("AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_ID") or None
-    intro_secret_raw = os.environ.get("AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_SECRET") or None
+    intro_secret_raw = (
+        os.environ.get("AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_SECRET") or None
+    )
     issuer_raw = os.environ.get("AGENT_BRAIN_OAUTH_ISSUER") or None
 
     jwks_uri = jwks_uri_raw.strip() if jwks_uri_raw else None

@@ -1,4 +1,4 @@
-"""Tests for IntrospectionTokenVerifier — RFC 7662 introspection-backed verifier (Phase 70 Plan 01).
+"""Tests for IntrospectionTokenVerifier — RFC 7662 introspection verifier (Phase 70).
 
 TDD RED → GREEN: tests written BEFORE implementation.
 
@@ -105,13 +105,17 @@ class TestIntrospectionVerifierActiveTrue:
     async def test_active_true_aud_list_contains_resource(self, verifier) -> None:  # type: ignore[no-untyped-def]
         """active:true with aud as list containing resource → AccessToken."""
         mock_resp = _mock_response(
-            json_data=_active_response(aud=[_RESOURCE, "https://other-service.example.com"])
+            json_data=_active_response(
+                aud=[_RESOURCE, "https://other-service.example.com"]
+            )
         )
 
         with patch("httpx.AsyncClient.post", new=AsyncMock(return_value=mock_resp)):
             result = await verifier.verify_token("opaque-token-value")
 
-        assert result is not None, "aud list containing resource should return AccessToken"
+        assert (
+            result is not None
+        ), "aud list containing resource should return AccessToken"
 
     @pytest.mark.asyncio
     async def test_active_true_scopes_split_correctly(self, verifier) -> None:  # type: ignore[no-untyped-def]
@@ -179,7 +183,9 @@ class TestIntrospectionVerifierAudMismatch:
         assert result is None, "aud string mismatch should return None"
 
     @pytest.mark.asyncio
-    async def test_aud_list_not_containing_resource_returns_none(self, verifier) -> None:  # type: ignore[no-untyped-def]
+    async def test_aud_list_not_containing_resource_returns_none(  # type: ignore[no-untyped-def]
+        self, verifier
+    ) -> None:
         """active:true but aud list does NOT contain resource → None."""
         mock_resp = _mock_response(
             json_data=_active_response(

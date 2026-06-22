@@ -405,7 +405,9 @@ class IntrospectionTokenVerifier:
         try:
             data: dict[str, object] = resp.json()
         except Exception as exc:
-            logger.debug("IntrospectionTokenVerifier: failed to parse JSON response: %s", exc)
+            logger.debug(
+                "IntrospectionTokenVerifier: failed to parse JSON response: %s", exc
+            )
             return None
 
         if not data.get("active", False):
@@ -413,7 +415,12 @@ class IntrospectionTokenVerifier:
 
         # Pitfall 2: normalize aud (may be string or list per RFC 7662)
         aud = data.get("aud")
-        audiences: list[object] = [aud] if isinstance(aud, str) else (aud or [])
+        if isinstance(aud, str):
+            audiences: list[str] = [aud]
+        elif isinstance(aud, list):
+            audiences = [str(a) for a in aud]
+        else:
+            audiences = []
         if self.resource not in audiences:
             logger.debug(
                 "IntrospectionTokenVerifier: aud mismatch (expected %r, got %r)",
@@ -425,7 +432,8 @@ class IntrospectionTokenVerifier:
         client_id: str = str(data.get("client_id", ""))
         scope_str: str = str(data.get("scope", "") or "")
         scopes: list[str] = scope_str.split() if scope_str else []
-        expires_at: int | None = int(data["exp"]) if data.get("exp") is not None else None
+        exp_raw = data.get("exp")
+        expires_at: int | None = int(str(exp_raw)) if exp_raw is not None else None
 
         return AccessToken(
             token=token,

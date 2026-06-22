@@ -1,4 +1,4 @@
-"""Tests for split-AS config env vars and build_verifier() selector (Phase 70 Plan 01 Task 3).
+"""Tests for split-AS config env vars and build_verifier() selector (Phase 70 Plan 01).
 
 TDD RED → GREEN: tests written BEFORE implementation.
 
@@ -27,7 +27,9 @@ import pytest
 _RESOURCE = "https://mcp.example.com/mcp"
 _ISSUER = "http://localhost:8080/realms/agent-brain"
 _JWKS_URI = "http://localhost:8080/realms/agent-brain/protocol/openid-connect/certs"
-_INTROSPECTION_URL = "http://localhost:8080/realms/agent-brain/protocol/openid-connect/token/introspect"
+_INTROSPECTION_URL = (
+    "http://localhost:8080/realms/agent-brain/protocol/openid-connect/token/introspect"
+)
 _INTRO_CLIENT_ID = "introspect-client"
 _INTRO_CLIENT_SECRET = "introspect-secret"
 
@@ -40,14 +42,14 @@ _INTRO_CLIENT_SECRET = "introspect-secret"
 class TestResolveSplitAsSettings:
     """resolve_split_as_settings() reads split-AS env vars correctly."""
 
-    def test_no_env_returns_all_none(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_no_env_returns_all_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """No split-AS env vars → returns 5-tuple of all None."""
         monkeypatch.delenv("AGENT_BRAIN_OAUTH_JWKS_URI", raising=False)
         monkeypatch.delenv("AGENT_BRAIN_OAUTH_INTROSPECTION_URL", raising=False)
         monkeypatch.delenv("AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_ID", raising=False)
-        monkeypatch.delenv("AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_SECRET", raising=False)
+        monkeypatch.delenv(
+            "AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_SECRET", raising=False
+        )
         monkeypatch.delenv("AGENT_BRAIN_OAUTH_ISSUER", raising=False)
 
         from agent_brain_mcp.config import resolve_split_as_settings
@@ -55,38 +57,42 @@ class TestResolveSplitAsSettings:
         result = resolve_split_as_settings()
         assert result == (None, None, None, None, None)
 
-    def test_jwks_uri_populated(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_jwks_uri_populated(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """AGENT_BRAIN_OAUTH_JWKS_URI set → jwks_uri (index 0) populated."""
         monkeypatch.setenv("AGENT_BRAIN_OAUTH_JWKS_URI", _JWKS_URI)
         monkeypatch.delenv("AGENT_BRAIN_OAUTH_INTROSPECTION_URL", raising=False)
         monkeypatch.delenv("AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_ID", raising=False)
-        monkeypatch.delenv("AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_SECRET", raising=False)
+        monkeypatch.delenv(
+            "AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_SECRET", raising=False
+        )
         monkeypatch.delenv("AGENT_BRAIN_OAUTH_ISSUER", raising=False)
 
         from agent_brain_mcp.config import resolve_split_as_settings
 
-        jwks_uri, introspection_url, intro_id, intro_secret, issuer = resolve_split_as_settings()
+        jwks_uri, introspection_url, intro_id, intro_secret, issuer = (
+            resolve_split_as_settings()
+        )
         assert jwks_uri == _JWKS_URI
         assert introspection_url is None
         assert intro_id is None
         assert intro_secret is None
         assert issuer is None
 
-    def test_introspection_url_populated(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """AGENT_BRAIN_OAUTH_INTROSPECTION_URL set → introspection_url (index 1) populated."""
+    def test_introspection_url_populated(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """AGENT_BRAIN_OAUTH_INTROSPECTION_URL set → introspection_url populated."""
         monkeypatch.delenv("AGENT_BRAIN_OAUTH_JWKS_URI", raising=False)
         monkeypatch.setenv("AGENT_BRAIN_OAUTH_INTROSPECTION_URL", _INTROSPECTION_URL)
         monkeypatch.delenv("AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_ID", raising=False)
-        monkeypatch.delenv("AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_SECRET", raising=False)
+        monkeypatch.delenv(
+            "AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_SECRET", raising=False
+        )
         monkeypatch.delenv("AGENT_BRAIN_OAUTH_ISSUER", raising=False)
 
         from agent_brain_mcp.config import resolve_split_as_settings
 
-        jwks_uri, introspection_url, intro_id, intro_secret, issuer = resolve_split_as_settings()
+        jwks_uri, introspection_url, intro_id, intro_secret, issuer = (
+            resolve_split_as_settings()
+        )
         assert jwks_uri is None
         assert introspection_url == _INTROSPECTION_URL
 
@@ -96,8 +102,12 @@ class TestResolveSplitAsSettings:
         """Introspection client ID and secret populated when set."""
         monkeypatch.delenv("AGENT_BRAIN_OAUTH_JWKS_URI", raising=False)
         monkeypatch.setenv("AGENT_BRAIN_OAUTH_INTROSPECTION_URL", _INTROSPECTION_URL)
-        monkeypatch.setenv("AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_ID", _INTRO_CLIENT_ID)
-        monkeypatch.setenv("AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_SECRET", _INTRO_CLIENT_SECRET)
+        monkeypatch.setenv(
+            "AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_ID", _INTRO_CLIENT_ID
+        )
+        monkeypatch.setenv(
+            "AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_SECRET", _INTRO_CLIENT_SECRET
+        )
         monkeypatch.delenv("AGENT_BRAIN_OAUTH_ISSUER", raising=False)
 
         from agent_brain_mcp.config import resolve_split_as_settings
@@ -113,7 +123,9 @@ class TestResolveSplitAsSettings:
         monkeypatch.delenv("AGENT_BRAIN_OAUTH_JWKS_URI", raising=False)
         monkeypatch.delenv("AGENT_BRAIN_OAUTH_INTROSPECTION_URL", raising=False)
         monkeypatch.delenv("AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_ID", raising=False)
-        monkeypatch.delenv("AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_SECRET", raising=False)
+        monkeypatch.delenv(
+            "AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_SECRET", raising=False
+        )
         monkeypatch.setenv("AGENT_BRAIN_OAUTH_ISSUER", _ISSUER)
 
         from agent_brain_mcp.config import resolve_split_as_settings
@@ -124,11 +136,15 @@ class TestResolveSplitAsSettings:
     def test_empty_string_normalizes_to_none(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Empty string env vars normalize to None (mirrors resolve_oauth_settings idiom)."""
+        """Empty string env vars normalize to None (mirrors resolve_oauth_settings)."""
         monkeypatch.setenv("AGENT_BRAIN_OAUTH_JWKS_URI", "")
-        monkeypatch.setenv("AGENT_BRAIN_OAUTH_INTROSPECTION_URL", "   ")  # whitespace only
+        monkeypatch.setenv(
+            "AGENT_BRAIN_OAUTH_INTROSPECTION_URL", "   "
+        )  # whitespace only
         monkeypatch.delenv("AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_ID", raising=False)
-        monkeypatch.delenv("AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_SECRET", raising=False)
+        monkeypatch.delenv(
+            "AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_SECRET", raising=False
+        )
         monkeypatch.delenv("AGENT_BRAIN_OAUTH_ISSUER", raising=False)
 
         from agent_brain_mcp.config import resolve_split_as_settings
@@ -162,9 +178,9 @@ class TestBuildVerifierSelector:
         from agent_brain_mcp.oauth.verifier import JwksTokenVerifier, build_verifier
 
         v = build_verifier()
-        assert isinstance(v, JwksTokenVerifier), (
-            f"JWKS_URI set should return JwksTokenVerifier, got {type(v)}"
-        )
+        assert isinstance(
+            v, JwksTokenVerifier
+        ), f"JWKS_URI set should return JwksTokenVerifier, got {type(v)}"
 
     def test_introspection_url_selects_introspection_verifier(
         self, monkeypatch: pytest.MonkeyPatch
@@ -178,20 +194,27 @@ class TestBuildVerifierSelector:
         monkeypatch.setenv("AGENT_BRAIN_OAUTH_ISSUER", _ISSUER)
         monkeypatch.delenv("AGENT_BRAIN_OAUTH_JWKS_URI", raising=False)
         monkeypatch.setenv("AGENT_BRAIN_OAUTH_INTROSPECTION_URL", _INTROSPECTION_URL)
-        monkeypatch.setenv("AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_ID", _INTRO_CLIENT_ID)
-        monkeypatch.setenv("AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_SECRET", _INTRO_CLIENT_SECRET)
+        monkeypatch.setenv(
+            "AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_ID", _INTRO_CLIENT_ID
+        )
+        monkeypatch.setenv(
+            "AGENT_BRAIN_OAUTH_INTROSPECTION_CLIENT_SECRET", _INTRO_CLIENT_SECRET
+        )
 
-        from agent_brain_mcp.oauth.verifier import IntrospectionTokenVerifier, build_verifier
+        from agent_brain_mcp.oauth.verifier import (
+            IntrospectionTokenVerifier,
+            build_verifier,
+        )
 
         v = build_verifier()
-        assert isinstance(v, IntrospectionTokenVerifier), (
-            f"INTROSPECTION_URL set should return IntrospectionTokenVerifier, got {type(v)}"
-        )
+        assert isinstance(
+            v, IntrospectionTokenVerifier
+        ), f"INTROSPECTION_URL set should return IntrospectionTokenVerifier, got {type(v)}"  # noqa: E501
 
     def test_neither_set_returns_local_rs256_verifier(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Neither JWKS_URI nor INTROSPECTION_URL set → returns LocalRs256Verifier (backward-compatible)."""
+        """Neither JWKS_URI nor INTROSPECTION_URL set → returns LocalRs256Verifier."""
         import agent_brain_mcp.oauth.keys as _keys_mod
 
         _keys_mod._signing_key_singleton = None  # noqa: SLF001
@@ -204,9 +227,9 @@ class TestBuildVerifierSelector:
         from agent_brain_mcp.oauth.verifier import LocalRs256Verifier, build_verifier
 
         v = build_verifier()
-        assert isinstance(v, LocalRs256Verifier), (
-            f"No split-AS env → should return LocalRs256Verifier, got {type(v)}"
-        )
+        assert isinstance(
+            v, LocalRs256Verifier
+        ), f"No split-AS env → should return LocalRs256Verifier, got {type(v)}"
 
     def test_jwks_uri_takes_precedence_over_introspection_url(
         self, monkeypatch: pytest.MonkeyPatch
@@ -224,9 +247,9 @@ class TestBuildVerifierSelector:
         from agent_brain_mcp.oauth.verifier import JwksTokenVerifier, build_verifier
 
         v = build_verifier()
-        assert isinstance(v, JwksTokenVerifier), (
-            "JWKS_URI should take precedence over INTROSPECTION_URL"
-        )
+        assert isinstance(
+            v, JwksTokenVerifier
+        ), "JWKS_URI should take precedence over INTROSPECTION_URL"
 
     def test_build_verifier_without_resource_raises(
         self, monkeypatch: pytest.MonkeyPatch
@@ -244,7 +267,7 @@ class TestBuildVerifierSelector:
     def test_issuer_override_passed_to_jwks_verifier(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """build_verifier(issuer_override=...) passes the override to JwksTokenVerifier."""
+        """build_verifier(issuer_override=...) uses override in JwksTokenVerifier."""
         import agent_brain_mcp.oauth.keys as _keys_mod
 
         _keys_mod._signing_key_singleton = None  # noqa: SLF001

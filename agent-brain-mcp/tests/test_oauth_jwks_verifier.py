@@ -1,4 +1,4 @@
-"""Tests for JwksTokenVerifier — remote JWKS-backed RS256 verifier (Phase 70 Plan 01 Task 1).
+"""Tests for JwksTokenVerifier — remote JWKS-backed RS256 verifier (Phase 70 Plan 01).
 
 TDD RED → GREEN: tests written BEFORE implementation.
 
@@ -51,7 +51,7 @@ def _mint_token(
     scopes: list[str] | None = None,
     exp_offset: int = 900,
 ) -> str:
-    """Mint an RS256 JWT using the test signing key (replicates mint_access_token pattern)."""
+    """Mint an RS256 JWT using the test signing key."""
     import secrets
 
     now = int(time.time())
@@ -186,7 +186,9 @@ class TestJwksTokenVerifierWrongAud:
         """Token with wrong aud → verify_token returns None."""
         from agent_brain_mcp.oauth.verifier import JwksTokenVerifier
 
-        token = _mint_token(signing_key, resource="https://other-service.example.com/api")
+        token = _mint_token(
+            signing_key, resource="https://other-service.example.com/api"
+        )
         v = JwksTokenVerifier(
             jwks_uri="https://idp.example.com/.well-known/jwks.json",
             issuer=_ISSUER,
@@ -350,7 +352,9 @@ class TestJwksTokenVerifierCaching:
             lifespan=300,
         )
 
-        with patch.object(v._client, "fetch_data", side_effect=counting_fetch_data):  # noqa: SLF001
+        with patch.object(
+            v._client, "fetch_data", side_effect=counting_fetch_data
+        ):  # noqa: SLF001
             token1 = _mint_token(signing_key)
             token2 = _mint_token(signing_key)
 
@@ -358,7 +362,9 @@ class TestJwksTokenVerifierCaching:
             with patch.object(
                 v._client,  # noqa: SLF001
                 "get_signing_key_from_jwt",
-                side_effect=lambda t: _build_mock_jwks_client(signing_key).get_signing_key_from_jwt(t),
+                side_effect=lambda t: _build_mock_jwks_client(
+                    signing_key
+                ).get_signing_key_from_jwt(t),
             ):
                 result1 = await v.verify_token(token1)
                 result2 = await v.verify_token(token2)
@@ -368,9 +374,9 @@ class TestJwksTokenVerifierCaching:
         assert result2 is not None
         # The cache prevents repeated fetches — fetch_data should not be called
         # by our mock (get_signing_key_from_jwt mock is the one returning the key)
-        assert fetch_call_count == 0, (
-            "fetch_data should not be called when using the mocked get_signing_key_from_jwt"
-        )
+        assert (
+            fetch_call_count == 0
+        ), "fetch_data should not be called when using mocked get_signing_key_from_jwt"
 
     @pytest.mark.asyncio
     async def test_verifier_uses_pyjwkclient_with_cache(self, signing_key) -> None:  # type: ignore[no-untyped-def]
@@ -394,7 +400,7 @@ class TestJwksTokenVerifierCaching:
 
 
 class TestJwksTokenVerifierKidMiss:
-    """A kid-miss triggers PyJWKClient's built-in refresh (second fetch includes the kid)."""
+    """A kid-miss triggers PyJWKClient refresh (second fetch includes the kid)."""
 
     @pytest.mark.asyncio
     async def test_kid_miss_triggers_refresh(self, signing_key) -> None:  # type: ignore[no-untyped-def]
@@ -434,10 +440,14 @@ class TestJwksTokenVerifierKidMiss:
         # scenario the retry is within get_signing_key_from_jwt. Our mock simulates
         # the EXTERNAL behaviour: first call fails (kid miss), verifier returns None,
         # second call (after hypothetical cache update) succeeds.
-        with patch.object(v._client, "get_signing_key_from_jwt", side_effect=mock_get_signing_key):  # noqa: SLF001
+        with patch.object(
+            v._client, "get_signing_key_from_jwt", side_effect=mock_get_signing_key
+        ):  # noqa: SLF001
             result_first = await v.verify_token(token)  # kid-miss → None
             result_second = await v.verify_token(token)  # after refresh → success
 
         assert result_first is None, "Kid-miss on first call should return None"
-        assert result_second is not None, "After refresh (second call) should return AccessToken"
+        assert (
+            result_second is not None
+        ), "After refresh (second call) should return AccessToken"
         assert call_count == 2
