@@ -64,6 +64,48 @@ is:
 as an anticipated but not-yet-landed spec revision. Implementors MUST re-check the live
 spec before shipping Phase 70.**
 
+### Phase 70 Spec Re-Verification (2026-06-22)
+
+**Verification date:** 2026-06-22
+**Verified by:** Phase 70 Plan 03 execution (context7 query against
+`/modelcontextprotocol/modelcontextprotocol` + `/modelcontextprotocol/python-sdk`)
+
+**(a) 2026-07-28 RC / SEP-2575 (PR #2575) status:**
+The RC is published as a formal blog post
+(`blog/content/posts/2026-05-21-mcp-2026-07-28-rc.md`) and the SEP-2575 document is in
+the `seps/` directory. The RC introduces a stateless protocol core, an Extensions
+framework, and "enhanced authorization aligned with OAuth and OpenID Connect". As of
+2026-06-22 the normative authorization spec document has NOT been updated to mark the
+2025-11-25 baseline as superseded — the RC is an announced release candidate, not yet
+the normative stable spec. The RC target date (2026-07-28) has not yet passed.
+
+**(b) Auth-logic impact of the stateless RC:**
+SEP-2575 ("Stateless MCP") explicitly states: *"Without a session handshake, each
+request in stateless MCP must be independently authenticated and authorized.
+Implementations must ensure that authentication is not bypassed by removing the
+initialization phase. This proposal does not introduce additional security concerns
+beyond per-request authentication."* This CONFIRMS the design's assumption. The
+`RequireAuthMiddleware` in this implementation already validates the Bearer token on
+every `/mcp` HTTP request, independently of the `initialize` handshake. No auth-logic
+change is required for Phase 70.
+
+**(c) mcp Python SDK version in pyproject.toml:**
+`^1.27.2` (floor set in Phase 67 Plan 01). The Python SDK context7 result shows
+new extension classes (`ClientCredentialsOAuthProvider`, `PrivateKeyJWTOAuthProvider`)
+and a migration guide note about `OAuthClientMetadata.application_type="web"` for
+non-localhost redirect URIs. The core `RequireAuthMiddleware`, `BearerAuthBackend`,
+`OAuthClientProvider`, and `create_auth_routes()` APIs show no breaking changes
+from the Phase 67–70 implementation baseline. **No SDK bump is required for Phase 70.**
+If the 2026-07-28 RC lands and ships with a new `mcp` Python SDK release (anticipated
+v1.28.0+), a follow-up issue should evaluate whether any auth API changes require
+amendment — file as part of the v10.4.1 patch planning.
+
+**(d) Conclusion:**
+`RequireAuthMiddleware` validates Bearer tokens per-request, independently of the
+`initialize` handshake. This is stateless by nature and forward-compatible with the
+2026-07-28 RC's stateless protocol core. **No auth-logic change required for Phase 70.**
+The Phase 70 obligation (re-verify before shipping v10.4) is CLOSED.
+
 ---
 
 ## Framing: Wire + Configure + Mint, Not Build-From-Scratch
