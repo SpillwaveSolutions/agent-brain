@@ -173,7 +173,10 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
   3. Token revocation (RFC 7009) is supported: a revoked token is rejected by the RS on next use (either via introspection or an in-memory revocation list for co-located AS)
   4. Full E2E integration test suite passes: 401 challenge → PRM discovery → OASM discovery → PKCE dance → authorized tool call → token refresh path → scope boundary (read-only token + admin tool returns 403) — all run against the official MCP SDK client
   5. `agent_brain_mcp/oauth/` module coverage is at or above 90% as reported by the standard `task before-push` coverage gate — this is the DoD coverage requirement and blocks the milestone from shipping
-**Plans**: TBD
+**Plans**: 3 plans (3 waves — verifier code + mock unit tests first to hold 90% coverage, then Keycloak CI container + integration tests, then SC#4 E2E + coverage gate + spec re-verify + docs)
+- [ ] 70-01-PLAN.md — OAUTH-11 + OAUTH-12: JwksTokenVerifier + IntrospectionTokenVerifier + jti denylist + split-AS config env vars + build_verifier() selector in http.py + mock-backed unit tests (keeps oauth/ coverage ≥90%)
+- [ ] 70-02-PLAN.md — OAUTH-11 + OAUTH-12: keycloak pytest marker + realm bootstrap (Admin REST API, audience scope mapper RFC 8707 workaround) + Keycloak service-container CI job (path-filtered PR + nightly) + SC#1/#2/#3 keycloak-marked tests
+- [ ] 70-03-PLAN.md — OAUTH-11 + OAUTH-12: SC#4 full-dance E2E (tool call + refresh + scope-boundary 403) + task mcp:oauth-cov (≥90% CI gate, SC#5) + 2026-07-28 RC live-spec re-verify acknowledgement + operator split-AS/RS docs
 
 ## Progress
 
@@ -199,7 +202,7 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
 | 67. Co-located AS + RS middleware                           | 4/4 | Complete    | 2026-06-15 | -          |
 | 68. Per-tool scope enforcement                              | 2/2 | Complete    | 2026-06-16 | -          |
 | 69. McpHttpBackend client-side OAuth dance                  | 4/4 | Complete    | 2026-06-17 | -          |
-| 70. Split AS/RS + Keycloak-in-CI + integration tests        | v10.4     | 0/TBD          | Not started | -          |
+| 70. Split AS/RS + Keycloak-in-CI + integration tests        | v10.4     | 0/3            | Planning    | -          |
 
 ---
 *Roadmap created: 2026-02-07*
