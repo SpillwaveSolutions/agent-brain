@@ -202,7 +202,7 @@ Full details: [milestones/v10.3-ROADMAP.md](milestones/v10.3-ROADMAP.md) | Audit
 | 67. Co-located AS + RS middleware                           | 4/4 | Complete    | 2026-06-15 | -          |
 | 68. Per-tool scope enforcement                              | 2/2 | Complete    | 2026-06-16 | -          |
 | 69. McpHttpBackend client-side OAuth dance                  | 4/4 | Complete    | 2026-06-17 | -          |
-| 70. Split AS/RS + Keycloak-in-CI + integration tests        | v10.4     | 0/3            | Planning    | -          |
+| 70. Split AS/RS + Keycloak-in-CI + integration tests        | 1/3 | In Progress|  | -          |
 
 ---
 *Roadmap created: 2026-02-07*

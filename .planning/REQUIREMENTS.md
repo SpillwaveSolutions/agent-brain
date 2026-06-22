@@ -29,8 +29,8 @@
 
 ### OAuth 2.1 — Split AS/RS (external IdP)
 
-- [ ] **OAUTH-11**: Split AS/RS mode — the RS verifies JWTs against an external IdP via cached JWKS (`kid`-miss on-demand refresh + TTL jitter), verified end-to-end against **Keycloak-in-CI** with RFC 8707 Resource Indicators enabled (Keycloak ≥22).
-- [ ] **OAUTH-12**: Token introspection (RFC 7662) + revocation (RFC 7009) supported for opaque-token / external-AS deployments.
+- [x] **OAUTH-11**: Split AS/RS mode — the RS verifies JWTs against an external IdP via cached JWKS (`kid`-miss on-demand refresh + TTL jitter), verified end-to-end against **Keycloak-in-CI** with RFC 8707 Resource Indicators enabled (Keycloak ≥22).
+- [x] **OAUTH-12**: Token introspection (RFC 7662) + revocation (RFC 7009) supported for opaque-token / external-AS deployments.
 
 ### Housekeeping
 
@@ -83,8 +83,8 @@ Which phases cover which requirements. Filled by roadmap creation.
 | OAUTH-08 | Phase 67 | Complete |
 | OAUTH-09 | Phase 66 | Complete |
 | OAUTH-10 | Phase 67 | Complete |
-| OAUTH-11 | Phase 70 | Pending |
-| OAUTH-12 | Phase 70 | Pending |
+| OAUTH-11 | Phase 70 | Complete |
+| OAUTH-12 | Phase 70 | Complete |
 | HOUSE-01 | Phase 64 | Complete |
 
 **Coverage:**
