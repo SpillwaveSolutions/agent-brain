@@ -149,12 +149,55 @@ The `agent-brain` CLI became a reference MCP client: `--transport mcp` + `--mcp-
 
 ---
 
+## Milestone: v10.4 — MCP v4 (OAuth 2.1 + GraphRAG Stability)
+
+**Shipped:** 2026-06-22
+**Phases:** 7 (64-70) | **Plans:** 21
+
+### What Was Built
+Agent Brain can now run remotely behind OAuth 2.1 on the Streamable HTTP transport. Bugs first (Phase 64): the kuzu `SIGSEGV` under sustained GraphRAG indexing (#178) was isolated into an out-of-process `spawn` subprocess with per-job graceful degradation, health counts became a live kuzu `COUNT(*)` (killing the `0/100` vs `5677/4366` drift, #184), and a `graph restore-from-snapshot` CLI + doctor WARN shipped. Then a design-doc-gated OAuth build (Phases 65-70): security-reviewed design doc → public discovery root (RFC 9728 PRM + RFC 8414 OASM) + `AGENT_BRAIN_AUTH` toggle → co-located AS+RS (authorization-code + PKCE S256, RS256 JWTs, JWKS, CIMD registration with a full SSRF stack) → per-tool scope enforcement (4 scopes × 16 tools, 403-vs-401) → transparent client-side OAuth dance in `McpHttpBackend` (`OAuthClientProvider` + `FileTokenStorage` reuse, confused-deputy prevention) → split AS/RS validated against a live Keycloak-in-CI with introspection + jti-denylist revocation, behind a binding ≥90% `oauth/` coverage gate.
+
+### What Worked
+- **Design-doc + independent security-review gate before any code (Phase 65).** The adversarial review found and closed 7 real gaps (DNS-rebinding SSRF post-resolution check, empty-resource startup gate, import-time scope drift guard, PKCE-plain rejection, `0o600` token file, all-mode termination contract, subscriptions exemption) *before* implementation — the single highest-leverage decision of the milestone. Auth is where a design bug is a vulnerability.
+- **Bugs-first ordering.** Stabilizing kuzu (Phase 64) before stacking auth meant the OAuth work landed on a non-crashing server; no auth phase had to debug a SIGSEGV.
+- **One verifier seam (`build_verifier()`) for three topologies.** Co-located / external-JWKS / introspection became a config swap behind a stable `verify_token() -> AccessToken | None` contract — the split-AS phase (70) was a config + test phase, not a refactor.
+- **7/7 phases passed verification on first pass** — the clean-execution streak continued (v10.2 6/6, v10.3 8/8, v10.4 7/7).
+
+### What Was Inefficient
+- **Transient API 529s interrupted executor + verifier mid-phase (69).** Plan 69-04's finalization and goal-backward verification had to be completed inline by the orchestrator with grep/test evidence after the subagents hit overload errors. No code was lost, but it broke the clean sub-agent handoff.
+- **An executor erroneously marked OAUTH-07 (Phase 69) complete during Phase 68** and had to be reverted to Pending — a cross-phase bookkeeping slip the orchestrator caught.
+- **Keycloak-in-CI took real fighting.** Service-container limits (can't override the command; prod `start` fails health checks) forced a step-level `docker run … start-dev`, and Keycloak's lack of native RFC 8707 before 26.8 forced an audience-scope-mapper workaround. The integration was sound but cost iterations.
+- **No formal Nyquist `VALIDATION.md` artifacts** for any of the 7 phases (same posture as v10.3) — verification rode on goal-backward VERIFICATION.md with substantive test evidence instead.
+
+### Patterns Established
+- **Security-review gate as an explicit phase** (not a checklist item) for any auth/security-critical subsystem.
+- **Isolate native-crash-prone work (kuzu) in a spawned subprocess** so an uncatchable SIGSEGV becomes a catchable, degradable error.
+- **Discovery routes in `exempt_routes` ABOVE the auth-wrapped Mount**, pinned by an index-order test that survives later middleware additions (Starlette first-match).
+- **Single config seam selecting auth topology** (`build_verifier()`); RS depends only on the stable verify contract.
+- **Pre-dispatch middleware for real HTTP status codes** where the lowlevel server would otherwise convert handler exceptions to JSON-RPC-in-200.
+- **Co-locate the scope→tool map with the tool SOT + import-time drift guard** so an unscoped tool fails the server at import, not silently in prod.
+
+### Key Lessons
+1. **Gate security subsystems on an independent adversarial review before code.** 7 real vulnerabilities were closed at design time for the cost of one review phase — far cheaper than finding them post-ship.
+2. **A stable verification seam turns a topology change into a config change.** Designing `verify_token()` as the only contract the RS depends on made co-located→split-IdP a non-event.
+3. **CI integration with stateful external services (Keycloak) needs a command-override escape hatch** — budget for step-level `docker run` over `services:` when the container needs non-default startup.
+4. **Transient provider overloads (529s) need an orchestrator fallback path** so a sub-agent dying mid-finalization doesn't lose verification evidence.
+5. **Confused-deputy prevention must be a named, tested invariant** — assert the upstream token is *absent*, not just that the right header is present.
+
+### Cost Observations
+- Model mix: opus (orchestration + plan-check + verifier + security review + audit) + sonnet (executors + integration checker). No haiku.
+- Timeline: 2026-06-14 → 2026-06-22 (~8 days).
+- Notable: 7/7 phases first-pass verified; `agent_brain_mcp/oauth/` at 90.53% behind a binding ≥90% CI gate; fast suite at 1021 MCP tests. The two defects (529 interruption, erroneous Phase-69 completion) were process slips caught in-flight, not shipped bugs.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
 
 | Milestone | Sessions | Phases | Key Change |
 |-----------|----------|--------|------------|
+| v10.4 | ~8 | 7 | Independent security-review gate as an explicit phase before any auth code (closed 7 design-time vulns); bugs-first ordering; single `build_verifier()` seam made co-located→split-IdP a config swap; Keycloak-in-CI via step-level `docker run` |
 | v10.3 | ~8 | 8 | Milestone audit's cross-phase integration trace caught a DoD-anchor regression invisible to per-phase verifiers; hygiene-before-frameworks ordering; design+skeleton-first with grep-able sentinels |
 | v10.2 | ~7 | 6 | Wave parallelism scheduled by file-collision analysis (not topic), not plan independence; `_tool_matrix.py` SOT pattern with import-time drift guard validated |
 | v9.4.0 | n/a | 10 | Audit-driven gap closure was formalized with dedicated closure phase planning |
@@ -164,6 +207,7 @@ The `agent-brain` CLI became a reference MCP client: `--transport mcp` + `--mcp-
 
 | Milestone | Tests | Coverage | Zero-Dep Additions |
 |-----------|-------|----------|-------------------|
+| v10.4 | 1021 MCP fast-suite (+~300 over milestone) | `agent_brain_mcp/oauth/` 90.53% behind binding ≥90% CI gate | +PyJWT[crypto]/authlib/pwdlib (auth is inherently dep-bearing); mcp SDK ^1.12→^1.27.2 |
 | v10.2 | ~530 new (1685+ total) | agent-brain-mcp 91.83% / agent-brain-uds 99% | 0 (uses existing MCP SDK 1.12.x) |
 | v9.4.0 | n/a | n/a | n/a |
 | v9.3.0 | 47 (graph extractors) | n/a | 0 (doc-only milestone) |
@@ -175,4 +219,6 @@ The `agent-brain` CLI became a reference MCP client: `--transport mcp` + `--mcp-
 3. When SPECs have all checkboxes checked, verify code before planning — retroactive closure saves full execution cycles.
 4. Schedule wave parallelism by file-collision analysis, not plan independence — plans that look independent but commit to the same file will race at the `git commit` step.
 5. Run a pinned-SDK smoke test before planning a phase that depends on that SDK — runtime API drift is more expensive than design-time drift.
+6. Gate security-critical subsystems on an explicit independent-review phase before any implementation — design-time vulnerabilities are an order of magnitude cheaper to close than shipped ones (v10.4 closed 7).
+7. Design one stable verification/abstraction seam so deployment-topology changes become config swaps, not refactors (v10.4 `build_verifier()`: co-located ↔ split-IdP).
 6. Single SOT with import-time validation is the lightest-weight defense against silent drift between test layers — costs ~50 lines of plumbing; benefit: drift fails at import, not in CI.

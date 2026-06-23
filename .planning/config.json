@@ -7,7 +7,7 @@
     "research": false,
     "plan_check": true,
     "verifier": true,
-    "_auto_chain_active": true
+    "_auto_chain_active": false
   },
   "migration": {
     "source": "speckit",

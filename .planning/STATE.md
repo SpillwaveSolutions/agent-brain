@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
 milestone: v10.4
-milestone_name: milestone
+milestone_name: "MCP v4: OAuth 2.1 + GraphRAG Stability"
 current_phase: 70
 status: completed
-stopped_at: Completed Phase 70 Plan 03 (70-03-PLAN.md)
-last_updated: "2026-06-22T19:08:45.853Z"
+stopped_at: Milestone v10.4 complete — archived and tagged
+last_updated: "2026-06-22T00:00:00.000Z"
 progress:
   total_phases: 7
   completed_phases: 7
@@ -16,21 +16,21 @@ progress:
 # Agent Brain — Project State
 
 **Last Updated:** 2026-06-22
-**Current Milestone:** v10.4 — MCP v4: OAuth 2.1 + GraphRAG Stability
-**Status:** Milestone complete
-**Current Phase:** 70
+**Current Milestone:** none — v10.4 shipped, planning next
+**Status:** v10.4 milestone complete — archived and tagged
+**Current Phase:** none
 
 ## Current Position
 
-Phase: 70 (split-as-rs-keycloak-in-ci-integration-tests) — COMPLETE
-Plan: 3 of 3 (all plans complete)
+Milestone v10.4 (MCP v4: OAuth 2.1 + GraphRAG Stability) — SHIPPED 2026-06-22, audit passed (16/16 requirements), archived to `.planning/milestones/`, git tag `v10.4`.
+Next: `/gsd:new-milestone` (fresh requirements + roadmap).
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-14)
+See: .planning/PROJECT.md (updated 2026-06-22 after v10.4 milestone)
 
 **Core value:** Developers can semantically search their entire codebase and documentation through a single, fast, local-first API that understands code structure and relationships
-**Current focus:** Phase 70 — split-as-rs-keycloak-in-ci-integration-tests
+**Current focus:** Planning next milestone (strongest candidate: Enterprise Hardening & Cloud Deployment #200-205, now unblocked by OAuth)
 
 ## Milestone Summary
 
