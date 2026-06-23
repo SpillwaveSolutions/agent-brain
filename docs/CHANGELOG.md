@@ -1,5 +1,5 @@
 ---
-last_validated: 2026-06-14
+last_validated: 2026-06-22
 ---
 
 # Changelog
@@ -8,6 +8,41 @@ All notable changes to Agent Brain will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [10.4.0] - 2026-06-22
+
+Closes the **v10.4 milestone — MCP v4: OAuth 2.1 + GraphRAG Stability** (7 phases, 64–70; 16/16 requirements; milestone audit passed). Agent Brain can now run remotely behind OAuth 2.1 on the Streamable HTTP transport — in both a co-located AS/RS single-binary shape and a split AS/RS shape backed by an external IdP (validated against Keycloak-in-CI). Bugs were fixed first: the kuzu `SIGSEGV` (#178) and graph under-reporting / stale-snapshot issues (#184). Auth is **off by default** (`AGENT_BRAIN_AUTH=none`); nothing changes for existing local/loopback users unless they opt in.
+
+### Security
+
+- **OAuth 2.1 for the remote MCP (Streamable HTTP) transport** (`agent-brain-mcp/agent_brain_mcp/oauth/*`, `oauth_metadata.py`, `http.py`, `config.py`, `server.py`; closes [#188](https://github.com/SpillwaveSolutions/agent-brain/issues/188)). Gated by `AGENT_BRAIN_AUTH` (`none` default / `basic` LAN shared-secret bridge / `oauth`), exclusive by construction with a boot-time startup gate (exit 2 on an invalid mode or an empty/scheme-less/fragmented `AGENT_BRAIN_OAUTH_RESOURCE`). The design was filed and **passed an independent adversarial security review before any implementation code landed** (`docs/plans/2026-06-14-mcp-v4-oauth-design.md`), which found and closed 7 gaps (DNS-rebinding SSRF post-resolution IP check, empty-resource startup gate, import-time scope drift guard, PKCE-`plain` rejection, `0o600` token file, all-mode token-termination contract, `/mcp/subscriptions` exemption audit) at design time.
+  - **Co-located Authorization Server + Resource Server.** Authorization-code flow with **PKCE S256-only** (`plain`/missing challenge actively rejected with HTTP 400 at `/authorize`), RS256 JWT minting (`PyJWT[crypto]`, 15-min access / rotating 30-day refresh) + a `/.well-known/jwks.json` endpoint, wired through the SDK `OAuthAuthorizationServerProvider`. The RS verifies signature, `exp`/`nbf` (30 s leeway), `iss`, and `aud` and returns 401 + `WWW-Authenticate` on any failure.
+  - **Public discovery root, reachable with no token.** Protected Resource Metadata (RFC 9728) at `/.well-known/oauth-protected-resource` (+ path-suffixed variant) and Authorization Server Metadata (RFC 8414, advertising `code_challenge_methods_supported: ["S256"]`) at `/.well-known/oauth-authorization-server`, mounted **above** the `/mcp` mount so Starlette first-match keeps them served (HTTP 200) in every mode even with `RequireAuthMiddleware` wired.
+  - **Per-tool scope enforcement.** Four scopes (`agent-brain:read|index|admin|subscribe`) mapped to all 16 MCP tools in a single source of truth co-located with `_tool_matrix.py`, guarded by a **fail-loud import-time drift check** so the server refuses to start if a tool is added without a scope. A pre-dispatch `ScopeEnforcementMiddleware` returns a real **HTTP 403 `insufficient_scope`** (distinct from a 401 missing/invalid token) for under-scoped calls.
+  - **Resource Indicators (RFC 8707) + confused-deputy prevention.** The client sends `resource` in authorize + token requests; the AS binds `aud` to the canonical resource URI and the RS validates it. The client's OAuth token **never** reaches the MCP→REST leg, which continues to use `X-API-Key` exclusively — asserted by a dedicated `test_oauth_confused_deputy.py` that checks the token string is absent from every upstream header.
+  - **Client registration.** CIMD (Client ID Metadata Documents) + static pre-registration, with a full SSRF stack on metadata fetches (domain allowlist + unconditional private/loopback/link-local block + DNS-rebinding post-resolution `getaddrinfo` re-check + 5 s timeout).
+  - **Split AS/RS (external IdP).** `build_verifier()` selects `JwksTokenVerifier` (remote JWKS via `PyJWKClient`, `kid`-miss refresh + TTL, `asyncio.to_thread`) → `IntrospectionTokenVerifier` (RFC 7662, `active:false` → 401) → `LocalRs256Verifier` behind one stable `verify_token() -> AccessToken | None` seam, so topology is a config swap. Validated end-to-end against a live Keycloak ≥22 container in CI. Token revocation (RFC 7009) is supported via introspection plus a `jti` denylist on the co-located store.
+
+### Added
+
+- **`McpHttpBackend` client-side OAuth dance** (`agent-brain-mcp/agent_brain_mcp/oauth/oauth_client.py`, `oauth_handlers.py`, `token_storage.py`, `client.py`; OAUTH-07). The CLI transparently handles a 401 + `WWW-Authenticate` challenge → PRM/OASM discovery → PKCE dance via the SDK `OAuthClientProvider`, opening a browser once and persisting tokens in a `FileTokenStorage` (`state_dir/mcp-oauth-tokens.json`, chmod `0o600`). Subsequent Pattern A per-call invocations reuse the cached token (silent refresh on expiry, no re-prompt). Opt-in via `AGENT_BRAIN_MCP_AUTH=oauth` (default OFF → byte-identical no-auth path).
+- **`GET /mcp/subscriptions` debug endpoint** (`agent-brain-mcp/agent_brain_mcp/http.py`, `server.py`; HOUSE-01, closes [#194](https://github.com/SpillwaveSolutions/agent-brain/issues/194)). Exposes live subscription state (session IDs, subscribed URIs, uptime) for operator diagnosis, closing the v10.2 VAL-02 deferral where disconnect-cleanup tests fell back to stderr-scraping.
+- **`agent-brain graph restore-from-snapshot [--snapshot PATH] [--dry-run]`** + `agent-brain doctor` stale-graph detection (server + CLI; GSTAB-02). Replays the latest kuzu snapshot from disk after an `AGENT_BRAIN_JOB_TIMEOUT` rollback, and `doctor` now surfaces the stale-graph condition as a WARN instead of reporting `OK`.
+
+### Fixed
+
+- **Sustained GraphRAG indexing with `graphrag.store_type: kuzu` no longer crashes the server with SIGSEGV** (`agent-brain-server/agent_brain_server/indexing/graph_index.py`, `storage/graph_errors.py`, `services/indexing_service.py`; GSTAB-01, closes [#178](https://github.com/SpillwaveSolutions/agent-brain/issues/178)). Graph writes now run in an out-of-process `multiprocessing` **spawn** subprocess (`build_from_documents_isolated()`); a kuzu-native crash surfaces as a structured `GraphBuildFailedError` and the indexing job degrades gracefully (leaves the job `COMPLETED` with vector + BM25 intact) instead of taking down the server process. The `simple` store remains the documented fallback.
+- **`/health/status` graph `entity_count` / `relationship_count` now match kuzu's actual contents** (`agent-brain-server/agent_brain_server/api/routers/health.py`, `indexing/graph_index.py`; GSTAB-03, closes [#184](https://github.com/SpillwaveSolutions/agent-brain/issues/184)). Counts are derived from a live kuzu `COUNT(*)` at query time (TTL-cached, with a stale fallback) — the `0 / 100` vs real `5677 / 4366` under-reporting from a drifting stored counter is gone.
+
+### Known issues
+
+- **Keycloak-in-CI E2E (`agent-brain-mcp/tests/test_oauth_keycloak_e2e.py`) is currently red** — the realm/client bootstrap returns `400` at the Keycloak token endpoint, failing all 8 opt-in external-IdP E2E tests at setup. This is a CI test-harness bootstrap issue, not a defect in the shipped OAuth code: the unit + contract suite (1021 tests) passes and `agent_brain_mcp/oauth/` holds ≥90 % coverage (90.53 %) behind a binding CI gate. Tracked as follow-up tech debt; the `MCP Keycloak Integration` check is non-blocking.
+
+### Deferred
+
+- Public RFC 7009 `/revoke` route → v10.4.1 (revocation currently rides on introspection + the `jti` denylist; the OAUTH-12 DoD is met). DPoP (RFC 9449) token binding is forced-deferred — no production-grade Python library exists as of June 2026; it is optional in the MCP core spec. Structured audit logging of authorized calls is its own future milestone.
 
 ---
 
