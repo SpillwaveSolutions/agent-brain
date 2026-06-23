@@ -110,6 +110,7 @@ markers = [
     "e2e_http: end-to-end test requiring an agent-brain-mcp subprocess in HTTP transport mode (slow; opt-in via `task mcp:smoke:http`)",
     "contract: SDK-driven contract test verifying MCP wire-protocol conformance (stdio + HTTP transports). Spawns fake-backed agent-brain-mcp subprocesses via the official MCP Python SDK client. Opt-in via `task mcp:contract`. Phase 55 Plans 01-04.",
     "stress: 1000-invocation no-orphan test (MCPHYG-02 — slow, opt-in via `task mcp:stress:orphan-test`; NOT in task before-push). Drives McpStdioBackend through tight query→close cycles asserting psutil children delta returns to zero per iteration.",
+    "keycloak: marks tests that require a Keycloak container (slow; opt-in via task mcp:keycloak; mirrors @pytest.mark.postgres skip convention)",
 ]
-# Default test runs exclude e2e + contract + stress suites to keep `task mcp:test` fast.
-addopts = "-m 'not e2e and not e2e_http and not contract and not stress'"
+# Default test runs exclude e2e + contract + stress + keycloak suites to keep `task mcp:test` fast.
+addopts = "-m 'not e2e and not e2e_http and not contract and not stress and not keycloak'"

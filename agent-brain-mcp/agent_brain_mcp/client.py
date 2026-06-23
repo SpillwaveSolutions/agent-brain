@@ -1143,6 +1143,13 @@ class McpStdioBackend:
         return result.model_dump(mode="json", exclude_none=False)
 
 
+# Phase 69 Plan 03 — client-side OAuth opt-in env var.
+# Mirrors the server's AGENT_BRAIN_AUTH naming convention (config.py AuthMode).
+# Default OFF: basic/none deployments never get a surprise browser launch
+# (Context decision A). Set AGENT_BRAIN_MCP_AUTH=oauth to enable.
+MCP_CLIENT_AUTH_ENV = "AGENT_BRAIN_MCP_AUTH"
+
+
 class McpHttpBackend:
     """CLI-side backend that talks to agent-brain-mcp over Streamable HTTP.
 
@@ -1151,6 +1158,13 @@ class McpHttpBackend:
     ``mcp.client.streamable_http.streamablehttp_client`` instead of
     ``stdio_client``. Each public method uses Pattern A:
     ``asyncio.run(self._async_*())`` per call.
+
+    Phase 69 adds a single ``_http_session()`` async context manager that
+    centralises all 17 former per-method transport call sites and injects an
+    optional ``OAuthClientProvider`` via the ``auth=`` seam (Context decision
+    B).  When ``AGENT_BRAIN_MCP_AUTH=oauth`` is unset (the default),
+    ``auth=None`` and behaviour is byte-identical to pre-Phase-69
+    (Context decision A).
 
     Structurally satisfies the BackendClient Protocol at
     agent_brain_cli.client.protocol.BackendClient (Plan 56-02).
@@ -1165,6 +1179,9 @@ class McpHttpBackend:
             DocServeClient's default. Currently advisory — the MCP SDK
             transport does not surface a configurable per-call timeout;
             Phase 60 may wire this through if the SDK adds the knob.
+        state_dir: Project state directory.  Used for mcp.runtime.json URL
+            discovery (Phase 58) and as the ``FileTokenStorage`` root when
+            ``AGENT_BRAIN_MCP_AUTH=oauth`` (Phase 69).
     """
 
     def __init__(
@@ -1182,7 +1199,8 @@ class McpHttpBackend:
                 attempted via ``state_dir/mcp.runtime.json`` (Phase 58 §2.4).
             timeout: Per-request timeout in seconds (advisory).
             state_dir: Project state directory used for mcp.runtime.json
-                discovery when ``url`` is None. Phase 58 CLI-MCP-08.
+                discovery when ``url`` is None (Phase 58 CLI-MCP-08) and for
+                FileTokenStorage when OAuth is enabled (Phase 69 Plan 03).
 
         Raises:
             ValueError: when both ``url`` and ``state_dir`` are None.
@@ -1196,6 +1214,10 @@ class McpHttpBackend:
         self.url = url
         self.timeout = timeout
         self._closed = False
+        # Phase 69 Plan 03 — OAuth opt-in + lazy provider cache.
+        self._state_dir = state_dir
+        self._oauth_enabled = os.environ.get(MCP_CLIENT_AUTH_ENV, "").lower() == "oauth"
+        self._auth_provider: Any | None = None
 
     @staticmethod
     def _discover_url(state_dir: Path) -> str:
@@ -1249,6 +1271,69 @@ class McpHttpBackend:
     def close(self) -> None:
         self._closed = True
 
+    # ------------------------------------------------------------------
+    # Phase 69 Plan 03 — OAuth opt-in + single auth-injection seam
+    # ------------------------------------------------------------------
+
+    def _get_auth(self) -> httpx.Auth | None:
+        """Return the OAuthClientProvider when OAuth is enabled, else None.
+
+        Builds the provider lazily ONCE per McpHttpBackend instance and
+        caches it in ``self._auth_provider`` (reused across Pattern A calls
+        within the same invocation).
+
+        When ``AGENT_BRAIN_MCP_AUTH`` is not set to ``"oauth"`` (the default),
+        returns ``None`` — auth=None in ``streamablehttp_client`` is the
+        pre-Phase-69 byte-identical path (Context decision A, default OFF).
+
+        Returns:
+            ``OAuthClientProvider`` instance (implements ``httpx.Auth``) when
+            OAuth is enabled, or ``None`` when disabled (the default).
+
+        Raises:
+            RuntimeError: When ``AGENT_BRAIN_MCP_AUTH=oauth`` is set but
+                ``state_dir`` is ``None`` — token storage cannot be keyed
+                without a state directory.
+        """
+        if not self._oauth_enabled:
+            return None
+        if self._state_dir is None:
+            # OAuth requested but no state_dir to key storage → cannot persist
+            raise RuntimeError(
+                "AGENT_BRAIN_MCP_AUTH=oauth requires a state_dir for token storage"
+            )
+        if self._auth_provider is None:
+            from agent_brain_mcp.oauth.oauth_client import build_oauth_client_provider
+
+            self._auth_provider = build_oauth_client_provider(self.url, self._state_dir)
+        return (
+            self._auth_provider
+        )  # noqa: return-value — Any stored, httpx.Auth returned
+
+    @asynccontextmanager
+    async def _http_session(self) -> AsyncIterator[Any]:
+        """Single auth-injection seam for all HTTP tool calls (Context decision B).
+
+        Centralises the 17 former per-method transport call sites; injects
+        the optional ``OAuthClientProvider`` (``auth=None`` when OAuth opt-in
+        is OFF — byte-identical to the pre-Phase-69 path).
+
+        Preserves the lazy SDK import pattern so HTTP/UDS-only CLI invocations
+        never pay the MCP SDK import cost when this method is not reached.
+
+        Yields:
+            An initialised ``ClientSession`` ready for tool calls and resource
+            reads.
+        """
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+
+        auth = self._get_auth()
+        async with streamablehttp_client(self.url, auth=auth) as (read, write, *_):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                yield session
+
     def query(
         self,
         query_text: str,
@@ -1298,9 +1383,6 @@ class McpHttpBackend:
         simplest correct code path. Mirrors :meth:`McpStdioBackend.
         _async_query` exactly except for the transport call.
         """
-        from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
-
         tool_args: dict[str, Any] = {
             "query": query_text,
             "top_k": top_k,
@@ -1316,14 +1398,8 @@ class McpHttpBackend:
         if file_paths is not None:
             tool_args["file_paths"] = file_paths
 
-        # The SDK's streamablehttp_client yields (read, write,
-        # session_id_factory) in mcp 1.12.x; use *_ to absorb any
-        # future trailing tuple elements per the Phase 53
-        # test_transport_selection.py precedent (lines 67-71).
-        async with streamablehttp_client(self.url) as (read, write, *_):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.call_tool("search_documents", tool_args)
+        async with self._http_session() as session:
+            result = await session.call_tool("search_documents", tool_args)
 
         return _coerce_query_response(_unwrap_payload(result))
 
@@ -1366,72 +1442,49 @@ class McpHttpBackend:
     async def _async_index(
         self, *, tool_name: str, body: dict[str, Any]
     ) -> IndexResponse:
-        from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
-
-        async with streamablehttp_client(self.url) as (read, write, *_):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.call_tool(tool_name, body)
+        async with self._http_session() as session:
+            result = await session.call_tool(tool_name, body)
         return _coerce_index_response(_unwrap_payload(result))
 
     def health(self) -> HealthStatus:
         return asyncio.run(self._async_health())
 
     async def _async_health(self) -> HealthStatus:
-        from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
-
-        async with streamablehttp_client(self.url) as (read, write, *_):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.call_tool("server_health", {})
+        async with self._http_session() as session:
+            result = await session.call_tool("server_health", {})
         return _coerce_health_status(_unwrap_payload(result))
 
     def status(self) -> IndexingStatus:
         return asyncio.run(self._async_status())
 
     async def _async_status(self) -> IndexingStatus:
-        from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
         from pydantic import AnyUrl
 
-        async with streamablehttp_client(self.url) as (read, write, *_):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.read_resource(AnyUrl("corpus://status"))
+        async with self._http_session() as session:
+            result = await session.read_resource(AnyUrl("corpus://status"))
         return _coerce_indexing_status(_unwrap_resource_body(result))
 
     def list_folders(self) -> list[FolderInfo]:
         return asyncio.run(self._async_list_folders())
 
     async def _async_list_folders(self) -> list[FolderInfo]:
-        from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
         from pydantic import AnyUrl
 
-        async with streamablehttp_client(self.url) as (read, write, *_):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.read_resource(AnyUrl("corpus://folders"))
+        async with self._http_session() as session:
+            result = await session.read_resource(AnyUrl("corpus://folders"))
         return _coerce_folder_info_list(_unwrap_resource_body(result))
 
     def delete_folder(self, folder_path: str) -> dict[str, Any]:
         return asyncio.run(self._async_delete_folder(folder_path))
 
     async def _async_delete_folder(self, folder_path: str) -> dict[str, Any]:
-        from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
-
         # remove_folder is destructive — confirm=True pass-through per
         # CONTEXT discretion note (same shape as McpStdioBackend).
-        async with streamablehttp_client(self.url) as (read, write, *_):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.call_tool(
-                    "remove_folder",
-                    {"folder_path": folder_path, "confirm": True},
-                )
+        async with self._http_session() as session:
+            result = await session.call_tool(
+                "remove_folder",
+                {"folder_path": folder_path, "confirm": True},
+            )
         return _unwrap_payload(result)
 
     def reset(self) -> IndexResponse:
@@ -1449,13 +1502,8 @@ class McpHttpBackend:
         return asyncio.run(self._async_list_jobs(limit))
 
     async def _async_list_jobs(self, limit: int) -> list[dict[str, Any]]:
-        from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
-
-        async with streamablehttp_client(self.url) as (read, write, *_):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.call_tool("list_jobs", {"limit": limit})
+        async with self._http_session() as session:
+            result = await session.call_tool("list_jobs", {"limit": limit})
         payload = _unwrap_payload(result)
         jobs = payload.get("jobs", [])
         assert isinstance(jobs, list)
@@ -1465,68 +1513,48 @@ class McpHttpBackend:
         return asyncio.run(self._async_get_job(job_id))
 
     async def _async_get_job(self, job_id: str) -> dict[str, Any]:
-        from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
         from pydantic import AnyUrl
 
-        async with streamablehttp_client(self.url) as (read, write, *_):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.read_resource(AnyUrl(f"job://{job_id}"))
+        async with self._http_session() as session:
+            result = await session.read_resource(AnyUrl(f"job://{job_id}"))
         return _unwrap_resource_body(result)
 
     def cancel_job(self, job_id: str) -> dict[str, Any]:
         return asyncio.run(self._async_cancel_job(job_id))
 
     async def _async_cancel_job(self, job_id: str) -> dict[str, Any]:
-        from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
-
         # cancel_job is destructive — confirm=True pass-through (v1
         # §6.2 guard, same shape as McpStdioBackend).
-        async with streamablehttp_client(self.url) as (read, write, *_):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.call_tool(
-                    "cancel_job", {"job_id": job_id, "confirm": True}
-                )
+        async with self._http_session() as session:
+            result = await session.call_tool(
+                "cancel_job", {"job_id": job_id, "confirm": True}
+            )
         return _unwrap_payload(result)
 
     def cache_status(self) -> dict[str, Any]:
         return asyncio.run(self._async_cache_status())
 
     async def _async_cache_status(self) -> dict[str, Any]:
-        from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
-
-        async with streamablehttp_client(self.url) as (read, write, *_):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.call_tool("cache_status", {})
+        async with self._http_session() as session:
+            result = await session.call_tool("cache_status", {})
         return _unwrap_payload(result)
 
     def clear_cache(self) -> dict[str, Any]:
         return asyncio.run(self._async_clear_cache())
 
     async def _async_clear_cache(self) -> dict[str, Any]:
-        from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
-
         # clear_cache is destructive — confirm=True pass-through
         # (Phase 54 Plan 03 guard, same shape as McpStdioBackend).
-        async with streamablehttp_client(self.url) as (read, write, *_):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.call_tool("clear_cache", {"confirm": True})
+        async with self._http_session() as session:
+            result = await session.call_tool("clear_cache", {"confirm": True})
         return _unwrap_payload(result)
 
     # --- Phase 59 Plan 02: McpBackend Protocol surface (wired) ---
     #
     # Same Pattern A shape as McpStdioBackend's wires above, but using
-    # ``streamablehttp_client(self.url)`` (3-tuple yield: read, write,
-    # session_id_factory — absorb the trailing tuple element with
-    # ``*_`` per the Phase 53 ``test_transport_selection.py``
-    # precedent). The model_dump translation is identical.
+    # _http_session() (Phase 69 centralisation) instead of the former
+    # per-method inline transport setup. The model_dump translation is
+    # identical.
 
     def get_prompt(
         self, name: str, arguments: dict[str, str] | None = None
@@ -1536,52 +1564,33 @@ class McpHttpBackend:
     async def _async_get_prompt(
         self, name: str, arguments: dict[str, str] | None
     ) -> dict[str, Any]:
-        from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
-
-        async with streamablehttp_client(self.url) as (read, write, *_):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.get_prompt(name, arguments)
-        return result.model_dump(mode="json", exclude_none=False)
+        async with self._http_session() as session:
+            result = await session.get_prompt(name, arguments)
+        dumped: dict[str, Any] = result.model_dump(mode="json", exclude_none=False)
+        return dumped
 
     def list_prompts(self) -> list[dict[str, Any]]:
         return asyncio.run(self._async_list_prompts())
 
     async def _async_list_prompts(self) -> list[dict[str, Any]]:
-        from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
-
-        async with streamablehttp_client(self.url) as (read, write, *_):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.list_prompts()
+        async with self._http_session() as session:
+            result = await session.list_prompts()
         return [p.model_dump(mode="json", exclude_none=False) for p in result.prompts]
 
     def list_resources(self) -> list[dict[str, Any]]:
         return asyncio.run(self._async_list_resources())
 
     async def _async_list_resources(self) -> list[dict[str, Any]]:
-        from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
-
-        async with streamablehttp_client(self.url) as (read, write, *_):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.list_resources()
+        async with self._http_session() as session:
+            result = await session.list_resources()
         return [r.model_dump(mode="json", exclude_none=False) for r in result.resources]
 
     def list_resource_templates(self) -> list[dict[str, Any]]:
         return asyncio.run(self._async_list_resource_templates())
 
     async def _async_list_resource_templates(self) -> list[dict[str, Any]]:
-        from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
-
-        async with streamablehttp_client(self.url) as (read, write, *_):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.list_resource_templates()
+        async with self._http_session() as session:
+            result = await session.list_resource_templates()
         return [
             t.model_dump(mode="json", exclude_none=False)
             for t in result.resourceTemplates
@@ -1591,15 +1600,12 @@ class McpHttpBackend:
         return asyncio.run(self._async_read_resource(uri))
 
     async def _async_read_resource(self, uri: str) -> dict[str, Any]:
-        from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
         from pydantic import AnyUrl
 
-        async with streamablehttp_client(self.url) as (read, write, *_):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.read_resource(AnyUrl(uri))
-        return result.model_dump(mode="json", exclude_none=False)
+        async with self._http_session() as session:
+            result = await session.read_resource(AnyUrl(uri))
+        dumped: dict[str, Any] = result.model_dump(mode="json", exclude_none=False)
+        return dumped
 
 
 __all__: list[str] = ["ApiClient", "McpStdioBackend", "McpHttpBackend"]

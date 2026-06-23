@@ -45,6 +45,7 @@ Design doc: docs/plans/2026-06-14-mcp-v4-oauth-design.md
 from __future__ import annotations
 
 import secrets
+import threading
 import time
 from typing import TYPE_CHECKING
 
@@ -157,10 +158,14 @@ class InMemoryTokenStore:
     """
 
     def __init__(self) -> None:
-        """Initialize all three empty dicts."""
+        """Initialize all three empty dicts plus the jti denylist."""
         self._auth_codes: dict[str, AuthorizationCode] = {}
         self._access_tokens: dict[str, AccessToken] = {}
         self._refresh_tokens: dict[str, RefreshToken] = {}
+        # Phase 70 (OAUTH-12 SC#3): in-memory jti denylist for co-located revocation.
+        # Stores ONLY the jti string (never the full JWT — anti-pattern per RESEARCH).
+        self._revoked_jtis: set[str] = set()
+        self._jti_lock = threading.Lock()
 
     # ------------------------------------------------------------------
     # Authorization code methods (single-use)
@@ -308,6 +313,45 @@ class InMemoryTokenStore:
             token: The refresh token string to revoke.
         """
         self._refresh_tokens.pop(token, None)
+
+    # ------------------------------------------------------------------
+    # jti denylist methods (Phase 70 — OAUTH-12 SC#3 co-located revocation)
+    # ------------------------------------------------------------------
+
+    def revoke_by_jti(self, jti: str) -> None:
+        """Add a jti to the in-memory revocation denylist.
+
+        Idempotent — calling twice with the same jti is safe.
+        Only the jti string is stored, never the full JWT (per RESEARCH
+        anti-pattern: storing raw JWT wastes memory and unnecessarily
+        persists token content after revocation).
+
+        Thread safety: a ``threading.Lock`` guards writes to prevent
+        race conditions when multiple async coroutines revoke tokens
+        concurrently (GIL-safe for reads, lock needed for writes).
+
+        Args:
+            jti: The JWT ID claim value to revoke.
+        """
+        with self._jti_lock:
+            self._revoked_jtis.add(jti)
+
+    def is_jti_revoked(self, jti: str) -> bool:
+        """Check whether a jti is on the revocation denylist.
+
+        Returns ``True`` if the jti has been revoked (via ``revoke_by_jti``),
+        ``False`` otherwise.
+
+        Thread safety: ``set.__contains__`` is GIL-safe in CPython — no lock
+        needed for reads.
+
+        Args:
+            jti: The JWT ID claim value to check.
+
+        Returns:
+            ``True`` if revoked; ``False`` if not on the denylist.
+        """
+        return jti in self._revoked_jtis
 
     def revoke_all_for_token(
         self, access_token_str: str, refresh_token_str: str

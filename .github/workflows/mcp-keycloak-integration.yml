@@ -1,0 +1,134 @@
+# MCP Keycloak Integration Tests
+#
+# Runs the @pytest.mark.keycloak test suite (SC#1-4: JWT accept via JWKS,
+# opaque-token introspection, revoked-token rejection, SC#4 Keycloak RS path)
+# against a real Keycloak >=22 container on ubuntu-latest. Also runs the
+# BINDING 90% oauth-module coverage gate (SC#5 DoD requirement).
+#
+# Trigger: PRs touching agent-brain-mcp/** (path filter) + workflow_dispatch.
+# Nightly: see e2e-nightly.yml (mcp-keycloak-nightly job).
+#
+# CRITICAL: Keycloak is started via a step-level `docker run`, NOT a
+# GitHub Actions `services:` block. Service containers do not reliably
+# support the command override needed to force `start-dev` (RESEARCH
+# Pitfall 5/6); the default production `start` requires TLS and fails
+# health checks. Do NOT add a `services:` keycloak block.
+
+name: MCP Keycloak Integration
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'agent-brain-mcp/**'
+  workflow_dispatch:
+
+jobs:
+  mcp-keycloak-integration:
+    name: MCP Keycloak Integration
+    runs-on: ubuntu-latest
+    environment: ci-testing
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.7.1
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.43.3
+
+      - name: Cache Poetry dependencies (MCP)
+        uses: actions/cache@v4
+        with:
+          path: agent-brain-mcp/.venv
+          key: mcp-venv-${{ runner.os }}-${{ hashFiles('agent-brain-mcp/poetry.lock') }}
+          restore-keys: |
+            mcp-venv-${{ runner.os }}-
+
+      - name: Cache Poetry dependencies (server — MCP path dep)
+        uses: actions/cache@v4
+        with:
+          path: agent-brain-server/.venv
+          key: server-venv-${{ runner.os }}-${{ hashFiles('agent-brain-server/poetry.lock') }}
+          restore-keys: |
+            server-venv-${{ runner.os }}-
+
+      - name: Install MCP package dependencies
+        run: |
+          cd agent-brain-mcp
+          poetry install
+
+      - name: Start Keycloak (start-dev)
+        run: |
+          # Step-level docker run is REQUIRED — GitHub Actions service containers do
+          # not reliably support the command override needed to force start-dev
+          # (RESEARCH Pitfall 5/6); the default production `start` needs TLS and
+          # fails health checks. Do NOT move this to a `services:` block.
+          docker run -d --name keycloak \
+            -p 8080:8080 -p 9000:9000 \
+            -e KEYCLOAK_ADMIN=admin \
+            -e KEYCLOAK_ADMIN_PASSWORD=admin \
+            -e KC_HEALTH_ENABLED=true \
+            quay.io/keycloak/keycloak:26.1 start-dev
+
+      - name: Wait for Keycloak health
+        run: |
+          # Health endpoint is on management port 9000 (Pitfall 3 — NOT 8080).
+          echo "Waiting for Keycloak to become healthy..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9000/health/ready; then
+              echo "Keycloak is healthy after ${i} attempts."
+              break
+            fi
+            echo "Attempt ${i}/30 — not ready yet, sleeping 5s..."
+            sleep 5
+          done
+          # Final check — fail the step if still not ready
+          curl -sf http://localhost:9000/health/ready
+
+      - name: Bootstrap Keycloak realm
+        env:
+          AGENT_BRAIN_OAUTH_RESOURCE: http://localhost:8000
+          KC: http://localhost:8080
+        run: |
+          bash scripts/keycloak_bootstrap.sh
+
+      - name: Run Keycloak integration tests
+        env:
+          KEYCLOAK_URL: http://localhost:8080
+          AGENT_BRAIN_OAUTH_RESOURCE: http://localhost:8000
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: task mcp:keycloak
+
+      # BINDING 90% oauth-module coverage gate (SC#5 — BLOCKS THE MILESTONE).
+      # Runs the full suite (fast + keycloak-marked) so Keycloak-only lines
+      # count toward the 90% threshold. Locally the soft gate is 85% because
+      # keycloak paths are skipped without a container (task mcp:oauth-cov
+      # defaults COV_FAIL_UNDER=85). This step is the AUTHORITATIVE measurement.
+      - name: OAuth module coverage gate (90% CI hard — SC#5 DoD)
+        env:
+          KEYCLOAK_URL: http://localhost:8080
+          AGENT_BRAIN_OAUTH_RESOURCE: http://localhost:8000
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          cd agent-brain-mcp
+          poetry run pytest tests/ \
+            -m 'not e2e and not contract and not stress' \
+            --cov=agent_brain_mcp.oauth \
+            --cov-report=term-missing \
+            --cov-fail-under=90

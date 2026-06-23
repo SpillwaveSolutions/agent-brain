@@ -17,6 +17,18 @@ from typing import Any
 import httpx
 import pytest
 
+# Phase 70 Plan 02: Bridge import so pytest discovers keycloak fixtures.
+# pytest ONLY auto-discovers files literally named conftest.py — a sibling
+# file named conftest_keycloak.py is NOT loaded for fixture collection.
+# Re-exporting the three keycloak fixtures here makes them visible to the
+# entire test suite. The noqa: F401 is required: names are re-exported
+# fixtures, not locally consumed imports.
+from tests.conftest_keycloak import (  # noqa: F401
+    keycloak_access_token,
+    keycloak_available,
+    keycloak_token_for_scope,
+)
+
 # Default backend responses used by most tests. Individual tests can
 # pass their own ``responses`` dict to override one or more paths.
 _DEFAULT_RESPONSES: dict[tuple[str, str], dict[str, Any]] = {

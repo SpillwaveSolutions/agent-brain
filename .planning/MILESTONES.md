@@ -1,5 +1,29 @@
 # Milestones
 
+## v10.4 MCP v4: OAuth 2.1 + GraphRAG Stability (Shipped: 2026-06-22)
+
+**Phases completed:** 7 phases (64-70), 21 plans
+**Requirements:** 16/16 satisfied (3 GraphRAG stability + 12 OAuth + 1 housekeeping)
+**Audit:** ✓ passed — 7/7 phases verified, 14/14 cross-phase exports wired, 0 broken runtime flows, 5/5 E2E flows
+**Coverage gate:** `agent_brain_mcp/oauth/` ≥90% enforced in CI (`task mcp:oauth-cov`)
+
+**Key accomplishments:**
+
+1. **GraphRAG/kuzu stability (bugs-first)** — sustained kuzu indexing no longer SIGSEGVs the server: graph writes run in an out-of-process `spawn` subprocess (`build_from_documents_isolated`) with structured `GraphBuildFailedError` and per-job graceful degradation (graph failure leaves the job COMPLETED with vector+BM25 intact). `/health/status` entity/relationship counts are now a live kuzu `COUNT(*)` (TTL-cached) — the `0/100` vs real `5677/4366` under-reporting is gone. New `agent-brain graph restore-from-snapshot [--snapshot] [--dry-run]` + `doctor` stale-graph WARN. (GSTAB-01/02/03, #178/#184)
+2. **OAuth 2.1 design-doc gate** — `docs/plans/2026-06-14-mcp-v4-oauth-design.md` authored with threat model, AS/RS/public-route boundary diagram, token-termination data flow, and scope→tool table; **independent adversarial security review + owner sign-off passed before any OAuth code landed** (no implementation until the gate cleared). (OAUTH-01)
+3. **Public discovery root** — hand-rolled RFC 9728 Protected Resource Metadata (`/.well-known/oauth-protected-resource` + path-suffixed) and RFC 8414 Authorization Server Metadata (`code_challenge_methods_supported: ["S256"]`) served unauthenticated (200, no token), mounted in `exempt_routes` BEFORE the `/mcp` Mount so Starlette first-match keeps them reachable even with `RequireAuthMiddleware` wired. `AGENT_BRAIN_AUTH` toggle (`none`/`basic`/`oauth`, mutually exclusive, boot startup gate). (OAUTH-02/03/09)
+4. **Co-located Authorization Server + Resource Server** — authorization-code + PKCE (S256-only; rejects `plain`/missing), RS256 JWT minting (`PyJWT[crypto]`, 15min access / 30d rotating refresh) + JWKS, via the SDK `OAuthAuthorizationServerProvider`. RS verifies sig/`exp`/`nbf`/`iss`/`aud` with clock-skew leeway. CIMD + static client registration with a full SSRF stack (allowlist + private-IP block + DNS-rebinding post-resolution check + 5s timeout). (OAUTH-04/05/10)
+5. **Per-tool scope enforcement** — 4 scopes (`:read`/`:index`/`:admin`/`:subscribe`) mapped to all 16 MCP tools in a single `_tool_matrix.py`-co-located SOT with an import-time drift guard; insufficient scope returns **403 `insufficient_scope`** (distinct from 401 missing-token), enforced at the server dispatch layer (call_tool + read_resource + subscribe). (OAUTH-06)
+6. **Client-side OAuth dance + confused-deputy prevention** — `McpHttpBackend` transparently handles 401 + `WWW-Authenticate` → PRM/OASM discovery → PKCE dance via the SDK `OAuthClientProvider`, persisting tokens in `FileTokenStorage` (`state_dir/mcp-oauth-tokens.json`, chmod 0o600) so Pattern A per-call invocations reuse the token (silent refresh, no re-browse). RFC 8707 Resource Indicators bind `aud` to the canonical resource URI; `test_oauth_confused_deputy.py` proves the client OAuth token is NEVER forwarded upstream (MCP→REST leg keeps `X-API-Key`). (OAUTH-07/08)
+7. **Split AS/RS + Keycloak-in-CI** — `build_verifier()` selects `JwksTokenVerifier` (external IdP, cached JWKS with `kid`-miss refresh + TTL jitter) → `IntrospectionTokenVerifier` (RFC 7662, `active:false` → 401) → `LocalRs256Verifier` behind one seam. Validated end-to-end against a live **Keycloak ≥22 container in CI** (RFC 8707 audience scope-mapper) with introspection + jti-denylist revocation. (OAUTH-11/12)
+8. **Housekeeping** — `/mcp/subscriptions` debug endpoint exposes live subscription state (session IDs, URIs, uptime) for operators, closing the v10.2 VAL-02 deferral. (HOUSE-01, #194)
+
+**Known deferrals (deliberate, documented):** public RFC 7009 `/revoke` route deferred to v10.4.1 (revocation rides on introspection + jti denylist; OAUTH-12 DoD met) · DPoP (RFC 9449) forced-deferred — no production-grade Python lib as of June 2026 · audit logging → its own milestone.
+
+**Archive:** [v10.4-ROADMAP.md](milestones/v10.4-ROADMAP.md) | [v10.4-REQUIREMENTS.md](milestones/v10.4-REQUIREMENTS.md) | [v10.4-MILESTONE-AUDIT.md](milestones/v10.4-MILESTONE-AUDIT.md)
+
+---
+
 ## v10.3 MCP v3 — CLI-via-MCP + Framework Matrix (Shipped: 2026-06-14)
 
 **Phases completed:** 8 phases, 24 plans, 0 tasks
