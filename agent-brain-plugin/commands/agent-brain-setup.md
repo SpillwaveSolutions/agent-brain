@@ -6,7 +6,7 @@ context: fork
 agent: setup-assistant
 skills:
   - configuring-agent-brain
-last_validated: 2026-03-16
+last_validated: 2026-06-24
 ---
 
 # Complete Agent Brain Setup
@@ -445,6 +445,26 @@ agent-brain status
 ```
 
 Confirm server is healthy and ready.
+
+### Step 13: Register MCP Server (Optional)
+
+If the user wants MCP-aware clients (Claude Code, Claude Desktop, Cursor, Windsurf) to reach
+this corpus, offer to install and register the MCP server. Ask first; this is opt-in.
+
+```bash
+# Install the MCP package (if not already present)
+pip install agent-brain-ag-mcp
+
+# Register for Claude Code (writes/merges project .mcp.json, idempotent)
+agent-brain install-agent --agent claude --with-mcp
+
+# Preview without writing
+agent-brain install-agent --agent claude --with-mcp --dry-run
+```
+
+For a remote, OAuth-protected server, add `--mcp-auth oauth`. For other runtimes, register
+manually (see the **MCP Setup Guide** in the `configuring-agent-brain` skill). Auth is off by
+default for local use.
 
 ## Output
 

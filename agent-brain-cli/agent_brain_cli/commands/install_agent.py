@@ -11,6 +11,7 @@ from rich.panel import Panel
 from agent_brain_cli.runtime.claude_converter import ClaudeConverter
 from agent_brain_cli.runtime.codex_converter import CodexConverter
 from agent_brain_cli.runtime.gemini_converter import GeminiConverter
+from agent_brain_cli.runtime.mcp_registration import register_claude_mcp
 from agent_brain_cli.runtime.opencode_converter import OpenCodeConverter
 from agent_brain_cli.runtime.parser import parse_plugin_dir
 from agent_brain_cli.runtime.skill_runtime_converter import SkillRuntimeConverter
@@ -96,6 +97,55 @@ def _resolve_target_dir(
 
 RUNTIME_CHOICES = ["claude", "opencode", "gemini", "skill-runtime", "codex"]
 
+# Runtimes for which we can auto-register the MCP server today.
+MCP_SUPPORTED_RUNTIMES = {"claude"}
+
+
+def _resolve_mcp_paths(scope: str, project_root: Path | None) -> tuple[Path, Path]:
+    """Return (config_path, state_dir) for MCP registration.
+
+    Project scope writes the project-level ``.mcp.json`` Claude Code reads from
+    the project root; global scope targets the user-level ``~/.claude.json``.
+    """
+    if scope == "global":
+        return Path.home() / ".claude.json", Path.home() / ".agent-brain"
+    root = project_root if project_root is not None else Path.cwd()
+    return root / ".mcp.json", root / ".agent-brain"
+
+
+def _register_mcp(
+    agent: str,
+    scope: str,
+    project_root: Path | None,
+    mcp_auth: str,
+    mcp_backend: str,
+    dry_run: bool,
+) -> dict[str, Any]:
+    """Register the MCP server for supported runtimes; report what happened."""
+    if agent not in MCP_SUPPORTED_RUNTIMES:
+        return {
+            "skipped": True,
+            "reason": (
+                f"MCP auto-registration is currently supported only for "
+                f"{', '.join(sorted(MCP_SUPPORTED_RUNTIMES))}; configure "
+                f"{agent} manually (see the configuring-agent-brain skill)."
+            ),
+        }
+    config_path, state_dir = _resolve_mcp_paths(scope, project_root)
+    result = register_claude_mcp(
+        config_path,
+        state_dir,
+        backend=mcp_backend,
+        auth=mcp_auth,
+        dry_run=dry_run,
+    )
+    return {
+        "skipped": False,
+        "action": result.action,
+        "path": str(result.path),
+        "server_name": result.server_name,
+    }
+
 
 @click.command("install-agent")
 @click.option(
@@ -146,6 +196,23 @@ RUNTIME_CHOICES = ["claude", "opencode", "gemini", "skill-runtime", "codex"]
     type=click.Path(exists=True, file_okay=False, resolve_path=True),
     help="Project path for --project scope (default: cwd)",
 )
+@click.option(
+    "--with-mcp",
+    is_flag=True,
+    help="Also register the agent-brain MCP server (Claude Code .mcp.json)",
+)
+@click.option(
+    "--mcp-auth",
+    type=click.Choice(["none", "oauth"]),
+    default="none",
+    help="MCP client auth mode written into the registration (default: none)",
+)
+@click.option(
+    "--mcp-backend",
+    type=click.Choice(["auto", "uds", "http"]),
+    default="auto",
+    help="How the MCP server reaches agent-brain-serve (default: auto)",
+)
 def install_agent_command(
     agent: str,
     scope: str,
@@ -154,6 +221,9 @@ def install_agent_command(
     dry_run: bool,
     json_output: bool,
     path: str | None,
+    with_mcp: bool,
+    mcp_auth: str,
+    mcp_backend: str,
 ) -> None:
     """Install Agent Brain plugin for a specific runtime.
 
@@ -220,6 +290,12 @@ def install_agent_command(
         converter = converter_cls()
         scope_enum = Scope.GLOBAL if scope == "global" else Scope.PROJECT
 
+        mcp_summary: dict[str, Any] | None = None
+        if with_mcp:
+            mcp_summary = _register_mcp(
+                agent, scope, project_root, mcp_auth, mcp_backend, dry_run
+            )
+
         if dry_run:
             _handle_dry_run(
                 converter,
@@ -229,6 +305,7 @@ def install_agent_command(
                 agent,
                 scope,
                 json_output,
+                mcp_summary,
             )
             return
 
@@ -250,6 +327,8 @@ def install_agent_command(
                 "files_created": len(files),
                 "source_dir": str(source),
             }
+            if mcp_summary is not None:
+                result["mcp_registration"] = mcp_summary
             click.echo(json.dumps(result, indent=2))
         else:
             console.print(
@@ -263,6 +342,7 @@ def install_agent_command(
                     border_style="green",
                 )
             )
+            _print_mcp_summary(mcp_summary)
 
     except SystemExit:
         raise
@@ -288,6 +368,7 @@ def _handle_dry_run(
     agent: str,
     scope: str,
     json_output: bool,
+    mcp_summary: dict[str, Any] | None = None,
 ) -> None:
     """Handle dry-run mode: simulate install in temp dir."""
     import tempfile
@@ -311,19 +392,17 @@ def _handle_dry_run(
                 planned.append(f)
 
     if json_output:
-        click.echo(
-            json.dumps(
-                {
-                    "dry_run": True,
-                    "agent": agent,
-                    "scope": scope,
-                    "target_dir": str(target),
-                    "files": [str(f) for f in planned],
-                    "file_count": len(planned),
-                },
-                indent=2,
-            )
-        )
+        payload: dict[str, Any] = {
+            "dry_run": True,
+            "agent": agent,
+            "scope": scope,
+            "target_dir": str(target),
+            "files": [str(f) for f in planned],
+            "file_count": len(planned),
+        }
+        if mcp_summary is not None:
+            payload["mcp_registration"] = mcp_summary
+        click.echo(json.dumps(payload, indent=2))
     else:
         console.print(
             Panel(
@@ -338,3 +417,17 @@ def _handle_dry_run(
         )
         for f in planned:
             console.print(f"  [dim]{f}[/]")
+        _print_mcp_summary(mcp_summary)
+
+
+def _print_mcp_summary(mcp_summary: dict[str, Any] | None) -> None:
+    """Render the MCP registration outcome for human-readable output."""
+    if mcp_summary is None:
+        return
+    if mcp_summary.get("skipped"):
+        console.print(f"[yellow]MCP:[/] {mcp_summary['reason']}")
+        return
+    console.print(
+        f"[green]MCP server registered[/] ([bold]{mcp_summary['action']}[/]) "
+        f"→ {mcp_summary['path']}"
+    )

@@ -14,10 +14,10 @@ allowed-tools:
   - Bash
   - Read
 metadata:
-  version: 10.3.0
+  version: 10.4.0
   category: ai-tools
   author: Spillwave
-  last_validated: 2026-06-10
+  last_validated: 2026-06-24
 ---
 
 # Configuring Agent Brain
@@ -271,7 +271,39 @@ pip install agent-brain-ag-mcp
 > v10.1.2 — the original name hit PyPI's typosquatting filter), but the installed console
 > script is still `agent-brain-mcp` and the import path is still `agent_brain_mcp`.
 
-### Configure an MCP client
+### Register through the plugin (recommended for Claude Code)
+
+`install-agent` can register the MCP server for you while installing the plugin —
+no hand-editing of `.mcp.json`:
+
+```bash
+# Install the plugin AND register the agent-brain MCP server for Claude Code
+agent-brain install-agent --agent claude --with-mcp
+
+# Preview without writing anything
+agent-brain install-agent --agent claude --with-mcp --dry-run
+
+# Register with client-side OAuth enabled (for a remote, OAuth-protected server)
+agent-brain install-agent --agent claude --with-mcp --mcp-auth oauth
+```
+
+What `--with-mcp` does:
+- Writes/merges an `agent-brain` entry into the project-level `.mcp.json`
+  (or `~/.claude.json` with `--global`), **preserving any other MCP servers and keys**.
+- Pins `AGENT_BRAIN_STATE_DIR` to the project's absolute `.agent-brain` path so the
+  server is discoverable regardless of the client's working directory.
+- Is **idempotent** — re-running reports `unchanged` when the entry already matches.
+
+| Flag | Values | Default | Purpose |
+|------|--------|---------|---------|
+| `--with-mcp` | — | off | Register the MCP server during install |
+| `--mcp-backend` | `auto`/`uds`/`http` | `auto` | How the MCP server reaches `agent-brain-serve` |
+| `--mcp-auth` | `none`/`oauth` | `none` | Write `AGENT_BRAIN_MCP_AUTH=oauth` for remote OAuth servers |
+
+> Auto-registration currently targets **Claude Code**. For OpenCode / Gemini / Codex,
+> register manually with the JSON block below (the flag will print a note and skip).
+
+### Configure an MCP client (manual)
 
 Add the server to your client's MCP config (Claude Desktop / Cursor / Windsurf use the
 same `mcpServers` shape):
@@ -293,7 +325,24 @@ same `mcpServers` shape):
   the MCP *listen* transport.
 - **stdio** is the default listen transport (no flag). For IDE/framework clients that
   prefer HTTP, use `agent-brain-mcp --transport http --host 127.0.0.1 --port 8765`
-  (loopback only — public binds are rejected; auth is deferred to MCP v4).
+  (loopback only — public binds are rejected).
+
+### OAuth 2.1 for remote servers (shipped in v10.4)
+
+For a **local/loopback** server you need no auth — leave the defaults. To run Agent Brain
+remotely (CI box, shared dev server, hosted), the MCP server supports **OAuth 2.1** on the
+Streamable HTTP transport. Auth is **off by default**; opt in with env vars:
+
+| Variable | Side | Values | Notes |
+|----------|------|--------|-------|
+| `AGENT_BRAIN_AUTH` | server | `none` (default) / `basic` / `oauth` | Server-side auth mode |
+| `AGENT_BRAIN_OAUTH_RESOURCE` | server | absolute URI (scheme, no fragment) | Required **only** when `AGENT_BRAIN_AUTH=oauth` (RFC 8707 resource id) |
+| `AGENT_BRAIN_MCP_AUTH` | client | unset (off) / `oauth` | Opts the MCP client into the OAuth dance |
+
+The client side persists tokens at `<state_dir>/mcp-oauth-tokens.json` (chmod `0o600`) and
+refreshes silently. `install-agent --with-mcp --mcp-auth oauth` writes the client toggle for
+you. Per-tool scopes (`agent-brain:read|index|admin|subscribe`) enforce least privilege, with
+default-deny on the mutating tools.
 
 ### Verify
 
@@ -305,8 +354,9 @@ agent-brain-mcp --help
 agent-brain --transport mcp resources list
 ```
 
-The v1 surface is 7 tools, 5 `corpus://` resources, and 6 prompts. See the MCP package
-README and `docs/MCP_USER_GUIDE.md` for the full reference.
+The current surface is **16 tools**, 5 `corpus://` resources, and 6 prompts. See the MCP
+package README, `docs/MCP_USER_GUIDE.md`, and this skill's
+[MCP Setup Guide](references/mcp-setup-guide.md) for the full reference.
 
 ---
 
@@ -759,6 +809,7 @@ the TTL window return instantly without hitting storage.
 | [Configuration Guide](references/configuration-guide.md) | Config file format and locations |
 | [Installation Guide](references/installation-guide.md) | Detailed installation options |
 | [Provider Configuration](references/provider-configuration.md) | All provider settings |
+| [MCP Setup Guide](references/mcp-setup-guide.md) | MCP server install, registration, OAuth, per-runtime config |
 | [Troubleshooting Guide](references/troubleshooting-guide.md) | Extended issue resolution |
 
 ---

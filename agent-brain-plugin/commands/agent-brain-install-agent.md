@@ -24,9 +24,20 @@ parameters:
   - name: path
     description: "Project path for --project scope (default: cwd)"
     required: false
+  - name: with-mcp
+    description: Also register the agent-brain MCP server (Claude Code .mcp.json)
+    required: false
+  - name: mcp-auth
+    description: "MCP client auth mode to record: none (default) or oauth"
+    required: false
+    default: none
+  - name: mcp-backend
+    description: "How the MCP server reaches agent-brain-serve: auto (default), uds, or http"
+    required: false
+    default: auto
 skills:
   - configuring-agent-brain
-last_validated: 2026-03-16
+last_validated: 2026-06-24
 ---
 
 # Agent Brain Install Agent
@@ -130,6 +141,37 @@ agent-brain install-agent --agent claude --json
 ```bash
 agent-brain install-agent --agent opencode --plugin-dir ./my-custom-plugin
 ```
+
+### Register the MCP server (Claude Code)
+
+Add `--with-mcp` to also register the `agent-brain` MCP server while installing. It
+writes/merges an `agent-brain` entry into the project-level `.mcp.json` (or `~/.claude.json`
+with `--global`), preserving any other servers and keys, and pins an absolute
+`AGENT_BRAIN_STATE_DIR`. It is idempotent and honors `--dry-run`.
+
+```bash
+# Install plugin + register MCP for Claude Code
+agent-brain install-agent --agent claude --with-mcp
+
+# Preview only
+agent-brain install-agent --agent claude --with-mcp --dry-run
+
+# Record client-side OAuth (for a remote, OAuth-protected server)
+agent-brain install-agent --agent claude --with-mcp --mcp-auth oauth
+
+# Force a specific backend
+agent-brain install-agent --agent claude --with-mcp --mcp-backend uds
+```
+
+| Flag | Values | Default | Purpose |
+|------|--------|---------|---------|
+| `--with-mcp` | — | off | Register the MCP server during install |
+| `--mcp-backend` | `auto`/`uds`/`http` | `auto` | How the MCP server reaches `agent-brain-serve` |
+| `--mcp-auth` | `none`/`oauth` | `none` | Write `AGENT_BRAIN_MCP_AUTH=oauth` for remote OAuth servers |
+
+> Auto-registration currently targets **Claude Code**. For OpenCode / Gemini / Codex,
+> `--with-mcp` prints a note and skips (register manually — see the MCP Setup Guide in the
+> `configuring-agent-brain` skill).
 
 ## Output
 
