@@ -189,9 +189,11 @@ agent-brain/
 - [Quick Start](docs/QUICK_START.md) - Get running in minutes
 - [Plugin Guide](docs/PLUGIN_GUIDE.md) - Complete plugin documentation
 - [User Guide](docs/USER_GUIDE.md) - Detailed usage guide
+- [MCP Quickstart](docs/MCP_QUICKSTART.md) - Use Agent Brain over MCP in ~5 minutes
 
 ### Reference
 - [API Reference](docs/API_REFERENCE.md) - REST API documentation
+- [MCP User Guide](docs/MCP_USER_GUIDE.md) - MCP server: 16 tools, resources, prompts, OAuth
 - [Configuration](docs/CONFIGURATION.md) - All configuration options
 - [Provider Configuration](agent-brain-plugin/skills/using-agent-brain/references/provider-configuration.md) - Provider setup
 - [Integrations](docs/INTEGRATIONS.md) - Connect agent-brain-mcp to LLM frameworks + editors

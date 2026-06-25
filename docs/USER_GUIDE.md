@@ -1042,7 +1042,15 @@ The dual-bind path runs two `uvicorn.Server` instances on the shared asyncio loo
 
 ## Using Agent Brain via MCP
 
-Agent Brain ships an MCP (Model Context Protocol) server — `agent-brain-mcp` — that exposes the indexed corpus as **7 tools, 5 read-only resources, and 6 prompts** over stdio. Any MCP-aware host (Claude Desktop, Cursor, Windsurf, Claude Agent SDK, LangChain DeepAgents, …) can call Agent Brain directly without shelling out to the CLI.
+Agent Brain ships an MCP (Model Context Protocol) server — `agent-brain-mcp` — that exposes the indexed corpus as **16 tools, 5 read-only resources, and 6 prompts** over stdio or Streamable HTTP. Any MCP-aware host (Claude Desktop, Cursor, Windsurf, Claude Agent SDK, LangChain DeepAgents, …) can call Agent Brain directly without shelling out to the CLI. Remote deployments can require **OAuth 2.1** (off by default).
+
+Register it for Claude Code in one command:
+
+```bash
+agent-brain install-agent --agent claude --with-mcp
+```
+
+…or configure any MCP host manually:
 
 ```json
 {
@@ -1056,7 +1064,7 @@ Agent Brain ships an MCP (Model Context Protocol) server — `agent-brain-mcp` �
 }
 ```
 
-For per-host configuration (Claude Desktop, Cursor / Windsurf, Claude Agent SDK, LangChain DeepAgents), the full tool/resource/prompt reference with schemas, end-to-end worked examples, error-mapping table, troubleshooting, and the v2–v4 roadmap, see **[MCP User Guide](./MCP_USER_GUIDE.md)**.
+For a copy-paste walkthrough see the **[MCP Quickstart](./MCP_QUICKSTART.md)**. For per-host configuration, the full tool/resource/prompt reference with schemas, OAuth setup, worked examples, and troubleshooting, see the **[MCP User Guide](./MCP_USER_GUIDE.md)**.
 
 For the slash-command companion that runs inside Claude Code / OpenCode / Gemini CLI / Codex, see **[Plugin Guide](./PLUGIN_GUIDE.md)**.
 

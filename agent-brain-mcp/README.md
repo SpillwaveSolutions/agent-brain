@@ -4,15 +4,18 @@ Model Context Protocol server for [Agent Brain](https://github.com/SpillwaveSolu
 
 Exposes the running Agent Brain instance as an MCP server consumable by Claude Desktop, Cursor, Windsurf, Claude Agent SDK, LangChain DeepAgents, and any other MCP-aware client.
 
-## v1 surface
+## Surface (v10.4)
 
-- **7 Tools**: `search_documents`, `query_count`, `index_folder`, `get_job`, `list_jobs`, `cancel_job`, `server_health`
+- **16 Tools**: `search_documents`, `query_count`, `explain_result`, `index_folder`, `add_documents`, `inject_documents`, `get_job`, `list_jobs`, `wait_for_job`, `cancel_job`, `list_folders`, `remove_folder`, `cache_status`, `clear_cache`, `list_file_types`, `server_health`
 - **5 Resources** (read-only): `corpus://config`, `corpus://status`, `corpus://health`, `corpus://providers`, `corpus://folders`
 - **6 Prompts**: `find-callers`, `find-implementation`, `explain-architecture`, `compare-search-modes`, `onboard-to-codebase`, `audit-indexed-folders`
-- **Transport**: stdio
+- **Listen transport**: stdio (default) or Streamable HTTP (`--transport http`)
 - **Backend**: UDS (preferred) or HTTP, selectable via `--backend {auto,uds,http}`
+- **Auth**: OAuth 2.1 on the HTTP listen transport (`AGENT_BRAIN_AUTH=oauth`), **off by default**
 
-Shipped in Agent Brain 10.1.0 (May 2026); see [`CHANGELOG.md`](../docs/CHANGELOG.md). v2 (subscriptions + streamable HTTP), v3 (CLI-via-MCP + framework adapters), and v4 (OAuth) are tracked under [`docs/roadmaps/mcp/`](../docs/roadmaps/mcp/).
+The full v1–v4 MCP roadmap shipped by Agent Brain 10.4.0; see [`CHANGELOG.md`](../docs/CHANGELOG.md)
+and the [MCP User Guide](../docs/MCP_USER_GUIDE.md). Register for Claude Code with
+`agent-brain install-agent --agent claude --with-mcp`.
 
 ## Install
 
@@ -76,17 +79,22 @@ curl http://127.0.0.1:8765/healthz
 # → {"status":"ok","transport":"http"}
 ```
 
-### Loopback only — no auth in v10.2
+### Loopback bind + authentication
 
-`--host` accepts **only** `127.0.0.1`, `localhost`, or `::1`. Binding to a public interface is rejected at startup with the error `--host must be one of {127.0.0.1, localhost, ::1} (auth is deferred to v4; binding to public interfaces is unsafe in v2)`. There is **no `--allow-public-bind` escape hatch** — authentication is reserved for MCP v4 (OAuth 2.1; tracked as [OAUTH-01](https://github.com/SpillwaveSolutions/agent-brain/issues/188)).
+`--host` accepts **only** `127.0.0.1`, `localhost`, or `::1` (no `--allow-public-bind` escape
+hatch). For remote access, run the loopback HTTP listener **behind a gateway / reverse proxy** and
+enable authentication rather than binding a public interface directly.
 
-The startup banner names this constraint explicitly:
+**Authentication (v10.4):** OAuth 2.1 on the HTTP listen transport is **off by default**
+(`AGENT_BRAIN_AUTH=none`). Set `AGENT_BRAIN_AUTH=oauth` (+ `AGENT_BRAIN_OAUTH_RESOURCE`) to require
+audience-bound Bearer tokens with per-tool scopes (`agent-brain:read|index|admin|subscribe`,
+default-deny on writes). Co-located and split AS/RS topologies are supported. See the
+[MCP User Guide → Authentication](../docs/MCP_USER_GUIDE.md#authentication).
 
-```
-MCP server listening on http://127.0.0.1:8765/mcp (loopback only, no auth — do NOT expose this port)
-```
-
-**Local trust model:** any process running as the same user on this host can reach the port and drive MCP tools (including `cancel_job` which is annotated `destructiveHint: true`). Do not run `--transport http` on a shared / multi-user host without external sandboxing.
+**Local trust model (no-auth mode):** with `AGENT_BRAIN_AUTH=none`, any process running as the same
+user on this host can reach the port and drive MCP tools (including destructive ones like
+`cancel_job`). Do not run `--transport http` unauthenticated on a shared / multi-user host without
+external sandboxing.
 
 ### No silent fallback
 
