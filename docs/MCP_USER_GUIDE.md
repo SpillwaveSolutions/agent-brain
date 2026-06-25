@@ -21,7 +21,7 @@ Complete reference for `agent-brain-mcp` — the Model Context Protocol server t
   - [Other agent frameworks (preview)](#other-agent-frameworks-preview)
 - [MCP transport axes (v10.2+)](#mcp-transport-axes-v102)
 - [CLI flags and environment variables](#cli-flags-and-environment-variables)
-- [Tool reference (7 tools)](#tool-reference-7-tools)
+- [Tool reference (16 tools)](#tool-reference-16-tools)
 - [Resource reference (5 resources)](#resource-reference-5-resources)
 - [Prompt reference (6 prompts)](#prompt-reference-6-prompts)
 - [End-to-end worked examples](#end-to-end-worked-examples)
@@ -39,9 +39,14 @@ Complete reference for `agent-brain-mcp` — the Model Context Protocol server t
 
 - **PyPI distribution:** `agent-brain-ag-mcp`
 - **Console script:** `agent-brain-mcp`
-- **Transport (to the LLM client):** stdio (JSON-RPC 2.0)
+- **Transport (to the LLM client):** stdio (default) or Streamable HTTP (`--transport http`)
 - **Transport (to the backend):** UDS (preferred) or HTTP, selectable with `--backend {auto|uds|http}`
-- **v1 surface:** 7 tools, 5 read-only resources, 6 prompts
+- **Surface (v10.4):** **16 tools**, 5 read-only resources, 6 prompts
+- **Auth (v10.4):** OAuth 2.1 on the HTTP listen transport, **off by default** — see [Authentication](#authentication)
+- **Quick start:** for a copy-paste walkthrough see the **[MCP Quickstart](./MCP_QUICKSTART.md)**
+
+> **Register it for Claude Code in one command:** `agent-brain install-agent --agent claude --with-mcp`
+> writes the `.mcp.json` entry for you (see [Register automatically](#register-automatically-claude-code)).
 
 If you want slash commands inside Claude Code, OpenCode, Gemini CLI, or Codex, use the [plugin](./PLUGIN_GUIDE.md) instead. If your LLM client speaks MCP natively (Claude Desktop, Cursor, an agent SDK), use this server.
 
@@ -70,6 +75,8 @@ You can run both at the same time against the same backend — they don't confli
 - **Structured tool output** — every tool advertises an `outputSchema` and returns a typed `structuredContent` block alongside the human-readable summary, so model clients that consume MCP structured output get typed data.
 - **Corpus state as resources** — read backend config, status, health, providers, and indexed folders via `corpus://...` URIs without a tool call (i.e. without an LLM round-trip).
 - **Opinionated multi-step prompts** — six parameterized templates (`find-callers`, `find-implementation`, `explain-architecture`, `compare-search-modes`, `onboard-to-codebase`, `audit-indexed-folders`) that chain tool calls into useful end-to-end flows.
+- **One-command registration** — `install-agent --agent claude --with-mcp` writes/merges the `.mcp.json` entry (idempotent, dry-run aware) instead of hand-editing JSON.
+- **OAuth 2.1 for remote servers (v10.4)** — run Agent Brain remotely behind OAuth on the HTTP transport, with per-tool scopes (`agent-brain:read|index|admin|subscribe`) and default-deny on the mutating tools. Off by default; local/loopback needs no auth.
 - **UDS-or-HTTP backend transport** — `--backend auto` prefers UDS for lower latency and falls back to HTTP transparently.
 - **Version-compat startup check** — the server calls `GET /health/` once at startup and refuses to start if the backend reports a version below the pinned `MIN_BACKEND_VERSION`. Prevents wire drift.
 - **Structured JSON-RPC errors** — HTTP failures map to MCP error codes including custom `-32000…-32003` codes for `BackendConflict`, `BackendUnavailable`, `ServiceIndexing`, and `BackendTimeout`. Every error carries `data.httpStatus` and `data.cause`.
@@ -104,6 +111,28 @@ For multi-instance / shared deployments, see [`docs/USER_GUIDE.md`](./USER_GUIDE
 ---
 
 ## Configuration
+
+### Register automatically (Claude Code)
+
+The fastest path — let the CLI write the registration for you while installing the plugin:
+
+```bash
+# Install the plugin AND register the agent-brain MCP server for Claude Code
+agent-brain install-agent --agent claude --with-mcp
+
+# Preview without writing
+agent-brain install-agent --agent claude --with-mcp --dry-run
+
+# Register with client-side OAuth (for a remote, OAuth-protected server)
+agent-brain install-agent --agent claude --with-mcp --mcp-auth oauth
+```
+
+This writes/merges an `agent-brain` entry into the project-level `.mcp.json` (or `~/.claude.json`
+with `--global`), **preserving any other servers and keys**, pins an absolute
+`AGENT_BRAIN_STATE_DIR`, and is **idempotent** (re-running reports `unchanged`). Flags:
+`--with-mcp`, `--mcp-backend {auto,uds,http}`, `--mcp-auth {none,oauth}`. Auto-registration
+currently targets Claude Code; for OpenCode / Gemini / Codex it prints a note and skips —
+register manually with the JSON below (tracked as [#224](https://github.com/SpillwaveSolutions/agent-brain/issues/224)–[#226](https://github.com/SpillwaveSolutions/agent-brain/issues/226)).
 
 ### Universal stdio config
 
@@ -141,7 +170,7 @@ Add to `claude_desktop_config.json` (location varies by OS — `~/Library/Applic
 }
 ```
 
-Restart Claude Desktop. The 7 tools, 5 resources, and 6 prompts will appear in the tool/resource pickers.
+Restart Claude Desktop. The 16 tools, 5 resources, and 6 prompts will appear in the tool/resource pickers.
 
 ### Cursor / Windsurf / generic MCP IDE
 
@@ -254,8 +283,8 @@ Agent Brain's MCP integration has **two orthogonal transport axes**. Conflating 
 └─────────────┘                     └──────────────────┘                     └────────────────────┘
        ▲                                                                                ▲
        │                                                                                │
-       │           OAUTH-01 / MCP v4                                #179 (Bearer-token,
-       │           (deferred — no auth in v10.2)                    backend-axis only)
+       │      OAuth 2.1 on the listen axis                          X-API-Key on the
+       │      (shipped v10.4 — OFF by default)                      backend axis (#179)
        │                                                                                │
        └──────────────────────────── deliberately distinct axes ────────────────────────┘
 ```
@@ -267,12 +296,26 @@ The two axes are independent:
 
 ### Authentication
 
-**Neither axis ships authentication in v10.2 (MCP v2):**
+**Local/loopback needs no auth.** For `stdio` and loopback HTTP, leave the defaults — the server
+runs as a child of a trusted local client (subprocess hygiene covers stdio).
 
-- The MCP HTTP listen transport binds **loopback only** (`127.0.0.1`, `localhost`, `::1`) and is **unauthenticated**. Authentication on the listen axis is reserved for MCP v4 (OAuth 2.1, tracked as [OAUTH-01 / #188](https://github.com/SpillwaveSolutions/agent-brain/issues/188)). The CLI rejects non-loopback hosts at startup with no `--allow-public-bind` escape hatch.
-- The optional **Bearer-token middleware on `agent-brain-serve`** (issue [#179](https://github.com/SpillwaveSolutions/agent-brain/issues/179)) is a **backend-axis** concern. When it lands, `agent-brain-mcp`'s backend httpx client passes the token through, but the MCP listen transport itself remains unauthenticated until v4.
+**OAuth 2.1 on the listen axis shipped in v10.4** (closes [#188](https://github.com/SpillwaveSolutions/agent-brain/issues/188)) for running Agent Brain remotely. It is **off by default** and opt-in via env vars:
 
-In short: #179 ≠ OAUTH-01. They protect different axes.
+| Variable | Side | Values | Notes |
+|----------|------|--------|-------|
+| `AGENT_BRAIN_AUTH` | server | `none` (default) / `basic` / `oauth` | Server-side auth mode on the HTTP listen transport |
+| `AGENT_BRAIN_OAUTH_RESOURCE` | server | absolute URI (scheme, no fragment) | Required **only** in `oauth` mode (RFC 8707 resource id); invalid value → exit 2 at startup |
+| `AGENT_BRAIN_MCP_AUTH` | client | unset (off) / `oauth` | Opts the MCP client into the OAuth dance (browser flow + token cache) |
+
+Highlights:
+
+- Co-located AS/RS (single binary, RS256 JWT) **and** split AS/RS (external IdP — Keycloak/Auth0/Cognito via JWKS / introspection).
+- Discovery: Protected Resource Metadata (RFC 9728) + Authorization Server Metadata (RFC 8414); PKCE **S256-only**.
+- **Per-tool scopes** — `agent-brain:read | index | admin | subscribe` — enforced server-side with **default-deny** on the mutating tools; an under-scoped call gets HTTP 403 `insufficient_scope`.
+- Resource Indicators (RFC 8707) + confused-deputy prevention: the client OAuth token never reaches the MCP→backend leg, which keeps using `X-API-Key`.
+- Client tokens persist at `<state_dir>/mcp-oauth-tokens.json` (chmod `0o600`) and refresh silently.
+
+The optional **`X-API-Key` middleware on `agent-brain-serve`** (issue [#179](https://github.com/SpillwaveSolutions/agent-brain/issues/179)) is a separate **backend-axis** concern from the listen-axis OAuth above — they protect different hops.
 
 ### Local trust model
 
@@ -285,7 +328,7 @@ In short: #179 ≠ OAUTH-01. They protect different axes.
 | Claude Desktop / Claude Code / generic MCP CLI clients | `stdio` (default)         |
 | IDE plugins or framework adapters that prefer HTTP/SSE | `http`                    |
 | CI smoke tests driving the official MCP Python SDK     | `http`                    |
-| Anything exposed beyond `127.0.0.1`                    | **not supported in v10.2** — wait for MCP v4 / OAUTH-01 |
+| Remote / shared host exposed beyond `127.0.0.1`        | `http` **behind a gateway with `AGENT_BRAIN_AUTH=oauth`** (v10.4) |
 
 The backend axis is unchanged from v10.1 — `--backend auto` keeps working in both cases.
 
@@ -311,6 +354,15 @@ The backend axis is unchanged from v10.1 — `--backend auto` keeps working in b
 | `--host <ip-or-name>` | — | `127.0.0.1` | Bind host for `--transport http`. Only `127.0.0.1`, `localhost`, and `::1` are accepted (loopback whitelist). Ignored when `--transport stdio`. |
 | `--port <int>` | — | `8765` | TCP port for `--transport http`. Ignored when `--transport stdio`. |
 
+### Auth axis (v10.4, off by default)
+
+| Env var | Side | Default | Description |
+|---|---|---|---|
+| `AGENT_BRAIN_AUTH` | server | `none` | `none` / `basic` / `oauth` — enables OAuth 2.1 on the HTTP listen transport |
+| `AGENT_BRAIN_OAUTH_RESOURCE` | server | — | Required in `oauth` mode: absolute resource URI (scheme, no fragment) |
+| `AGENT_BRAIN_OAUTH_ISSUER` | server | — | Optional external Authorization Server issuer (split AS/RS) |
+| `AGENT_BRAIN_MCP_AUTH` | client | unset | Set to `oauth` to opt the MCP client into the OAuth dance |
+
 ### Resolution precedence
 
 **Backend axis** (top wins):
@@ -329,9 +381,13 @@ The backend axis is unchanged from v10.1 — `--backend auto` keeps working in b
 
 ---
 
-## Tool reference (7 tools)
+## Tool reference (16 tools)
 
 Every tool returns both a human-readable `content` block and a typed `structuredContent` payload validated against its `outputSchema`. REST endpoint columns refer to the FastAPI backend the MCP server proxies to — see [`API_REFERENCE.md`](./API_REFERENCE.md) for full backend schemas.
+
+The 7 core tools are documented in detail below; the 9 added in v10.2–v10.3 are summarized in
+[Additional tools](#additional-tools-v102v103). Each tool's required OAuth scope (enforced only
+when `AGENT_BRAIN_AUTH=oauth`) is listed in [Tool scopes](#tool-scopes).
 
 ### `search_documents` (readOnly, openWorld)
 
@@ -462,6 +518,39 @@ Return Agent Brain server health, version, and mode.
 **Output:** `{status, version, message?, mode?, instance_id?}`
 
 **Use when:** the model wants a quick liveness check (also called at MCP startup for the version-compat gate).
+
+---
+
+### Additional tools (v10.2–v10.3)
+
+These 9 tools complete the 16-tool surface. Each returns the same `content` + typed
+`structuredContent` shape; see `agent_brain_mcp/schemas.py` and [`API_REFERENCE.md`](./API_REFERENCE.md)
+for full field-level schemas.
+
+| Tool | Annotation | Wraps | Purpose |
+|---|---|---|---|
+| `explain_result` | readOnly | `POST /query/explain` | Explain why a result matched (score breakdown across modes) |
+| `add_documents` | openWorld | `POST /index/add` | Add specific documents to the index without a full folder scan |
+| `inject_documents` | openWorld | `POST /index/inject` | Index with a content-enrichment script (`--script`) |
+| `wait_for_job` | openWorld | polls `GET /jobs/{id}` | Block until a job completes, emitting progress notifications |
+| `list_folders` | readOnly | `GET /index/folders` | List indexed folders with chunk counts |
+| `remove_folder` | destructive | `DELETE /index/folders` | Remove all chunks for a folder (requires `confirm: true`) |
+| `cache_status` | readOnly | `GET /cache/status` | Embedding-cache statistics (hit rate, size) |
+| `clear_cache` | destructive | `POST /cache/clear` | Clear cached embeddings (requires `confirm: true`) |
+| `list_file_types` | readOnly | `GET /types` | List file-type presets and extensions |
+
+### Tool scopes
+
+When `AGENT_BRAIN_AUTH=oauth`, each tool requires the scope below (default-deny: a token without
+the scope gets HTTP 403 `insufficient_scope`). With the default `AGENT_BRAIN_AUTH=none`, scopes are
+not enforced.
+
+| Scope | Tools |
+|---|---|
+| `agent-brain:read` | `search_documents`, `explain_result`, `query_count`, `server_health`, `cache_status`, `list_folders`, `list_file_types`, `list_jobs`, `get_job` |
+| `agent-brain:index` | `index_folder`, `add_documents`, `inject_documents`, `wait_for_job` |
+| `agent-brain:admin` | `cancel_job`, `remove_folder`, `clear_cache` |
+| `agent-brain:subscribe` | resource subscriptions (`corpus://`, `job://`) |
 
 ---
 
@@ -719,22 +808,22 @@ which agent-brain-mcp   # paste the result into "command"
 
 ---
 
-## What's not in v1, and what's coming
+## Roadmap status (v1–v4 shipped)
 
-**Not in v1:**
+The full MCP roadmap is complete as of **v10.4**:
 
-- Resource subscriptions (`resources/subscribe`) — v2.
-- Streamable HTTP MCP transport — v2 (stdio only in v1).
-- `chunk://<id>` and `graph-entity://<type>/<id>` resource schemes — v2 (need new backend endpoints).
-- 9 deferred tools: `explain_result`, `add_documents`, `inject_documents`, `wait_for_job`, `list_folders`, `remove_folder`, `cache_status`, `clear_cache`, `list_file_types` — v2.
-- CLI-via-MCP (`agent-brain --transport mcp`) and the agent-framework adapter matrix — v3.
-- OAuth 2.1 for remote Agent Brain instances — v4.
+- ✅ **v2** — resource subscriptions (`resources/subscribe`), Streamable HTTP transport, the
+  `chunk://` / `graph-entity://` schemes, and the 9 additional tools.
+- ✅ **v3** — CLI-via-MCP (`agent-brain --transport mcp`) and the agent-framework adapter matrix.
+- ✅ **v4** — OAuth 2.1 for remote Agent Brain instances (see [Authentication](#authentication)).
 
-See [`docs/roadmaps/mcp/`](./roadmaps/mcp/) for per-version scope:
+What's next (not yet shipped):
 
-- [v2 — subscriptions and resources](./roadmaps/mcp/v2-subscriptions-and-resources.md)
-- [v3 — CLI-via-MCP and frameworks](./roadmaps/mcp/v3-cli-via-mcp-and-frameworks.md)
-- [v4 — OAuth for remote](./roadmaps/mcp/v4-oauth-for-remote.md)
+- Multi-runtime `--with-mcp` auto-registration for OpenCode / Gemini / Codex — [#224](https://github.com/SpillwaveSolutions/agent-brain/issues/224)–[#226](https://github.com/SpillwaveSolutions/agent-brain/issues/226).
+- Enterprise hardening + cloud deployment — [#219](https://github.com/SpillwaveSolutions/agent-brain/issues/219) and follow-ups #200–#205.
+
+See [`docs/roadmaps/mcp/`](./roadmaps/mcp/) for the original per-version scope and
+[`docs/plans/backlog-survey.md`](./plans/backlog-survey.md) for the current backlog.
 
 ---
 
