@@ -190,6 +190,7 @@ agent-brain/
 - [Plugin Guide](docs/PLUGIN_GUIDE.md) - Complete plugin documentation
 - [User Guide](docs/USER_GUIDE.md) - Detailed usage guide
 - [MCP Quickstart](docs/MCP_QUICKSTART.md) - Use Agent Brain over MCP in ~5 minutes
+- [Project Setup: Plugin + Skills + MCP](docs/PROJECT_SETUP_PLUGIN_SKILLS_MCP.md) - Wire all three into one project
 
 ### Reference
 - [API Reference](docs/API_REFERENCE.md) - REST API documentation
