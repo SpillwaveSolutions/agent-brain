@@ -18,11 +18,11 @@ Follow-up issues: #200–#205.
 ## MCP auto-registration — multi-runtime follow-ups
 
 `install-agent --with-mcp` registers the MCP server for Claude Code (shipped in #223).
-Extend the same auto-registration to the other runtimes (each has its own MCP config format):
+The same auto-registration is extended to the other runtimes (each has its own MCP config format):
 
-- [x] [#224](https://github.com/SpillwaveSolutions/agent-brain/issues/224) — OpenCode (project-root `opencode.json` `mcp`) — shipped
-- [ ] [#225](https://github.com/SpillwaveSolutions/agent-brain/issues/225) — Gemini CLI (`settings.json` `mcpServers`)
-- [ ] [#226](https://github.com/SpillwaveSolutions/agent-brain/issues/226) — Codex (`config.toml` `[mcp_servers]`)
+- [x] [#224](https://github.com/SpillwaveSolutions/agent-brain/issues/224) — OpenCode (project-root `opencode.json` `mcp`) — shipped (#230)
+- [x] [#226](https://github.com/SpillwaveSolutions/agent-brain/issues/226) — Codex (`~/.codex/config.toml` `[mcp_servers]`) — shipped
+- [ ] [#231](https://github.com/SpillwaveSolutions/agent-brain/issues/231) — **Remove** the `gemini` runtime (Google deprecated the Gemini CLI; supersedes the closed #225)
 
 > The native MCP server (formerly tracked here as #153/#167) shipped in the v10.1–v10.4 line
 > and is no longer pending. The full MCP v1–v4 roadmap is complete as of v10.4.0.

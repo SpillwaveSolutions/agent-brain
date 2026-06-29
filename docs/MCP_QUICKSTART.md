@@ -73,10 +73,11 @@ cat .mcp.json
 }
 ```
 
-> **Other hosts / runtimes:** auto-registration targets Claude Code and OpenCode
-> (`install-agent --agent opencode --with-mcp` writes the project-root `opencode.json`). For
-> Claude Desktop, Cursor, Windsurf, Gemini, or Codex, paste the same `mcpServers` block into that
-> host's config (see [MCP User Guide → Configuration](./MCP_USER_GUIDE.md#configuration)).
+> **Other hosts / runtimes:** auto-registration targets Claude Code, OpenCode
+> (`--agent opencode` → project-root `opencode.json`), and Codex
+> (`--agent codex` → `~/.codex/config.toml`). For Claude Desktop, Cursor, or Windsurf, paste the
+> same `mcpServers` block into that host's config (see
+> [MCP User Guide → Configuration](./MCP_USER_GUIDE.md#configuration)).
 
 ## Step 4 — Reload Claude Code and approve the server
 

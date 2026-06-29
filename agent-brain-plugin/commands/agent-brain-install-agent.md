@@ -142,7 +142,7 @@ agent-brain install-agent --agent claude --json
 agent-brain install-agent --agent opencode --plugin-dir ./my-custom-plugin
 ```
 
-### Register the MCP server (Claude Code & OpenCode)
+### Register the MCP server (Claude Code, OpenCode & Codex)
 
 Add `--with-mcp` to also register the `agent-brain` MCP server while installing. It
 writes/merges an `agent-brain` entry into the runtime's MCP config, preserving any other
@@ -153,8 +153,11 @@ servers and keys, and pins an absolute `AGENT_BRAIN_STATE_DIR`. It is idempotent
 # Install plugin + register MCP for Claude Code (→ .mcp.json / ~/.claude.json)
 agent-brain install-agent --agent claude --with-mcp
 
-# Install plugin + register MCP for OpenCode (→ project-root opencode.json)
+# ...for OpenCode (→ project-root opencode.json)
 agent-brain install-agent --agent opencode --with-mcp
+
+# ...for Codex (→ ~/.codex/config.toml, TOML [mcp_servers.agent-brain])
+agent-brain install-agent --agent codex --with-mcp
 
 # Preview only
 agent-brain install-agent --agent claude --with-mcp --dry-run
@@ -172,10 +175,12 @@ agent-brain install-agent --agent claude --with-mcp --mcp-backend uds
 | `--mcp-backend` | `auto`/`uds`/`http` | `auto` | How the MCP server reaches `agent-brain-serve` |
 | `--mcp-auth` | `none`/`oauth` | `none` | Write `AGENT_BRAIN_MCP_AUTH=oauth` for remote OAuth servers |
 
-> Auto-registration targets **Claude Code** (`.mcp.json` / `~/.claude.json`, `mcpServers` schema)
-> and **OpenCode** (project-root `opencode.json` / `~/.config/opencode/opencode.json`, `mcp`
-> schema). For Gemini / Codex, `--with-mcp` prints a note and skips (register manually — see the
-> MCP Setup Guide in the `configuring-agent-brain` skill).
+> Auto-registration targets **Claude Code** (`.mcp.json` / `~/.claude.json`, `mcpServers`),
+> **OpenCode** (project-root `opencode.json` / `~/.config/opencode/opencode.json`, `mcp`), and
+> **Codex** (`$CODEX_HOME/config.toml`, default `~/.codex/config.toml`, `[mcp_servers.agent-brain]`
+> TOML — Codex has no project-level MCP config, so both scopes share that file). For other hosts,
+> `--with-mcp` prints a note and skips (register manually — see the MCP Setup Guide in the
+> `configuring-agent-brain` skill).
 
 ## Output
 

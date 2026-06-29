@@ -24,37 +24,39 @@ url = "../agent-brain-mcp"
 
 [[package]]
 name = "agent-brain-rag"
-version = "10.3.2"
+version = "10.4.0"
 description = "Agent Brain RAG - Intelligent document indexing and semantic search server that gives AI agents long-term memory"
 optional = false
-python-versions = "^3.10"
+python-versions = "<4.0,>=3.10"
 groups = ["main", "dev"]
-files = []
-develop = false
+files = [
+    {file = "agent_brain_rag-10.4.0-py3-none-any.whl", hash = "sha256:77c156745a11aebd2a2450c95b9ddf7d4e440655a65ca8a2292e1f8afba14d50"},
+    {file = "agent_brain_rag-10.4.0.tar.gz", hash = "sha256:353bac5d4535fbfc2a458a53dbf492279b735253af60f9e6ffaca2efa884173f"},
+]
 
 [package.dependencies]
-anthropic = "^0.40.0"
+anthropic = ">=0.40.0,<0.41.0"
 cachetools = ">=5.3"
-chromadb = "^0.5.0"
-click = "^8.1.0"
-fastapi = "^0.115.0"
-google-genai = "^1.0.0"
-llama-index-core = "^0.14.0"
-llama-index-embeddings-openai = "^0.5.0"
-llama-index-llms-openai = "^0.6.12"
-llama-index-readers-file = "^0.5.0"
-llama-index-retrievers-bm25 = "^0.6.0"
-openai = "^1.57.0"
-pathspec = "^0.12.0"
-pydantic = "^2.10.0"
-pydantic-settings = "^2.6.0"
-python-dotenv = "^1.0.0"
-pyyaml = "^6.0.0"
-rank-bm25 = "^0.2.2"
-sentence-transformers = "^3.4.0"
-tiktoken = "^0.8.0"
-tree-sitter-language-pack = "^0.7.3"
-uvicorn = {version = "^0.32.0", extras = ["standard"]}
+chromadb = ">=0.5.0,<0.6.0"
+click = ">=8.1.0,<9.0.0"
+fastapi = ">=0.115.0,<0.116.0"
+google-genai = ">=1.0.0,<2.0.0"
+llama-index-core = ">=0.14.0,<0.15.0"
+llama-index-embeddings-openai = ">=0.5.0,<0.6.0"
+llama-index-llms-openai = ">=0.6.12,<0.7.0"
+llama-index-readers-file = ">=0.5.0,<0.6.0"
+llama-index-retrievers-bm25 = ">=0.6.0,<0.7.0"
+openai = ">=1.57.0,<2.0.0"
+pathspec = ">=0.12.0,<0.13.0"
+pydantic = ">=2.10.0,<3.0.0"
+pydantic-settings = ">=2.6.0,<3.0.0"
+python-dotenv = ">=1.0.0,<2.0.0"
+pyyaml = ">=6.0.0,<7.0.0"
+rank-bm25 = ">=0.2.2,<0.3.0"
+sentence-transformers = ">=3.4.0,<4.0.0"
+tiktoken = ">=0.8.0,<0.9.0"
+tree-sitter-language-pack = ">=0.7.3,<0.8.0"
+uvicorn = {version = ">=0.32.0,<0.33.0", extras = ["standard"]}
 
 [package.extras]
 cohere = ["cohere (>=5.21.0,<6.0)"]
@@ -62,10 +64,6 @@ graphrag = ["langextract (>=1.0.0,<2.0.0)"]
 graphrag-all = ["langextract (>=1.0.0,<2.0.0)", "llama-index-graph-stores-kuzu (>=0.9.0,<0.10.0)"]
 graphrag-kuzu = ["llama-index-graph-stores-kuzu (>=0.9.0,<0.10.0)"]
 postgres = ["asyncpg (>=0.29.0,<0.30.0)", "sqlalchemy[asyncio] (>=2.0.0,<3.0.0)"]
-
-[package.source]
-type = "directory"
-url = "../agent-brain-server"
 
 [[package]]
 name = "agent-brain-uds"
@@ -6657,6 +6655,18 @@ files = [
 ]
 
 [[package]]
+name = "tomlkit"
+version = "0.13.3"
+description = "Style preserving TOML library"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "tomlkit-0.13.3-py3-none-any.whl", hash = "sha256:c89c649d79ee40629a9fda55f8ace8c6a1b42deb912b2a8fd8d942ddadb606b0"},
+    {file = "tomlkit-0.13.3.tar.gz", hash = "sha256:430cf247ee57df2b94ee3fbe588e71d362a941ebb545dec29b53961d61add2a1"},
+]
+
+[[package]]
 name = "torch"
 version = "2.7.1"
 description = "Tensors and Dynamic neural networks in Python with strong GPU acceleration"
@@ -7755,4 +7765,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "ab62c30ac2fa649736fbd36054c1aca3f5cbd19f5432a628b31ec95c7ff2dcc5"
+content-hash = "8acb00688108492fbd56901fb3b6afbc6ae843e7d81f9a2b33adb83582ad50e1"

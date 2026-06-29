@@ -15,11 +15,12 @@ path is `agent_brain_mcp`.
 
 ## 2. Register the server
 
-### Option A — through the plugin (Claude Code & OpenCode, recommended)
+### Option A — through the plugin (Claude Code, OpenCode & Codex, recommended)
 
 ```bash
 agent-brain install-agent --agent claude   --with-mcp     # → .mcp.json / ~/.claude.json
 agent-brain install-agent --agent opencode --with-mcp     # → opencode.json (project root)
+agent-brain install-agent --agent codex    --with-mcp     # → ~/.codex/config.toml (TOML)
 ```
 
 This writes/merges an `agent-brain` entry into the runtime's MCP config, preserving any other
@@ -30,6 +31,11 @@ pins `AGENT_BRAIN_STATE_DIR` to the project's absolute `.agent-brain` path.
 |---------|----------------|----------------------------|------------|
 | `claude` | `.mcp.json` | `~/.claude.json` | `mcpServers` (`command` + `args` + `env`) |
 | `opencode` | `opencode.json` (project root) | `~/.config/opencode/opencode.json` | `mcp` (`type: local`, `command: [...]`, `environment`) |
+| `codex` | `$CODEX_HOME/config.toml` (default `~/.codex/config.toml`) | same file | `[mcp_servers.agent-brain]` TOML (`command` + `args` + `env`) |
+
+> **Codex note:** Codex has no project-level MCP config — servers live in the single user-level
+> `config.toml`, so both scopes write the same file. The project's `.agent-brain` is pinned in the
+> entry's `env`; re-running for a different project updates that one entry (reported as `updated`).
 
 | Flag | Values | Default | Purpose |
 |------|--------|---------|---------|
@@ -99,10 +105,13 @@ Current surface: **16 tools**, 5 `corpus://` resources, 6 prompts.
 
 ## 5. Other runtimes
 
-`install-agent --with-mcp` auto-registers for **Claude Code** and **OpenCode** today (see the
-table in Option A for each runtime's config location and schema). For Gemini and Codex,
-register manually using the Option B JSON in that runtime's MCP config location. (The flag
-prints a note and skips for not-yet-supported runtimes rather than failing.)
+`install-agent --with-mcp` auto-registers for **Claude Code**, **OpenCode**, and **Codex** (see
+the table in Option A for each runtime's config location and schema). For other MCP hosts (Claude
+Desktop, Cursor, Windsurf), register manually using the Option B JSON. The flag prints a note and
+skips for runtimes it can't register rather than failing.
+
+> The `gemini` runtime is being removed (Google deprecated the Gemini CLI — see
+> [#231](https://github.com/SpillwaveSolutions/agent-brain/issues/231)).
 
 ## Troubleshooting
 

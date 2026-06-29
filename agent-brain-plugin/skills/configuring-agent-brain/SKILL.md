@@ -283,6 +283,9 @@ agent-brain install-agent --agent claude --with-mcp
 # ...or for OpenCode (writes the project-root opencode.json)
 agent-brain install-agent --agent opencode --with-mcp
 
+# ...or for Codex (writes ~/.codex/config.toml, TOML [mcp_servers.agent-brain])
+agent-brain install-agent --agent codex --with-mcp
+
 # Preview without writing anything
 agent-brain install-agent --agent claude --with-mcp --dry-run
 
@@ -292,8 +295,9 @@ agent-brain install-agent --agent claude --with-mcp --mcp-auth oauth
 
 What `--with-mcp` does:
 - Writes/merges an `agent-brain` entry into the runtime's MCP config, **preserving any other
-  MCP servers and keys** — Claude Code's `.mcp.json` / `~/.claude.json` (`mcpServers` schema),
-  or OpenCode's project-root `opencode.json` / `~/.config/opencode/opencode.json` (`mcp` schema).
+  MCP servers and keys** — Claude Code's `.mcp.json` / `~/.claude.json` (`mcpServers`), OpenCode's
+  project-root `opencode.json` / `~/.config/opencode/opencode.json` (`mcp`), or Codex's
+  `$CODEX_HOME/config.toml` (default `~/.codex/config.toml`, `[mcp_servers.agent-brain]` TOML).
 - Pins `AGENT_BRAIN_STATE_DIR` to the project's absolute `.agent-brain` path so the
   server is discoverable regardless of the client's working directory.
 - Is **idempotent** — re-running reports `unchanged` when the entry already matches.
@@ -304,8 +308,9 @@ What `--with-mcp` does:
 | `--mcp-backend` | `auto`/`uds`/`http` | `auto` | How the MCP server reaches `agent-brain-serve` |
 | `--mcp-auth` | `none`/`oauth` | `none` | Write `AGENT_BRAIN_MCP_AUTH=oauth` for remote OAuth servers |
 
-> Auto-registration targets **Claude Code** and **OpenCode**. For Gemini / Codex,
-> register manually with the JSON block below (the flag will print a note and skip).
+> Auto-registration targets **Claude Code**, **OpenCode**, and **Codex**. For other MCP hosts,
+> register manually with the JSON block below (the flag will print a note and skip). Codex has no
+> project-level MCP config, so both scopes write the single user-level `config.toml`.
 
 ### Configure an MCP client (manual)
 

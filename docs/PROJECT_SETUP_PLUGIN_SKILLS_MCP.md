@@ -171,11 +171,13 @@ The plugin and skills install for other runtimes via the CLI converter:
 agent-brain install-agent --agent opencode    # or gemini / codex / skill-runtime --dir <path>
 ```
 
-MCP **auto-registration** (`--with-mcp`) targets **Claude Code** and **OpenCode**
-(`install-agent --agent opencode --with-mcp` writes the project-root `opencode.json`). For Gemini
-and Codex, register the MCP server manually using the JSON in the
-[MCP User Guide](./MCP_USER_GUIDE.md#configuration) (tracked as
-[#225](https://github.com/SpillwaveSolutions/agent-brain/issues/225)–[#226](https://github.com/SpillwaveSolutions/agent-brain/issues/226)).
+MCP **auto-registration** (`--with-mcp`) targets **Claude Code**, **OpenCode**
+(`--agent opencode` → project-root `opencode.json`), and **Codex**
+(`--agent codex` → `~/.codex/config.toml`). For other MCP hosts (Claude Desktop, Cursor,
+Windsurf), register the MCP server manually using the JSON in the
+[MCP User Guide](./MCP_USER_GUIDE.md#configuration). (The `gemini` runtime is being removed —
+Google deprecated the Gemini CLI; see
+[#231](https://github.com/SpillwaveSolutions/agent-brain/issues/231).)
 
 ---
 

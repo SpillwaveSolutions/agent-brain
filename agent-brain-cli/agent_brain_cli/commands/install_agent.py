@@ -1,6 +1,7 @@
 """Install-agent command for installing runtime-specific plugin files."""
 
 import json
+import os
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,7 @@ from agent_brain_cli.runtime.gemini_converter import GeminiConverter
 from agent_brain_cli.runtime.mcp_registration import (
     McpRegistrationResult,
     register_claude_mcp,
+    register_codex_mcp,
     register_opencode_mcp,
 )
 from agent_brain_cli.runtime.opencode_converter import OpenCodeConverter
@@ -108,7 +110,15 @@ RUNTIME_CHOICES = ["claude", "opencode", "gemini", "skill-runtime", "codex"]
 MCP_REGISTRARS: dict[str, Callable[..., McpRegistrationResult]] = {
     "claude": register_claude_mcp,
     "opencode": register_opencode_mcp,
+    "codex": register_codex_mcp,
 }
+
+
+def _codex_config_path() -> Path:
+    """Return Codex's MCP config file, honoring ``$CODEX_HOME``."""
+    codex_home = os.environ.get("CODEX_HOME")
+    base = Path(codex_home) if codex_home else Path.home() / ".codex"
+    return base / "config.toml"
 
 
 def _resolve_mcp_paths(
@@ -121,6 +131,9 @@ def _resolve_mcp_paths(
     * **claude** — project ``.mcp.json`` at the root, global ``~/.claude.json``.
     * **opencode** — project ``opencode.json`` at the root (highest-precedence
       project config), global ``~/.config/opencode/opencode.json``.
+    * **codex** — always ``$CODEX_HOME/config.toml`` (default
+      ``~/.codex/config.toml``); Codex has no project-level MCP config, so the
+      file is shared and the project's ``.agent-brain`` is pinned via the entry.
     """
     root = project_root if project_root is not None else Path.cwd()
     if agent == "opencode":
@@ -128,6 +141,11 @@ def _resolve_mcp_paths(
             config = Path.home() / ".config" / "opencode" / "opencode.json"
             return config, Path.home() / ".agent-brain"
         return root / "opencode.json", root / ".agent-brain"
+    if agent == "codex":
+        state_dir = (
+            Path.home() / ".agent-brain" if scope == "global" else root / ".agent-brain"
+        )
+        return _codex_config_path(), state_dir
     # claude (and any future mcpServers-style runtime)
     if scope == "global":
         return Path.home() / ".claude.json", Path.home() / ".agent-brain"
@@ -221,7 +239,7 @@ def _register_mcp(
 @click.option(
     "--with-mcp",
     is_flag=True,
-    help="Also register the agent-brain MCP server (Claude Code or OpenCode)",
+    help="Also register the agent-brain MCP server (Claude Code, OpenCode, Codex)",
 )
 @click.option(
     "--mcp-auth",

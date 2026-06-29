@@ -130,11 +130,18 @@ agent-brain install-agent --agent claude --with-mcp --mcp-auth oauth
 This writes/merges an `agent-brain` entry into the runtime's MCP config, **preserving any other
 servers and keys**, pins an absolute `AGENT_BRAIN_STATE_DIR`, and is **idempotent** (re-running
 reports `unchanged`). Flags: `--with-mcp`, `--mcp-backend {auto,uds,http}`,
-`--mcp-auth {none,oauth}`. Auto-registration targets **Claude Code** (`.mcp.json` / `~/.claude.json`,
-`mcpServers` schema) and **OpenCode** (`--agent opencode` → project-root `opencode.json` /
-`~/.config/opencode/opencode.json`, `mcp` schema with a single `command` array + `environment`).
-For Gemini / Codex it prints a note and skips — register manually with the JSON below (tracked as
-[#225](https://github.com/SpillwaveSolutions/agent-brain/issues/225)–[#226](https://github.com/SpillwaveSolutions/agent-brain/issues/226)).
+`--mcp-auth {none,oauth}`. Auto-registration targets three runtimes:
+
+| `--agent` | Config written | Schema |
+|-----------|----------------|--------|
+| `claude` | `.mcp.json` / `~/.claude.json` | `mcpServers` (`command` + `args` + `env`) |
+| `opencode` | project-root `opencode.json` / `~/.config/opencode/opencode.json` | `mcp` (`type: local`, `command: [...]`, `environment`) |
+| `codex` | `$CODEX_HOME/config.toml` (default `~/.codex/config.toml`) | `[mcp_servers.agent-brain]` TOML |
+
+Codex has no project-level MCP config, so both scopes write the user-level `config.toml`. For other
+hosts the flag prints a note and skips — register manually with the JSON below. (The `gemini`
+runtime is being removed — Google deprecated the Gemini CLI; see
+[#231](https://github.com/SpillwaveSolutions/agent-brain/issues/231).)
 
 ### Universal stdio config
 
@@ -821,7 +828,7 @@ The full MCP roadmap is complete as of **v10.4**:
 
 What's next (not yet shipped):
 
-- Multi-runtime `--with-mcp` auto-registration: OpenCode ✅ ([#224](https://github.com/SpillwaveSolutions/agent-brain/issues/224)); Gemini / Codex next — [#225](https://github.com/SpillwaveSolutions/agent-brain/issues/225)–[#226](https://github.com/SpillwaveSolutions/agent-brain/issues/226).
+- Multi-runtime `--with-mcp` auto-registration: OpenCode ✅ ([#224](https://github.com/SpillwaveSolutions/agent-brain/issues/224)) and Codex ✅ ([#226](https://github.com/SpillwaveSolutions/agent-brain/issues/226)) shipped; `gemini` runtime being removed ([#231](https://github.com/SpillwaveSolutions/agent-brain/issues/231)).
 - Enterprise hardening + cloud deployment — [#219](https://github.com/SpillwaveSolutions/agent-brain/issues/219) and follow-ups #200–#205.
 
 See [`docs/roadmaps/mcp/`](./roadmaps/mcp/) for the original per-version scope and

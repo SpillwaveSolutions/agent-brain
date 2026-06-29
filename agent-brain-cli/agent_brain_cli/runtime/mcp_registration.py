@@ -9,6 +9,11 @@ Each runtime discovers MCP servers from its own JSON config:
   ``~/.config/opencode/opencode.json`` for global scope). Each entry is
   ``{type: "local", command: [...], enabled: true, environment: {...}}`` — the
   executable and its args are fused into one ``command`` array.
+* **Codex** — a ``[mcp_servers.<name>]`` TOML table in
+  ``$CODEX_HOME/config.toml`` (default ``~/.codex/config.toml``). The entry
+  shape mirrors Claude's (``command`` string, ``args`` array, ``env`` table) but
+  the file is TOML, so it is merged with tomlkit to preserve the user's other
+  servers, top-level keys, and comments.
 
 These writers deliberately do NOT shell out to a runtime CLI (``claude mcp add``
 etc.): the file-based path is dependency-free, deterministic, dry-run friendly,
@@ -21,6 +26,9 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+import tomlkit
+from tomlkit.exceptions import TOMLKitError
 
 MCP_SERVER_NAME = "agent-brain"
 MCP_COMMAND = "agent-brain-mcp"
@@ -232,4 +240,77 @@ def register_opencode_mcp(
         entry=build_opencode_mcp_entry(state_dir, backend=backend, auth=auth),
         top_level_defaults={"$schema": OPENCODE_SCHEMA_URL},
         dry_run=dry_run,
+    )
+
+
+def register_codex_mcp(
+    config_path: Path,
+    state_dir: Path,
+    *,
+    backend: str = "auto",
+    auth: str = "none",
+    dry_run: bool = False,
+) -> McpRegistrationResult:
+    """Merge the Agent Brain MCP entry into a Codex ``config.toml`` file.
+
+    Codex stores MCP servers as ``[mcp_servers.<name>]`` TOML tables. The entry
+    fields match Claude's (``command``/``args``/``env``), so the value is built
+    with :func:`build_mcp_server_entry`; only the on-disk format differs. tomlkit
+    parses and re-emits the document so the user's other servers, top-level keys,
+    and comments are preserved.
+
+    Args:
+        config_path: Path to ``$CODEX_HOME/config.toml`` (default
+            ``~/.codex/config.toml``). Codex has no project-level MCP config, so
+            both install scopes target this user-level file.
+        state_dir: The ``.agent-brain`` state directory for the server.
+        backend: MCP backend selector passed to the server.
+        auth: ``none`` or ``oauth``.
+        dry_run: When True, compute the action but write nothing.
+
+    Returns:
+        An :class:`McpRegistrationResult` describing what (would have) changed.
+
+    Raises:
+        ValueError: If an existing config file is not valid TOML.
+    """
+    entry = build_mcp_server_entry(state_dir, backend=backend, auth=auth)
+
+    file_existed = config_path.exists()
+    if file_existed:
+        try:
+            doc = tomlkit.parse(config_path.read_text())
+        except TOMLKitError as exc:
+            raise ValueError(
+                f"Existing {config_path.name} is not valid TOML: {exc}. "
+                "Fix or remove it, then re-run."
+            ) from exc
+    else:
+        doc = tomlkit.document()
+
+    servers = doc.get("mcp_servers")
+    if servers is None:
+        servers = tomlkit.table()
+        doc["mcp_servers"] = servers
+
+    existing = servers.get(MCP_SERVER_NAME)
+    existing_plain = existing.unwrap() if existing is not None else None
+
+    if existing_plain == entry:
+        action = "unchanged"
+    elif not file_existed:
+        action = "created"
+    else:
+        action = "updated"
+
+    if action != "unchanged" and not dry_run:
+        servers[MCP_SERVER_NAME] = entry
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(tomlkit.dumps(doc))
+
+    return McpRegistrationResult(
+        path=config_path,
+        action=action,
+        server_name=MCP_SERVER_NAME,
+        entry=entry,
     )

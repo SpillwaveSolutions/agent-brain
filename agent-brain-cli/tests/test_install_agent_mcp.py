@@ -227,3 +227,87 @@ class TestInstallAgentOpenCodeWithMcp:
         assert not (tmp_path / "opencode.json").exists()
         # And the dry-run never touches the real project root.
         assert not (project / "opencode.json").exists()
+
+
+class TestInstallAgentCodexWithMcp:
+    """Codex auto-registration writes `$CODEX_HOME/config.toml` (TOML)."""
+
+    def _install_codex(
+        self,
+        runner: CliRunner,
+        plugin_dir: Path,
+        project: Path,
+        codex_home: Path,
+        *extra: str,
+    ):
+        return runner.invoke(
+            install_agent_command,
+            [
+                "--agent",
+                "codex",
+                "--plugin-dir",
+                str(plugin_dir),
+                "--path",
+                str(project),
+                *extra,
+            ],
+            env={"CODEX_HOME": str(codex_home)},
+        )
+
+    def test_default_does_not_register_mcp(
+        self, runner: CliRunner, plugin_dir: Path, tmp_path: Path
+    ) -> None:
+        project = tmp_path / "proj"
+        project.mkdir()
+        codex_home = tmp_path / ".codex"
+        result = self._install_codex(runner, plugin_dir, project, codex_home)
+        assert result.exit_code == 0
+        assert not (codex_home / "config.toml").exists()
+
+    def test_with_mcp_writes_codex_config_toml(
+        self, runner: CliRunner, plugin_dir: Path, tmp_path: Path
+    ) -> None:
+        import tomlkit
+
+        project = tmp_path / "proj"
+        project.mkdir()
+        codex_home = tmp_path / ".codex"
+        result = self._install_codex(
+            runner, plugin_dir, project, codex_home, "--with-mcp"
+        )
+        assert result.exit_code == 0
+        config = codex_home / "config.toml"
+        assert config.exists()
+        doc = tomlkit.parse(config.read_text())
+        entry = doc["mcp_servers"]["agent-brain"]
+        assert entry["command"] == "agent-brain-mcp"
+        state_dir = Path(entry["env"]["AGENT_BRAIN_STATE_DIR"])
+        assert state_dir.is_absolute()
+        assert state_dir.name == ".agent-brain"
+
+    def test_with_mcp_dry_run_writes_nothing(
+        self, runner: CliRunner, plugin_dir: Path, tmp_path: Path
+    ) -> None:
+        project = tmp_path / "proj"
+        project.mkdir()
+        codex_home = tmp_path / ".codex"
+        result = self._install_codex(
+            runner, plugin_dir, project, codex_home, "--with-mcp", "--dry-run"
+        )
+        assert result.exit_code == 0
+        assert not (codex_home / "config.toml").exists()
+
+    def test_with_mcp_json_output_reports_registration(
+        self, runner: CliRunner, plugin_dir: Path, tmp_path: Path
+    ) -> None:
+        project = tmp_path / "proj"
+        project.mkdir()
+        codex_home = tmp_path / ".codex"
+        result = self._install_codex(
+            runner, plugin_dir, project, codex_home, "--with-mcp", "--json"
+        )
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["mcp_registration"]["action"] == "created"
+        assert payload["mcp_registration"]["server_name"] == "agent-brain"
+        assert payload["mcp_registration"]["path"].endswith("config.toml")
