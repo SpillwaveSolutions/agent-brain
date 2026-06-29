@@ -396,13 +396,20 @@ def _handle_dry_run(
     import tempfile
 
     with tempfile.TemporaryDirectory() as tmp:
-        tmp_target = Path(tmp)
         # For Codex, pass tmp as project_root so AGENTS.md lands in tmpdir
         if isinstance(converter, CodexConverter):
+            tmp_target = Path(tmp)
             files = converter.install(
                 bundle, tmp_target, scope_enum, project_root=Path(tmp)
             )
         else:
+            # Mirror the real target's full structure under tmp so converters
+            # that write *outside* target_dir stay inside the sandbox — e.g.
+            # OpenCode writes opencode.json at target_dir.parent.parent, which
+            # escapes to an unwritable ancestor (CI: "/") if the temp target is
+            # shallow. Rooting at tmp + the target's relative path keeps every
+            # parent the converter computes inside the throwaway dir.
+            tmp_target = Path(tmp) / target.relative_to(target.anchor)
             files = converter.install(bundle, tmp_target, scope_enum)
         # Remap paths to real target
         planned: list[Path] = []

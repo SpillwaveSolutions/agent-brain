@@ -1,6 +1,7 @@
 """Tests for `install-agent --with-mcp` MCP registration wiring."""
 
 import json
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -181,3 +182,48 @@ class TestInstallAgentOpenCodeWithMcp:
         assert payload["mcp_registration"]["action"] == "created"
         assert payload["mcp_registration"]["server_name"] == "agent-brain"
         assert payload["mcp_registration"]["path"].endswith("opencode.json")
+
+    def test_dry_run_does_not_escape_the_sandbox(
+        self,
+        runner: CliRunner,
+        plugin_dir: Path,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """The OpenCode converter writes opencode.json at target.parent.parent.
+
+        During a dry-run the converter runs against a throwaway temp dir; if
+        that temp dir is shallow, ``parent.parent`` escapes to an ancestor
+        outside the sandbox (in CI that resolves to "/" → PermissionError).
+        Pinning the dry-run temp dir to a known-shallow location reproduces the
+        escape deterministically: the stray opencode.json must NOT land above
+        the sandbox.
+        """
+        project = tmp_path / "project"
+        project.mkdir()
+        sandbox = tmp_path / "outer" / "sandbox"
+        sandbox.mkdir(parents=True)
+
+        class _FixedTempDir:
+            def __enter__(self) -> str:
+                return str(sandbox)
+
+            def __exit__(self, *exc: object) -> bool:
+                return False
+
+        monkeypatch.setattr(
+            tempfile, "TemporaryDirectory", lambda *a, **k: _FixedTempDir()
+        )
+
+        result = self._install_opencode(
+            runner, plugin_dir, project, "--with-mcp", "--dry-run"
+        )
+
+        assert result.exit_code == 0
+        # `sandbox` is `<tmp_path>/outer/sandbox`, so the converter's
+        # `target.parent.parent` is `<tmp_path>` — pre-fix the stray
+        # opencode.json escapes to there. With the sandbox mirrored, every
+        # write stays under `sandbox`, so nothing escapes.
+        assert not (tmp_path / "opencode.json").exists()
+        # And the dry-run never touches the real project root.
+        assert not (project / "opencode.json").exists()
