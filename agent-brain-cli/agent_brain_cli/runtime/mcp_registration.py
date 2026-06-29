@@ -1,12 +1,17 @@
-"""Register the Agent Brain MCP server into a Claude Code config file.
+"""Register the Agent Brain MCP server into a runtime's config file.
 
-Claude Code discovers MCP servers from a JSON config with an ``mcpServers``
-object — a project-level ``.mcp.json`` at the project root, or the user-level
-``~/.claude.json`` for global scope. This module writes/merges the
-``agent-brain`` entry into that file without disturbing other servers or keys.
+Each runtime discovers MCP servers from its own JSON config:
 
-It deliberately does NOT shell out to ``claude mcp add``: the file-based path is
-dependency-free (no ``claude`` CLI required), deterministic, dry-run friendly,
+* **Claude Code** — an ``mcpServers`` object in a project-level ``.mcp.json`` (or
+  the user-level ``~/.claude.json`` for global scope). Each entry is
+  ``{command, args, env}``.
+* **OpenCode** — an ``mcp`` object in the project-root ``opencode.json`` (or
+  ``~/.config/opencode/opencode.json`` for global scope). Each entry is
+  ``{type: "local", command: [...], enabled: true, environment: {...}}`` — the
+  executable and its args are fused into one ``command`` array.
+
+These writers deliberately do NOT shell out to a runtime CLI (``claude mcp add``
+etc.): the file-based path is dependency-free, deterministic, dry-run friendly,
 and matches the file-writing pattern the rest of ``install-agent`` already uses.
 """
 
@@ -19,6 +24,22 @@ from typing import Any
 
 MCP_SERVER_NAME = "agent-brain"
 MCP_COMMAND = "agent-brain-mcp"
+OPENCODE_SCHEMA_URL = "https://opencode.ai/config.json"
+
+
+def _build_env(state_dir: Path, auth: str) -> dict[str, str]:
+    """Build the environment block shared by every runtime's entry.
+
+    The state dir is resolved to an absolute path — MCP clients launch the
+    server from an unknown cwd, so a relative path would break discovery.
+    ``oauth`` opts the client into the OAuth dance via ``AGENT_BRAIN_MCP_AUTH``.
+    """
+    env: dict[str, str] = {
+        "AGENT_BRAIN_STATE_DIR": str(state_dir.expanduser().resolve())
+    }
+    if auth == "oauth":
+        env["AGENT_BRAIN_MCP_AUTH"] = "oauth"
+    return env
 
 
 def build_mcp_server_entry(
@@ -26,29 +47,49 @@ def build_mcp_server_entry(
     backend: str = "auto",
     auth: str = "none",
 ) -> dict[str, Any]:
-    """Build the ``mcpServers`` entry for the Agent Brain MCP server.
+    """Build the Claude Code ``mcpServers`` entry for the Agent Brain MCP server.
 
     Args:
-        state_dir: The ``.agent-brain`` state directory the MCP server should
-            use. Resolved to an absolute path — MCP clients launch the server
-            from an unknown cwd, so a relative path would break discovery.
+        state_dir: The ``.agent-brain`` state directory the MCP server should use.
         backend: How the MCP server reaches ``agent-brain-serve``
             (``auto`` | ``uds`` | ``http``).
-        auth: ``none`` (default) or ``oauth``. ``oauth`` injects
-            ``AGENT_BRAIN_MCP_AUTH=oauth`` to opt the client into the OAuth dance.
+        auth: ``none`` (default) or ``oauth``.
 
     Returns:
         A dict suitable for ``mcpServers[<name>]``.
     """
-    env: dict[str, str] = {
-        "AGENT_BRAIN_STATE_DIR": str(state_dir.expanduser().resolve())
-    }
-    if auth == "oauth":
-        env["AGENT_BRAIN_MCP_AUTH"] = "oauth"
     return {
         "command": MCP_COMMAND,
         "args": ["--backend", backend],
-        "env": env,
+        "env": _build_env(state_dir, auth),
+    }
+
+
+def build_opencode_mcp_entry(
+    state_dir: Path,
+    backend: str = "auto",
+    auth: str = "none",
+) -> dict[str, Any]:
+    """Build the OpenCode ``mcp`` entry for the Agent Brain MCP server.
+
+    OpenCode fuses the executable and its args into one ``command`` array, uses
+    ``environment`` (not ``env``), and marks local servers with
+    ``type: "local"`` and ``enabled: true``.
+
+    Args:
+        state_dir: The ``.agent-brain`` state directory the MCP server should use.
+        backend: How the MCP server reaches ``agent-brain-serve``
+            (``auto`` | ``uds`` | ``http``).
+        auth: ``none`` (default) or ``oauth``.
+
+    Returns:
+        A dict suitable for ``mcp[<name>]`` in ``opencode.json``.
+    """
+    return {
+        "type": "local",
+        "command": [MCP_COMMAND, "--backend", backend],
+        "enabled": True,
+        "environment": _build_env(state_dir, auth),
     }
 
 
@@ -60,6 +101,74 @@ class McpRegistrationResult:
     action: str  # "created" | "updated" | "unchanged"
     server_name: str
     entry: dict[str, Any]
+
+
+def _merge_json_mcp(
+    config_path: Path,
+    *,
+    servers_key: str,
+    entry: dict[str, Any],
+    top_level_defaults: dict[str, Any] | None = None,
+    dry_run: bool = False,
+) -> McpRegistrationResult:
+    """Merge an MCP entry into a JSON config under ``servers_key``.
+
+    Shared skeleton for every JSON-config runtime: read (fail closed on corrupt
+    JSON), compare the existing ``agent-brain`` entry, classify the action, and
+    write only when something changed. Other servers and top-level keys are
+    preserved.
+
+    Args:
+        config_path: Path to the runtime's JSON config file.
+        servers_key: Top-level key holding the server map
+            (``mcpServers`` for Claude, ``mcp`` for OpenCode).
+        entry: The fully-built entry to store under ``[servers_key][name]``.
+        top_level_defaults: Keys applied via ``setdefault`` when writing
+            (e.g. OpenCode's ``$schema``); only touched on create/update.
+        dry_run: When True, compute the action but write nothing.
+
+    Returns:
+        An :class:`McpRegistrationResult` describing what (would have) changed.
+
+    Raises:
+        ValueError: If an existing config file is not valid JSON.
+    """
+    data: dict[str, Any]
+    file_existed = config_path.exists()
+    if file_existed:
+        try:
+            data = json.loads(config_path.read_text())
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"Existing {config_path.name} is not valid JSON: {exc}. "
+                "Fix or remove it, then re-run."
+            ) from exc
+    else:
+        data = {}
+
+    servers = data.setdefault(servers_key, {})
+    existing = servers.get(MCP_SERVER_NAME)
+
+    if existing == entry:
+        action = "unchanged"
+    elif not file_existed:
+        action = "created"
+    else:
+        action = "updated"
+
+    if action != "unchanged" and not dry_run:
+        for key, value in (top_level_defaults or {}).items():
+            data.setdefault(key, value)
+        servers[MCP_SERVER_NAME] = entry
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(json.dumps(data, indent=2) + "\n")
+
+    return McpRegistrationResult(
+        path=config_path,
+        action=action,
+        server_name=MCP_SERVER_NAME,
+        entry=entry,
+    )
 
 
 def register_claude_mcp(
@@ -85,39 +194,42 @@ def register_claude_mcp(
     Raises:
         ValueError: If an existing config file is not valid JSON.
     """
-    entry = build_mcp_server_entry(state_dir, backend=backend, auth=auth)
+    return _merge_json_mcp(
+        config_path,
+        servers_key="mcpServers",
+        entry=build_mcp_server_entry(state_dir, backend=backend, auth=auth),
+        dry_run=dry_run,
+    )
 
-    data: dict[str, Any]
-    file_existed = config_path.exists()
-    if file_existed:
-        try:
-            data = json.loads(config_path.read_text())
-        except json.JSONDecodeError as exc:
-            raise ValueError(
-                f"Existing {config_path.name} is not valid JSON: {exc}. "
-                "Fix or remove it, then re-run."
-            ) from exc
-    else:
-        data = {}
 
-    servers = data.setdefault("mcpServers", {})
-    existing = servers.get(MCP_SERVER_NAME)
+def register_opencode_mcp(
+    config_path: Path,
+    state_dir: Path,
+    *,
+    backend: str = "auto",
+    auth: str = "none",
+    dry_run: bool = False,
+) -> McpRegistrationResult:
+    """Merge the Agent Brain MCP entry into an OpenCode config file.
 
-    if existing == entry:
-        action = "unchanged"
-    elif not file_existed:
-        action = "created"
-    else:
-        action = "updated"
+    Args:
+        config_path: Path to the project-root ``opencode.json`` (project) or
+            ``~/.config/opencode/opencode.json`` (global).
+        state_dir: The ``.agent-brain`` state directory for the server.
+        backend: MCP backend selector passed to the server.
+        auth: ``none`` or ``oauth``.
+        dry_run: When True, compute the action but write nothing.
 
-    if action != "unchanged" and not dry_run:
-        servers[MCP_SERVER_NAME] = entry
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-        config_path.write_text(json.dumps(data, indent=2) + "\n")
+    Returns:
+        An :class:`McpRegistrationResult` describing what (would have) changed.
 
-    return McpRegistrationResult(
-        path=config_path,
-        action=action,
-        server_name=MCP_SERVER_NAME,
-        entry=entry,
+    Raises:
+        ValueError: If an existing config file is not valid JSON.
+    """
+    return _merge_json_mcp(
+        config_path,
+        servers_key="mcp",
+        entry=build_opencode_mcp_entry(state_dir, backend=backend, auth=auth),
+        top_level_defaults={"$schema": OPENCODE_SCHEMA_URL},
+        dry_run=dry_run,
     )

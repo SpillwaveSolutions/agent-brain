@@ -142,16 +142,19 @@ agent-brain install-agent --agent claude --json
 agent-brain install-agent --agent opencode --plugin-dir ./my-custom-plugin
 ```
 
-### Register the MCP server (Claude Code)
+### Register the MCP server (Claude Code & OpenCode)
 
 Add `--with-mcp` to also register the `agent-brain` MCP server while installing. It
-writes/merges an `agent-brain` entry into the project-level `.mcp.json` (or `~/.claude.json`
-with `--global`), preserving any other servers and keys, and pins an absolute
-`AGENT_BRAIN_STATE_DIR`. It is idempotent and honors `--dry-run`.
+writes/merges an `agent-brain` entry into the runtime's MCP config, preserving any other
+servers and keys, and pins an absolute `AGENT_BRAIN_STATE_DIR`. It is idempotent and honors
+`--dry-run`.
 
 ```bash
-# Install plugin + register MCP for Claude Code
+# Install plugin + register MCP for Claude Code (→ .mcp.json / ~/.claude.json)
 agent-brain install-agent --agent claude --with-mcp
+
+# Install plugin + register MCP for OpenCode (→ project-root opencode.json)
+agent-brain install-agent --agent opencode --with-mcp
 
 # Preview only
 agent-brain install-agent --agent claude --with-mcp --dry-run
@@ -169,9 +172,10 @@ agent-brain install-agent --agent claude --with-mcp --mcp-backend uds
 | `--mcp-backend` | `auto`/`uds`/`http` | `auto` | How the MCP server reaches `agent-brain-serve` |
 | `--mcp-auth` | `none`/`oauth` | `none` | Write `AGENT_BRAIN_MCP_AUTH=oauth` for remote OAuth servers |
 
-> Auto-registration currently targets **Claude Code**. For OpenCode / Gemini / Codex,
-> `--with-mcp` prints a note and skips (register manually — see the MCP Setup Guide in the
-> `configuring-agent-brain` skill).
+> Auto-registration targets **Claude Code** (`.mcp.json` / `~/.claude.json`, `mcpServers` schema)
+> and **OpenCode** (project-root `opencode.json` / `~/.config/opencode/opencode.json`, `mcp`
+> schema). For Gemini / Codex, `--with-mcp` prints a note and skips (register manually — see the
+> MCP Setup Guide in the `configuring-agent-brain` skill).
 
 ## Output
 

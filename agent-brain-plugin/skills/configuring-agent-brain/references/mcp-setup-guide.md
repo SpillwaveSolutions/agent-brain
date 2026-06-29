@@ -15,16 +15,21 @@ path is `agent_brain_mcp`.
 
 ## 2. Register the server
 
-### Option A — through the plugin (Claude Code, recommended)
+### Option A — through the plugin (Claude Code & OpenCode, recommended)
 
 ```bash
-agent-brain install-agent --agent claude --with-mcp
+agent-brain install-agent --agent claude   --with-mcp     # → .mcp.json / ~/.claude.json
+agent-brain install-agent --agent opencode --with-mcp     # → opencode.json (project root)
 ```
 
-This writes/merges an `agent-brain` entry into the project-level `.mcp.json` (or
-`~/.claude.json` with `--global`), preserving any other servers and keys. It is idempotent
-(re-running reports `unchanged`), supports `--dry-run`, and pins `AGENT_BRAIN_STATE_DIR` to
-the project's absolute `.agent-brain` path.
+This writes/merges an `agent-brain` entry into the runtime's MCP config, preserving any other
+servers and keys. It is idempotent (re-running reports `unchanged`), supports `--dry-run`, and
+pins `AGENT_BRAIN_STATE_DIR` to the project's absolute `.agent-brain` path.
+
+| Runtime | Project config | Global config (`--global`) | Schema key |
+|---------|----------------|----------------------------|------------|
+| `claude` | `.mcp.json` | `~/.claude.json` | `mcpServers` (`command` + `args` + `env`) |
+| `opencode` | `opencode.json` (project root) | `~/.config/opencode/opencode.json` | `mcp` (`type: local`, `command: [...]`, `environment`) |
 
 | Flag | Values | Default | Purpose |
 |------|--------|---------|---------|
@@ -94,9 +99,10 @@ Current surface: **16 tools**, 5 `corpus://` resources, 6 prompts.
 
 ## 5. Other runtimes
 
-`install-agent --with-mcp` auto-registers for **Claude Code** today. For OpenCode, Gemini, and
-Codex, register manually using the Option B JSON in that runtime's MCP config location. (The
-flag prints a note and skips for non-Claude runtimes rather than failing.)
+`install-agent --with-mcp` auto-registers for **Claude Code** and **OpenCode** today (see the
+table in Option A for each runtime's config location and schema). For Gemini and Codex,
+register manually using the Option B JSON in that runtime's MCP config location. (The flag
+prints a note and skips for not-yet-supported runtimes rather than failing.)
 
 ## Troubleshooting
 

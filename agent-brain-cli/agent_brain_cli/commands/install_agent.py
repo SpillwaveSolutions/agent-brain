@@ -1,6 +1,7 @@
 """Install-agent command for installing runtime-specific plugin files."""
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -11,7 +12,11 @@ from rich.panel import Panel
 from agent_brain_cli.runtime.claude_converter import ClaudeConverter
 from agent_brain_cli.runtime.codex_converter import CodexConverter
 from agent_brain_cli.runtime.gemini_converter import GeminiConverter
-from agent_brain_cli.runtime.mcp_registration import register_claude_mcp
+from agent_brain_cli.runtime.mcp_registration import (
+    McpRegistrationResult,
+    register_claude_mcp,
+    register_opencode_mcp,
+)
 from agent_brain_cli.runtime.opencode_converter import OpenCodeConverter
 from agent_brain_cli.runtime.parser import parse_plugin_dir
 from agent_brain_cli.runtime.skill_runtime_converter import SkillRuntimeConverter
@@ -97,19 +102,35 @@ def _resolve_target_dir(
 
 RUNTIME_CHOICES = ["claude", "opencode", "gemini", "skill-runtime", "codex"]
 
-# Runtimes for which we can auto-register the MCP server today.
-MCP_SUPPORTED_RUNTIMES = {"claude"}
+# Runtimes for which we can auto-register the MCP server today, mapped to the
+# writer that knows that runtime's config schema. All writers share the
+# ``(config_path, state_dir, *, backend, auth, dry_run)`` signature.
+MCP_REGISTRARS: dict[str, Callable[..., McpRegistrationResult]] = {
+    "claude": register_claude_mcp,
+    "opencode": register_opencode_mcp,
+}
 
 
-def _resolve_mcp_paths(scope: str, project_root: Path | None) -> tuple[Path, Path]:
+def _resolve_mcp_paths(
+    agent: str, scope: str, project_root: Path | None
+) -> tuple[Path, Path]:
     """Return (config_path, state_dir) for MCP registration.
 
-    Project scope writes the project-level ``.mcp.json`` Claude Code reads from
-    the project root; global scope targets the user-level ``~/.claude.json``.
+    The config file follows each runtime's own discovery rules:
+
+    * **claude** — project ``.mcp.json`` at the root, global ``~/.claude.json``.
+    * **opencode** — project ``opencode.json`` at the root (highest-precedence
+      project config), global ``~/.config/opencode/opencode.json``.
     """
+    root = project_root if project_root is not None else Path.cwd()
+    if agent == "opencode":
+        if scope == "global":
+            config = Path.home() / ".config" / "opencode" / "opencode.json"
+            return config, Path.home() / ".agent-brain"
+        return root / "opencode.json", root / ".agent-brain"
+    # claude (and any future mcpServers-style runtime)
     if scope == "global":
         return Path.home() / ".claude.json", Path.home() / ".agent-brain"
-    root = project_root if project_root is not None else Path.cwd()
     return root / ".mcp.json", root / ".agent-brain"
 
 
@@ -122,17 +143,18 @@ def _register_mcp(
     dry_run: bool,
 ) -> dict[str, Any]:
     """Register the MCP server for supported runtimes; report what happened."""
-    if agent not in MCP_SUPPORTED_RUNTIMES:
+    registrar = MCP_REGISTRARS.get(agent)
+    if registrar is None:
         return {
             "skipped": True,
             "reason": (
                 f"MCP auto-registration is currently supported only for "
-                f"{', '.join(sorted(MCP_SUPPORTED_RUNTIMES))}; configure "
+                f"{', '.join(sorted(MCP_REGISTRARS))}; configure "
                 f"{agent} manually (see the configuring-agent-brain skill)."
             ),
         }
-    config_path, state_dir = _resolve_mcp_paths(scope, project_root)
-    result = register_claude_mcp(
+    config_path, state_dir = _resolve_mcp_paths(agent, scope, project_root)
+    result = registrar(
         config_path,
         state_dir,
         backend=mcp_backend,
@@ -199,7 +221,7 @@ def _register_mcp(
 @click.option(
     "--with-mcp",
     is_flag=True,
-    help="Also register the agent-brain MCP server (Claude Code .mcp.json)",
+    help="Also register the agent-brain MCP server (Claude Code or OpenCode)",
 )
 @click.option(
     "--mcp-auth",
@@ -374,13 +396,20 @@ def _handle_dry_run(
     import tempfile
 
     with tempfile.TemporaryDirectory() as tmp:
-        tmp_target = Path(tmp)
         # For Codex, pass tmp as project_root so AGENTS.md lands in tmpdir
         if isinstance(converter, CodexConverter):
+            tmp_target = Path(tmp)
             files = converter.install(
                 bundle, tmp_target, scope_enum, project_root=Path(tmp)
             )
         else:
+            # Mirror the real target's full structure under tmp so converters
+            # that write *outside* target_dir stay inside the sandbox — e.g.
+            # OpenCode writes opencode.json at target_dir.parent.parent, which
+            # escapes to an unwritable ancestor (CI: "/") if the temp target is
+            # shallow. Rooting at tmp + the target's relative path keeps every
+            # parent the converter computes inside the throwaway dir.
+            tmp_target = Path(tmp) / target.relative_to(target.anchor)
             files = converter.install(bundle, tmp_target, scope_enum)
         # Remap paths to real target
         planned: list[Path] = []
