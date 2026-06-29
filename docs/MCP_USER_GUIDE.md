@@ -127,12 +127,14 @@ agent-brain install-agent --agent claude --with-mcp --dry-run
 agent-brain install-agent --agent claude --with-mcp --mcp-auth oauth
 ```
 
-This writes/merges an `agent-brain` entry into the project-level `.mcp.json` (or `~/.claude.json`
-with `--global`), **preserving any other servers and keys**, pins an absolute
-`AGENT_BRAIN_STATE_DIR`, and is **idempotent** (re-running reports `unchanged`). Flags:
-`--with-mcp`, `--mcp-backend {auto,uds,http}`, `--mcp-auth {none,oauth}`. Auto-registration
-currently targets Claude Code; for OpenCode / Gemini / Codex it prints a note and skips —
-register manually with the JSON below (tracked as [#224](https://github.com/SpillwaveSolutions/agent-brain/issues/224)–[#226](https://github.com/SpillwaveSolutions/agent-brain/issues/226)).
+This writes/merges an `agent-brain` entry into the runtime's MCP config, **preserving any other
+servers and keys**, pins an absolute `AGENT_BRAIN_STATE_DIR`, and is **idempotent** (re-running
+reports `unchanged`). Flags: `--with-mcp`, `--mcp-backend {auto,uds,http}`,
+`--mcp-auth {none,oauth}`. Auto-registration targets **Claude Code** (`.mcp.json` / `~/.claude.json`,
+`mcpServers` schema) and **OpenCode** (`--agent opencode` → project-root `opencode.json` /
+`~/.config/opencode/opencode.json`, `mcp` schema with a single `command` array + `environment`).
+For Gemini / Codex it prints a note and skips — register manually with the JSON below (tracked as
+[#225](https://github.com/SpillwaveSolutions/agent-brain/issues/225)–[#226](https://github.com/SpillwaveSolutions/agent-brain/issues/226)).
 
 ### Universal stdio config
 
@@ -819,7 +821,7 @@ The full MCP roadmap is complete as of **v10.4**:
 
 What's next (not yet shipped):
 
-- Multi-runtime `--with-mcp` auto-registration for OpenCode / Gemini / Codex — [#224](https://github.com/SpillwaveSolutions/agent-brain/issues/224)–[#226](https://github.com/SpillwaveSolutions/agent-brain/issues/226).
+- Multi-runtime `--with-mcp` auto-registration: OpenCode ✅ ([#224](https://github.com/SpillwaveSolutions/agent-brain/issues/224)); Gemini / Codex next — [#225](https://github.com/SpillwaveSolutions/agent-brain/issues/225)–[#226](https://github.com/SpillwaveSolutions/agent-brain/issues/226).
 - Enterprise hardening + cloud deployment — [#219](https://github.com/SpillwaveSolutions/agent-brain/issues/219) and follow-ups #200–#205.
 
 See [`docs/roadmaps/mcp/`](./roadmaps/mcp/) for the original per-version scope and

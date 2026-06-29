@@ -104,7 +104,7 @@ class TestInstallAgentWithMcp:
             install_agent_command,
             [
                 "--agent",
-                "opencode",
+                "gemini",
                 "--plugin-dir",
                 str(plugin_dir),
                 "--path",
@@ -112,7 +112,72 @@ class TestInstallAgentWithMcp:
                 "--with-mcp",
             ],
         )
-        # Non-fatal: install still succeeds, but no .mcp.json and a clear note.
+        # Non-fatal: install still succeeds, but no config written and a clear note.
         assert result.exit_code == 0
         assert not (tmp_path / ".mcp.json").exists()
+        assert not (tmp_path / "opencode.json").exists()
         assert "mcp" in result.output.lower()
+
+
+class TestInstallAgentOpenCodeWithMcp:
+    """OpenCode auto-registration writes the project-root `opencode.json`."""
+
+    def _install_opencode(
+        self, runner: CliRunner, plugin_dir: Path, project: Path, *extra: str
+    ):
+        return runner.invoke(
+            install_agent_command,
+            [
+                "--agent",
+                "opencode",
+                "--plugin-dir",
+                str(plugin_dir),
+                "--path",
+                str(project),
+                *extra,
+            ],
+        )
+
+    def test_default_does_not_register_mcp(
+        self, runner: CliRunner, plugin_dir: Path, tmp_path: Path
+    ) -> None:
+        result = self._install_opencode(runner, plugin_dir, tmp_path)
+        assert result.exit_code == 0
+        assert not (tmp_path / "opencode.json").exists()
+
+    def test_with_mcp_writes_project_opencode_json(
+        self, runner: CliRunner, plugin_dir: Path, tmp_path: Path
+    ) -> None:
+        result = self._install_opencode(runner, plugin_dir, tmp_path, "--with-mcp")
+        assert result.exit_code == 0
+        # OpenCode reads project config from the project-root opencode.json.
+        config = tmp_path / "opencode.json"
+        assert config.exists()
+        data = json.loads(config.read_text())
+        entry = data["mcp"]["agent-brain"]
+        assert entry["command"][0] == "agent-brain-mcp"
+        assert entry["type"] == "local"
+        state_dir = Path(entry["environment"]["AGENT_BRAIN_STATE_DIR"])
+        assert state_dir.is_absolute()
+        assert state_dir.name == ".agent-brain"
+
+    def test_with_mcp_dry_run_writes_nothing(
+        self, runner: CliRunner, plugin_dir: Path, tmp_path: Path
+    ) -> None:
+        result = self._install_opencode(
+            runner, plugin_dir, tmp_path, "--with-mcp", "--dry-run"
+        )
+        assert result.exit_code == 0
+        assert not (tmp_path / "opencode.json").exists()
+
+    def test_with_mcp_json_output_reports_registration(
+        self, runner: CliRunner, plugin_dir: Path, tmp_path: Path
+    ) -> None:
+        result = self._install_opencode(
+            runner, plugin_dir, tmp_path, "--with-mcp", "--json"
+        )
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["mcp_registration"]["action"] == "created"
+        assert payload["mcp_registration"]["server_name"] == "agent-brain"
+        assert payload["mcp_registration"]["path"].endswith("opencode.json")

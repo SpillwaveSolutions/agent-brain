@@ -20,7 +20,7 @@ Follow-up issues: #200–#205.
 `install-agent --with-mcp` registers the MCP server for Claude Code (shipped in #223).
 Extend the same auto-registration to the other runtimes (each has its own MCP config format):
 
-- [ ] [#224](https://github.com/SpillwaveSolutions/agent-brain/issues/224) — OpenCode (`opencode.json` `mcp`)
+- [x] [#224](https://github.com/SpillwaveSolutions/agent-brain/issues/224) — OpenCode (project-root `opencode.json` `mcp`) — shipped
 - [ ] [#225](https://github.com/SpillwaveSolutions/agent-brain/issues/225) — Gemini CLI (`settings.json` `mcpServers`)
 - [ ] [#226](https://github.com/SpillwaveSolutions/agent-brain/issues/226) — Codex (`config.toml` `[mcp_servers]`)
 
