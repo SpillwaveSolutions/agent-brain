@@ -6,8 +6,10 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from pydantic import SecretStr, model_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from agent_brain_server.config.secrets import resolve_secret
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,15 @@ class Settings(BaseSettings):
     API_KEY: SecretStr | None = None
     INSECURE_NO_AUTH: bool = False
 
+    @field_validator("OPENAI_API_KEY", "ANTHROPIC_API_KEY", mode="before")
+    @classmethod
+    def _resolve_secret_fields(cls, v: object) -> object:
+        """Resolve ``secret://`` references in provider API key env vars."""
+        if isinstance(v, str) and v:
+            resolved = resolve_secret(v)
+            return resolved if resolved is not None else v
+        return v
+
     @model_validator(mode="after")
     def _backfill_api_key_from_legacy(self) -> "Settings":
         """Backfill ``API_KEY`` from the deprecated ``AGENT_BRAIN_API_KEY`` env var.
@@ -53,7 +64,15 @@ class Settings(BaseSettings):
         field and defeat SecretStr's redaction guarantee.
         """
         if self.API_KEY is None and self.AGENT_BRAIN_API_KEY:
-            self.API_KEY = SecretStr(self.AGENT_BRAIN_API_KEY)
+            resolved = (
+                resolve_secret(self.AGENT_BRAIN_API_KEY) or self.AGENT_BRAIN_API_KEY
+            )
+            self.API_KEY = SecretStr(resolved)
+        elif self.API_KEY is not None:
+            raw = self.API_KEY.get_secret_value()
+            resolved_api_key = resolve_secret(raw)
+            if resolved_api_key and resolved_api_key != raw:
+                self.API_KEY = SecretStr(resolved_api_key)
         return self
 
     # OpenAI Configuration
@@ -104,6 +123,11 @@ class Settings(BaseSettings):
     # callers such as the file watcher service still pass allow_external=True
     # explicitly when the operator has opted in via the watcher CLI.
     AGENT_BRAIN_ALLOW_EXTERNAL_PATHS: bool = False
+
+    # Secrets Backend (Enterprise #219 P-A)
+    # ``env`` (default) passes plain values through; ``secret://env/VAR`` indirects.
+    # ``gcp-secret-manager`` resolves ``secret://gcp/projects/...`` via Secret Manager.
+    AGENT_BRAIN_SECRETS_BACKEND: str = "env"
 
     # Storage Backend Configuration (Phase 5)
     AGENT_BRAIN_STORAGE_BACKEND: str = (
@@ -195,6 +219,11 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Get cached settings instance."""
     return Settings()
+
+
+def clear_settings_cache() -> None:
+    """Clear the cached settings instance (for tests)."""
+    get_settings.cache_clear()
 
 
 settings = get_settings()

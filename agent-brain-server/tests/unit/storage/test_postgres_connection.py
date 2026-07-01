@@ -53,6 +53,22 @@ class TestInitialize:
         assert call_kwargs["pool_timeout"] == 30
         assert call_kwargs["pool_pre_ping"] is True
         assert call_kwargs["pool_recycle"] == 3600
+        assert call_kwargs["connect_args"]["ssl"] is False
+
+    @patch("agent_brain_server.storage.postgres.connection.create_async_engine")
+    async def test_initialize_passes_ssl_connect_args(
+        self,
+        mock_create: MagicMock,
+        manager: PostgresConnectionManager,
+    ) -> None:
+        """initialize() passes SSL connect_args when ssl_mode is require."""
+        manager.config.ssl_mode = "require"
+        mock_create.return_value = MagicMock()
+
+        await manager.initialize()
+
+        connect_args = mock_create.call_args[1]["connect_args"]
+        assert connect_args["ssl"] is not False
 
     @patch("agent_brain_server.storage.postgres.connection.create_async_engine")
     async def test_initialize_uses_connection_url(

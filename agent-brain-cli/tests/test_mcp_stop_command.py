@@ -332,7 +332,8 @@ def test_stop_permission_error_exits_one(tmp_path: Path) -> None:
     ):
         result = runner.invoke(mcp_group, ["stop", "--state-dir", str(tmp_path)])
     assert result.exit_code == 1
-    assert "Permission denied: cannot signal pid 12345" in result.output
+    assert "Permission denied: cannot signal pid" in result.output
+    assert "12345" in result.output
 
 
 # ---------------------------------------------------------------------------

@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.pool import QueuePool
 
 from agent_brain_server.storage.postgres.config import PostgresConfig
+from agent_brain_server.storage.postgres.ssl import build_connect_args
 from agent_brain_server.storage.protocol import StorageError
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,7 @@ class PostgresConnectionManager:
                 pool_timeout=self.config.pool_timeout,
                 pool_pre_ping=True,
                 pool_recycle=3600,
+                connect_args=build_connect_args(self.config),
             )
             logger.info(
                 "PostgreSQL connection pool created: "

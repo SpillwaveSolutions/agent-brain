@@ -150,7 +150,8 @@ class TestQueryCommand:
         result = runner.invoke(cli, ["query", "test search"])
 
         assert result.exit_code == 0
-        assert "Found 1 results" in result.output
+        # Rich may style the count, splitting the plain substring across ANSI spans.
+        assert "Found " in result.output and " results" in result.output
         assert "docs/test.md" in result.output
 
     @patch("agent_brain_cli.commands.query.open_backend")

@@ -58,6 +58,12 @@ class TestPostgresConfigDefaults:
         config = PostgresConfig()
         assert config.hnsw_ef_construction == 64
 
+    def test_default_ssl_mode_disable(self) -> None:
+        """Default ssl_mode is disable (local-dev safe)."""
+        config = PostgresConfig()
+        assert config.ssl_mode == "disable"
+        assert config.connection_strategy == "direct"
+
 
 class TestPostgresConfigConnectionUrl:
     """Tests for get_connection_url()."""
