@@ -8,8 +8,12 @@ full-text search language.
 from __future__ import annotations
 
 import urllib.parse
+from typing import Literal
 
 from pydantic import BaseModel, field_validator
+
+SslMode = Literal["disable", "require", "verify-ca", "verify-full"]
+ConnectionStrategy = Literal["direct", "cloud_sql_proxy", "cloud_sql_connector"]
 
 # Supported PostgreSQL text search languages
 SUPPORTED_LANGUAGES = frozenset(
@@ -60,6 +64,12 @@ class PostgresConfig(BaseModel):
     hnsw_m: int = 16
     hnsw_ef_construction: int = 64
     debug: bool = False
+    ssl_mode: SslMode = "disable"
+    ssl_root_cert: str | None = None
+    ssl_cert: str | None = None
+    ssl_key: str | None = None
+    connection_strategy: ConnectionStrategy = "direct"
+    cloud_sql_instance: str | None = None
 
     @field_validator("language", mode="before")
     @classmethod

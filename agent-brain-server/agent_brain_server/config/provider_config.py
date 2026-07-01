@@ -15,6 +15,7 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, Field, field_validator
 
+from agent_brain_server.config.secrets import resolve_secret
 from agent_brain_server.providers.base import (
     EmbeddingProviderType,
     RerankerProviderType,
@@ -103,10 +104,10 @@ class EmbeddingConfig(BaseModel):
             return None  # Ollama doesn't need API key
         # Check direct api_key first
         if self.api_key:
-            return self.api_key
+            return resolve_secret(self.api_key)
         # Fall back to environment variable
         if self.api_key_env:
-            return os.getenv(self.api_key_env)
+            return resolve_secret(os.getenv(self.api_key_env))
         return None
 
     def get_base_url(self) -> str | None:
@@ -176,10 +177,10 @@ class SummarizationConfig(BaseModel):
             return None  # Ollama doesn't need API key
         # Check direct api_key first
         if self.api_key:
-            return self.api_key
+            return resolve_secret(self.api_key)
         # Fall back to environment variable
         if self.api_key_env:
-            return os.getenv(self.api_key_env)
+            return resolve_secret(os.getenv(self.api_key_env))
         return None
 
     def get_base_url(self) -> str | None:

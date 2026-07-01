@@ -5,7 +5,6 @@ backend based on configuration (env var > YAML > default).
 """
 
 import logging
-import os
 
 from agent_brain_server.config import settings
 from agent_brain_server.config.provider_config import load_provider_settings
@@ -103,8 +102,10 @@ def get_storage_backend() -> StorageBackendProtocol:
         provider_settings = load_provider_settings()
         postgres_dict = dict(provider_settings.storage.postgres)
 
-        # Check for DATABASE_URL env var override
-        database_url = os.getenv("DATABASE_URL")
+        # Check for DATABASE_URL env var override (supports secret:// refs)
+        from agent_brain_server.config.secrets import resolve_env
+
+        database_url = resolve_env("DATABASE_URL")
         if database_url:
             # DATABASE_URL overrides connection string only,
             # pool config stays from YAML (per user decision)
