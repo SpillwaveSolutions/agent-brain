@@ -14,8 +14,9 @@ A Claude Code plugin for document search with hybrid BM25/semantic retrieval. In
 ### 1. Install Claude Code Plugin
 
 ```bash
-# From GitHub
-claude plugins install github:SpillwaveSolutions/agent-brain-plugin
+# Add the marketplace, then install the plugin from it
+claude plugins marketplace add SpillwaveSolutions/agent-brain
+claude plugins install agent-brain@agent-brain-marketplace
 ```
 
 ### 2. Install Agent Brain Packages

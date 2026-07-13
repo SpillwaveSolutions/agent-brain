@@ -12,7 +12,7 @@ Agent Brain provides **AI-first** document and code search through a Claude Code
 
 | Component | Description |
 |-----------|-------------|
-| **Plugin** | 24 slash commands, 3 agents, 2 skills for Claude Code |
+| **Plugin** | 30 slash commands, 3 agents, 2 skills for Claude Code |
 | **Skills** | Intelligent search mode selection and query optimization |
 | **Agents** | Research assistant, search assistant, setup assistant |
 | **Server** | FastAPI backend for indexing and retrieval |
@@ -23,8 +23,17 @@ Agent Brain provides **AI-first** document and code search through a Claude Code
 ### 1. Install the Plugin
 
 ```bash
-claude plugins install github:SpillwaveSolutions/agent-brain
+# 1. Add the Agent Brain marketplace (the repo is a plugin marketplace)
+claude plugins marketplace add SpillwaveSolutions/agent-brain
+
+# 2. Install the plugin from that marketplace
+claude plugins install agent-brain@agent-brain-marketplace
 ```
+
+> Installing a Claude Code plugin does **not** use `pip`. The plugin is
+> installed through the marketplace above; the underlying Python packages
+> (`agent-brain-rag`, `agent-brain-cli`) are installed for you by the
+> `/agent-brain-setup` wizard (or manually via `pip` — see [CLI Usage](#cli-usage-alternative)).
 
 ### 2. Set Up Your Project
 
@@ -175,7 +184,7 @@ Run completely offline with Ollama:
 ```
 agent-brain/
 ├── agent-brain-plugin/        # Claude Code plugin (primary interface)
-│   ├── commands/              # 24 slash commands
+│   ├── commands/              # 30 slash commands
 │   ├── agents/                # 3 intelligent agents
 │   └── skills/                # 2 context skills
 ├── agent-brain-server/        # FastAPI backend

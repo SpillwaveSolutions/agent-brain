@@ -11,7 +11,8 @@ Get up and running with Agent Brain in minutes. The Claude Code plugin is the pr
 Install the Agent Brain plugin in Claude Code:
 
 ```bash
-claude plugins install github:SpillwaveSolutions/agent-brain
+claude plugins marketplace add SpillwaveSolutions/agent-brain
+claude plugins install agent-brain@agent-brain-marketplace
 ```
 
 This gives you access to 30 commands, 3 intelligent agents, and 2 skills for working with Agent Brain.

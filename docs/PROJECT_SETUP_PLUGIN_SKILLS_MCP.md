@@ -34,7 +34,8 @@ They don't conflict — run all three against the same backend.
 In Claude Code:
 
 ```
-claude plugins install github:SpillwaveSolutions/agent-brain
+claude plugins marketplace add SpillwaveSolutions/agent-brain
+claude plugins install agent-brain@agent-brain-marketplace
 ```
 
 This installs **30 slash commands**, **3 agents**, and the **2 skills**
