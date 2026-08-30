@@ -49,7 +49,10 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
         batch_size = config.params.get("batch_size", 100)
         super().__init__(model=config.model, batch_size=batch_size)
 
-        self._client = AsyncOpenAI(api_key=api_key)
+        self._client = AsyncOpenAI(
+            api_key=api_key,
+            base_url=config.get_base_url() or None,
+        )
         self._dimensions_override = config.params.get("dimensions")
 
     @property

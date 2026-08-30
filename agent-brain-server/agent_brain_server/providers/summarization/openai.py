@@ -50,7 +50,10 @@ class OpenAISummarizationProvider(BaseSummarizationProvider):
             prompt_template=prompt_template,
         )
 
-        self._client = AsyncOpenAI(api_key=api_key)
+        self._client = AsyncOpenAI(
+            api_key=api_key,
+            base_url=config.get_base_url() or None,
+        )
 
     @property
     def provider_name(self) -> str:
