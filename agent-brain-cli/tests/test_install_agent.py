@@ -98,24 +98,6 @@ class TestInstallAgentCommand:
         # OpenCode uses singular 'command/' directory (not 'commands/')
         assert (target / "command" / "agent-brain-search.md").exists()
 
-    def test_gemini_project_install(
-        self, runner: CliRunner, plugin_dir: Path, tmp_path: Path
-    ) -> None:
-        result = runner.invoke(
-            install_agent_command,
-            [
-                "--agent",
-                "gemini",
-                "--plugin-dir",
-                str(plugin_dir),
-                "--path",
-                str(tmp_path),
-            ],
-        )
-        assert result.exit_code == 0
-        target = tmp_path / ".gemini" / "plugins" / "agent-brain"
-        assert (target / "commands" / "agent-brain-search.md").exists()
-
     def test_dry_run(self, runner: CliRunner, plugin_dir: Path, tmp_path: Path) -> None:
         result = runner.invoke(
             install_agent_command,

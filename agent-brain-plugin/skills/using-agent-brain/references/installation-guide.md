@@ -297,7 +297,6 @@ agent-brain install-agent --agent claude
 agent-brain install-agent --agent opencode
 
 # Install for Gemini
-agent-brain install-agent --agent gemini
 
 # Install for Codex (skill-directory format with AGENTS.md)
 agent-brain install-agent --agent codex

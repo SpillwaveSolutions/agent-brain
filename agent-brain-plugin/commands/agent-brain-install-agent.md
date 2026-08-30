@@ -3,7 +3,7 @@ name: agent-brain-install-agent
 description: Install Agent Brain plugin for a specific runtime (Claude, OpenCode, Gemini)
 parameters:
   - name: agent
-    description: "Target runtime: claude, opencode, gemini, skill-runtime, or codex"
+    description: "Target runtime: claude, opencode, skill-runtime, or codex"
     required: true
   - name: scope
     description: "Install scope: project (default) or global"
@@ -63,7 +63,7 @@ agent-brain install-agent --agent <runtime> [--project|--global] [--plugin-dir <
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| --agent / -a | Yes | - | Target runtime: `claude`, `opencode`, `gemini`, `skill-runtime`, or `codex` |
+| --agent / -a | Yes | - | Target runtime: `claude`, `opencode`, `skill-runtime`, or `codex` |
 | --project | No | Yes | Install to project directory (default) |
 | --global | No | No | Install to user-level directory |
 | --plugin-dir | No | Auto-detect | Custom canonical plugin source directory |
@@ -99,7 +99,6 @@ agent-brain install-agent --agent opencode --project
 ### Install for Gemini CLI
 
 ```bash
-agent-brain install-agent --agent gemini --project
 ```
 
 ### Install for Codex
@@ -231,7 +230,7 @@ agent-brain install-agent --agent claude --with-mcp --mcp-backend uds
 | Error | Cause | Resolution |
 |-------|-------|------------|
 | Could not find canonical plugin directory | Plugin source not found | Use `--plugin-dir` to specify location |
-| Invalid agent choice | Unsupported runtime name | Use `claude`, `opencode`, `gemini`, `skill-runtime`, or `codex` |
+| Invalid agent choice | Unsupported runtime name | Use `claude`, `opencode`, `skill-runtime`, or `codex` |
 | --dir is required for --agent skill-runtime | Missing target directory | Specify `--dir ./path/to/skills` |
 
 ## Notes

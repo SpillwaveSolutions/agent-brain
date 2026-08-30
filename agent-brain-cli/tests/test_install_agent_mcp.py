@@ -105,11 +105,13 @@ class TestInstallAgentWithMcp:
             install_agent_command,
             [
                 "--agent",
-                "gemini",
+                "skill-runtime",
                 "--plugin-dir",
                 str(plugin_dir),
                 "--path",
                 str(tmp_path),
+                "--dir",
+                str(tmp_path / "skills"),
                 "--with-mcp",
             ],
         )

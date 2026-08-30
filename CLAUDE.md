@@ -249,7 +249,6 @@ Transport is selectable via the global `--transport {auto,http,uds,mcp}` flag (o
 |---------|-------------|
 | `agent-brain install-agent --agent claude` | Install for Claude Code |
 | `agent-brain install-agent --agent opencode` | Install for OpenCode |
-| `agent-brain install-agent --agent gemini` | Install for Gemini CLI |
 | `agent-brain install-agent --agent codex` | Install for Codex (+ AGENTS.md) |
 | `agent-brain install-agent --agent skill-runtime --dir <path>` | Install for any skill-based runtime |
 | `agent-brain install-agent --agent <runtime> --dry-run` | Preview installation |

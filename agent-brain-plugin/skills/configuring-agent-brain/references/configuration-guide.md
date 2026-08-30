@@ -683,7 +683,6 @@ Install the Agent Brain plugin into different AI coding assistant runtimes:
 ```bash
 agent-brain install-agent --agent claude     # Claude Code
 agent-brain install-agent --agent opencode   # OpenCode
-agent-brain install-agent --agent gemini     # Gemini
 agent-brain install-agent --agent codex      # Codex
 agent-brain install-agent --agent skill-runtime --dir /path  # Generic
 ```

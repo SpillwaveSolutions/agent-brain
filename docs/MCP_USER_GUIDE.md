@@ -48,7 +48,7 @@ Complete reference for `agent-brain-mcp` — the Model Context Protocol server t
 > **Register it for Claude Code in one command:** `agent-brain install-agent --agent claude --with-mcp`
 > writes the `.mcp.json` entry for you (see [Register automatically](#register-automatically-claude-code)).
 
-If you want slash commands inside Claude Code, OpenCode, Gemini CLI, or Codex, use the [plugin](./PLUGIN_GUIDE.md) instead. If your LLM client speaks MCP natively (Claude Desktop, Cursor, an agent SDK), use this server.
+If you want slash commands inside Claude Code, OpenCode, or Codex, use the [plugin](./PLUGIN_GUIDE.md) instead. If your LLM client speaks MCP natively (Claude Desktop, Cursor, an agent SDK), use this server.
 
 ---
 
@@ -58,14 +58,14 @@ You can run both at the same time against the same backend — they don't confli
 
 | Question | Plugin | MCP server |
 |---|---|---|
-| Where does it run? | Inside Claude Code / OpenCode / Gemini CLI / Codex | Inside Claude Desktop, Cursor, Windsurf, an agent SDK process |
+| Where does it run? | Inside Claude Code / OpenCode / Codex | Inside Claude Desktop, Cursor, Windsurf, an agent SDK process |
 | How does the user call it? | `/agent-brain-search "…"` slash commands (30 of them) | The host model picks tools, reads resources, or expands prompts as part of normal tool use |
 | What's installed? | Markdown files + a few shell commands; shells out to the `agent-brain` CLI | A Python process started by the host as a subprocess |
 | Best for | Interactive sessions where humans drive search via slash commands | Agentic / autonomous workflows where the model itself orchestrates retrieval |
 | Backend required? | Yes (`agent-brain start`) | Yes (`agent-brain start`) |
-| Multi-runtime? | Yes — Claude Code, OpenCode, Gemini CLI, Codex, generic skill runtime | Yes — any MCP-aware host |
+| Multi-runtime? | Yes — Claude Code, OpenCode, Codex, generic skill runtime | Yes — any MCP-aware host |
 
-**Rule of thumb:** if your client has a `mcpServers` config block, use the MCP server. If it has a `plugins` config block and you're a Claude Code / OpenCode / Gemini user, use the plugin.
+**Rule of thumb:** if your client has a `mcpServers` config block, use the MCP server. If it has a `plugins` config block and you're a Claude Code / OpenCode / Codex user, use the plugin.
 
 ---
 
@@ -140,7 +140,7 @@ reports `unchanged`). Flags: `--with-mcp`, `--mcp-backend {auto,uds,http}`,
 
 Codex has no project-level MCP config, so both scopes write the user-level `config.toml`. For other
 hosts the flag prints a note and skips — register manually with the JSON below. (The `gemini`
-runtime is being removed — Google deprecated the Gemini CLI; see
+runtime has been removed — Google deprecated the Gemini CLI; see
 [#231](https://github.com/SpillwaveSolutions/agent-brain/issues/231).)
 
 ### Universal stdio config
@@ -828,7 +828,7 @@ The full MCP roadmap is complete as of **v10.4**:
 
 What's next (not yet shipped):
 
-- Multi-runtime `--with-mcp` auto-registration: OpenCode ✅ ([#224](https://github.com/SpillwaveSolutions/agent-brain/issues/224)) and Codex ✅ ([#226](https://github.com/SpillwaveSolutions/agent-brain/issues/226)) shipped; `gemini` runtime being removed ([#231](https://github.com/SpillwaveSolutions/agent-brain/issues/231)).
+- Multi-runtime `--with-mcp` auto-registration: OpenCode ✅ ([#224](https://github.com/SpillwaveSolutions/agent-brain/issues/224)) and Codex ✅ ([#226](https://github.com/SpillwaveSolutions/agent-brain/issues/226)) shipped; `gemini` runtime removed ([#231](https://github.com/SpillwaveSolutions/agent-brain/issues/231)).
 - Enterprise hardening + cloud deployment — [#219](https://github.com/SpillwaveSolutions/agent-brain/issues/219) and follow-ups #200–#205.
 
 See [`docs/roadmaps/mcp/`](./roadmaps/mcp/) for the original per-version scope and
@@ -838,7 +838,7 @@ See [`docs/roadmaps/mcp/`](./roadmaps/mcp/) for the original per-version scope a
 
 ## Related docs
 
-- [Plugin Guide](./PLUGIN_GUIDE.md) — the slash-command companion for Claude Code / OpenCode / Gemini CLI / Codex.
+- [Plugin Guide](./PLUGIN_GUIDE.md) — the slash-command companion for Claude Code / OpenCode / Codex.
 - [User Guide](./USER_GUIDE.md) — backend setup, indexing, retrieval modes, multi-instance architecture.
 - [API Reference](./API_REFERENCE.md) — FastAPI backend schemas (every MCP tool wraps one of these).
 - [Configuration](./CONFIGURATION.md) — provider configuration (embedding, summarization, reranker).

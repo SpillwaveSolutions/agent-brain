@@ -110,7 +110,7 @@ the table in Option A for each runtime's config location and schema). For other 
 Desktop, Cursor, Windsurf), register manually using the Option B JSON. The flag prints a note and
 skips for runtimes it can't register rather than failing.
 
-> The `gemini` runtime is being removed (Google deprecated the Gemini CLI — see
+> The `gemini` runtime has been removed (Google deprecated the Gemini CLI — see
 > [#231](https://github.com/SpillwaveSolutions/agent-brain/issues/231)).
 
 ## Troubleshooting
