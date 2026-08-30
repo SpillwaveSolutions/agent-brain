@@ -129,12 +129,26 @@ log "Audience mapper added (aud will be '${RESOURCE}' in issued JWTs)."
 
 # ---------------------------------------------------------------------------
 # Step 5: Create a test user (testuser / testpass)
+#
+# email/firstName/lastName and the empty requiredActions list are load-bearing,
+# not decoration. Keycloak >= 24 enables the declarative User Profile with the
+# "Verify Profile" required action on by default: a user created with only a
+# username and password is left carrying a VERIFY_PROFILE required action, and
+# every Direct Access Grant for it fails with
+#   HTTP 400 {"error":"invalid_grant","error_description":"Account is not fully set up"}
+# which is the whole-suite-at-setup failure tracked in #218. Populating the
+# profile fields and clearing requiredActions keeps the account fully set up.
 # ---------------------------------------------------------------------------
 log "Creating test user '${TEST_USER}'..."
 _admin POST "/admin/realms/${REALM}/users" \
     "{
         \"username\": \"${TEST_USER}\",
         \"enabled\": true,
+        \"email\": \"${TEST_USER}@example.com\",
+        \"emailVerified\": true,
+        \"firstName\": \"Test\",
+        \"lastName\": \"User\",
+        \"requiredActions\": [],
         \"credentials\": [
             {
                 \"type\": \"password\",
