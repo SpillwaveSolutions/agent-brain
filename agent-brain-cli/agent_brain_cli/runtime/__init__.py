@@ -12,7 +12,6 @@ from agent_brain_cli.runtime.parser import (
 )
 from agent_brain_cli.runtime.tool_maps import (
     CLAUDE_TOOLS,
-    GEMINI_TOOLS,
     OPENCODE_TOOLS,
     map_tool_name,
     map_tools,
@@ -33,7 +32,6 @@ from agent_brain_cli.runtime.types import (
 
 __all__ = [
     "CLAUDE_TOOLS",
-    "GEMINI_TOOLS",
     "OPENCODE_TOOLS",
     "PluginAgent",
     "PluginBundle",

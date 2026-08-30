@@ -316,7 +316,6 @@ Install Agent Brain plugin for a specific AI coding runtime. Converts the canoni
 ```
 /agent-brain-install-agent --agent claude
 /agent-brain-install-agent --agent opencode --project
-/agent-brain-install-agent --agent gemini --global
 /agent-brain-install-agent --agent claude --dry-run
 ```
 

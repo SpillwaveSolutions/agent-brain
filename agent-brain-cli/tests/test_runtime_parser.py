@@ -15,7 +15,6 @@ from agent_brain_cli.runtime.parser import (
 )
 from agent_brain_cli.runtime.tool_maps import (
     CLAUDE_TOOLS,
-    GEMINI_TOOLS,
     OPENCODE_TOOLS,
     map_tool_name,
     map_tools,
@@ -337,16 +336,9 @@ class TestToolMaps:
         assert map_tool_name("Read", "opencode") == "read"
         assert map_tool_name("WebFetch", "opencode") == "web_fetch"
 
-    def test_gemini_mapping(self) -> None:
-        assert map_tool_name("Bash", "gemini") == "run_shell_command"
-        assert map_tool_name("Read", "gemini") == "read_file"
-        assert map_tool_name("Write", "gemini") == "write_file"
-        assert map_tool_name("Edit", "gemini") == "replace"
-
     def test_unknown_tool_passthrough(self) -> None:
         # Unknown tools are lowercased (fallback behavior)
         assert map_tool_name("CustomTool", "claude") == "customtool"
-        assert map_tool_name("CustomTool", "gemini") == "customtool"
         # MCP tools pass through unchanged
         assert map_tool_name("mcp__server__tool", "opencode") == "mcp__server__tool"
 
@@ -354,14 +346,13 @@ class TestToolMaps:
         assert map_tool_name("Bash", "unknown") == "Bash"
 
     def test_map_tools_list(self) -> None:
-        result = map_tools(["Bash", "Read"], "gemini")
-        assert result == ["run_shell_command", "read_file"]
+        result = map_tools(["Bash", "Read"], "opencode")
+        assert result == ["bash", "read"]
 
     def test_all_maps_have_same_keys(self) -> None:
         # OPENCODE_TOOLS has extra Claude-specific tools
         # (AskUserQuestion, SkillTool, TodoWrite) not in other runtimes
         assert set(CLAUDE_TOOLS.keys()).issubset(set(OPENCODE_TOOLS.keys()))
-        assert set(CLAUDE_TOOLS.keys()) == set(GEMINI_TOOLS.keys())
 
 
 class TestRuntimeTypes:
@@ -370,7 +361,6 @@ class TestRuntimeTypes:
     def test_runtime_types(self) -> None:
         assert RuntimeType.CLAUDE.value == "claude"
         assert RuntimeType.OPENCODE.value == "opencode"
-        assert RuntimeType.GEMINI.value == "gemini"
 
     def test_scope_types(self) -> None:
         assert Scope.PROJECT.value == "project"

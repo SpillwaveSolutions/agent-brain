@@ -143,7 +143,6 @@ Install the plugin for your AI coding assistant:
 ```bash
 agent-brain install-agent --agent claude    # Claude Code
 agent-brain install-agent --agent opencode  # OpenCode
-agent-brain install-agent --agent gemini    # Gemini
 agent-brain install-agent --agent codex     # Codex
 ```
 

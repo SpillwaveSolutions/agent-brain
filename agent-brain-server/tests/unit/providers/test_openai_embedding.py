@@ -157,3 +157,29 @@ class TestModelDimensions:
         assert OPENAI_MODEL_DIMENSIONS["text-embedding-3-large"] == 3072
         assert OPENAI_MODEL_DIMENSIONS["text-embedding-3-small"] == 1536
         assert OPENAI_MODEL_DIMENSIONS["text-embedding-ada-002"] == 1536
+
+
+class TestOpenAIEmbeddingBaseUrl:
+    """Tests for OpenAI-compatible endpoint support (issue #222)."""
+
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
+    def test_configured_base_url_is_passed_to_client(self) -> None:
+        """A configured base_url must reach the AsyncOpenAI client."""
+        config = EmbeddingConfig(
+            provider="openai",
+            model="BAAI/bge-m3",
+            base_url="https://gateway.internal/v1",
+        )
+        provider = OpenAIEmbeddingProvider(config)
+
+        assert str(provider._client.base_url).rstrip("/") == (
+            "https://gateway.internal/v1"
+        )
+
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
+    def test_no_base_url_keeps_openai_default(self) -> None:
+        """Without base_url the client keeps the standard OpenAI endpoint."""
+        config = EmbeddingConfig(provider="openai", model="text-embedding-3-large")
+        provider = OpenAIEmbeddingProvider(config)
+
+        assert "api.openai.com" in str(provider._client.base_url)

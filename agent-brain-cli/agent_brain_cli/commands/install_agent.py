@@ -12,7 +12,6 @@ from rich.panel import Panel
 
 from agent_brain_cli.runtime.claude_converter import ClaudeConverter
 from agent_brain_cli.runtime.codex_converter import CodexConverter
-from agent_brain_cli.runtime.gemini_converter import GeminiConverter
 from agent_brain_cli.runtime.mcp_registration import (
     McpRegistrationResult,
     register_claude_mcp,
@@ -36,10 +35,6 @@ INSTALL_DIRS: dict[str, dict[str, str]] = {
         "project": ".opencode/plugins/agent-brain",
         "global": "~/.config/opencode/plugins/agent-brain",
     },
-    "gemini": {
-        "project": ".gemini/plugins/agent-brain",
-        "global": "~/.config/gemini/plugins/agent-brain",
-    },
     "codex": {
         "project": ".codex/skills/agent-brain",
         "global": "~/.codex/skills/agent-brain",
@@ -50,17 +45,12 @@ INSTALL_DIRS: dict[str, dict[str, str]] = {
 DIR_REQUIRED_RUNTIMES = {"skill-runtime"}
 
 ConverterType = type[
-    ClaudeConverter
-    | OpenCodeConverter
-    | GeminiConverter
-    | SkillRuntimeConverter
-    | CodexConverter
+    ClaudeConverter | OpenCodeConverter | SkillRuntimeConverter | CodexConverter
 ]
 
 CONVERTERS: dict[str, ConverterType] = {
     "claude": ClaudeConverter,
     "opencode": OpenCodeConverter,
-    "gemini": GeminiConverter,
     "skill-runtime": SkillRuntimeConverter,
     "codex": CodexConverter,
 }
@@ -102,7 +92,7 @@ def _resolve_target_dir(
     return project_root / dir_template
 
 
-RUNTIME_CHOICES = ["claude", "opencode", "gemini", "skill-runtime", "codex"]
+RUNTIME_CHOICES = ["claude", "opencode", "skill-runtime", "codex"]
 
 # Runtimes for which we can auto-register the MCP server today, mapped to the
 # writer that knows that runtime's config schema. All writers share the
@@ -274,7 +264,7 @@ def install_agent_command(
     Examples:
       agent-brain install-agent --agent claude --project
       agent-brain install-agent --agent opencode --global
-      agent-brain install-agent --agent gemini --dry-run
+      agent-brain install-agent --agent claude --dry-run
       agent-brain install-agent --agent skill-runtime --dir ./my-skills
       agent-brain install-agent --agent codex
     """
@@ -396,11 +386,7 @@ def install_agent_command(
 
 def _handle_dry_run(
     converter: (
-        ClaudeConverter
-        | OpenCodeConverter
-        | GeminiConverter
-        | SkillRuntimeConverter
-        | CodexConverter
+        ClaudeConverter | OpenCodeConverter | SkillRuntimeConverter | CodexConverter
     ),
     bundle: Any,
     target: Path,

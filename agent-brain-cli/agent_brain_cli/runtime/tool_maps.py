@@ -36,25 +36,10 @@ OPENCODE_TOOLS: dict[str, str] = {
     "TodoWrite": "todowrite",
 }
 
-# Gemini CLI — different tool name convention
-GEMINI_TOOLS: dict[str, str] = {
-    "Bash": "run_shell_command",
-    "Read": "read_file",
-    "Write": "write_file",
-    "Edit": "replace",
-    "Glob": "glob",
-    "Grep": "grep",
-    "Agent": "agent",
-    "WebFetch": "web_fetch",
-    "WebSearch": "web_search",
-    "NotebookEdit": "notebook_edit",
-}
-
 # Mapping from RuntimeType to tool map
 TOOL_MAPS: dict[str, dict[str, str]] = {
     "claude": CLAUDE_TOOLS,
     "opencode": OPENCODE_TOOLS,
-    "gemini": GEMINI_TOOLS,
 }
 
 
@@ -67,7 +52,7 @@ def map_tool_name(tool: str, runtime: str) -> str:
 
     Args:
         tool: Canonical tool name (e.g., "Bash", "Write(.agent-brain/**)").
-        runtime: Target runtime ("claude", "opencode", "gemini").
+        runtime: Target runtime ("claude", "opencode").
 
     Returns:
         Mapped tool name, or the lowercased base name if no mapping exists.

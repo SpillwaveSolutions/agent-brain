@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [10.5.0] - 2026-08-30
+
+### Fixed
+
+- **The OpenAI embedding and summarization providers now honor a configured `base_url`** (`agent-brain-server/agent_brain_server/providers/embedding/openai.py`, `providers/summarization/openai.py`; closes [#222](https://github.com/SpillwaveSolutions/agent-brain/issues/222)). Both providers constructed `AsyncOpenAI(api_key=api_key)` without passing the `base_url` from `config.yaml`, so every embedding and summarization request went to `api.openai.com` regardless of configuration — making Agent Brain unusable with OpenAI-compatible endpoints (LiteLLM, vLLM, LocalAI, Azure OpenAI, or an internal gateway) and failing with `APIConnectionError` in environments without direct OpenAI egress. Both now pass `base_url=config.get_base_url() or None`, matching what the Ollama and Grok providers already did; with no `base_url` configured the client keeps the standard OpenAI endpoint. Reported by @stevemju.
+
+- **Keycloak-in-CI OAuth E2E: the bootstrapped test user is now created fully set up** (`scripts/keycloak_bootstrap.sh`; addresses [#218](https://github.com/SpillwaveSolutions/agent-brain/issues/218)). `testuser` was created with only a username and password. Keycloak >= 24 enables the declarative User Profile with the "Verify Profile" required action on by default, which leaves such an account carrying a `VERIFY_PROFILE` required action and makes every Direct Access Grant fail with `HTTP 400 {"error":"invalid_grant","error_description":"Account is not fully set up"}` — matching the observed failure exactly (all 8 external-IdP tests dying at setup against the token endpoint, before any MCP logic runs). The user is now created with `email`, `emailVerified`, `firstName`, `lastName`, and an explicit empty `requiredActions`. *Verification note: this could not be exercised locally (no container runtime available); the `MCP Keycloak Integration` CI job is the confirming run.*
+
+### Removed
+
+- **The `gemini` runtime is no longer a target for `agent-brain install-agent`** (closes [#231](https://github.com/SpillwaveSolutions/agent-brain/issues/231), supersedes the closed #225). Google deprecated the Gemini CLI, so rather than extend `--with-mcp` auto-registration to it, the runtime is removed: `runtime/gemini_converter.py` is deleted along with the `GEMINI_TOOLS` tool map, the `RuntimeType.GEMINI` enum member, and the `gemini` entries in `RUNTIME_CHOICES` / `INSTALL_DIRS` / `CONVERTERS`. `agent-brain install-agent --agent gemini` is now rejected as an invalid choice, which lists the four supported runtimes (`claude`, `opencode`, `skill-runtime`, `codex`).
+  - **Gemini remains fully supported as an LLM provider.** This removal affects only the deprecated Gemini CLI as an *install target*; `summarization.provider: gemini` (and `GEMINI_API_KEY`) are untouched.
+
+---
+
 ## [10.4.0] - 2026-06-22
 
 Closes the **v10.4 milestone — MCP v4: OAuth 2.1 + GraphRAG Stability** (7 phases, 64–70; 16/16 requirements; milestone audit passed). Agent Brain can now run remotely behind OAuth 2.1 on the Streamable HTTP transport — in both a co-located AS/RS single-binary shape and a split AS/RS shape backed by an external IdP (validated against Keycloak-in-CI). Bugs were fixed first: the kuzu `SIGSEGV` (#178) and graph under-reporting / stale-snapshot issues (#184). Auth is **off by default** (`AGENT_BRAIN_AUTH=none`); nothing changes for existing local/loopback users unless they opt in.

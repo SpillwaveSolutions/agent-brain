@@ -7,7 +7,6 @@ import yaml
 
 from agent_brain_cli.runtime.claude_converter import ClaudeConverter
 from agent_brain_cli.runtime.codex_converter import CodexConverter
-from agent_brain_cli.runtime.gemini_converter import GeminiConverter
 from agent_brain_cli.runtime.opencode_converter import OpenCodeConverter
 from agent_brain_cli.runtime.parser import parse_plugin_dir
 from agent_brain_cli.runtime.skill_runtime_converter import SkillRuntimeConverter
@@ -53,23 +52,6 @@ class TestAllConvertersIntegration:
             if skill_file.exists():
                 content = skill_file.read_text()
                 assert "tools:" in content
-        assert len(files) > 30
-
-    def test_gemini_maps_tool_names(
-        self, real_plugin_dir: Path, tmp_path: Path
-    ) -> None:
-        bundle = parse_plugin_dir(real_plugin_dir)
-        converter = GeminiConverter()
-        target = tmp_path / "gemini"
-        files = converter.install(bundle, target, Scope.PROJECT)
-
-        # Check skills use Gemini tool names
-        for skill in bundle.skills:
-            skill_file = target / "skills" / skill.name / "SKILL.md"
-            if skill_file.exists():
-                content = skill_file.read_text()
-                if "Bash" in str(skill.allowed_tools):
-                    assert "run_shell_command" in content
         assert len(files) > 30
 
     def test_skill_runtime_flattens_to_skill_dirs(
@@ -140,7 +122,6 @@ class TestAllConvertersIntegration:
         converters = [
             ("claude", ClaudeConverter()),
             ("opencode", OpenCodeConverter()),
-            ("gemini", GeminiConverter()),
             ("skill-runtime", SkillRuntimeConverter()),
         ]
 

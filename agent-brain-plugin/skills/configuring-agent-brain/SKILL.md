@@ -47,7 +47,6 @@ Agent Brain supports multiple AI coding runtimes from a single canonical plugin 
 |---------|----------------|
 | Claude Code | `agent-brain install-agent --agent claude` |
 | OpenCode | `agent-brain install-agent --agent opencode` |
-| Gemini CLI | `agent-brain install-agent --agent gemini` |
 | Codex (+ AGENTS.md) | `agent-brain install-agent --agent codex` |
 | Any skill runtime | `agent-brain install-agent --agent skill-runtime --dir <path>` |
 

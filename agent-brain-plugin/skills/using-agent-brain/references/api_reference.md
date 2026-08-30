@@ -414,7 +414,6 @@ agent-brain config set embedding.provider openai  # Set a config value
 ```bash
 agent-brain install-agent --agent claude        # Install for Claude
 agent-brain install-agent --agent opencode      # Install for OpenCode
-agent-brain install-agent --agent gemini        # Install for Gemini
 agent-brain install-agent --agent codex         # Install for Codex
 agent-brain install-agent --agent skill-runtime --dir /path  # Generic
 agent-brain install-agent --agent claude --dry-run  # Preview

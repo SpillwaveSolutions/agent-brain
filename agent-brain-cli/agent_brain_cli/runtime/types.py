@@ -9,7 +9,6 @@ class RuntimeType(str, Enum):
 
     CLAUDE = "claude"
     OPENCODE = "opencode"
-    GEMINI = "gemini"
     SKILL_RUNTIME = "skill-runtime"
     CODEX = "codex"
 
