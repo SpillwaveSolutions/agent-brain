@@ -18,7 +18,7 @@ Implements the SDK ``TokenVerifier`` protocol via three verifier classes:
 Token validation order (checks #1-5 — Phase 67; #6 scope is Phase 68):
   1. Bearer token present → else 401 (handled by BearerAuthBackend before verify_token)
   2. RS256 signature valid against the in-memory public key (local JWKS).
-  3. ``exp`` not expired (clock-skew leeway = 30s); ``nbf`` honored.
+  3. ``exp`` not expired (clock-skew leeway = 30s); ``nbf`` honored if present.
   4. ``iss`` == configured issuer (``AGENT_BRAIN_OAUTH_ISSUER`` or
      co-located AS base URL).
   5. ``aud`` == ``AGENT_BRAIN_OAUTH_RESOURCE`` (RFC 8707) → mismatch rejected.
@@ -77,6 +77,12 @@ logger = logging.getLogger(__name__)
 # limit the window for replay attacks.
 _LEEWAY_SECONDS = 30
 
+# RFC 7519 marks ``nbf`` optional. Honor it when present (``verify_nbf``)
+# but do not *require* it — Keycloak access tokens typically omit ``nbf``,
+# and requiring it rejects every split-AS JWT regardless of aud/iss (#218).
+# The co-located AS still mints ``nbf``; ``verify_nbf`` covers that path.
+_REQUIRED_CLAIMS = ["exp", "iss", "aud"]
+
 # JWKS TTL in seconds (5-minute cache for remote JWKS endpoint).
 # PyJWKClient lifespan parameter; kid-miss triggers on-demand refresh.
 _JWKS_TTL_SECONDS = 300
@@ -91,7 +97,7 @@ class LocalRs256Verifier:
 
     Checks performed in order (Phase 67 covers #1-5; #6 scope is Phase 68):
       #2  Signature valid against ``public_key`` (RS256).
-      #3  ``exp`` not expired (leeway=30s); ``nbf`` honored.
+      #3  ``exp`` not expired (leeway=30s); ``nbf`` honored if present.
       #4  ``iss`` == ``issuer``.
       #5  ``aud`` == ``resource`` (RFC 8707 — cross-service reuse prevented).
 
@@ -164,7 +170,7 @@ class LocalRs256Verifier:
                 issuer=self.issuer,
                 leeway=_LEEWAY_SECONDS,
                 options={
-                    "require": ["exp", "iss", "aud", "nbf"],
+                    "require": _REQUIRED_CLAIMS,
                     "verify_signature": True,
                     "verify_exp": True,
                     "verify_nbf": True,
@@ -285,7 +291,7 @@ class JwksTokenVerifier:
                 issuer=self.issuer,
                 leeway=_LEEWAY_SECONDS,
                 options={
-                    "require": ["exp", "iss", "aud", "nbf"],
+                    "require": _REQUIRED_CLAIMS,
                     "verify_signature": True,
                     "verify_exp": True,
                     "verify_nbf": True,

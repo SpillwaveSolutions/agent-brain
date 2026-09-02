@@ -205,6 +205,7 @@ tasks:
       # auto-detected and reverted.
       - defer: ./scripts/before_push_lock_guard.sh check
       - ./scripts/before_push_lock_guard.sh start
+      - ./scripts/check_no_runtime_path_deps.sh
       - echo "--- Formatting code ---"
       - task: format
       - echo "--- Linting code ---"

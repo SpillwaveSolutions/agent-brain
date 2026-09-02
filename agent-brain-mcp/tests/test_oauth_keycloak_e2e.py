@@ -55,6 +55,22 @@ _RS_CLIENT_ID = "agent-brain-rs"
 _RS_CLIENT_SECRET = "rs-secret"
 
 
+def _unverified_claim_summary(token: str) -> dict[str, object]:
+    """Return the unsigned claim subset needed to settle #218 from CI logs.
+
+    aud / iss / nbf / azp are the four values that distinguish an audience-mapper
+    miss from a missing-nbf reject from an issuer mismatch. Do not infer; dump.
+    """
+    import jwt as pyjwt
+
+    try:
+        claims = pyjwt.decode(token, options={"verify_signature": False})
+    except Exception as exc:  # noqa: BLE001
+        return {"_decode_error": str(exc)}
+    keys = ("iss", "aud", "azp", "nbf", "exp", "iat", "scope", "preferred_username")
+    return {k: claims.get(k) for k in keys}
+
+
 # ---------------------------------------------------------------------------
 # SC#1 — JWT accepted via JWKS (JwksTokenVerifier)
 # ---------------------------------------------------------------------------
@@ -85,7 +101,8 @@ async def test_keycloak_jwt_accepted(
     assert result is not None, (
         f"JwksTokenVerifier rejected a valid Keycloak JWT. "
         f"Check that the audience mapper binds aud={_RESOURCE!r}. "
-        f"ISSUER={_ISSUER!r}, JWKS_URI={_JWKS_URI!r}"
+        f"ISSUER={_ISSUER!r}, JWKS_URI={_JWKS_URI!r}. "
+        f"unverified_claims={_unverified_claim_summary(keycloak_access_token)!r}"
     )
     assert result.resource == _RESOURCE
 

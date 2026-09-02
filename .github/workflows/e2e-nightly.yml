@@ -1,12 +1,14 @@
 # E2E CLI Test Harness — Nightly Schedule
-# Runs Agent Brain plugin E2E tests through Claude Code headless mode.
-# Advisory only — does not block PRs.
+# Keycloak integration runs on the cron. E2E CLI is workflow_dispatch only
+# until a dispatch run actually executes tests (#240). Advisory — does not
+# block PRs. Local suite: ./e2e-cli/run.sh
 
 name: E2E CLI Tests (Nightly)
 
 on:
   schedule:
-    # Run at 6:00 AM UTC daily
+    # Keycloak nightly only — the E2E CLI job is workflow_dispatch until
+    # the install no longer re-locks torch/CUDA inside a 30-min wall (#240).
     - cron: '0 6 * * *'
   workflow_dispatch:
     inputs:
@@ -110,10 +112,14 @@ jobs:
         run: task mcp:keycloak
 
   # ---------------------------------------------------------------------------
-  # E2E CLI tests (Claude Code headless — existing job, unchanged)
+  # E2E CLI tests — local-only until a dispatch run actually executes them
+  # (#240). The scheduled nightly is Keycloak-only; this job is dispatch-gated
+  # so a standing red does not drown a real regression. Supported path:
+  #   ./e2e-cli/run.sh
   # ---------------------------------------------------------------------------
   e2e-cli:
     name: E2E CLI Tests
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: ci-testing
     timeout-minutes: 30
@@ -149,14 +155,14 @@ jobs:
         run: |
           cd agent-brain-server
           poetry install
+          poetry build
 
       - name: Install CLI dependencies
         run: |
-          cd agent-brain-cli
-          sed -i 's|agent-brain-rag = "^[0-9]*\.[0-9]*\.[0-9]*"|agent-brain-rag = {path = "../agent-brain-server", develop = false}|' pyproject.toml
-          poetry lock
-          poetry install
-          git checkout pyproject.toml
+          # Overlay this-commit server wheel. Do not `poetry lock` — that
+          # re-resolves torch/CUDA from scratch (~44 min) and is what made
+          # this job structurally unable to pass (#238 / #240).
+          bash scripts/ci_install_from_local_wheels.sh agent-brain-cli
 
       - name: Install Claude Code CLI
         run: |
