@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [10.6.0] - 2026-09-03
+
 ### Added
 
 - **Multi-host plugin packaging** (`agent-brain-plugin/`; `agent-brain-cli` converters; closes [#239](https://github.com/SpillwaveSolutions/agent-brain/issues/239)). One shared payload (`commands/`, `skills/`) now ships with thin per-host manifests so the plugin installs natively in Claude Code, OpenCode, Codex, Cursor, and Grok Build, and as an [Agent Plugins 1.0](https://agent-plugins.org/specification) payload:
