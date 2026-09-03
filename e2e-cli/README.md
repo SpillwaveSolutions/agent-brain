@@ -12,6 +12,11 @@ task e2e-cli
 ./e2e-cli/run.sh
 ```
 
+The full E2E CLI suite is **local-only** until the CI install no longer
+re-resolves torch/CUDA inside a 30-minute wall ([#240](https://github.com/SpillwaveSolutions/agent-brain/issues/240)).
+The GitHub Actions job is `workflow_dispatch` only (the scheduled nightly is
+the Keycloak integration job). Supported invocation is the command above.
+
 ## Prerequisites
 
 - Agent Brain server dependencies installed (`cd agent-brain-server && poetry install`)

@@ -18,6 +18,8 @@ SNAPSHOT_FILE="${TMPDIR:-/tmp}/.ab-before-push-lock-snapshot"
 LOCK_FILES=(
     "agent-brain-server/poetry.lock"
     "agent-brain-cli/poetry.lock"
+    "agent-brain-mcp/poetry.lock"
+    "agent-brain-uds/poetry.lock"
 )
 
 case "${1:-}" in

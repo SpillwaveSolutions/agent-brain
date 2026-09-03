@@ -11,6 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **CI no longer re-resolves torch/CUDA via `poetry lock` to install CLI/MCP against a local server** (`.github/workflows/pr-qa-gate.yml`, `publish-to-pypi.yml`, `e2e-nightly.yml`; `scripts/ci_install_from_local_wheels.sh`; addresses [#238](https://github.com/SpillwaveSolutions/agent-brain/issues/238), [#240](https://github.com/SpillwaveSolutions/agent-brain/issues/240)). The previous path-dep swap + `poetry lock` discarded the committed lock and re-derived the full tree from scratch — 87 of 95 minutes on the v10.5.0 publish, and the reason the E2E CLI nightly was cancelled at its 30-minute wall before any test ran. Install now uses the committed lock and overlays locally-built server/uds wheels (`pip install --force-reinstall --no-deps`).
+- **`mcp:install` / `cli:install` restore PyPI pins on any exit**, not just a clean finish (`agent-brain-mcp/Taskfile.yml`, `agent-brain-cli/Taskfile.yml`; [#238](https://github.com/SpillwaveSolutions/agent-brain/issues/238)). An interrupted `poetry install` previously left `path = "../agent-brain-server"` in a tracked `pyproject.toml`.
+- **`before-push` lock guard now covers mcp and uds locks**, and fails if a runtime `path =` pin is present (`scripts/before_push_lock_guard.sh`, `scripts/check_no_runtime_path_deps.sh`; [#238](https://github.com/SpillwaveSolutions/agent-brain/issues/238)).
+- **E2E CLI nightly is `workflow_dispatch` only** (`.github/workflows/e2e-nightly.yml`; [#240](https://github.com/SpillwaveSolutions/agent-brain/issues/240)). The Keycloak nightly stays on the schedule. Supported full-suite path: `./e2e-cli/run.sh`.
+- **Keycloak-in-CI OAuth E2E now passes end-to-end** (`agent_brain_mcp/oauth/verifier.py`; closes [#218](https://github.com/SpillwaveSolutions/agent-brain/issues/218)). Confirmed against a live Keycloak 26.1 token: `aud=['http://localhost:8000', 'account']`, `iss` matches, `nbf=None`. The coverage-gate pytest marker filter now also excludes `e2e_http` (it is not a subset of `e2e`), matching `pyproject.toml` addopts.
+
+---
+
 ## [10.5.0] - 2026-08-30
 
 ### Fixed

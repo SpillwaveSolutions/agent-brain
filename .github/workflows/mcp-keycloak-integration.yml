@@ -115,10 +115,13 @@ jobs:
         run: task mcp:keycloak
 
       # BINDING 90% oauth-module coverage gate (SC#5 — BLOCKS THE MILESTONE).
-      # Runs the full suite (fast + keycloak-marked) so Keycloak-only lines
-      # count toward the 90% threshold. Locally the soft gate is 85% because
-      # keycloak paths are skipped without a container (task mcp:oauth-cov
-      # defaults COV_FAIL_UNDER=85). This step is the AUTHORITATIVE measurement.
+      # Runs the fast suite + keycloak-marked tests so Keycloak-only lines
+      # count toward the 90% threshold. Marker filter matches pyproject
+      # addopts except it *includes* keycloak (the default addopts exclude
+      # it). Must also keep e2e_http out — that marker is a separate opt-in
+      # from `e2e`, and the v1-surface smoke is not oauth coverage. Locally
+      # the soft gate is 85% (task mcp:oauth-cov defaults COV_FAIL_UNDER=85).
+      # This step is the AUTHORITATIVE measurement.
       - name: OAuth module coverage gate (90% CI hard — SC#5 DoD)
         env:
           KEYCLOAK_URL: http://localhost:8080
@@ -128,7 +131,7 @@ jobs:
         run: |
           cd agent-brain-mcp
           poetry run pytest tests/ \
-            -m 'not e2e and not contract and not stress' \
+            -m 'not e2e and not e2e_http and not contract and not stress' \
             --cov=agent_brain_mcp.oauth \
             --cov-report=term-missing \
             --cov-fail-under=90

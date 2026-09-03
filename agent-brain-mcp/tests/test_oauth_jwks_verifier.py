@@ -300,6 +300,44 @@ class TestJwksTokenVerifierExpiry:
         assert result is not None, "Token within leeway window should be accepted"
 
 
+    @pytest.mark.asyncio
+    async def test_token_without_nbf_accepted(self, signing_key) -> None:  # type: ignore[no-untyped-def]
+        """A valid RS256 token that omits nbf is accepted.
+
+        RFC 7519 marks nbf optional. Keycloak access tokens typically omit it;
+        requiring the claim would reject every split-AS JWT (#218).
+        """
+        import secrets
+
+        from agent_brain_mcp.oauth.verifier import JwksTokenVerifier
+
+        now = int(time.time())
+        claims: dict[str, object] = {
+            "iss": _ISSUER,
+            "aud": _RESOURCE,
+            "sub": _CLIENT_ID,
+            "client_id": _CLIENT_ID,
+            "scope": "agent-brain:read",
+            "iat": now,
+            "exp": now + 900,
+            "jti": secrets.token_urlsafe(16),
+        }
+        token = jwt.encode(
+            claims,
+            signing_key.private_key,
+            algorithm="RS256",
+            headers={"kid": signing_key.kid},
+        )
+        v = JwksTokenVerifier(
+            jwks_uri="https://idp.example.com/.well-known/jwks.json",
+            issuer=_ISSUER,
+            resource=_RESOURCE,
+        )
+        v._client = _build_mock_jwks_client(signing_key)  # noqa: SLF001
+        result = await v.verify_token(token)
+        assert result is not None, "Token without nbf must be accepted (RFC 7519 optional)"
+
+
 # ---------------------------------------------------------------------------
 # Empty token test
 # ---------------------------------------------------------------------------

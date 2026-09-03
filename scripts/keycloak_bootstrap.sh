@@ -232,3 +232,36 @@ log "  JWKS:          ${KC}/realms/${REALM}/protocol/openid-connect/certs"
 log "  Token:         ${KC}/realms/${REALM}/protocol/openid-connect/token"
 log "  Introspection: ${KC}/realms/${REALM}/protocol/openid-connect/token/introspect"
 log "  Audience:      ${RESOURCE}"
+
+# Diagnostic for #218: mint a token and dump the claims that distinguish an
+# audience-mapper miss from a missing-nbf reject from an issuer mismatch.
+# Do not infer — the next CI log is the evidence.
+log "Minting a diagnostic token to dump claims (#218)..."
+DIAG_JSON=$(
+    curl -sf \
+        -d "client_id=${MCP_CLIENT}" \
+        -d "grant_type=password" \
+        -d "username=${TEST_USER}" \
+        -d "password=${TEST_PASS}" \
+        -d "scope=openid agent-brain:read" \
+        "${KC}/realms/${REALM}/protocol/openid-connect/token" || true
+)
+python3 - "${DIAG_JSON}" <<'PY' || true
+import json, sys, base64
+raw = sys.argv[1] if len(sys.argv) > 1 else ""
+try:
+    tok = json.loads(raw).get("access_token", "")
+except Exception as exc:
+    print(f"[keycloak_bootstrap] diagnostic token mint failed: {exc}", file=sys.stderr)
+    sys.exit(0)
+if not tok or tok.count(".") < 2:
+    print("[keycloak_bootstrap] diagnostic token mint returned no JWT", file=sys.stderr)
+    sys.exit(0)
+payload = tok.split(".")[1]
+payload += "=" * (-len(payload) % 4)
+claims = json.loads(base64.urlsafe_b64decode(payload))
+keys = ("iss", "aud", "azp", "nbf", "exp", "iat", "scope", "preferred_username")
+print("[keycloak_bootstrap] diagnostic token claims:")
+for k in keys:
+    print(f"  {k}={claims.get(k)!r}")
+PY
