@@ -11,6 +11,8 @@ class RuntimeType(str, Enum):
     OPENCODE = "opencode"
     SKILL_RUNTIME = "skill-runtime"
     CODEX = "codex"
+    CURSOR = "cursor"
+    GROK = "grok"
 
 
 class Scope(str, Enum):

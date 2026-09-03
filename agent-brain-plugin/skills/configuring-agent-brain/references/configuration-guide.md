@@ -684,6 +684,8 @@ Install the Agent Brain plugin into different AI coding assistant runtimes:
 agent-brain install-agent --agent claude     # Claude Code
 agent-brain install-agent --agent opencode   # OpenCode
 agent-brain install-agent --agent codex      # Codex
+agent-brain install-agent --agent cursor     # Cursor
+agent-brain install-agent --agent grok       # Grok Build
 agent-brain install-agent --agent skill-runtime --dir /path  # Generic
 ```
 

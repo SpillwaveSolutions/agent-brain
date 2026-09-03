@@ -121,6 +121,49 @@ class TestInstallAgentWithMcp:
         assert not (tmp_path / "opencode.json").exists()
         assert "mcp" in result.output.lower()
 
+    def test_with_mcp_writes_cursor_mcp_json(
+        self, runner: CliRunner, plugin_dir: Path, tmp_path: Path
+    ) -> None:
+        result = runner.invoke(
+            install_agent_command,
+            [
+                "--agent",
+                "cursor",
+                "--plugin-dir",
+                str(plugin_dir),
+                "--path",
+                str(tmp_path),
+                "--with-mcp",
+            ],
+        )
+        assert result.exit_code == 0
+        config = tmp_path / ".cursor" / "mcp.json"
+        assert config.exists()
+        data = json.loads(config.read_text())
+        assert data["mcpServers"]["agent-brain"]["command"] == "agent-brain-mcp"
+        assert not (tmp_path / ".mcp.json").exists()
+
+    def test_with_mcp_grok_uses_claude_mcp_json(
+        self, runner: CliRunner, plugin_dir: Path, tmp_path: Path
+    ) -> None:
+        result = runner.invoke(
+            install_agent_command,
+            [
+                "--agent",
+                "grok",
+                "--plugin-dir",
+                str(plugin_dir),
+                "--path",
+                str(tmp_path),
+                "--with-mcp",
+            ],
+        )
+        assert result.exit_code == 0
+        config = tmp_path / ".mcp.json"
+        assert config.exists()
+        data = json.loads(config.read_text())
+        assert data["mcpServers"]["agent-brain"]["command"] == "agent-brain-mcp"
+
 
 class TestInstallAgentOpenCodeWithMcp:
     """OpenCode auto-registration writes the project-root `opencode.json`."""

@@ -12,10 +12,14 @@ from rich.panel import Panel
 
 from agent_brain_cli.runtime.claude_converter import ClaudeConverter
 from agent_brain_cli.runtime.codex_converter import CodexConverter
+from agent_brain_cli.runtime.cursor_converter import CursorConverter
+from agent_brain_cli.runtime.grok_converter import GrokConverter
 from agent_brain_cli.runtime.mcp_registration import (
     McpRegistrationResult,
     register_claude_mcp,
     register_codex_mcp,
+    register_cursor_mcp,
+    register_grok_mcp,
     register_opencode_mcp,
 )
 from agent_brain_cli.runtime.opencode_converter import OpenCodeConverter
@@ -39,13 +43,26 @@ INSTALL_DIRS: dict[str, dict[str, str]] = {
         "project": ".codex/skills/agent-brain",
         "global": "~/.codex/skills/agent-brain",
     },
+    "cursor": {
+        "project": ".cursor/plugins/agent-brain",
+        "global": "~/.cursor/plugins/agent-brain",
+    },
+    "grok": {
+        "project": ".grok/plugins/agent-brain",
+        "global": "~/.grok/plugins/agent-brain",
+    },
 }
 
 # Runtimes that require --dir (no default directory)
 DIR_REQUIRED_RUNTIMES = {"skill-runtime"}
 
 ConverterType = type[
-    ClaudeConverter | OpenCodeConverter | SkillRuntimeConverter | CodexConverter
+    ClaudeConverter
+    | OpenCodeConverter
+    | SkillRuntimeConverter
+    | CodexConverter
+    | CursorConverter
+    | GrokConverter
 ]
 
 CONVERTERS: dict[str, ConverterType] = {
@@ -53,6 +70,8 @@ CONVERTERS: dict[str, ConverterType] = {
     "opencode": OpenCodeConverter,
     "skill-runtime": SkillRuntimeConverter,
     "codex": CodexConverter,
+    "cursor": CursorConverter,
+    "grok": GrokConverter,
 }
 
 
@@ -92,7 +111,14 @@ def _resolve_target_dir(
     return project_root / dir_template
 
 
-RUNTIME_CHOICES = ["claude", "opencode", "skill-runtime", "codex"]
+RUNTIME_CHOICES = [
+    "claude",
+    "opencode",
+    "skill-runtime",
+    "codex",
+    "cursor",
+    "grok",
+]
 
 # Runtimes for which we can auto-register the MCP server today, mapped to the
 # writer that knows that runtime's config schema. All writers share the
@@ -101,6 +127,8 @@ MCP_REGISTRARS: dict[str, Callable[..., McpRegistrationResult]] = {
     "claude": register_claude_mcp,
     "opencode": register_opencode_mcp,
     "codex": register_codex_mcp,
+    "cursor": register_cursor_mcp,
+    "grok": register_grok_mcp,
 }
 
 
@@ -124,6 +152,8 @@ def _resolve_mcp_paths(
     * **codex** — always ``$CODEX_HOME/config.toml`` (default
       ``~/.codex/config.toml``); Codex has no project-level MCP config, so the
       file is shared and the project's ``.agent-brain`` is pinned via the entry.
+    * **cursor** — project ``.cursor/mcp.json``, global ``~/.cursor/mcp.json``.
+    * **grok** — same files as Claude (Grok Build loads Claude plugins).
     """
     root = project_root if project_root is not None else Path.cwd()
     if agent == "opencode":
@@ -136,7 +166,11 @@ def _resolve_mcp_paths(
             Path.home() / ".agent-brain" if scope == "global" else root / ".agent-brain"
         )
         return _codex_config_path(), state_dir
-    # claude (and any future mcpServers-style runtime)
+    if agent == "cursor":
+        if scope == "global":
+            return Path.home() / ".cursor" / "mcp.json", Path.home() / ".agent-brain"
+        return root / ".cursor" / "mcp.json", root / ".agent-brain"
+    # claude, grok, and any future mcpServers-style runtime
     if scope == "global":
         return Path.home() / ".claude.json", Path.home() / ".agent-brain"
     return root / ".mcp.json", root / ".agent-brain"
@@ -229,7 +263,8 @@ def _register_mcp(
 @click.option(
     "--with-mcp",
     is_flag=True,
-    help="Also register the agent-brain MCP server (Claude Code, OpenCode, Codex)",
+    help="Also register the agent-brain MCP server "
+    "(Claude Code, OpenCode, Codex, Cursor, Grok)",
 )
 @click.option(
     "--mcp-auth",
@@ -386,7 +421,12 @@ def install_agent_command(
 
 def _handle_dry_run(
     converter: (
-        ClaudeConverter | OpenCodeConverter | SkillRuntimeConverter | CodexConverter
+        ClaudeConverter
+        | OpenCodeConverter
+        | SkillRuntimeConverter
+        | CodexConverter
+        | CursorConverter
+        | GrokConverter
     ),
     bundle: Any,
     target: Path,

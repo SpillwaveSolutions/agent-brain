@@ -48,6 +48,8 @@ Agent Brain supports multiple AI coding runtimes from a single canonical plugin 
 | Claude Code | `agent-brain install-agent --agent claude` |
 | OpenCode | `agent-brain install-agent --agent opencode` |
 | Codex (+ AGENTS.md) | `agent-brain install-agent --agent codex` |
+| Cursor | `agent-brain install-agent --agent cursor` |
+| Grok Build | `agent-brain install-agent --agent grok` |
 | Any skill runtime | `agent-brain install-agent --agent skill-runtime --dir <path>` |
 
 All runtimes share the same `.agent-brain/` data directory for indexes, configuration, and server state. The `install-agent` command converts the canonical plugin format into each runtime's native format automatically.
@@ -285,6 +287,12 @@ agent-brain install-agent --agent opencode --with-mcp
 # ...or for Codex (writes ~/.codex/config.toml, TOML [mcp_servers.agent-brain])
 agent-brain install-agent --agent codex --with-mcp
 
+# ...or for Cursor (writes .cursor/mcp.json)
+agent-brain install-agent --agent cursor --with-mcp
+
+# ...or for Grok Build (writes .mcp.json — Grok loads Claude plugins)
+agent-brain install-agent --agent grok --with-mcp
+
 # Preview without writing anything
 agent-brain install-agent --agent claude --with-mcp --dry-run
 
@@ -295,8 +303,9 @@ agent-brain install-agent --agent claude --with-mcp --mcp-auth oauth
 What `--with-mcp` does:
 - Writes/merges an `agent-brain` entry into the runtime's MCP config, **preserving any other
   MCP servers and keys** — Claude Code's `.mcp.json` / `~/.claude.json` (`mcpServers`), OpenCode's
-  project-root `opencode.json` / `~/.config/opencode/opencode.json` (`mcp`), or Codex's
-  `$CODEX_HOME/config.toml` (default `~/.codex/config.toml`, `[mcp_servers.agent-brain]` TOML).
+  project-root `opencode.json` / `~/.config/opencode/opencode.json` (`mcp`), Codex's
+  `$CODEX_HOME/config.toml` (default `~/.codex/config.toml`, `[mcp_servers.agent-brain]` TOML),
+  Cursor's `.cursor/mcp.json` / `~/.cursor/mcp.json`, or Grok Build's Claude path.
 - Pins `AGENT_BRAIN_STATE_DIR` to the project's absolute `.agent-brain` path so the
   server is discoverable regardless of the client's working directory.
 - Is **idempotent** — re-running reports `unchanged` when the entry already matches.
@@ -307,9 +316,10 @@ What `--with-mcp` does:
 | `--mcp-backend` | `auto`/`uds`/`http` | `auto` | How the MCP server reaches `agent-brain-serve` |
 | `--mcp-auth` | `none`/`oauth` | `none` | Write `AGENT_BRAIN_MCP_AUTH=oauth` for remote OAuth servers |
 
-> Auto-registration targets **Claude Code**, **OpenCode**, and **Codex**. For other MCP hosts,
+> Auto-registration targets **Claude Code**, **OpenCode**, **Codex**, **Cursor**, and **Grok Build**. For other MCP hosts,
 > register manually with the JSON block below (the flag will print a note and skip). Codex has no
-> project-level MCP config, so both scopes write the single user-level `config.toml`.
+> project-level MCP config, so both scopes write the single user-level `config.toml`. Conforming
+> Agent Plugins 1.0 clients also pick up `agent-brain-plugin/mcp.json` automatically.
 
 ### Configure an MCP client (manual)
 

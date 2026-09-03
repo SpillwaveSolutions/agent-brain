@@ -192,6 +192,42 @@ class TestInstallAgentCommand:
         assert ".agent-brain" in content
         assert ".claude/agent-brain" not in content
 
+    def test_cursor_project_install(
+        self, runner: CliRunner, plugin_dir: Path, tmp_path: Path
+    ) -> None:
+        result = runner.invoke(
+            install_agent_command,
+            [
+                "--agent",
+                "cursor",
+                "--plugin-dir",
+                str(plugin_dir),
+                "--path",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code == 0
+        target = tmp_path / ".cursor" / "plugins" / "agent-brain"
+        assert (target / "commands" / "agent-brain-search.md").exists()
+
+    def test_grok_project_install(
+        self, runner: CliRunner, plugin_dir: Path, tmp_path: Path
+    ) -> None:
+        result = runner.invoke(
+            install_agent_command,
+            [
+                "--agent",
+                "grok",
+                "--plugin-dir",
+                str(plugin_dir),
+                "--path",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code == 0
+        target = tmp_path / ".grok" / "plugins" / "agent-brain"
+        assert (target / "commands" / "agent-brain-search.md").exists()
+
 
 class TestInstallAgentCLIIntegration:
     """Integration tests via the main CLI entry point."""

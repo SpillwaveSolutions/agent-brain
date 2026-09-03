@@ -40,6 +40,8 @@ OPENCODE_TOOLS: dict[str, str] = {
 TOOL_MAPS: dict[str, dict[str, str]] = {
     "claude": CLAUDE_TOOLS,
     "opencode": OPENCODE_TOOLS,
+    "cursor": CLAUDE_TOOLS,
+    "grok": CLAUDE_TOOLS,
 }
 
 

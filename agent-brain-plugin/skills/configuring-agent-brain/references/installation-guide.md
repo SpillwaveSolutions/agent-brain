@@ -402,10 +402,14 @@ agent-brain install-agent --agent claude
 # Install for OpenCode
 agent-brain install-agent --agent opencode
 
-# Install for Gemini
-
 # Install for Codex (generates skill directories + AGENTS.md)
 agent-brain install-agent --agent codex
+
+# Install for Cursor
+agent-brain install-agent --agent cursor --with-mcp
+
+# Install for Grok Build
+agent-brain install-agent --agent grok --with-mcp
 
 # Install for any skill-based runtime (requires --dir)
 agent-brain install-agent --agent skill-runtime --dir /path/to/skills
@@ -414,7 +418,7 @@ agent-brain install-agent --agent skill-runtime --dir /path/to/skills
 agent-brain install-agent --agent claude --dry-run
 
 # Global (user-level) installation
-agent-brain install-agent --agent claude --scope global
+agent-brain install-agent --agent claude --global
 ```
 
 ### Supported Runtimes
@@ -423,8 +427,9 @@ agent-brain install-agent --agent claude --scope global
 |---------|-------------------|--------|
 | `claude` | `.claude/plugins/agent-brain` | Claude plugin |
 | `opencode` | `.opencode/plugins/agent-brain` | OpenCode plugin |
-| `gemini` | `.gemini/plugins/agent-brain` | Gemini plugin |
 | `codex` | `.codex/skills/agent-brain` | Skill dirs + AGENTS.md |
+| `cursor` | `.cursor/plugins/agent-brain` | Cursor plugin + Agent Plugins 1.0 |
+| `grok` | `.grok/plugins/agent-brain` | Claude-compatible + Grok marketplace |
 | `skill-runtime` | (requires `--dir`) | Generic skill dirs |
 
 ### Uninstalling

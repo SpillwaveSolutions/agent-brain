@@ -15,12 +15,14 @@ path is `agent_brain_mcp`.
 
 ## 2. Register the server
 
-### Option A — through the plugin (Claude Code, OpenCode & Codex, recommended)
+### Option A — through the plugin (recommended)
 
 ```bash
 agent-brain install-agent --agent claude   --with-mcp     # → .mcp.json / ~/.claude.json
 agent-brain install-agent --agent opencode --with-mcp     # → opencode.json (project root)
 agent-brain install-agent --agent codex    --with-mcp     # → ~/.codex/config.toml (TOML)
+agent-brain install-agent --agent cursor   --with-mcp     # → .cursor/mcp.json
+agent-brain install-agent --agent grok     --with-mcp     # → .mcp.json (Grok loads Claude plugins)
 ```
 
 This writes/merges an `agent-brain` entry into the runtime's MCP config, preserving any other
@@ -32,6 +34,8 @@ pins `AGENT_BRAIN_STATE_DIR` to the project's absolute `.agent-brain` path.
 | `claude` | `.mcp.json` | `~/.claude.json` | `mcpServers` (`command` + `args` + `env`) |
 | `opencode` | `opencode.json` (project root) | `~/.config/opencode/opencode.json` | `mcp` (`type: local`, `command: [...]`, `environment`) |
 | `codex` | `$CODEX_HOME/config.toml` (default `~/.codex/config.toml`) | same file | `[mcp_servers.agent-brain]` TOML (`command` + `args` + `env`) |
+| `cursor` | `.cursor/mcp.json` | `~/.cursor/mcp.json` | `mcpServers` (same shape as Claude) |
+| `grok` | `.mcp.json` | `~/.claude.json` | `mcpServers` (Grok Build loads Claude plugins) |
 
 > **Codex note:** Codex has no project-level MCP config — servers live in the single user-level
 > `config.toml`, so both scopes write the same file. The project's `.agent-brain` is pinned in the
@@ -105,10 +109,11 @@ Current surface: **16 tools**, 5 `corpus://` resources, 6 prompts.
 
 ## 5. Other runtimes
 
-`install-agent --with-mcp` auto-registers for **Claude Code**, **OpenCode**, and **Codex** (see
+`install-agent --with-mcp` auto-registers for **Claude Code**, **OpenCode**, **Codex**, **Cursor**, and **Grok Build** (see
 the table in Option A for each runtime's config location and schema). For other MCP hosts (Claude
-Desktop, Cursor, Windsurf), register manually using the Option B JSON. The flag prints a note and
-skips for runtimes it can't register rather than failing.
+Desktop, Windsurf), register manually using the Option B JSON. The flag prints a note and
+skips for runtimes it can't register rather than failing. Conforming Agent Plugins 1.0 clients
+also pick up `agent-brain-plugin/mcp.json` automatically.
 
 > The `gemini` runtime has been removed (Google deprecated the Gemini CLI — see
 > [#231](https://github.com/SpillwaveSolutions/agent-brain/issues/231)).
