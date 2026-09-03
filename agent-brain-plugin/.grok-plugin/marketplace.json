@@ -1,13 +1,13 @@
 {
   "name": "agent-brain-marketplace",
   "description": "Optional native Grok marketplace metadata. Grok Build already loads Claude plugins with zero config. This file pins identity for Grok marketplace listings.",
-  "version": "10.6.0",
+  "version": "10.7.0",
   "plugins": [
     {
       "name": "agent-brain",
       "source": ".",
       "description": "Local-first RAG memory for AI agents: hybrid BM25/semantic search, GraphRAG, MCP with OAuth 2.1. Claude-compatible.",
-      "version": "10.6.0",
+      "version": "10.7.0",
       "compatibility": {
         "claude_plugin": true,
         "zero_config": true
