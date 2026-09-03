@@ -1,6 +1,6 @@
 {
   "name": "agent-brain",
-  "version": "10.5.1",
+  "version": "10.6.0",
   "description": "Local-first RAG memory for AI agents: hybrid BM25/semantic search, GraphRAG, and an MCP server with OAuth 2.1.",
   "author": {
     "name": "Spillwave Solutions",
