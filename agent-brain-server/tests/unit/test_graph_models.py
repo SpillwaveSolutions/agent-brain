@@ -564,3 +564,39 @@ class TestQueryRequestGraphFilters:
 
         assert data["entity_types"] == ["Class", "Function"]
         assert data["relationship_types"] == ["calls"]
+
+
+class TestNamespacedVocabulary:
+    """#235: SCHEMA-01 plus namespaced types; invented types rejected."""
+
+    def test_schema_01_still_valid(self) -> None:
+        from agent_brain_server.models import is_valid_entity_type
+
+        assert is_valid_entity_type("Function")
+        assert is_valid_entity_type("README")
+
+    def test_okf_types_valid(self) -> None:
+        from agent_brain_server.models import is_valid_entity_type
+
+        assert is_valid_entity_type("okf:Claim")
+        assert is_valid_entity_type("okf:Finding")
+        assert is_valid_entity_type("okf:Evidence")
+
+    def test_invented_unnamespaced_rejected(self) -> None:
+        from agent_brain_server.models import is_valid_entity_type
+
+        assert not is_valid_entity_type("NotARealType")
+        assert not is_valid_entity_type("function")
+        assert not is_valid_entity_type("okf:")
+        assert not is_valid_entity_type(":Claim")
+
+    def test_extra_predicates(self) -> None:
+        from agent_brain_server.models import is_valid_predicate
+
+        assert is_valid_predicate("calls")
+        assert is_valid_predicate("asserts")
+        assert is_valid_predicate("evidenced_by")
+        assert is_valid_predicate("okf:asserts")
+        assert not is_valid_predicate("Asserts")
+        assert not is_valid_predicate("has subject")
+

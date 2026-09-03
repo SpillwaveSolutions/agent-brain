@@ -23,10 +23,16 @@ from .graph import (
     GraphEntityRecordNeighbors,
     GraphEntityRecordNode,
     GraphIndexStatus,
+    GraphProjectRequest,
+    GraphProjectResponse,
     GraphQueryContext,
     GraphTriple,
     InfraEntityType,
+    ProjectedEntity,
+    ProjectedRelation,
     RelationshipType,
+    is_valid_entity_type,
+    is_valid_predicate,
     normalize_entity_type,
 )
 from .health import HealthStatus, IndexingStatus
@@ -81,7 +87,14 @@ __all__ = [
     "GraphEntityRecordNeighbor",
     "GraphEntityRecordNeighbors",
     "GraphEntityRecordNode",
+    "GraphProjectRequest",
+    "GraphProjectResponse",
+    "ProjectedEntity",
+    "ProjectedRelation",
+    "is_valid_entity_type",
+    "is_valid_predicate",
     # Graph schema types (Feature 122 - Phase 3)
+
     "EntityType",
     "CodeEntityType",
     "DocEntityType",

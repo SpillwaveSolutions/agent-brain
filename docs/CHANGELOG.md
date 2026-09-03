@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`POST /graph/project` and `DELETE /graph/project`** (`agent-brain-server`; [#235](https://github.com/SpillwaveSolutions/agent-brain/issues/235)). Deterministic projection ingestion: an external projector (research-graph Layer 1) supplies pre-typed entities and relations (`{entities, relations, source_tag, replace}`) with **no LLM/AST extraction**. Namespaced types (`okf:Claim`) and extra snake_case predicates (`asserts`, `evidenced_by`) are accepted alongside SCHEMA-01/03 so domain nouns coexist without a core schema fork. `GET /graph/entity/{type}/{id}` accepts the same namespaced vocabulary. Writes run through the existing out-of-process kuzu isolation (#178); `replace=true` / `DELETE /graph/project?source_tag=` delete-by-tag so a rebuild is deterministic and does not wipe SCHEMA-01 extraction output.
+
 ---
 
 ## [10.6.0] - 2026-09-03

@@ -23,28 +23,36 @@ Status codes (decision B in 50-CONTEXT.md):
   (issue #178); the server keeps running but graph lookup is offline
   until the operator switches to ``graphrag.store_type: simple`` or the
   Kuzu issue is fixed.
-- ``400 invalid_entity_type`` — ``entity_type`` is not one of the 17
-  SCHEMA-01 types. Response body includes the canonical ``valid_types``
-  list so callers can discover the vocabulary at runtime.
+- ``400 invalid_entity_type`` — ``entity_type`` is not a SCHEMA-01 type
+  and is not a namespaced ``prefix:Name`` (e.g. ``okf:Claim``). Response
+  body includes the canonical ``valid_types`` list (SCHEMA-01) so callers
+  can discover the built-in vocabulary; namespaced types are accepted in
+  addition to that list (#235).
 - ``404 entity_not_found`` — type is valid but no entity with that
   ``(type, id)`` exists in the graph.
 
-The valid type vocabulary is sourced from ``ENTITY_TYPES`` in
-``agent_brain_server.models.graph`` — the same Literal that the
-extraction pipeline validates against. Plan 03 deliberately does NOT
-keep a parallel list (SCHEMA-01 vocabulary drift risk noted in the plan).
+``POST /graph/project`` and ``DELETE /graph/project`` (#235) accept
+pre-typed entities/relations from an external projector. Writes run in
+the same out-of-process kuzu isolation as document indexing (#178).
 """
 
 from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from agent_brain_server.api.security import verify_bearer_token
 from agent_brain_server.config.provider_config import load_provider_settings
 from agent_brain_server.config.settings import settings
-from agent_brain_server.models import ENTITY_TYPES, GraphEntityRecord
+from agent_brain_server.models import (
+    ENTITY_TYPES,
+    GraphEntityRecord,
+    GraphProjectRequest,
+    GraphProjectResponse,
+    is_valid_entity_type,
+)
+from agent_brain_server.models.graph import SOURCE_TAG_RE
 from agent_brain_server.storage.graph_store import (
     KuzuUnavailableError,
     get_graph_store_manager,
@@ -56,9 +64,10 @@ router = APIRouter(dependencies=[Depends(verify_bearer_token)])
 
 
 # Frozen at module import for predictable 400-body content. The 17 SCHEMA-01
-# entity types are stable for the v2 milestone; new types added in future
-# milestones will flip ``ENTITY_TYPES`` and this set together.
+# entity types are the built-in vocabulary; namespaced types (``okf:Claim``)
+# are accepted in addition via ``is_valid_entity_type``.
 _VALID_ENTITY_TYPES: frozenset[str] = frozenset(ENTITY_TYPES)
+
 
 
 def _graphrag_enabled() -> bool:
@@ -129,16 +138,23 @@ async def get_graph_entity(
         )
 
     # 400: unknown entity type. We do this BEFORE touching the graph store
-    # so a bogus type doesn't load the graph manager.
-    if entity_type not in _VALID_ENTITY_TYPES:
+    # so a bogus type doesn't load the graph manager. SCHEMA-01 plus
+    # namespaced ``prefix:Name`` (#235) are accepted; invented
+    # un-namespaced types still 400.
+    if not is_valid_entity_type(entity_type):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 "error": "invalid_entity_type",
                 "type": entity_type,
                 "valid_types": sorted(_VALID_ENTITY_TYPES),
+                "hint": (
+                    "Namespaced types (prefix:Name, e.g. okf:Claim) are "
+                    "also accepted."
+                ),
             },
         )
+
 
     graph_mgr = get_graph_store_manager()
     # Lazy-initialize: in production the lifespan preflight runs for Kuzu,
@@ -202,3 +218,168 @@ async def get_graph_entity(
             },
         )
     return record
+
+
+def _graph_disabled_exc() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail={
+            "error": "graphrag_disabled",
+            "hint": (
+                "set graphrag.enabled = true in config to enable "
+                "graph-entity addressing"
+            ),
+        },
+    )
+
+
+def _kuzu_unavailable_exc() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail={
+            "error": "kuzu_unavailable",
+            "hint": (
+                "Kuzu graph store raised during projection (issue #178). "
+                "Set graphrag.store_type=simple in config until the "
+                "Kuzu fix lands."
+            ),
+        },
+    )
+
+
+
+@router.post(
+    "/project",
+    response_model=GraphProjectResponse,
+    summary="Project pre-typed entities and relations",
+    description=(
+        "Upsert explicit typed entities and relations into the property "
+        "graph with no LLM/AST extraction. Writes run in an out-of-process "
+        "spawn worker so a kuzu-native crash cannot take down the server "
+        "(#178). Pass ``replace=true`` to delete prior facts with the same "
+        "``source_tag`` first (deterministic rebuild)."
+    ),
+    responses={
+        200: {"description": "Projection applied; counts returned."},
+        400: {"description": "Invalid type, predicate, or relation endpoint."},
+        503: {
+            "description": (
+                "GraphRAG disabled, or isolated kuzu worker crashed (#178)."
+            )
+        },
+    },
+)
+async def project_graph(body: GraphProjectRequest) -> GraphProjectResponse:
+    """Accept pre-typed facts from an external projector (#235)."""
+    if not _graphrag_enabled():
+        raise _graph_disabled_exc()
+
+    payload_ids = {entity.id for entity in body.entities}
+    missing: list[str] = []
+    for rel in body.relations:
+        if rel.src not in payload_ids:
+            missing.append(rel.src)
+        if rel.dst not in payload_ids:
+            missing.append(rel.dst)
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "unknown_relation_endpoint",
+                "missing_ids": sorted(set(missing)),
+                "hint": (
+                    "Every relation src/dst must match an entity id in "
+                    "the same request."
+                ),
+            },
+        )
+
+    entities = [
+        {
+            "type": entity.type,
+            "id": entity.id,
+            "properties": dict(entity.properties),
+        }
+        for entity in body.entities
+    ]
+    relations = [
+        {"src": rel.src, "predicate": rel.predicate, "dst": rel.dst}
+        for rel in body.relations
+    ]
+
+    try:
+        from agent_brain_server.indexing.graph_index import project_isolated
+        from agent_brain_server.storage.graph_errors import GraphBuildFailedError
+
+        counts = project_isolated(
+            entities,
+            relations,
+            body.source_tag,
+            replace=body.replace,
+        )
+    except (GraphBuildFailedError, KuzuUnavailableError) as exc:
+        raise _kuzu_unavailable_exc() from exc
+
+
+    return GraphProjectResponse(
+        entities_upserted=int(counts.get("entities_upserted", 0)),
+        relations_upserted=int(counts.get("relations_upserted", 0)),
+        entities_deleted=int(counts.get("entities_deleted", 0)),
+        relations_deleted=int(counts.get("relations_deleted", 0)),
+        source_tag=body.source_tag,
+    )
+
+
+@router.delete(
+    "/project",
+    response_model=GraphProjectResponse,
+    summary="Delete projected facts by source_tag",
+    description=(
+        "Remove every node (and incident edge) stamped with ``source_tag``. "
+        "Runs in the same isolated worker as ``POST /graph/project``."
+    ),
+    responses={
+        200: {"description": "Tagged facts removed; counts returned."},
+        400: {"description": "Missing or invalid source_tag."},
+        503: {"description": "GraphRAG disabled, or isolated worker crashed."},
+    },
+)
+async def delete_projected_graph(
+    source_tag: str = Query(..., min_length=1, max_length=64),
+) -> GraphProjectResponse:
+    """Delete-by-source_tag for a deterministic projector rebuild (#235)."""
+    if not _graphrag_enabled():
+        raise _graph_disabled_exc()
+
+    if SOURCE_TAG_RE.fullmatch(source_tag) is None:
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "invalid_source_tag",
+                "source_tag": source_tag,
+            },
+        )
+
+    try:
+        from agent_brain_server.indexing.graph_index import project_isolated
+        from agent_brain_server.storage.graph_errors import GraphBuildFailedError
+
+        counts = project_isolated(
+            [],
+            [],
+            source_tag,
+            replace=True,
+        )
+    except (GraphBuildFailedError, KuzuUnavailableError) as exc:
+        raise _kuzu_unavailable_exc() from exc
+
+
+    return GraphProjectResponse(
+        entities_upserted=0,
+        relations_upserted=0,
+        entities_deleted=int(counts.get("entities_deleted", 0)),
+        relations_deleted=int(counts.get("relations_deleted", 0)),
+        source_tag=source_tag,
+    )
+
