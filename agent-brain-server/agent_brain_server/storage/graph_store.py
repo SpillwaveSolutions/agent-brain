@@ -1330,7 +1330,7 @@ class GraphStoreManager:
         store = self._graph_store
         try:
             to_delete: list[str] = []
-            nodes = []
+            nodes: list[Any] = []
             if hasattr(store, "get"):
                 try:
                     # Prefer a property filter when the backend supports it.
@@ -1348,7 +1348,6 @@ class GraphStoreManager:
                     node_id = getattr(node, "id", None) or getattr(node, "name", "")
                     if node_id:
                         to_delete.append(str(node_id))
-
 
             if not to_delete and hasattr(store, "_entities"):
                 # _MinimalGraphStore path.
