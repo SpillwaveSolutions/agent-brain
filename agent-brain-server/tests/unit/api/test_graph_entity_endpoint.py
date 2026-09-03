@@ -136,6 +136,67 @@ class TestInvalidEntityType:
         assert r.json()["detail"]["error"] == "invalid_entity_type"
 
 
+class TestNamespacedEntityType:
+    """#235: namespaced types (okf:Claim) are valid; invented types are not."""
+
+    def test_okf_type_is_not_400(self, client: TestClient) -> None:
+        mgr = MagicMock()
+        mgr.is_initialized = True
+        mgr.get_entity_by_id.return_value = None
+        with (
+            patch(
+                "agent_brain_server.api.routers.graph._graphrag_enabled",
+                return_value=True,
+            ),
+            patch(
+                "agent_brain_server.api.routers.graph.get_graph_store_manager",
+                return_value=mgr,
+            ),
+        ):
+            r = client.get("/graph/entity/okf:Finding/finding.1")
+        assert r.status_code == 404
+        assert r.json()["detail"]["error"] == "entity_not_found"
+        mgr.get_entity_by_id.assert_called_once_with("okf:Finding", "finding.1")
+
+    def test_okf_type_200_when_present(self, client: TestClient) -> None:
+        record = GraphEntityRecord(
+            entity=GraphEntityRecordNode(
+                type="okf:Finding",
+                id="finding.1",
+                properties={"source_tag": "research-graph"},
+            ),
+            neighbors=GraphEntityRecordNeighbors(
+                outgoing=[
+                    GraphEntityRecordNeighbor(
+                        type="okf:Claim",
+                        id="claim.1",
+                        predicate="asserts",
+                        properties={},
+                    )
+                ],
+            ),
+        )
+        mgr = MagicMock()
+        mgr.is_initialized = True
+        mgr.get_entity_by_id.return_value = record
+        with (
+            patch(
+                "agent_brain_server.api.routers.graph._graphrag_enabled",
+                return_value=True,
+            ),
+            patch(
+                "agent_brain_server.api.routers.graph.get_graph_store_manager",
+                return_value=mgr,
+            ),
+        ):
+            r = client.get("/graph/entity/okf:Finding/finding.1")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["entity"]["type"] == "okf:Finding"
+        assert body["neighbors"]["outgoing"][0]["predicate"] == "asserts"
+
+
+
 # ---------------------------------------------------------------------------
 # 200 / 404 — the happy paths and entity-not-found.
 # ---------------------------------------------------------------------------

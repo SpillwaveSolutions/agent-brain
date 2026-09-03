@@ -1312,6 +1312,244 @@ class GraphStoreManager:
             ),
         )
 
+    def delete_by_source_tag(self, source_tag: str) -> tuple[int, int]:
+        """Remove nodes (and their edges) stamped with ``source_tag``.
+
+        Used by ``POST /graph/project?replace=true`` and
+        ``DELETE /graph/project`` so a projector can destroy-and-rebuild
+        deterministically without wiping SCHEMA-01 extraction output.
+
+        Returns ``(entities_deleted, relations_deleted)``. Relation count
+        is best-effort (triplet delta); 0 when the backend cannot count.
+        """
+        if not _graphrag_enabled():
+            return (0, 0)
+        if not self._initialized or self._graph_store is None:
+            return (0, 0)
+
+        store = self._graph_store
+        try:
+            to_delete: list[str] = []
+            nodes = []
+            if hasattr(store, "get"):
+                try:
+                    # Prefer a property filter when the backend supports it.
+                    try:
+                        nodes = (
+                            store.get(properties={"source_tag": source_tag}) or []
+                        )
+                    except TypeError:
+                        nodes = store.get() or []
+                except TypeError:
+                    nodes = []
+            for node in nodes:
+                props = getattr(node, "properties", None) or {}
+                if isinstance(props, dict) and props.get("source_tag") == source_tag:
+                    node_id = getattr(node, "id", None) or getattr(node, "name", "")
+                    if node_id:
+                        to_delete.append(str(node_id))
+
+
+            if not to_delete and hasattr(store, "_entities"):
+                # _MinimalGraphStore path.
+                entities = getattr(store, "_entities", {})
+                drop_ids = [
+                    eid
+                    for eid, meta in entities.items()
+                    if isinstance(meta, dict) and meta.get("source_tag") == source_tag
+                ]
+                for eid in drop_ids:
+                    entities.pop(eid, None)
+                rels = getattr(store, "_relationships", [])
+                kept = [
+                    r
+                    for r in rels
+                    if not (
+                        isinstance(r, dict)
+                        and (
+                            r.get("source_tag") == source_tag
+                            or r.get("subject") in drop_ids
+                            or r.get("object") in drop_ids
+                        )
+                    )
+                ]
+                rels_dropped = len(rels) - len(kept)
+                store._relationships = kept
+                if hasattr(store, "_data"):
+                    store._data["entities"] = entities
+                    store._data["relationships"] = kept
+                self._update_counts()
+                self.persist()
+                return (len(drop_ids), rels_dropped)
+
+            rels_deleted = 0
+            if to_delete and hasattr(store, "get_triplets"):
+                try:
+                    # SimplePropertyGraphStore.get_triplets() with no args
+                    # returns [] — filter by the ids we are about to drop.
+                    rels_deleted = len(store.get_triplets(ids=to_delete) or [])
+                except Exception:
+                    rels_deleted = 0
+
+            if to_delete and hasattr(store, "delete"):
+                store.delete(ids=to_delete)
+
+            self._update_counts()
+            self.persist()
+            return (len(to_delete), rels_deleted)
+
+        except (IndexError, RuntimeError, OSError) as exc:
+            if self.store_type == "kuzu":
+                raise KuzuUnavailableError(
+                    f"Kuzu graph store raised during delete-by-tag: {exc}. "
+                    "Operator workaround: set graphrag.store_type=simple."
+                ) from exc
+            logger.warning(
+                "graph_store.delete_by_source_tag: %s raised: %s",
+                self.store_type,
+                exc,
+            )
+            return (0, 0)
+
+    def project(
+        self,
+        entities: list[dict[str, Any]],
+        relations: list[dict[str, Any]],
+        source_tag: str,
+        replace: bool = False,
+    ) -> dict[str, int]:
+        """Upsert pre-typed entities and relations. No extraction.
+
+        ``entities`` items: ``{type, id, properties?}``.
+        ``relations`` items: ``{src, predicate, dst}``.
+        ``src``/``dst`` must match entity ids in this payload.
+
+        Stamps ``source_tag`` onto every node (and relation, when the
+        backend preserves relation properties) so a later delete-by-tag
+        can rebuild deterministically.
+
+        Returns counts: entities_upserted, relations_upserted,
+        entities_deleted, relations_deleted.
+        """
+        if not _graphrag_enabled():
+            return {
+                "entities_upserted": 0,
+                "relations_upserted": 0,
+                "entities_deleted": 0,
+                "relations_deleted": 0,
+            }
+
+        if not self._initialized:
+            self.initialize()
+        if self._graph_store is None:
+            return {
+                "entities_upserted": 0,
+                "relations_upserted": 0,
+                "entities_deleted": 0,
+                "relations_deleted": 0,
+            }
+
+        deleted_e, deleted_r = 0, 0
+        if replace:
+            deleted_e, deleted_r = self.delete_by_source_tag(source_tag)
+
+        store = self._graph_store
+        try:
+            upserted_e, upserted_r = self._upsert_projected(
+                store, entities, relations, source_tag
+            )
+        except (IndexError, RuntimeError, OSError) as exc:
+            if self.store_type == "kuzu":
+                raise KuzuUnavailableError(
+                    f"Kuzu graph store raised during projection: {exc}. "
+                    "Operator workaround: set graphrag.store_type=simple."
+                ) from exc
+            logger.error("graph_store.project: %s raised: %s", self.store_type, exc)
+            raise
+
+        self._update_counts()
+        self.persist()
+        self._last_updated = datetime.now(timezone.utc)
+        return {
+            "entities_upserted": upserted_e,
+            "relations_upserted": upserted_r,
+            "entities_deleted": deleted_e,
+            "relations_deleted": deleted_r,
+        }
+
+    def _upsert_projected(
+        self,
+        store: Any,
+        entities: list[dict[str, Any]],
+        relations: list[dict[str, Any]],
+        source_tag: str,
+    ) -> tuple[int, int]:
+        """Write projected facts to ``store``. Returns upsert counts."""
+        if hasattr(store, "upsert_nodes"):
+            from llama_index.core.graph_stores.types import EntityNode, Relation
+
+            nodes: list[Any] = []
+            id_to_node_id: dict[str, str] = {}
+            for item in entities:
+                entity_id = str(item["id"])
+                entity_type = str(item["type"])
+                props = dict(item.get("properties") or {})
+                props["source_tag"] = source_tag
+                # Kuzu's get_triplets historically stashes the schema
+                # label in properties["label"]; keep both.
+                props["label"] = entity_type
+                node = EntityNode(
+                    name=entity_id,
+                    label=entity_type,
+                    properties=props,
+                )
+                nodes.append(node)
+                id_to_node_id[entity_id] = node.id
+            if nodes:
+                store.upsert_nodes(nodes)
+
+            rel_objs: list[Any] = []
+            for item in relations:
+                src = str(item["src"])
+                dst = str(item["dst"])
+                src_id = id_to_node_id.get(src, src)
+                dst_id = id_to_node_id.get(dst, dst)
+                rel_objs.append(
+                    Relation(
+                        label=str(item["predicate"]),
+                        source_id=src_id,
+                        target_id=dst_id,
+                        properties={"source_tag": source_tag},
+                    )
+                )
+            if rel_objs:
+                store.upsert_relations(rel_objs)
+            return (len(entities), len(relations))
+
+        # _MinimalGraphStore fallback.
+        for item in entities:
+            entity_id = str(item["id"])
+            store._entities[entity_id] = {
+                "name": entity_id,
+                "type": str(item["type"]),
+                "source_tag": source_tag,
+                "properties": dict(item.get("properties") or {}),
+            }
+        for item in relations:
+            store._relationships.append(
+                {
+                    "subject": str(item["src"]),
+                    "predicate": str(item["predicate"]),
+                    "object": str(item["dst"]),
+                    "source_tag": source_tag,
+                }
+            )
+        if hasattr(store, "_data"):
+            store._data["entities"] = store._entities
+            store._data["relationships"] = store._relationships
+        return (len(entities), len(relations))
+
+
     def clear(self) -> None:
         """Clear all graph data.
 

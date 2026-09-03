@@ -262,6 +262,159 @@ def build_from_documents_isolated(
     )
 
 
+_PROJECT_FAILED_MESSAGE_TEMPLATE = (
+    "Graph projection failed in isolated worker (exit_code={code}); "
+    "the server process is unaffected. The graph was NOT updated for this "
+    "run. To switch backends permanently, set graphrag.store_type=simple "
+    "in your config (the server does not change it automatically)."
+)
+
+_PROJECT_TIMEOUT_MESSAGE_TEMPLATE = (
+    "Graph projection timed out in isolated worker (timeout={timeout_s}s); "
+    "the server process is unaffected. The graph was NOT updated for this "
+    "run. To switch backends permanently, set graphrag.store_type=simple "
+    "in your config (the server does not change it automatically)."
+)
+
+
+def _child_project_worker(
+    payload: dict[str, Any],
+    result_queue: "multiprocessing.Queue[dict[str, int] | BaseException]",
+) -> None:
+    """Spawn-child entry for ``project_isolated``.
+
+    Re-resolves the graph-store singleton inside the child so the kuzu
+    handle is never inherited from the parent (#178).
+    """
+    try:
+        store = get_graph_store_manager()
+        if not store.is_initialized:
+            store.initialize()
+        result = store.project(
+            entities=payload["entities"],
+            relations=payload["relations"],
+            source_tag=payload["source_tag"],
+            replace=bool(payload.get("replace", False)),
+        )
+        result_queue.put(result)
+    except BaseException as exc:  # noqa: BLE001
+        result_queue.put(exc)
+
+
+def _run_project_in_child(
+    payload: dict[str, Any],
+    result_queue: "multiprocessing.Queue[dict[str, int] | BaseException]",
+    timeout_s: float | None,
+    child_target: Any,
+) -> dict[str, int]:
+    """Spawn the projection child and wait for a counts dict."""
+    ctx = multiprocessing.get_context("spawn")
+    proc = ctx.Process(
+        target=child_target,
+        args=(payload, result_queue),
+        daemon=True,
+    )
+    proc.start()
+
+    timed_out = False
+    try:
+        proc.join(timeout=timeout_s)
+    except Exception:
+        pass
+
+    if proc.is_alive():
+        timed_out = True
+        proc.terminate()
+        proc.join(timeout=5.0)
+        if proc.is_alive():
+            proc.kill()
+            proc.join(timeout=2.0)
+
+    exit_code = proc.exitcode
+
+    if timed_out:
+        raise GraphBuildFailedError(
+            _PROJECT_TIMEOUT_MESSAGE_TEMPLATE.format(timeout_s=timeout_s),
+            exit_code=exit_code,
+        )
+
+    if exit_code != 0:
+        raise GraphBuildFailedError(
+            _PROJECT_FAILED_MESSAGE_TEMPLATE.format(code=exit_code),
+            exit_code=exit_code,
+        )
+
+    try:
+        result = result_queue.get_nowait()
+    except Exception as exc:
+        raise GraphBuildFailedError(
+            _PROJECT_FAILED_MESSAGE_TEMPLATE.format(code=0),
+            exit_code=0,
+        ) from exc
+
+    if isinstance(result, BaseException):
+        raise GraphBuildFailedError(
+            f"Graph projection raised exception in isolated worker: {result}; "
+            "the server process is unaffected. The graph was NOT updated for "
+            "this run. To switch backends permanently, set "
+            "graphrag.store_type=simple in your config (the server does not "
+            "change it automatically).",
+            exit_code=0,
+        ) from result
+
+    if not isinstance(result, dict):
+        raise GraphBuildFailedError(
+            _PROJECT_FAILED_MESSAGE_TEMPLATE.format(code=0),
+            exit_code=0,
+        )
+    return result
+
+
+def project_isolated(
+    entities: list[dict[str, Any]],
+    relations: list[dict[str, Any]],
+    source_tag: str,
+    *,
+    replace: bool = False,
+    timeout_s: float | None = None,
+    _child_target_override: Any = None,
+) -> dict[str, int]:
+    """Project pre-typed entities/relations in an isolated subprocess.
+
+    Same spawn isolation as ``build_from_documents_isolated`` (Phase 64 /
+    GSTAB-01 / #178): a kuzu-native crash becomes a catchable
+    ``GraphBuildFailedError`` instead of taking down the server. The
+    projector never calls LLM/AST extractors.
+
+    Args:
+        entities: ``[{type, id, properties?}, ...]``.
+        relations: ``[{src, predicate, dst}, ...]``.
+        source_tag: Attribution tag stamped on every written node/edge.
+        replace: When True, delete-by-source_tag runs before the upsert.
+        timeout_s: Seconds before the child is killed. None = no limit.
+        _child_target_override: Test-only replacement for the child worker.
+
+    Returns:
+        Counts dict from the child (entities_upserted, relations_upserted,
+        entities_deleted, relations_deleted).
+
+    Raises:
+        GraphBuildFailedError: Child non-zero exit (including SIGSEGV) or
+            timeout. Parent process is unaffected.
+    """
+    child_target = _child_target_override or _child_project_worker
+    ctx = multiprocessing.get_context("spawn")
+    result_queue: multiprocessing.Queue[dict[str, int] | BaseException] = ctx.Queue()
+    payload = {
+        "entities": entities,
+        "relations": relations,
+        "source_tag": source_tag,
+        "replace": replace,
+    }
+    return _run_project_in_child(payload, result_queue, timeout_s, child_target)
+
+
+
 class GraphIndexManager:
     """Manages graph index building and querying.
 

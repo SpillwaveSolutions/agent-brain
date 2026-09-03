@@ -4,10 +4,11 @@ Defines Pydantic models for graph entities, relationships, and status.
 All models are configured with frozen=True for immutability.
 """
 
+import re
 from datetime import datetime
 from typing import Any, Literal, get_args
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # Entity Type Schema (SCHEMA-01, SCHEMA-02, SCHEMA-03)
 
@@ -138,6 +139,47 @@ def normalize_entity_type(raw_type: str | None) -> str | None:
     if mapped:
         return mapped
     return raw_type  # Fallback: keep original for flexibility
+
+
+# Namespaced types (e.g. ``okf:Claim``) let a projector supply domain nouns
+# without forking SCHEMA-01. Prefix is a lowercase vendor/ontology id;
+# the local name is an identifier. See #235 / POST /graph/project.
+NAMESPACED_ENTITY_TYPE_RE = re.compile(
+    r"^[a-z][a-z0-9_-]{0,31}:[A-Za-z][A-Za-z0-9_]{0,63}$"
+)
+PREDICATE_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+NAMESPACED_PREDICATE_RE = re.compile(
+    r"^[a-z][a-z0-9_-]{0,31}:[a-z][a-z0-9_]*$"
+)
+SOURCE_TAG_RE = re.compile(r"^[A-Za-z][A-Za-z0-9._:-]{0,63}$")
+
+
+def is_valid_entity_type(entity_type: str) -> bool:
+    """Return True for a SCHEMA-01 type or a namespaced ``prefix:Name``.
+
+    SCHEMA-01 stays the built-in 17-type vocabulary. Namespaced types
+    (``okf:Claim``, ``okf:Finding``) are accepted so an external projector
+    can write domain nouns without a core schema fork. Un-namespaced
+    invented types (``NotARealType``) are rejected.
+    """
+    if entity_type in ENTITY_TYPES:
+        return True
+    return NAMESPACED_ENTITY_TYPE_RE.fullmatch(entity_type) is not None
+
+
+def is_valid_predicate(predicate: str) -> bool:
+    """Return True for a SCHEMA-03 predicate or an extensible extra.
+
+    Extensible extras are snake_case (``asserts``, ``evidenced_by``) or
+    namespaced (``okf:asserts``). This is a validation concern, not a
+    physical Kuzu table constraint.
+    """
+    if predicate in RELATIONSHIP_TYPES:
+        return True
+    if PREDICATE_RE.fullmatch(predicate) is not None:
+        return True
+    return NAMESPACED_PREDICATE_RE.fullmatch(predicate) is not None
+
 
 
 class GraphTriple(BaseModel):
@@ -566,3 +608,117 @@ class GraphEntityRecord(BaseModel):
         default_factory=GraphEntityRecordNeighbors,
         description="1-hop neighbors split by direction. Empty lists, never None.",
     )
+
+
+# -----------------------------------------------------------------------------
+# Graph projection — POST /graph/project (#235)
+#
+# Accepts pre-typed entities and relations from an external projector
+# (research-graph Layer 1). No LLM/AST extraction is involved. Vocabulary
+# is SCHEMA-01 plus namespaced types so OKF research nouns coexist with
+# code/doc/infra types without forking Agent Brain.
+# -----------------------------------------------------------------------------
+
+
+class ProjectedEntity(BaseModel):
+    """A single pre-typed entity supplied by an external projector."""
+
+    model_config = ConfigDict(frozen=True)
+
+    type: str = Field(
+        ...,
+        min_length=1,
+        description=(
+            "SCHEMA-01 type or namespaced type (e.g. ``okf:Claim``). "
+            "Un-namespaced invented types are rejected."
+        ),
+    )
+    id: str = Field(
+        ...,
+        min_length=1,
+        max_length=256,
+        description="Stable opaque entity id. Re-projecting the same id upserts.",
+    )
+    properties: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Free-form entity properties. ``source_tag`` is reserved.",
+    )
+
+    @field_validator("type")
+    @classmethod
+    def _type_must_be_schema_or_namespaced(cls, value: str) -> str:
+        if not is_valid_entity_type(value):
+            raise ValueError(
+                "entity type must be a SCHEMA-01 type or namespaced "
+                f"(prefix:Name); got {value!r}"
+            )
+        return value
+
+
+class ProjectedRelation(BaseModel):
+    """A single pre-typed relation. ``src``/``dst`` are entity ids."""
+
+    model_config = ConfigDict(frozen=True)
+
+    src: str = Field(..., min_length=1, max_length=256)
+    predicate: str = Field(..., min_length=1, max_length=64)
+    dst: str = Field(..., min_length=1, max_length=256)
+
+    @field_validator("predicate")
+    @classmethod
+    def _predicate_must_be_extensible(cls, value: str) -> str:
+        if not is_valid_predicate(value):
+            raise ValueError(
+                "predicate must be snake_case or namespaced; "
+                f"got {value!r}"
+
+            )
+        return value
+
+
+class GraphProjectRequest(BaseModel):
+    """Request body for ``POST /graph/project``."""
+
+    model_config = ConfigDict(frozen=True)
+
+    entities: list[ProjectedEntity] = Field(default_factory=list)
+    relations: list[ProjectedRelation] = Field(default_factory=list)
+    source_tag: str = Field(
+        ...,
+        min_length=1,
+        max_length=64,
+        description=(
+            "Attribution tag stamped on every written node/edge. "
+            "``replace=true`` deletes prior facts with this tag first."
+        ),
+    )
+    replace: bool = Field(
+        default=False,
+        description=(
+            "When true, delete-by-source_tag runs before the upsert so a "
+            "rebuild converges deterministically."
+        ),
+    )
+
+    @field_validator("source_tag")
+    @classmethod
+    def _source_tag_shape(cls, value: str) -> str:
+        if SOURCE_TAG_RE.fullmatch(value) is None:
+            raise ValueError(
+                "source_tag must start with a letter and contain only "
+                f"alphanumerics, dot, underscore, colon, or hyphen; got {value!r}"
+            )
+        return value
+
+
+class GraphProjectResponse(BaseModel):
+    """Response body for ``POST /graph/project`` and ``DELETE /graph/project``."""
+
+    model_config = ConfigDict(frozen=True)
+
+    entities_upserted: int = Field(default=0, ge=0)
+    relations_upserted: int = Field(default=0, ge=0)
+    entities_deleted: int = Field(default=0, ge=0)
+    relations_deleted: int = Field(default=0, ge=0)
+    source_tag: str = Field(..., min_length=1)
+
