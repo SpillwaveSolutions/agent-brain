@@ -1,0 +1,19 @@
+{
+  "name": "agent-brain",
+  "version": "10.5.1",
+  "description": "Local-first RAG memory for AI agents: hybrid BM25/semantic search, GraphRAG, and an MCP server with OAuth 2.1.",
+  "author": {
+    "name": "Spillwave Solutions"
+  },
+  "homepage": "https://github.com/SpillwaveSolutions/agent-brain",
+  "repository": "https://github.com/SpillwaveSolutions/agent-brain",
+  "license": "MIT",
+  "keywords": [
+    "rag",
+    "mcp",
+    "graphrag",
+    "cursor"
+  ],
+  "skills": "skills/",
+  "commands": "commands/"
+}

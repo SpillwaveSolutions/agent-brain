@@ -314,3 +314,47 @@ def register_codex_mcp(
         server_name=MCP_SERVER_NAME,
         entry=entry,
     )
+
+
+def register_cursor_mcp(
+    config_path: Path,
+    state_dir: Path,
+    *,
+    backend: str = "auto",
+    auth: str = "none",
+    dry_run: bool = False,
+) -> McpRegistrationResult:
+    """Merge the Agent Brain MCP entry into a Cursor ``mcp.json`` file.
+
+    Cursor uses the same ``mcpServers`` JSON shape as Claude Code; only the
+    on-disk path differs (``.cursor/mcp.json`` / ``~/.cursor/mcp.json``).
+    """
+    return register_claude_mcp(
+        config_path,
+        state_dir,
+        backend=backend,
+        auth=auth,
+        dry_run=dry_run,
+    )
+
+
+def register_grok_mcp(
+    config_path: Path,
+    state_dir: Path,
+    *,
+    backend: str = "auto",
+    auth: str = "none",
+    dry_run: bool = False,
+) -> McpRegistrationResult:
+    """Merge the Agent Brain MCP entry for Grok Build.
+
+    Grok Build loads Claude plugins with zero config, so registration uses
+    the Claude Code ``mcpServers`` file (``.mcp.json`` / ``~/.claude.json``).
+    """
+    return register_claude_mcp(
+        config_path,
+        state_dir,
+        backend=backend,
+        auth=auth,
+        dry_run=dry_run,
+    )

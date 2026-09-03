@@ -1,0 +1,27 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "agent-brain",
+  "version": "10.5.1",
+  "description": "Local-first RAG memory for AI agents: hybrid BM25/semantic search, GraphRAG, and an MCP server with OAuth 2.1. Index docs and code, then search from Claude Code, Cursor, Codex, OpenCode, or Grok Build.",
+  "author": {
+    "name": "Spillwave Solutions",
+    "email": "rick@spillwave.com",
+    "url": "https://github.com/SpillwaveSolutions"
+  },
+  "homepage": "https://github.com/SpillwaveSolutions/agent-brain",
+  "repository": "https://github.com/SpillwaveSolutions/agent-brain",
+  "license": "MIT",
+  "keywords": [
+    "rag",
+    "mcp",
+    "graphrag",
+    "hybrid-search",
+    "agent-memory",
+    "claude-code",
+    "grok-build",
+    "codex",
+    "cursor",
+    "opencode",
+    "agent-plugins"
+  ]
+}

@@ -1,6 +1,6 @@
 # Agent Brain Plugin
 
-A Claude Code plugin for document search with hybrid BM25/semantic retrieval. Index your documentation and source code, then search using keyword matching, semantic similarity, or combined hybrid mode.
+A multi-host plugin for document search with hybrid BM25/semantic retrieval. Index your documentation and source code, then search using keyword matching, semantic similarity, or combined hybrid mode. Installs natively in Claude Code, OpenCode, Codex, Cursor, and Grok Build; a conforming Agent Plugins 1.0 client can consume `plugin.json` + `skills/` + `mcp.json`.
 
 ## Features
 

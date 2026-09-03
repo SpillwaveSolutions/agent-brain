@@ -33,6 +33,17 @@ claude plugins marketplace add SpillwaveSolutions/agent-brain
 claude plugins install agent-brain@agent-brain-marketplace
 ```
 
+Other hosts, from a checkout or via the CLI:
+
+```bash
+agent-brain install-agent --agent cursor --with-mcp   # .cursor/plugins/agent-brain + .cursor/mcp.json
+agent-brain install-agent --agent grok --with-mcp     # .grok/plugins/agent-brain; MCP via .mcp.json
+agent-brain install-agent --agent opencode --with-mcp
+agent-brain install-agent --agent codex --with-mcp
+```
+
+A conforming [Agent Plugins 1.0](https://agent-plugins.org/specification) client can consume `agent-brain-plugin/plugin.json` + `skills/` + `mcp.json` directly.
+
 This provides:
 - **30 slash commands** for all operations
 - **3 intelligent agents** for complex tasks
