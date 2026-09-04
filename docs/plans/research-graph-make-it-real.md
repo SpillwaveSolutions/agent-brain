@@ -1,8 +1,9 @@
 # Plan: Make research-graph real (Layer 1 projector → live Agent Brain wiring)
 
 **Date:** 2026-08-30
+**Status (2026-09-03):** Gap A / Phase B item 6 **shipped** in [v10.7.0](https://github.com/SpillwaveSolutions/agent-brain/releases/tag/v10.7.0) (`POST /graph/project`, namespaced `okf:*` types, `DELETE /graph/project?source_tag=`, spawn isolation). **`informs` is not written** — query-only inverse of content-media `Article → draws_from → Finding`; research-graph does not own `Article`. Execution continues in [research-graph `docs/plans/make-it-real.md`](https://github.com/SpillwaveSolutions/research-graph/blob/main/docs/plans/make-it-real.md). This file is historical design context.
 **Repos involved:** [SpillwaveSolutions/research-graph](https://github.com/SpillwaveSolutions/research-graph) (primary),
-[SpillwaveSolutions/agent-brain](https://github.com/SpillwaveSolutions/agent-brain) (one contained feature),
+[SpillwaveSolutions/agent-brain](https://github.com/SpillwaveSolutions/agent-brain) (one contained feature — done),
 [SpillwaveSolutions/research-knowledge-capture](https://github.com/SpillwaveSolutions/research-knowledge-capture) (contract source, no changes).
 **Informed by:** recent work across the OKF family — okf-plugin 0.8.x, okf-agent-graph (AGER) 0.8.x, RKC 0.2.x, okf-forge, okf-agent-graph-ui.
 
