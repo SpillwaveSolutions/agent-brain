@@ -148,11 +148,11 @@ class TestPostBindChmod:
 
 
 class TestLongPathFallback:
-    """A3 — long socket path triggers pointer-file fallback to /tmp.
+    """A3 — long socket path triggers pointer-file fallback to a 0o700 dir.
 
     The canonical socket path is ``<state_dir>/agent-brain.sock``; when
     that exceeds 104 bytes (macOS sun_path limit), the bind helper must
-    bind to ``/tmp/agent-brain-<sha256[:8]>.sock`` and write
+    bind to a per-user private directory (issue #252) and write
     ``<state_dir>/agent-brain.sock.path`` containing the real path.
     """
 
@@ -167,9 +167,14 @@ class TestLongPathFallback:
         assert not (short_state_dir / "agent-brain.sock.path").exists()
 
     def test_resolve_bind_path_long_path_writes_pointer(
-        self, short_state_dir: Path
+        self, short_state_dir: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         from agent_brain_server.api import uds_bind as bind_mod
+
+        runtime = short_state_dir / "runtime"
+        runtime.mkdir()
+        os.chmod(runtime, 0o700)
+        monkeypatch.setenv("XDG_RUNTIME_DIR", str(runtime))
 
         # Build a state dir with a path long enough to exceed the limit
         # by nesting deep directories.
@@ -179,8 +184,12 @@ class TestLongPathFallback:
 
         bind_path, used_fallback = bind_mod.resolve_bind_path(nested)
         assert used_fallback is True
-        assert str(bind_path).startswith("/tmp/agent-brain-")
+        assert bind_path.name.startswith("agent-brain-")
         assert bind_path.suffix == ".sock"
+        parent_mode = stat.S_IMODE(os.lstat(bind_path.parent).st_mode)
+        assert (
+            parent_mode == 0o700
+        ), f"fallback parent {bind_path.parent} mode {parent_mode:#o}, expected 0o700"
 
         pointer = nested / "agent-brain.sock.path"
         assert pointer.is_file()

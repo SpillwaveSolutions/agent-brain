@@ -18,6 +18,7 @@ from agent_brain_uds.paths import (
     POINTER_FILE_NAME,
     SOCKET_FILE_NAME,
     STATE_DIR_NAME,
+    fallback_socket_dir,
     resolve_socket_path,
     resolve_state_dir,
     write_pointer_file,
@@ -94,16 +95,25 @@ def test_socket_path_is_state_dir_plus_sock_name(short_tmp: Path) -> None:
 
 
 def test_pointer_file_is_honored_when_present(short_tmp: Path) -> None:
-    real_socket = Path("/tmp/agent-brain-deadbeef.sock")
+    real_socket = short_tmp / "agent-brain-deadbeef.sock"
     write_pointer_file(short_tmp, real_socket)
     assert (short_tmp / POINTER_FILE_NAME).is_file()
     assert resolve_socket_path(short_tmp) == real_socket
 
 
-def test_long_state_dir_falls_back_to_tmp(tmp_path: Path) -> None:
-    # Build a state_dir whose canonical socket path exceeds the limit.
+def test_long_state_dir_falls_back_to_private_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Long canonical path uses a 0o700 per-user dir, never shared /tmp (#252)."""
+    import os
+    import stat
+
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    os.chmod(runtime, 0o700)
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(runtime))
+
     deep = tmp_path
-    # Each segment adds ~32 bytes; ~10 segments gets us well past 104.
     for _ in range(10):
         deep = deep / ("x" * 32)
     deep.mkdir(parents=True)
@@ -114,11 +124,37 @@ def test_long_state_dir_falls_back_to_tmp(tmp_path: Path) -> None:
     ), "test fixture must produce an over-limit canonical path"
 
     resolved = resolve_socket_path(deep)
-    assert str(resolved).startswith("/tmp/agent-brain-")
+    assert resolved.parent == runtime.resolve()
+    assert resolved.name.startswith("agent-brain-")
     assert resolved.name.endswith(".sock")
-    # Fallback path is deterministic per state_dir.
+    parent_mode = stat.S_IMODE(os.lstat(resolved.parent).st_mode)
+    assert parent_mode == 0o700
     digest = hashlib.sha256(str(deep.resolve()).encode("utf-8")).hexdigest()[:8]
-    assert resolved == Path(f"/tmp/agent-brain-{digest}.sock")
+    assert resolved == runtime / f"agent-brain-{digest}.sock"
+
+
+def test_fallback_socket_dir_skips_world_writable_tmp(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When TMPDIR is 0o755, fall through to ~/.agent-brain/run (#252)."""
+    import os
+    import stat
+
+    monkeypatch.delenv("XDG_RUNTIME_DIR", raising=False)
+    shared_tmp = tmp_path / "shared-tmp"
+    shared_tmp.mkdir()
+    os.chmod(shared_tmp, 0o755)
+    monkeypatch.setattr(
+        "agent_brain_uds.paths.tempfile.gettempdir", lambda: str(shared_tmp)
+    )
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    monkeypatch.setenv("HOME", str(fake_home))
+
+    chosen = fallback_socket_dir()
+    assert chosen == fake_home / ".agent-brain" / "run"
+    assert chosen.is_dir()
+    assert stat.S_IMODE(os.lstat(chosen).st_mode) == 0o700
 
 
 def test_pointer_file_pointing_to_too_long_path_raises(tmp_path: Path) -> None:

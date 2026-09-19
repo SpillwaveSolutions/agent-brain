@@ -84,7 +84,9 @@ CODE_ENTITY_TYPES: list[str] = list(get_args(CodeEntityType))
 DOC_ENTITY_TYPES: list[str] = list(get_args(DocEntityType))
 INFRA_ENTITY_TYPES: list[str] = list(get_args(InfraEntityType))
 
-# AST symbol type mapping to schema entity types
+# AST symbol type mapping to schema entity types.
+# Includes both our internal names and tree-sitter node types so chunk
+# metadata `symbol_kind` (e.g. `class_definition`) maps to SCHEMA-01.
 SYMBOL_TYPE_MAPPING: dict[str, str] = {
     "package": "Package",
     "module": "Module",
@@ -93,6 +95,24 @@ SYMBOL_TYPE_MAPPING: dict[str, str] = {
     "function": "Function",
     "interface": "Interface",
     "enum": "Enum",
+    # tree-sitter / chunker node types (issue #253)
+    "class_definition": "Class",
+    "class_declaration": "Class",
+    "struct_declaration": "Class",
+    "record_declaration": "Class",
+    "type_declaration": "Class",
+    "function_definition": "Function",
+    "function_declaration": "Function",
+    "function_expression": "Function",
+    "arrow_function": "Function",
+    "method_definition": "Method",
+    "method_declaration": "Method",
+    "constructor_declaration": "Method",
+    "defproc": "Function",
+    "declproc": "Function",
+    "interface_declaration": "Interface",
+    "enum_declaration": "Enum",
+    "namespace_declaration": "Package",
 }
 
 # Comprehensive case-insensitive mapping for ALL entity types.

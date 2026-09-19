@@ -41,11 +41,11 @@ from pathlib import Path
 from typing import Any
 
 import click
-from mcp import McpError
 from rich.console import Console
 from rich.table import Table
 
 from agent_brain_cli.client.transport import open_mcp_backend
+from agent_brain_cli.mcp_errors import format_exception_message, is_mcp_error
 
 _TEXT_MIME_PREFIXES: tuple[str, ...] = ("text/",)
 _TEXT_MIME_LITERALS: frozenset[str] = frozenset({"application/text"})
@@ -90,11 +90,11 @@ def list_command(ctx: click.Context, as_json: bool) -> None:
     try:
         static = backend.list_resources()
         templates = backend.list_resource_templates()
-    except McpError as exc:
-        click.echo(f"Error listing resources: {exc}", err=True)
-        sys.exit(1)
-    except Exception as exc:  # noqa: BLE001 — surface SDK / wire failures
-        click.echo(f"Error listing resources: {exc}", err=True)
+    except Exception as exc:  # noqa: BLE001 — unwrap TaskGroup / SDK failures
+        click.echo(
+            f"Error listing resources: {format_exception_message(exc)}",
+            err=True,
+        )
         sys.exit(1)
 
     if as_json:
@@ -171,16 +171,12 @@ def read_command(
     result: dict[str, Any]
     try:
         result = backend.read_resource(uri)
-    except McpError as exc:
+    except Exception as exc:  # noqa: BLE001 — unwrap TaskGroup first
+        message = format_exception_message(exc)
         # Surface server verdict (especially the file:// sandbox deny
-        # reason) VERBATIM to stderr per CONTEXT.md decisions. The
-        # message + data are part of the McpError repr; we do NOT
-        # paraphrase, we do NOT pre-check sandbox CLI-side.
-        click.echo(f"Error reading {uri}: {exc}", err=True)
-        sys.exit(2)
-    except Exception as exc:  # noqa: BLE001 — surface SDK / wire failures
-        click.echo(f"Error reading {uri}: {exc}", err=True)
-        sys.exit(1)
+        # reason) VERBATIM to stderr per CONTEXT.md decisions.
+        click.echo(f"Error reading {uri}: {message}", err=True)
+        sys.exit(2 if is_mcp_error(exc) else 1)
 
     contents = result.get("contents") or []
     if not contents:

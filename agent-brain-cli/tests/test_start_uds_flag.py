@@ -203,3 +203,31 @@ class TestJsonOutputIncludesSocketPath:
         except json.JSONDecodeError as exc:
             pytest.fail(f"--json output not valid JSON: {result.output!r} ({exc})")
         assert "socket_path" in data
+
+    def test_json_reports_pointer_fallback_socket(
+        self, runner: CliRunner, initialized_project: Path
+    ) -> None:
+        """Issue #252: --uds --json reports the fallback socket, not null."""
+        state_dir = initialized_project / ".agent-brain"
+        fallback = "/var/folders/xx/T/agent-brain-deadbeef.sock"
+        (state_dir / "agent-brain.sock.path").write_text(fallback, encoding="utf-8")
+
+        def _probe(path: str, *, timeout_s: float = 2.0) -> bool:
+            return path == fallback
+
+        with (
+            patch(
+                "agent_brain_cli.commands.start.subprocess.Popen",
+                side_effect=_popen_env_capture([]),
+            ),
+            patch("agent_brain_cli.commands.start.check_health", return_value=True),
+            patch("agent_brain_cli.commands.start._probe_uds", side_effect=_probe),
+        ):
+            result = runner.invoke(
+                start_command,
+                ["--path", str(initialized_project), "--uds", "--json"],
+            )
+
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert data["socket_path"] == fallback

@@ -8,7 +8,6 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 
-from agent_brain_cli.config import resolve_project_root
 from agent_brain_cli.migration import migrate_state_dir
 from agent_brain_cli.xdg_paths import migrate_legacy_paths
 
@@ -44,7 +43,7 @@ STATE_DIR_NAME = ".agent-brain"
     "--path",
     "-p",
     type=click.Path(exists=True, file_okay=False, resolve_path=True),
-    help="Project path (default: auto-detect project root)",
+    help="Project path (default: current directory)",
 )
 @click.option(
     "--host",
@@ -104,11 +103,15 @@ def init_command(
         # Trigger one-time migration from legacy ~/.agent-brain to XDG dirs
         migrate_legacy_paths()
 
-        # Resolve project root
+        # Resolve project root. `init` means "make THIS directory a project"
+        # (issue #251). Walk-up via resolve_project_root() is correct for
+        # start/query/status, but here it would adopt an ancestor state dir
+        # — including the legacy global ~/.agent-brain — and refuse with
+        # "Configuration already exists".
         if path:
             project_root = Path(path).resolve()
         else:
-            project_root = resolve_project_root()
+            project_root = Path.cwd().resolve()
 
         # Use custom state_dir if provided, otherwise default
         if state_dir:

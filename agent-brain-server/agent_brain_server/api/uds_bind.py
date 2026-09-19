@@ -17,6 +17,8 @@ import hashlib
 import logging
 import os
 import signal
+import stat
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -38,15 +40,44 @@ POINTER_FILE_NAME = "agent-brain.sock.path"
 MAX_SOCKET_PATH_BYTES = 104
 
 
+def fallback_socket_dir() -> Path:
+    """Return a per-user 0o700 directory for long-path UDS fallbacks.
+
+    Duplicated from :func:`agent_brain_uds.paths.fallback_socket_dir` so
+    client and server compute the same directory without an import cycle
+    (server has no upward deps on the uds package). Keep in sync. Issue #252.
+    """
+    xdg = os.environ.get("XDG_RUNTIME_DIR")
+    if xdg:
+        candidate = Path(xdg)
+        if candidate.is_dir():
+            return candidate
+
+    tmp = Path(tempfile.gettempdir())
+    try:
+        if tmp.is_dir() and stat.S_IMODE(os.lstat(tmp).st_mode) == 0o700:
+            return tmp
+    except OSError:
+        pass
+
+    run_dir = Path.home() / ".agent-brain" / "run"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(run_dir, 0o700)
+    except OSError:
+        pass
+    return run_dir
+
+
 def _short_fallback_path(state_dir: Path) -> Path:
-    """Return the ``/tmp`` fallback socket path for ``state_dir``.
+    """Return the short fallback socket path for ``state_dir``.
 
     Algorithm is duplicated from :func:`agent_brain_uds.paths._short_fallback_path`
     so client and server compute the same path without an import cycle
     (server has no upward deps on the uds package).
     """
     digest = hashlib.sha256(str(state_dir.resolve()).encode("utf-8")).hexdigest()[:8]
-    return Path("/tmp") / f"agent-brain-{digest}.sock"
+    return fallback_socket_dir() / f"agent-brain-{digest}.sock"
 
 
 def resolve_bind_path(
@@ -65,7 +96,7 @@ def resolve_bind_path(
             ``state_dir / SOCKET_FILE_NAME``.
 
     Returns:
-        Tuple of (path uvicorn should bind on, whether the /tmp fallback
+        Tuple of (path uvicorn should bind on, whether the short fallback
         was used).
     """
     target = requested if requested is not None else state_dir / SOCKET_FILE_NAME

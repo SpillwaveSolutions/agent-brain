@@ -65,3 +65,14 @@ summarization:
 #   api_key_env: GOOGLE_API_KEY
 #   params:
 #     max_output_tokens: 300
+
+# GraphRAG (optional). Default persistence is <state_dir>/data/graph_index.
+# Relative index_path values other than `graph_index` / `./graph_index`
+# are resolved against the project root, not cwd and not the state dir
+# (issue #255). Do not set index_path to `.agent-brain/graph_index`.
+# graphrag:
+#   enabled: true
+#   store_type: simple  # or kuzu
+#   # index_path: graph_index   # default → <state_dir>/data/graph_index
+#   use_code_metadata: true
+#   traversal_depth: 2

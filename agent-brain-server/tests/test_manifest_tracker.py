@@ -282,3 +282,25 @@ async def test_multiple_manifests_stored_independently(tmp_path: Path) -> None:
     # Cross-contamination check
     assert "/project/b/other.py" not in loaded_a.files
     assert "/project/a/file.py" not in loaded_b.files
+
+
+@pytest.mark.asyncio
+async def test_count_indexed_files_sums_manifests(tmp_path: Path) -> None:
+    """Issue #254: status.total_documents is the persisted file count."""
+    tracker = ManifestTracker(manifests_dir=tmp_path / "manifests")
+    await tracker.save(
+        FolderManifest(
+            folder_path="/project/a",
+            files={
+                "/project/a/one.py": make_file_record(checksum="1"),
+                "/project/a/two.py": make_file_record(checksum="2"),
+            },
+        )
+    )
+    await tracker.save(
+        FolderManifest(
+            folder_path="/project/b",
+            files={"/project/b/three.md": make_file_record(checksum="3")},
+        )
+    )
+    assert await tracker.count_indexed_files() == 3

@@ -635,3 +635,45 @@ def test_resources_read_mime_dispatch_matrix(
 
     assert result.exit_code == 0
     assert expected_substring in result.output
+
+
+class _FakeTaskGroupError(Exception):
+    def __init__(self, message: str, exceptions: list[BaseException]) -> None:
+        super().__init__(message)
+        self.exceptions = exceptions
+
+
+def test_resources_read_unwraps_exception_group() -> None:
+    """Issue #254: invalid entity type must surface, not TaskGroup text."""
+    inner = McpError(
+        ErrorData(
+            code=-32602,
+            message="invalid_entity_type: type=Symbol",
+        )
+    )
+    group = _FakeTaskGroupError(
+        "unhandled errors in a TaskGroup (1 sub-exception)", [inner]
+    )
+    backend = _make_fake_backend(read_resource_side_effect=group)
+    with patch(
+        "agent_brain_cli.commands.resources.open_mcp_backend",
+        return_value=backend,
+    ):
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "--transport",
+                "mcp",
+                "--mcp-transport",
+                "stdio",
+                "resources",
+                "read",
+                "graph-entity://Symbol/OutOfStock",
+            ],
+        )
+
+    assert result.exit_code == 2
+    combined = result.output + (result.stderr or "")
+    assert "invalid_entity_type" in combined
+    assert "TaskGroup" not in combined

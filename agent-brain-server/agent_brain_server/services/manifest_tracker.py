@@ -216,6 +216,33 @@ class ManifestTracker:
             json.dump(data, f)
         temp_path.replace(path)  # POSIX atomic rename
 
+    async def count_indexed_files(self) -> int:
+        """Return the number of files recorded across all folder manifests.
+
+        Used by ``IndexingService.get_status`` so ``total_documents``
+        survives process restart (issue #254). In-memory
+        ``IndexingState.total_documents`` is only set during an active
+        job and reads as 0 afterwards.
+        """
+        return await asyncio.to_thread(self._count_indexed_files_sync)
+
+    def _count_indexed_files_sync(self) -> int:
+        if not self.manifests_dir.exists():
+            return 0
+        total = 0
+        for path in self.manifests_dir.glob("*.json"):
+            if path.name.endswith(".tmp") or path.suffix != ".json":
+                continue
+            try:
+                with open(path, encoding="utf-8") as handle:
+                    data = json.load(handle)
+            except (OSError, json.JSONDecodeError):
+                continue
+            files = data.get("files", {})
+            if isinstance(files, dict):
+                total += len(files)
+        return total
+
 
 def compute_file_checksum(file_path: str) -> str:
     """Compute SHA-256 hex digest of file contents.
