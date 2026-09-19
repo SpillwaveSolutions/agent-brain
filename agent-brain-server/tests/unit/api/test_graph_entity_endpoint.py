@@ -196,7 +196,6 @@ class TestNamespacedEntityType:
         assert body["neighbors"]["outgoing"][0]["predicate"] == "asserts"
 
 
-
 # ---------------------------------------------------------------------------
 # 200 / 404 — the happy paths and entity-not-found.
 # ---------------------------------------------------------------------------

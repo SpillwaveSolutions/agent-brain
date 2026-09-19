@@ -299,7 +299,6 @@ class TestJwksTokenVerifierExpiry:
         result = await v.verify_token(token)
         assert result is not None, "Token within leeway window should be accepted"
 
-
     @pytest.mark.asyncio
     async def test_token_without_nbf_accepted(self, signing_key) -> None:  # type: ignore[no-untyped-def]
         """A valid RS256 token that omits nbf is accepted.
@@ -335,7 +334,9 @@ class TestJwksTokenVerifierExpiry:
         )
         v._client = _build_mock_jwks_client(signing_key)  # noqa: SLF001
         result = await v.verify_token(token)
-        assert result is not None, "Token without nbf must be accepted (RFC 7519 optional)"
+        assert (
+            result is not None
+        ), "Token without nbf must be accepted (RFC 7519 optional)"
 
 
 # ---------------------------------------------------------------------------

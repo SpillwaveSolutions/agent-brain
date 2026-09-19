@@ -148,9 +148,7 @@ NAMESPACED_ENTITY_TYPE_RE = re.compile(
     r"^[a-z][a-z0-9_-]{0,31}:[A-Za-z][A-Za-z0-9_]{0,63}$"
 )
 PREDICATE_RE = re.compile(r"^[a-z][a-z0-9_]*$")
-NAMESPACED_PREDICATE_RE = re.compile(
-    r"^[a-z][a-z0-9_-]{0,31}:[a-z][a-z0-9_]*$"
-)
+NAMESPACED_PREDICATE_RE = re.compile(r"^[a-z][a-z0-9_-]{0,31}:[a-z][a-z0-9_]*$")
 SOURCE_TAG_RE = re.compile(r"^[A-Za-z][A-Za-z0-9._:-]{0,63}$")
 
 
@@ -179,7 +177,6 @@ def is_valid_predicate(predicate: str) -> bool:
     if PREDICATE_RE.fullmatch(predicate) is not None:
         return True
     return NAMESPACED_PREDICATE_RE.fullmatch(predicate) is not None
-
 
 
 class GraphTriple(BaseModel):
@@ -669,9 +666,7 @@ class ProjectedRelation(BaseModel):
     def _predicate_must_be_extensible(cls, value: str) -> str:
         if not is_valid_predicate(value):
             raise ValueError(
-                "predicate must be snake_case or namespaced; "
-                f"got {value!r}"
-
+                "predicate must be snake_case or namespaced; " f"got {value!r}"
             )
         return value
 
@@ -721,4 +716,3 @@ class GraphProjectResponse(BaseModel):
     entities_deleted: int = Field(default=0, ge=0)
     relations_deleted: int = Field(default=0, ge=0)
     source_tag: str = Field(..., min_length=1)
-

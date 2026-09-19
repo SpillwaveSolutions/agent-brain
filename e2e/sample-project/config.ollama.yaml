@@ -1,0 +1,24 @@
+embedding:
+  provider: ollama
+  model: nomic-embed-text
+  base_url: http://localhost:11434/v1
+  params:
+    batch_size: 64
+
+summarization:
+  provider: ollama
+  model: llama3.2
+  base_url: http://localhost:11434/v1
+  params:
+    max_tokens: 500
+    temperature: 0.3
+
+storage:
+  backend: chroma
+
+graphrag:
+  enabled: true
+  store_type: simple
+  traversal_depth: 2
+  use_llm_extraction: false
+  use_code_metadata: true

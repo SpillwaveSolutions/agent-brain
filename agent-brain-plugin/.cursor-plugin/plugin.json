@@ -15,5 +15,6 @@
     "cursor"
   ],
   "skills": "skills/",
-  "commands": "commands/"
+  "commands": "commands/",
+  "rules": ".cursor/rules/"
 }

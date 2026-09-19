@@ -20,8 +20,7 @@ def _plugin_dir(tmp_path: Path) -> Path:
     )
     (root / ".grok-plugin").mkdir()
     (root / ".grok-plugin" / "marketplace.json").write_text(
-        '{"name": "agent-brain-marketplace",'
-        ' "version": "1.0.0", "plugins": []}'
+        '{"name": "agent-brain-marketplace",' ' "version": "1.0.0", "plugins": []}'
     )
     (root / "plugin.json").write_text(_UNIVERSAL_PLUGIN)
     cmds = root / "commands"

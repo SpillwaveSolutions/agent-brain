@@ -1,9 +1,9 @@
 ---
 name: agent-brain-install-agent
-description: Install Agent Brain plugin for a specific runtime (Claude, OpenCode, Gemini)
+description: Install Agent Brain plugin for a specific runtime (Claude, OpenCode, Codex, Cursor, Grok, skill-runtime)
 parameters:
   - name: agent
-    description: "Target runtime: claude, opencode, skill-runtime, or codex"
+    description: "Target runtime: claude, opencode, codex, cursor, grok, or skill-runtime"
     required: true
   - name: scope
     description: "Install scope: project (default) or global"
@@ -25,7 +25,7 @@ parameters:
     description: "Project path for --project scope (default: cwd)"
     required: false
   - name: with-mcp
-    description: Also register the agent-brain MCP server (Claude Code .mcp.json)
+    description: Also register the agent-brain MCP server in the runtime's MCP config (Claude, OpenCode, Codex, Cursor, Grok)
     required: false
   - name: mcp-auth
     description: "MCP client auth mode to record: none (default) or oauth"
@@ -37,7 +37,7 @@ parameters:
     default: auto
 skills:
   - configuring-agent-brain
-last_validated: 2026-06-24
+last_validated: 2026-09-19
 ---
 
 # Agent Brain Install Agent
@@ -49,8 +49,9 @@ Installs Agent Brain plugin files for a specific AI coding runtime. Converts the
 Supported runtimes:
 - **Claude Code** — copies plugin as-is with path normalization
 - **OpenCode** — converts tool lists to boolean objects, maps tool names to lowercase
-- **Gemini CLI** — remaps tool names (e.g., Bash->run_shell_command), removes unsupported fields
 - **Codex** — creates skill directories under `.codex/skills/agent-brain/` and generates AGENTS.md
+- **Cursor** — Claude layout plus `.cursor-plugin/plugin.json`, `.cursor/rules/`, and the universal `plugin.json` + `mcp.json`
+- **Grok Build** — Claude layout plus `.grok-plugin/marketplace.json` (Grok loads Claude plugins with zero config)
 - **skill-runtime** — generic converter producing skill directories with SKILL.md frontmatter (requires `--dir`)
 
 ## Usage
@@ -63,7 +64,7 @@ agent-brain install-agent --agent <runtime> [--project|--global] [--plugin-dir <
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| --agent / -a | Yes | - | Target runtime: `claude`, `opencode`, `skill-runtime`, or `codex` |
+| --agent / -a | Yes | - | Target runtime: `claude`, `opencode`, `codex`, `cursor`, `grok`, or `skill-runtime` |
 | --project | No | Yes | Install to project directory (default) |
 | --global | No | No | Install to user-level directory |
 | --plugin-dir | No | Auto-detect | Custom canonical plugin source directory |
@@ -78,8 +79,9 @@ agent-brain install-agent --agent <runtime> [--project|--global] [--plugin-dir <
 |---------|---------------|--------------|
 | Claude | `.claude/plugins/agent-brain/` | `~/.claude/plugins/agent-brain/` |
 | OpenCode | `.opencode/plugins/agent-brain/` | `~/.config/opencode/plugins/agent-brain/` |
-| Gemini | `.gemini/plugins/agent-brain/` | `~/.config/gemini/plugins/agent-brain/` |
 | Codex | `.codex/skills/agent-brain/` | `~/.codex/skills/agent-brain/` |
+| Cursor | `.cursor/plugins/agent-brain/` | `~/.cursor/plugins/agent-brain/` |
+| Grok Build | `.grok/plugins/agent-brain/` | `~/.grok/plugins/agent-brain/` |
 | skill-runtime | Requires `--dir` | Requires `--dir` |
 
 ## Execution
@@ -96,11 +98,6 @@ agent-brain install-agent --agent claude --project
 agent-brain install-agent --agent opencode --project
 ```
 
-### Install for Gemini CLI
-
-```bash
-```
-
 ### Install for Codex
 
 ```bash
@@ -108,6 +105,22 @@ agent-brain install-agent --agent codex --project
 ```
 
 This creates skill directories under `.codex/skills/agent-brain/` and generates an `AGENTS.md` file at the project root.
+
+### Install for Cursor
+
+```bash
+agent-brain install-agent --agent cursor --project --with-mcp
+```
+
+Writes `.cursor/plugins/agent-brain/` with the Claude layout, `.cursor-plugin/plugin.json`, `.cursor/rules/agent-brain.mdc`, and the universal `plugin.json` + `mcp.json`. `--with-mcp` registers the server in `.cursor/mcp.json`.
+
+### Install for Grok Build
+
+```bash
+agent-brain install-agent --agent grok --project --with-mcp
+```
+
+Grok Build loads Claude plugins with zero config. The install adds `.grok-plugin/marketplace.json` for marketplace identity. `--with-mcp` writes the same `.mcp.json` as Claude Code.
 
 ### Install for Generic Skill-Runtime
 
@@ -141,7 +154,7 @@ agent-brain install-agent --agent claude --json
 agent-brain install-agent --agent opencode --plugin-dir ./my-custom-plugin
 ```
 
-### Register the MCP server (Claude Code, OpenCode & Codex)
+### Register the MCP server (all hosts with an MCP config file)
 
 Add `--with-mcp` to also register the `agent-brain` MCP server while installing. It
 writes/merges an `agent-brain` entry into the runtime's MCP config, preserving any other
@@ -157,6 +170,12 @@ agent-brain install-agent --agent opencode --with-mcp
 
 # ...for Codex (→ ~/.codex/config.toml, TOML [mcp_servers.agent-brain])
 agent-brain install-agent --agent codex --with-mcp
+
+# ...for Cursor (→ .cursor/mcp.json / ~/.cursor/mcp.json)
+agent-brain install-agent --agent cursor --with-mcp
+
+# ...for Grok Build (→ .mcp.json, same as Claude Code)
+agent-brain install-agent --agent grok --with-mcp
 
 # Preview only
 agent-brain install-agent --agent claude --with-mcp --dry-run
@@ -177,9 +196,10 @@ agent-brain install-agent --agent claude --with-mcp --mcp-backend uds
 > Auto-registration targets **Claude Code** (`.mcp.json` / `~/.claude.json`, `mcpServers`),
 > **OpenCode** (project-root `opencode.json` / `~/.config/opencode/opencode.json`, `mcp`), and
 > **Codex** (`$CODEX_HOME/config.toml`, default `~/.codex/config.toml`, `[mcp_servers.agent-brain]`
-> TOML — Codex has no project-level MCP config, so both scopes share that file). For other hosts,
-> `--with-mcp` prints a note and skips (register manually — see the MCP Setup Guide in the
-> `configuring-agent-brain` skill).
+> TOML — Codex has no project-level MCP config, so both scopes share that file), **Cursor**
+> (`.cursor/mcp.json` / `~/.cursor/mcp.json`), and **Grok Build** (same files as Claude Code).
+> `skill-runtime` has no MCP config, so `--with-mcp` prints a note and skips (register manually,
+> see the MCP Setup Guide in the `configuring-agent-brain` skill).
 
 ## Output
 
@@ -230,7 +250,7 @@ agent-brain install-agent --agent claude --with-mcp --mcp-backend uds
 | Error | Cause | Resolution |
 |-------|-------|------------|
 | Could not find canonical plugin directory | Plugin source not found | Use `--plugin-dir` to specify location |
-| Invalid agent choice | Unsupported runtime name | Use `claude`, `opencode`, `skill-runtime`, or `codex` |
+| Invalid agent choice | Unsupported runtime name | Use `claude`, `opencode`, `codex`, `cursor`, `grok`, or `skill-runtime` |
 | --dir is required for --agent skill-runtime | Missing target directory | Specify `--dir ./path/to/skills` |
 
 ## Notes

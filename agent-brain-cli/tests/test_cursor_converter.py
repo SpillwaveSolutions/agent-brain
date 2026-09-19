@@ -30,6 +30,10 @@ def _plugin_dir(tmp_path: Path) -> Path:
     (root / ".cursor-plugin" / "plugin.json").write_text(_CURSOR_PLUGIN)
     (root / "plugin.json").write_text(_UNIVERSAL_PLUGIN)
     (root / "mcp.json").write_text(_MCP)
+    (root / ".cursor" / "rules").mkdir(parents=True)
+    (root / ".cursor" / "rules" / "agent-brain.mdc").write_text(
+        "---\nalwaysApply: true\n---\nSearch first."
+    )
     cmds = root / "commands"
     cmds.mkdir()
     (cmds / "agent-brain-search.md").write_text(
@@ -63,6 +67,9 @@ class TestCursorConverter:
         assert (target / ".cursor-plugin" / "plugin.json").exists()
         assert (target / "plugin.json").exists()
         assert (target / "mcp.json").exists()
+        rule = target / ".cursor" / "rules" / "agent-brain.mdc"
+        assert rule.read_text().startswith("---\nalwaysApply: true")
+        assert rule in created
         content = (target / "commands" / "agent-brain-search.md").read_text()
         assert ".agent-brain" in content
         assert ".claude/agent-brain" not in content

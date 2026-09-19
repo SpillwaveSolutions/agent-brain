@@ -243,9 +243,10 @@ class TestGraphIndexManagerQuery:
     def test_query_not_initialized(
         self, mock_settings, mock_graph_store, mock_llm_extractor, mock_code_extractor
     ):
-        """Test query returns empty when not initialized."""
+        """Query opens the store on demand; an empty store still returns []."""
         mock_settings.ENABLE_GRAPH_INDEX = True
         mock_graph_store.is_initialized = False
+        mock_graph_store.graph_store = None
 
         manager = GraphIndexManager(
             graph_store=mock_graph_store,
@@ -255,7 +256,44 @@ class TestGraphIndexManagerQuery:
 
         result = manager.query("test query")
 
+        mock_graph_store.initialize.assert_called_once()
         assert result == []
+
+    @patch("agent_brain_server.indexing.graph_index.settings")
+    def test_query_initialize_failure_returns_empty(
+        self, mock_settings, mock_graph_store, mock_llm_extractor, mock_code_extractor
+    ):
+        """A store that cannot open is skipped instead of raising."""
+        mock_settings.ENABLE_GRAPH_INDEX = True
+        mock_graph_store.is_initialized = False
+        mock_graph_store.initialize.side_effect = RuntimeError("boom")
+
+        manager = GraphIndexManager(
+            graph_store=mock_graph_store,
+            llm_extractor=mock_llm_extractor,
+            code_extractor=mock_code_extractor,
+        )
+
+        assert manager.query("test query") == []
+
+    def test_refresh_store_loads_when_open_else_initializes(
+        self, mock_graph_store, mock_llm_extractor, mock_code_extractor
+    ):
+        """refresh_store reloads an open store and opens a closed one."""
+        manager = GraphIndexManager(
+            graph_store=mock_graph_store,
+            llm_extractor=mock_llm_extractor,
+            code_extractor=mock_code_extractor,
+        )
+
+        mock_graph_store.is_initialized = True
+        manager.refresh_store()
+        mock_graph_store.load.assert_called_once()
+        mock_graph_store.initialize.assert_not_called()
+
+        mock_graph_store.is_initialized = False
+        manager.refresh_store()
+        mock_graph_store.initialize.assert_called_once()
 
     @patch("agent_brain_server.indexing.graph_index.settings")
     def test_query_finds_matching_entities(
@@ -763,3 +801,68 @@ class TestModuleFunctions:
         manager2 = get_graph_index_manager()
 
         assert manager1 is not manager2
+
+
+class TestStoreTriplets:
+    """_store_triplets must read a real LlamaIndex simple store. Graph mode
+    returned no hits because get_triplets() needs a filter."""
+
+    @staticmethod
+    def _store():
+        from llama_index.core.graph_stores import SimplePropertyGraphStore
+        from llama_index.core.graph_stores.types import EntityNode, Relation
+
+        store = SimplePropertyGraphStore()
+        store.upsert_nodes(
+            [
+                EntityNode(name="service", label="Module"),
+                EntityNode(name="OutOfStock", label="Symbol"),
+            ]
+        )
+        store.upsert_relations(
+            [
+                Relation(
+                    source_id="service",
+                    target_id="OutOfStock",
+                    label="contains",
+                    properties={"source_chunk_id": "chunk_1"},
+                )
+            ]
+        )
+        return store
+
+    def test_reads_simple_property_graph_store_relations(self):
+        from agent_brain_server.indexing.graph_index import _store_triplets
+
+        store = self._store()
+        assert store.get_triplets() == []  # the shape the old code relied on
+        assert _store_triplets(store) == [
+            {
+                "subject": "service",
+                "subject_type": "Module",
+                "predicate": "contains",
+                "object": "OutOfStock",
+                "object_type": "Symbol",
+                "source_chunk_id": "chunk_1",
+            }
+        ]
+
+    @patch("agent_brain_server.indexing.graph_index.settings")
+    def test_query_hits_simple_store_entity(
+        self, mock_settings, mock_llm_extractor, mock_code_extractor
+    ):
+        mock_settings.ENABLE_GRAPH_INDEX = True
+        mock_graph_store = MagicMock()
+        mock_graph_store.is_initialized = True
+        mock_graph_store.graph_store = self._store()
+
+        manager = GraphIndexManager(
+            graph_store=mock_graph_store,
+            llm_extractor=mock_llm_extractor,
+            code_extractor=mock_code_extractor,
+        )
+
+        results = manager.query("OutOfStock")
+
+        assert results and results[0]["source_chunk_id"] == "chunk_1"
+        assert results[0]["relationship_path"] == "service -> contains -> OutOfStock"

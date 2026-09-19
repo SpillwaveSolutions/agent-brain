@@ -736,6 +736,17 @@ class IndexingService:
                 try:
                     triplet_count = await asyncio.to_thread(_build_graph)
                     logger.info(f"Graph index built with {triplet_count} triplets")
+                    # The child persisted the graph; refresh the parent's store
+                    # so /health/status and graph queries see it without a
+                    # restart. A refresh failure must not fail the job.
+                    try:
+                        await asyncio.to_thread(self.graph_index_manager.refresh_store)
+                    except Exception as refresh_exc:  # noqa: BLE001
+                        logger.warning(
+                            "Graph store refresh failed after build for job %s: %s",
+                            job_id,
+                            refresh_exc,
+                        )
                 except GraphBuildFailedError as graph_exc:
                     # Per-job degradation: vector + BM25 already committed above.
                     # Do NOT let the graph failure mark the whole job FAILED -- log

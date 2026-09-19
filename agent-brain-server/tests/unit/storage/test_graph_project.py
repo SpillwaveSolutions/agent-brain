@@ -107,16 +107,12 @@ class TestProjectUpsert:
         assert finding is not None
         assert len(finding.neighbors.outgoing) == 1
 
-    def test_delete_by_tag_spares_other_nodes(
-        self, manager: GraphStoreManager
-    ) -> None:
+    def test_delete_by_tag_spares_other_nodes(self, manager: GraphStoreManager) -> None:
         from llama_index.core.graph_stores.types import EntityNode
 
         store = manager.graph_store
         assert store is not None
-        store.upsert_nodes(
-            [EntityNode(name="login", label="Function", properties={})]
-        )
+        store.upsert_nodes([EntityNode(name="login", label="Function", properties={})])
         manager.project(_ENTITIES, _RELATIONS, source_tag="research-graph")
         deleted_e, _deleted_r = manager.delete_by_source_tag("research-graph")
         assert deleted_e >= 1

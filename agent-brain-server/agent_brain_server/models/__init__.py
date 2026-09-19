@@ -94,7 +94,6 @@ __all__ = [
     "is_valid_entity_type",
     "is_valid_predicate",
     # Graph schema types (Feature 122 - Phase 3)
-
     "EntityType",
     "CodeEntityType",
     "DocEntityType",
