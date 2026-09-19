@@ -69,7 +69,6 @@ router = APIRouter(dependencies=[Depends(verify_bearer_token)])
 _VALID_ENTITY_TYPES: frozenset[str] = frozenset(ENTITY_TYPES)
 
 
-
 def _graphrag_enabled() -> bool:
     """Return True when GraphRAG is enabled, per YAML or env-var.
 
@@ -154,7 +153,6 @@ async def get_graph_entity(
                 ),
             },
         )
-
 
     graph_mgr = get_graph_store_manager()
     # Lazy-initialize: in production the lifespan preflight runs for Kuzu,
@@ -247,7 +245,6 @@ def _kuzu_unavailable_exc() -> HTTPException:
     )
 
 
-
 @router.post(
     "/project",
     response_model=GraphProjectResponse,
@@ -320,7 +317,6 @@ async def project_graph(body: GraphProjectRequest) -> GraphProjectResponse:
     except (GraphBuildFailedError, KuzuUnavailableError) as exc:
         raise _kuzu_unavailable_exc() from exc
 
-
     return GraphProjectResponse(
         entities_upserted=int(counts.get("entities_upserted", 0)),
         relations_upserted=int(counts.get("relations_upserted", 0)),
@@ -374,7 +370,6 @@ async def delete_projected_graph(
     except (GraphBuildFailedError, KuzuUnavailableError) as exc:
         raise _kuzu_unavailable_exc() from exc
 
-
     return GraphProjectResponse(
         entities_upserted=0,
         relations_upserted=0,
@@ -382,4 +377,3 @@ async def delete_projected_graph(
         relations_deleted=int(counts.get("relations_deleted", 0)),
         source_tag=source_tag,
     )
-

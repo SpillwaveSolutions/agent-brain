@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`agent-brain mcp start` could not spawn the MCP server.** The CLI runs `python -m agent_brain_mcp`, but the package had no `__main__.py`, so every `mcp start` failed with `No module named agent_brain_mcp.__main__`. Added `agent_brain_mcp/__main__.py` and a test that runs the module entry point. Found by the v10.7.0 integration test.
+- **Graph mode returned no hits on the simple store.** Two causes. (1) Since the Phase 64 isolated child build, the parent server process never opened or reloaded its graph store after indexing, so `/health/status` reported `initialized: false` and `--mode graph` fell back to vector search. `GraphIndexManager.refresh_store()` now runs after each build and `query()` opens the store on demand. (2) `GraphIndexManager._find_entity_relationships` called `SimplePropertyGraphStore.get_triplets()` with no filter, which returns nothing in llama-index-core 0.14. A new `_store_triplets()` reads `graph.relations` directly and normalizes kuzu and minimal-store shapes. Tests cover both (`tests/unit/test_graph_index.py`, `tests/services/test_indexing_graph_degradation.py`).
+
+### Added
+
+- **`e2e/sample-project/`**: a committed three-layer inventory service (CLAUDE.md, docs, ADR, runbook, Python package, tests) for manual and automated integration tests. Each file states one fact that a query can target. The v10.7.0 run is recorded in `docs/plans/2026-09-19-v10.7.0-integration-test-report.md`.
+- **Multi-host parity with the OKF plugins** (#250): `agent-brain-plugin/.cursor/rules/agent-brain.mdc` (declared in `.cursor-plugin/plugin.json` and copied by `CursorConverter`), `agent-brain-plugin/AGENTS.md` host compatibility contract, `docs/HOSTS.md` host table, per-host install sections in both READMEs, and the Gemini runtime removed from `agent-brain-install-agent.md` and `PLUGIN_GUIDE.md` in favor of `cursor` and `grok`.
+
 ---
 
 ## [10.7.0] - 2026-09-03

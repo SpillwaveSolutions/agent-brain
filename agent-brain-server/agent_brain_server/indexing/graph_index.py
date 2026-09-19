@@ -414,6 +414,62 @@ def project_isolated(
     return _run_project_in_child(payload, result_queue, timeout_s, child_target)
 
 
+def _store_triplets(graph_store: Any) -> list[dict[str, Any]]:
+    """Return every triplet in ``graph_store`` as a subject/predicate/object dict.
+
+    Three store shapes exist:
+
+    - LlamaIndex property graph stores (``SimplePropertyGraphStore``, kuzu)
+      expose ``.graph.relations`` and ``.graph.nodes``. Their
+      ``get_triplets()`` returns nothing without a filter, so read the
+      relations directly.
+    - ``_MinimalGraphStore`` keeps a ``_relationships`` list of dicts.
+    - Anything else with ``get_triplets()`` returns
+      ``(source_node, relation, target_node)`` tuples.
+    """
+    graph = getattr(graph_store, "graph", None)
+    relations = getattr(graph, "relations", None)
+    if isinstance(relations, dict):
+        nodes = getattr(graph, "nodes", {}) or {}
+
+        def _label(node_id: str) -> str | None:
+            node = nodes.get(node_id)
+            return getattr(node, "label", None) if node is not None else None
+
+        return [
+            {
+                "subject": rel.source_id,
+                "subject_type": _label(rel.source_id),
+                "predicate": rel.label,
+                "object": rel.target_id,
+                "object_type": _label(rel.target_id),
+                "source_chunk_id": (rel.properties or {}).get("source_chunk_id"),
+            }
+            for rel in relations.values()
+        ]
+    if hasattr(graph_store, "_relationships"):
+        return list(graph_store._relationships)
+    if hasattr(graph_store, "get_triplets"):
+        out: list[dict[str, Any]] = []
+        for t in graph_store.get_triplets():
+            if isinstance(t, (tuple, list)) and len(t) == 3:
+                src, rel, dst = t
+                props = getattr(rel, "properties", None) or {}
+                out.append(
+                    {
+                        "subject": getattr(src, "name", str(src)),
+                        "subject_type": getattr(src, "label", None),
+                        "predicate": getattr(rel, "label", str(rel)),
+                        "object": getattr(dst, "name", str(dst)),
+                        "object_type": getattr(dst, "label", None),
+                        "source_chunk_id": props.get("source_chunk_id"),
+                    }
+                )
+            else:
+                out.append(t)
+        return out
+    return []
+
 
 class GraphIndexManager:
     """Manages graph index building and querying.
@@ -736,11 +792,16 @@ class GraphIndexManager:
             return []
 
         if not self.graph_store.is_initialized:
-            logger.debug(
-                "graph_index.query: skipped (store not initialized)",
-                extra={"query": query_text[:100]},
-            )
-            return []
+            # The isolated child build (Phase 64) persists the graph without
+            # touching this process's store. Open it on demand, the same way
+            # /graph/entity does, so a restarted server can serve graph queries.
+            try:
+                self.graph_store.initialize()
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "graph_index.query: skipped (store initialize failed: %s)", exc
+                )
+                return []
 
         # Get graph store for querying
         graph_store = self.graph_store.graph_store
@@ -979,12 +1040,7 @@ class GraphIndexManager:
 
         # Try to get triplets from graph store
         try:
-            if hasattr(graph_store, "get_triplets"):
-                triplets = graph_store.get_triplets()
-            elif hasattr(graph_store, "_relationships"):
-                triplets = graph_store._relationships
-            else:
-                return results
+            triplets = _store_triplets(graph_store)
 
             # Search for matching entities
             entity_lower = entity.lower()
@@ -1104,6 +1160,18 @@ class GraphIndexManager:
             subgraph_triplets=subgraph_triplets[:top_k],
             graph_score=min(avg_score, 1.0),
         )
+
+    def refresh_store(self) -> None:
+        """Reload this process's store after an isolated child build.
+
+        ``build_from_documents_isolated`` writes the graph from a spawned
+        child, so the parent's in-memory store is stale (or never opened).
+        Load from disk when already open, otherwise open it now.
+        """
+        if self.graph_store.is_initialized:
+            self.graph_store.load()
+        else:
+            self.graph_store.initialize()
 
     def get_status(self) -> GraphIndexStatus:
         """Get current graph index status.

@@ -19,6 +19,19 @@ claude plugins marketplace add SpillwaveSolutions/agent-brain
 claude plugins install agent-brain@agent-brain-marketplace
 ```
 
+#### Codex, Cursor, Grok Build, OpenCode
+
+Install the Python packages first (step 2), then let the CLI convert this plugin into the host's native layout:
+
+```bash
+agent-brain install-agent --agent codex --with-mcp     # .codex/skills/agent-brain + AGENTS.md
+agent-brain install-agent --agent cursor --with-mcp    # .cursor/plugins/agent-brain + .cursor/rules
+agent-brain install-agent --agent grok --with-mcp      # .grok/plugins/agent-brain (zero-config Claude load)
+agent-brain install-agent --agent opencode --with-mcp  # .opencode/plugins/agent-brain
+```
+
+Agent Plugins 1.0 clients read `plugin.json`, `skills/`, and `mcp.json` in this directory directly. [AGENTS.md](AGENTS.md) is the host compatibility contract. The full host table is in [docs/HOSTS.md](../docs/HOSTS.md).
+
 ### 2. Install Agent Brain Packages
 
 ```bash

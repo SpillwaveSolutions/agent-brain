@@ -599,4 +599,3 @@ class TestNamespacedVocabulary:
         assert is_valid_predicate("okf:asserts")
         assert not is_valid_predicate("Asserts")
         assert not is_valid_predicate("has subject")
-

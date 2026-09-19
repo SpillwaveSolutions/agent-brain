@@ -354,3 +354,27 @@ class TestGraphDegradedMarkerInStatus:
         assert (
             not svc._state.graph_degraded
         ), "graph_degraded must be False after a successful graph build"
+        svc.graph_index_manager.refresh_store.assert_called_once()
+
+    def test_refresh_failure_does_not_fail_job(self) -> None:
+        """A parent-side refresh error is logged, not raised."""
+        from agent_brain_server.models import IndexingStatusEnum, IndexRequest
+
+        svc = _make_minimal_service()
+        svc.graph_index_manager.refresh_store.side_effect = RuntimeError("stale")
+        request = IndexRequest(folder_path="/fake/docs", recursive=False)
+
+        with (
+            patch(
+                "agent_brain_server.services.indexing_service._graphrag_enabled",
+                return_value=True,
+            ),
+            patch(
+                "agent_brain_server.services.indexing_service"
+                ".build_from_documents_isolated",
+                return_value=7,
+            ),
+        ):
+            _run(svc._run_indexing_pipeline(request, job_id="job-refresh"))
+
+        assert svc._state.status == IndexingStatusEnum.COMPLETED

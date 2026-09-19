@@ -108,9 +108,7 @@ class TestProjectValidation:
     def test_dangling_relation_endpoint_is_400(self, client: TestClient) -> None:
         body = {
             "entities": [{"type": "okf:Claim", "id": "claim.1"}],
-            "relations": [
-                {"src": "claim.1", "predicate": "asserts", "dst": "missing"}
-            ],
+            "relations": [{"src": "claim.1", "predicate": "asserts", "dst": "missing"}],
             "source_tag": "research-graph",
         }
         with (

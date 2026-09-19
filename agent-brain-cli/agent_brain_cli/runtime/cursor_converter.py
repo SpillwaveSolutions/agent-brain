@@ -1,7 +1,8 @@
 """Cursor runtime converter.
 
 Cursor consumes the same commands/skills layout as Claude Code, plus a
-``.cursor-plugin/plugin.json`` that points at those directories. Grok-style
+``.cursor-plugin/plugin.json`` that points at those directories and any
+``.cursor/rules/*.mdc`` rules files. Grok-style
 Agent Plugins 1.0 files (``plugin.json``, ``mcp.json``) are copied through
 when present so a Cursor install is also a valid universal plugin.
 """
@@ -46,4 +47,7 @@ class CursorConverter(ClaudeConverter):
             "mcp.json",
         ):
             _copy_rel(source, target_dir, rel, created)
+        # Cursor rules are soft guidance that Cursor loads from .cursor/rules/.
+        for rule in sorted((source / ".cursor" / "rules").glob("*.mdc")):
+            _copy_rel(source, target_dir, f".cursor/rules/{rule.name}", created)
         return created

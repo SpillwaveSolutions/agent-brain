@@ -42,7 +42,7 @@ agent-brain install-agent --agent opencode --with-mcp
 agent-brain install-agent --agent codex --with-mcp
 ```
 
-A conforming [Agent Plugins 1.0](https://agent-plugins.org/specification) client can consume `agent-brain-plugin/plugin.json` + `skills/` + `mcp.json` directly.
+A conforming [Agent Plugins 1.0](https://agent-plugins.org/specification) client can consume `agent-brain-plugin/plugin.json` + `skills/` + `mcp.json` directly. See [HOSTS.md](HOSTS.md) for the manifest each host reads.
 
 This provides:
 - **30 slash commands** for all operations
@@ -336,7 +336,10 @@ Install Agent Brain plugin for a specific AI coding runtime. Converts the canoni
 |---------|-------------------|------------------|
 | Claude Code | `.claude/plugins/agent-brain/` | `~/.claude/plugins/agent-brain/` |
 | OpenCode | `.opencode/plugins/agent-brain/` | `~/.config/opencode/plugins/agent-brain/` |
-| Gemini CLI | `.gemini/plugins/agent-brain/` | `~/.config/gemini/plugins/agent-brain/` |
+| Codex | `.codex/skills/agent-brain/` | `~/.codex/skills/agent-brain/` |
+| Cursor | `.cursor/plugins/agent-brain/` | `~/.cursor/plugins/agent-brain/` |
+| Grok Build | `.grok/plugins/agent-brain/` | `~/.grok/plugins/agent-brain/` |
+| skill-runtime | `--dir <path>` | `--dir <path>` |
 
 Use `--dry-run` to preview files that would be created without writing them.
 
@@ -545,7 +548,7 @@ Provides Claude with knowledge about:
 
 Provides Claude with knowledge about:
 - Installation procedures for packages and plugins
-- Multi-runtime installation (Claude Code, OpenCode, Gemini CLI) via `install-agent`
+- Multi-runtime installation (Claude Code, OpenCode, Codex, Cursor, Grok Build, skill-runtime) via `install-agent`
 - Provider configuration (7 providers: OpenAI, Anthropic, Ollama, Cohere, Gemini, Grok, SentenceTransformers)
 - Embedding cache configuration and tuning
 - GraphRAG setup and graph store selection

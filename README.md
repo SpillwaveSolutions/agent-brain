@@ -35,6 +35,20 @@ claude plugins install agent-brain@agent-brain-marketplace
 > (`agent-brain-rag`, `agent-brain-cli`) are installed for you by the
 > `/agent-brain-setup` wizard (or manually via `pip` — see [CLI Usage](#cli-usage-alternative)).
 
+#### Other hosts
+
+The same plugin installs into Codex, Cursor, Grok Build, and OpenCode through the CLI. Each command converts the shared payload into the host's native layout and, with `--with-mcp`, registers the MCP server in that host's config file.
+
+```bash
+pip install agent-brain-rag agent-brain-cli agent-brain-ag-mcp
+agent-brain install-agent --agent codex --with-mcp     # .codex/skills/agent-brain + AGENTS.md; MCP in ~/.codex/config.toml
+agent-brain install-agent --agent cursor --with-mcp    # .cursor/plugins/agent-brain + .cursor/rules; MCP in .cursor/mcp.json
+agent-brain install-agent --agent grok --with-mcp      # .grok/plugins/agent-brain; zero-config Claude load, MCP in .mcp.json
+agent-brain install-agent --agent opencode --with-mcp  # .opencode/plugins/agent-brain; MCP in opencode.json
+```
+
+A conforming [Agent Plugins 1.0](https://agent-plugins.org/specification) client reads `agent-brain-plugin/plugin.json`, `skills/`, and `mcp.json` directly. See [docs/HOSTS.md](docs/HOSTS.md) for the manifest each host reads.
+
 ### 2. Set Up Your Project
 
 In Claude Code, run:

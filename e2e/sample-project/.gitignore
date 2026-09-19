@@ -1,0 +1,3 @@
+.agent-brain/
+__pycache__/
+*.sqlite3

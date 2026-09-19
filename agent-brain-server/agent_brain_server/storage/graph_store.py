@@ -1335,9 +1335,7 @@ class GraphStoreManager:
                 try:
                     # Prefer a property filter when the backend supports it.
                     try:
-                        nodes = (
-                            store.get(properties={"source_tag": source_tag}) or []
-                        )
+                        nodes = store.get(properties={"source_tag": source_tag}) or []
                     except TypeError:
                         nodes = store.get() or []
                 except TypeError:
@@ -1547,7 +1545,6 @@ class GraphStoreManager:
             store._data["entities"] = store._entities
             store._data["relationships"] = store._relationships
         return (len(entities), len(relations))
-
 
     def clear(self) -> None:
         """Clear all graph data.
