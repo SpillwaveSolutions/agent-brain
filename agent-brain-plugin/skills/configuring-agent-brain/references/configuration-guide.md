@@ -271,7 +271,7 @@ GraphRAG enables graph-based retrieval using entity relationships extracted from
 |----------|----------|---------|-------------|
 | `ENABLE_GRAPH_INDEX` | No | `false` | Master switch to enable graph indexing |
 | `GRAPH_STORE_TYPE` | No | `simple` | Graph backend: `simple` (in-memory) or `kuzu` (persistent) |
-| `GRAPH_INDEX_PATH` | No | `./graph_index` | Path for graph persistence |
+| `GRAPH_INDEX_PATH` | No | `./graph_index` (→ `{state_dir}/data/graph_index`) | Path for graph persistence. Relative paths other than `graph_index`/`./graph_index` are project-root relative. |
 | `GRAPH_EXTRACTION_MODEL` | No | `claude-haiku-4-5` | Model for entity extraction |
 | `GRAPH_MAX_TRIPLETS_PER_CHUNK` | No | `10` | Maximum triplets extracted per document chunk |
 | `GRAPH_USE_CODE_METADATA` | No | `true` | Extract entities from AST metadata (imports, classes) |
@@ -282,11 +282,13 @@ GraphRAG enables graph-based retrieval using entity relationships extracted from
 ### GraphRAG in config.yaml
 
 ```yaml
-# ~/.agent-brain/config.yaml
+# .agent-brain/config.yaml
 graphrag:
   enabled: true
   store_type: "simple"  # "simple" or "kuzu"
-  index_path: "./graph_index"
+  # Default: <state_dir>/data/graph_index. Relative paths are project-root
+  # relative (issue #255) — do not set `.agent-brain/graph_index`.
+  # index_path: graph_index
   extraction_model: "claude-haiku-4-5"
   max_triplets_per_chunk: 10
   use_code_metadata: true
@@ -303,7 +305,8 @@ export ENABLE_GRAPH_INDEX=true
 
 # Use Kuzu for persistent graph storage (optional)
 export GRAPH_STORE_TYPE=kuzu
-export GRAPH_INDEX_PATH=".agent-brain/graph_index"
+# Default already lives under the state dir. Absolute override:
+# export GRAPH_INDEX_PATH="/data/agent-brain/graph_index"
 
 # Entity extraction settings
 export GRAPH_EXTRACTION_MODEL=claude-haiku-4-5

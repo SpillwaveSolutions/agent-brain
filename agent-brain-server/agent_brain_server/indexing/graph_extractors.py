@@ -13,6 +13,7 @@ Routing in GraphIndexManager._extract_from_document:
 All extractors return GraphTriple objects for graph construction.
 """
 
+import ast
 import logging
 import re
 from typing import Any
@@ -368,14 +369,21 @@ class CodeMetadataExtractor:
         metadata: dict[str, Any],
         source_chunk_id: str | None = None,
     ) -> list[GraphTriple]:
-        """Extract import and containment relationships from code metadata.
+        """Extract import, containment, and call relationships from code metadata.
 
-        Looks for standard code metadata fields:
-        - 'imports': List of imported modules/symbols
-        - 'symbol_name': Name of the current code symbol
-        - 'symbol_type': Type of symbol (function, class, method)
-        - 'parent_symbol': Parent containing symbol
-        - 'file_path': Source file path
+        Looks for standard code metadata fields produced by the AST chunker:
+
+        - ``imports``: List of imported modules/symbols
+        - ``symbol_name``: Name of the current code symbol
+        - ``symbol_kind`` / ``symbol_type``: AST kind (class, function, method,
+          or a tree-sitter node type such as ``class_definition``)
+        - ``parent_symbol`` / ``class_name``: Containing class
+        - ``file_path`` / ``source``: Source file path
+        - ``calls`` / ``callees``: Optional call targets
+
+        Issue #253: chunk metadata uses ``symbol_kind``, not ``symbol_type``,
+        and labels must be SCHEMA-01 types (Class/Function/Method/Module),
+        never the untyped ``Symbol`` fallback.
 
         Args:
             metadata: Code chunk metadata dictionary.
@@ -393,14 +401,17 @@ class CodeMetadataExtractor:
         triplets: list[GraphTriple] = []
 
         symbol_name = metadata.get("symbol_name")
-        symbol_type = metadata.get("symbol_type")
+        raw_kind = metadata.get("symbol_kind") or metadata.get("symbol_type")
         parent_symbol = metadata.get("parent_symbol")
         file_path = metadata.get("file_path") or metadata.get("source")
         imports = metadata.get("imports", [])
         class_name = metadata.get("class_name")
+        calls = metadata.get("calls") or metadata.get("callees") or []
 
-        # Extract module name from file path
         module_name = self._extract_module_name(file_path) if file_path else None
+        entity_type = self._code_entity_type(
+            raw_kind, class_name=class_name, parent_symbol=parent_symbol
+        )
 
         # 1. Symbol -> imports -> ImportedModule
         if isinstance(imports, list):
@@ -408,7 +419,7 @@ class CodeMetadataExtractor:
                 if isinstance(imp, str) and imp:
                     triplet = GraphTriple(
                         subject=symbol_name or module_name or "unknown",
-                        subject_type=normalize_entity_type(symbol_type) or "Module",
+                        subject_type=entity_type if symbol_name else "Module",
                         predicate=self.PREDICATE_IMPORTS,
                         object=imp,
                         object_type="Module",
@@ -423,20 +434,20 @@ class CodeMetadataExtractor:
                 subject_type="Class" if "." not in parent_symbol else "Module",
                 predicate=self.PREDICATE_CONTAINS,
                 object=symbol_name,
-                object_type=normalize_entity_type(symbol_type) or "Symbol",
+                object_type=entity_type,
                 source_chunk_id=source_chunk_id,
             )
             triplets.append(triplet)
 
         # 3. Class -> contains -> Method (for methods)
-        if symbol_name and class_name and symbol_type in ("method", "function"):
+        if symbol_name and class_name and entity_type in ("Method", "Function"):
             if class_name != symbol_name:  # Avoid self-reference
                 triplet = GraphTriple(
                     subject=class_name,
                     subject_type="Class",
                     predicate=self.PREDICATE_CONTAINS,
                     object=symbol_name,
-                    object_type=normalize_entity_type(symbol_type),
+                    object_type="Method",
                     source_chunk_id=source_chunk_id,
                 )
                 triplets.append(triplet)
@@ -448,7 +459,7 @@ class CodeMetadataExtractor:
                 subject_type="Module",
                 predicate=self.PREDICATE_CONTAINS,
                 object=symbol_name,
-                object_type=normalize_entity_type(symbol_type) or "Symbol",
+                object_type=entity_type,
                 source_chunk_id=source_chunk_id,
             )
             triplets.append(triplet)
@@ -457,7 +468,7 @@ class CodeMetadataExtractor:
         if symbol_name and module_name:
             triplet = GraphTriple(
                 subject=symbol_name,
-                subject_type=normalize_entity_type(symbol_type) or "Symbol",
+                subject_type=entity_type,
                 predicate=self.PREDICATE_DEFINED_IN,
                 object=module_name,
                 object_type="Module",
@@ -465,18 +476,54 @@ class CodeMetadataExtractor:
             )
             triplets.append(triplet)
 
+        # 6. Symbol -> calls -> Callee (when chunk metadata carries targets)
+        if symbol_name and isinstance(calls, list):
+            for callee in calls:
+                if isinstance(callee, str) and callee and callee != symbol_name:
+                    triplets.append(
+                        GraphTriple(
+                            subject=symbol_name,
+                            subject_type=entity_type,
+                            predicate=self.PREDICATE_CALLS,
+                            object=callee,
+                            object_type="Function",
+                            source_chunk_id=source_chunk_id,
+                        )
+                    )
+
         logger.debug(
             "code_extractor.extract_from_metadata: completed",
             extra={
                 "triplet_count": len(triplets),
                 "symbol_name": symbol_name,
-                "symbol_type": symbol_type,
+                "symbol_kind": raw_kind,
                 "file_path": file_path,
                 "import_count": len(imports) if isinstance(imports, list) else 0,
                 "source_chunk_id": source_chunk_id,
             },
         )
         return triplets
+
+    def _code_entity_type(
+        self,
+        raw_kind: str | None,
+        *,
+        class_name: str | None = None,
+        parent_symbol: str | None = None,
+    ) -> str:
+        """Map AST/chunker kind to a SCHEMA-01 code entity type.
+
+        Never returns ``Symbol`` — that label is rejected by the typed
+        entity API (issue #253). Functions nested in a class become Method.
+        """
+        mapped = normalize_entity_type(raw_kind)
+        if mapped in CODE_ENTITY_TYPES:
+            if mapped == "Function" and (class_name or parent_symbol):
+                return "Method"
+            return mapped
+        if class_name or parent_symbol:
+            return "Method"
+        return "Function"
 
     def _extract_module_name(self, file_path: str) -> str | None:
         """Extract module name from file path.
@@ -535,9 +582,10 @@ class CodeMetadataExtractor:
 
         language = language.lower()
 
-        # Extract Python imports
+        # Extract Python imports and structure (classes, methods, calls)
         if language == "python":
             triplets.extend(self._extract_python_imports(text, source_chunk_id))
+            triplets.extend(self._extract_python_structure(text, source_chunk_id))
 
         # Extract JavaScript/TypeScript imports
         elif language in ("javascript", "typescript", "tsx", "jsx"):
@@ -589,6 +637,187 @@ class CodeMetadataExtractor:
                 )
             )
 
+        return triplets
+
+    def _extract_python_structure(
+        self,
+        text: str,
+        source_chunk_id: str | None,
+        module_name: str = "current_module",
+    ) -> list[GraphTriple]:
+        """Extract classes, functions, methods, and calls from Python source.
+
+        Uses the stdlib ``ast`` module when the chunk is valid Python, and
+        falls back to regex on ``SyntaxError`` (partial chunks). Issue #253:
+        the chunker only stores the innermost overlapping symbol, so walking
+        the AST is what surfaces ``InventoryService`` and ``reserve_stock``.
+        """
+        try:
+            tree = ast.parse(text)
+        except (SyntaxError, ValueError):
+            return self._extract_python_structure_regex(
+                text, source_chunk_id, module_name
+            )
+
+        triplets: list[GraphTriple] = []
+        seen: set[tuple[str, str, str]] = set()
+
+        def _add(
+            subject: str,
+            subject_type: str,
+            predicate: str,
+            obj: str,
+            object_type: str,
+        ) -> None:
+            key = (subject, predicate, obj)
+            if not subject or not obj or key in seen:
+                return
+            seen.add(key)
+            triplets.append(
+                GraphTriple(
+                    subject=subject,
+                    subject_type=subject_type,
+                    predicate=predicate,
+                    object=obj,
+                    object_type=object_type,
+                    source_chunk_id=source_chunk_id,
+                )
+            )
+
+        def _call_target(node: ast.AST) -> str | None:
+            if isinstance(node, ast.Name):
+                return node.id
+            if isinstance(node, ast.Attribute):
+                return node.attr
+            return None
+
+        def _base_name(node: ast.AST) -> str | None:
+            if isinstance(node, ast.Name):
+                return node.id
+            if isinstance(node, ast.Attribute):
+                return node.attr
+            return None
+
+        class _Visitor(ast.NodeVisitor):
+            def __init__(self) -> None:
+                self.class_stack: list[str] = []
+
+            def visit_ClassDef(self, node: ast.ClassDef) -> None:  # noqa: N802
+                name = node.name
+                _add(module_name, "Module", "contains", name, "Class")
+                _add(name, "Class", "defined_in", module_name, "Module")
+                for base in node.bases:
+                    base_name = _base_name(base)
+                    if base_name:
+                        _add(name, "Class", "extends", base_name, "Class")
+                self.class_stack.append(name)
+                self.generic_visit(node)
+                self.class_stack.pop()
+
+            def visit_FunctionDef(self, node: ast.FunctionDef) -> None:  # noqa: N802
+                self._visit_function(node)
+
+            def visit_AsyncFunctionDef(  # noqa: N802
+                self, node: ast.AsyncFunctionDef
+            ) -> None:
+                self._visit_function(node)
+
+            def _visit_function(
+                self, node: ast.FunctionDef | ast.AsyncFunctionDef
+            ) -> None:
+                name = node.name
+                if self.class_stack:
+                    cls = self.class_stack[-1]
+                    entity = "Method"
+                    _add(cls, "Class", "contains", name, "Method")
+                else:
+                    entity = "Function"
+                    _add(module_name, "Module", "contains", name, "Function")
+                _add(name, entity, "defined_in", module_name, "Module")
+                for child in ast.walk(node):
+                    if isinstance(child, ast.Call):
+                        target = _call_target(child.func)
+                        if target and target != name:
+                            _add(name, entity, "calls", target, "Function")
+                # Visit nested defs but keep the class stack.
+                for child in node.body:
+                    self.visit(child)
+
+        _Visitor().visit(tree)
+        return triplets
+
+    def _extract_python_structure_regex(
+        self,
+        text: str,
+        source_chunk_id: str | None,
+        module_name: str,
+    ) -> list[GraphTriple]:
+        """Regex fallback when a chunk is not parseable as a full module."""
+        triplets: list[GraphTriple] = []
+        current_class: str | None = None
+        for line in text.splitlines():
+            class_match = re.match(r"^class\s+([A-Za-z_][A-Za-z0-9_]*)", line)
+            if class_match:
+                current_class = class_match.group(1)
+                triplets.append(
+                    GraphTriple(
+                        subject=module_name,
+                        subject_type="Module",
+                        predicate=self.PREDICATE_CONTAINS,
+                        object=current_class,
+                        object_type="Class",
+                        source_chunk_id=source_chunk_id,
+                    )
+                )
+                triplets.append(
+                    GraphTriple(
+                        subject=current_class,
+                        subject_type="Class",
+                        predicate=self.PREDICATE_DEFINED_IN,
+                        object=module_name,
+                        object_type="Module",
+                        source_chunk_id=source_chunk_id,
+                    )
+                )
+                continue
+            def_match = re.match(r"^(\s*)def\s+([A-Za-z_][A-Za-z0-9_]*)", line)
+            if def_match:
+                indent, name = def_match.group(1), def_match.group(2)
+                if indent and current_class:
+                    triplets.append(
+                        GraphTriple(
+                            subject=current_class,
+                            subject_type="Class",
+                            predicate=self.PREDICATE_CONTAINS,
+                            object=name,
+                            object_type="Method",
+                            source_chunk_id=source_chunk_id,
+                        )
+                    )
+                    entity_type = "Method"
+                else:
+                    current_class = None
+                    triplets.append(
+                        GraphTriple(
+                            subject=module_name,
+                            subject_type="Module",
+                            predicate=self.PREDICATE_CONTAINS,
+                            object=name,
+                            object_type="Function",
+                            source_chunk_id=source_chunk_id,
+                        )
+                    )
+                    entity_type = "Function"
+                triplets.append(
+                    GraphTriple(
+                        subject=name,
+                        subject_type=entity_type,
+                        predicate=self.PREDICATE_DEFINED_IN,
+                        object=module_name,
+                        object_type="Module",
+                        source_chunk_id=source_chunk_id,
+                    )
+                )
         return triplets
 
     def _extract_js_imports(

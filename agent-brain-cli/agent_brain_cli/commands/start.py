@@ -499,16 +499,33 @@ def start_command(
                     break
                 time.sleep(0.5)
 
-            # If UDS was requested, probe the socket too and unset the
-            # runtime.json::socket_path field if it isn't actually live.
-            # Otherwise a runtime.json entry for socket_path misleads any
-            # client (MCP, CLI auto-mode) that prefers UDS (Phase 7
-            # reviewer #4).
+            # If UDS was requested, probe the socket too. The canonical
+            # path may have fallen back to a short per-user socket
+            # (issue #252); honor the pointer file before giving up and
+            # clearing runtime.json::socket_path. Otherwise --uds --json
+            # prints ``"socket_path": null`` even though the server bound.
             if ready and enable_uds and socket_path:
+                live_socket: str | None = socket_path
                 if not _probe_uds(socket_path, timeout_s=2.0):
-                    runtime_state["socket_path"] = None
+                    discovered: str | None = None
+                    try:
+                        from agent_brain_uds.paths import resolve_socket_path
+
+                        discovered = str(resolve_socket_path(state_dir))
+                    except Exception:
+                        discovered = None
+                    if (
+                        discovered
+                        and discovered != socket_path
+                        and _probe_uds(discovered, timeout_s=2.0)
+                    ):
+                        live_socket = discovered
+                    else:
+                        live_socket = None
+                if live_socket != socket_path:
+                    runtime_state["socket_path"] = live_socket
                     write_runtime(state_dir, runtime_state)
-                    if not json_output:
+                    if live_socket is None and not json_output:
                         console.print(
                             "[yellow]UDS socket probe failed — "
                             "runtime.json::socket_path cleared. "

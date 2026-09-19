@@ -37,9 +37,13 @@ import sys
 from typing import Any
 
 import click
-from mcp import McpError
 
 from agent_brain_cli.client.transport import open_mcp_backend
+from agent_brain_cli.mcp_errors import (
+    format_exception_message,
+    is_mcp_error,
+    unwrap_exception,
+)
 
 
 def _parse_arg(arg: str) -> tuple[str, str]:
@@ -137,31 +141,48 @@ def prompt_command(
             # Pass None (not {}) when no --arg was provided — the
             # MCP server treats them differently per the spec.
             result = backend.get_prompt(name, parsed_args or None)
-        except McpError as exc:
-            # Unknown prompt → fall back to prompts/list to give the
-            # operator the available-names list. Defensive: if the
-            # list call itself fails, surface the original error so
-            # the user isn't told a second error masked the first.
-            try:
-                available_raw = backend.list_prompts()
-            except Exception as list_exc:  # noqa: BLE001
+        except BaseException as exc:  # noqa: BLE001 — unwrap TaskGroup first
+            inner = unwrap_exception(exc)
+            if is_mcp_error(inner) or is_mcp_error(exc):
+                # Unknown prompt / missing required argument → fall back
+                # to prompts/list so the operator sees available names
+                # (and the real server message, not ExceptionGroup).
+                try:
+                    available_raw = backend.list_prompts()
+                except Exception as list_exc:  # noqa: BLE001
+                    raise click.UsageError(
+                        f"Prompt call failed: {format_exception_message(inner)}; "
+                        f"additionally, prompts/list failed: "
+                        f"{format_exception_message(list_exc)}"
+                    ) from exc
+                names = sorted(
+                    p.get("name", "") for p in available_raw if p.get("name")
+                )
+                joined = ", ".join(names) if names else "<no prompts registered>"
+                inner_msg = format_exception_message(inner)
+                # Missing required argument: keep the server message and
+                # still list available prompts (issue #254).
+                if "required" in inner_msg.lower() or "argument" in inner_msg.lower():
+                    raise click.UsageError(
+                        f"{inner_msg}. Required arguments are listed by "
+                        f"`agent-brain --transport mcp prompt --help` "
+                        f"or the prompt schema; available prompts: {joined}"
+                    ) from exc
                 raise click.UsageError(
-                    f"Prompt call failed: {exc}; additionally, "
-                    f"prompts/list failed: {list_exc}"
+                    f"Unknown prompt {name!r}; available: {joined}"
                 ) from exc
-            names = sorted(p.get("name", "") for p in available_raw if p.get("name"))
-            joined = ", ".join(names) if names else "<no prompts registered>"
-            raise click.UsageError(
-                f"Unknown prompt {name!r}; available: {joined}"
-            ) from exc
+            raise
     except click.UsageError:
         # UsageError is Click's standard exit-2 channel — re-raise so
         # Click handles the exit code + stderr surfacing.
         raise
     except Exception as exc:  # noqa: BLE001
         # Non-MCP failures (subprocess died, HTTP unreachable, SDK
-        # internal error) surface as exit 1 with the error on stderr.
-        click.echo(f"Error invoking prompt {name!r}: {exc}", err=True)
+        # internal error) surface as exit 1 with the innermost message.
+        click.echo(
+            f"Error invoking prompt {name!r}: {format_exception_message(exc)}",
+            err=True,
+        )
         sys.exit(1)
 
     if as_json:

@@ -3,7 +3,7 @@
 Mirrors the state-directory lookup in ``agent_brain_server.runtime`` /
 ``agent_brain_server.storage_paths`` so client and server agree on where
 the socket lives. Handles the platform sockaddr_un length limit by
-falling back to a short ``/tmp`` path and writing a pointer file inside
+falling back to a short per-user path and writing a pointer file inside
 the state directory.
 
 See docs/plans/2026-05-28-mcp-uds-transport-design.md §6.1.
@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import os
 import stat
+import tempfile
 from pathlib import Path
 
 from .errors import SocketPathTooLongError, SocketPermissionError
@@ -34,14 +35,51 @@ POINTER_FILE_NAME = "agent-brain.sock.path"
 MAX_SOCKET_PATH_BYTES = 104
 
 
+def fallback_socket_dir() -> Path:
+    """Return a per-user 0o700 directory for long-path UDS fallbacks.
+
+    ``/tmp`` is mode 0o755 (or 0o1777) on every supported OS, so the
+    client-side parent-dir check refuses it and ``chmod 700 /tmp`` is
+    not actionable. Issue #252.
+
+    Order:
+
+    1. ``$XDG_RUNTIME_DIR`` when set (Linux, already 0o700).
+    2. ``tempfile.gettempdir()`` when its mode is 0o700 (macOS ``$TMPDIR``
+       is ``/var/folders/.../T``, per-user, short).
+    3. ``~/.agent-brain/run/``, created with mode 0o700.
+    """
+    xdg = os.environ.get("XDG_RUNTIME_DIR")
+    if xdg:
+        candidate = Path(xdg)
+        if candidate.is_dir():
+            return candidate
+
+    tmp = Path(tempfile.gettempdir())
+    try:
+        if tmp.is_dir() and stat.S_IMODE(os.lstat(tmp).st_mode) == 0o700:
+            return tmp
+    except OSError:
+        pass
+
+    run_dir = Path.home() / ".agent-brain" / "run"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(run_dir, 0o700)
+    except OSError:
+        pass
+    return run_dir
+
+
 def _short_fallback_path(state_dir: Path) -> Path:
-    """Return a short ``/tmp`` socket path derived from the state-dir hash.
+    """Return a short fallback socket path derived from the state-dir hash.
 
     The hash makes the fallback deterministic per project, so concurrent
-    instances in different projects do not collide.
+    instances in different projects do not collide. Parent directory is
+    always a per-user private dir (issue #252), never shared ``/tmp``.
     """
     digest = hashlib.sha256(str(state_dir.resolve()).encode("utf-8")).hexdigest()[:8]
-    return Path("/tmp") / f"agent-brain-{digest}.sock"
+    return fallback_socket_dir() / f"agent-brain-{digest}.sock"
 
 
 def resolve_state_dir(state_dir: Path | None = None) -> Path:
@@ -86,11 +124,11 @@ def resolve_socket_path(state_dir: Path | None = None) -> Path:
 
     Reads a pointer file first if present (long-path fallback), then
     falls back to ``<state_dir>/agent-brain.sock``. If even the canonical
-    path is too long for the platform, returns the short ``/tmp`` fallback
+    path is too long for the platform, returns the short per-user fallback
     (the server is responsible for writing the pointer file when it binds).
 
     Raises:
-        SocketPathTooLongError: when even the ``/tmp`` fallback exceeds
+        SocketPathTooLongError: when even the per-user fallback exceeds
             the platform limit (essentially impossible, but guarded for
             completeness).
     """
@@ -121,7 +159,7 @@ def resolve_socket_path(state_dir: Path | None = None) -> Path:
     fallback = _short_fallback_path(resolved_state_dir)
     if len(str(fallback).encode("utf-8")) >= MAX_SOCKET_PATH_BYTES:
         raise SocketPathTooLongError(
-            "Both canonical and /tmp fallback paths exceed platform limit.",
+            "Both canonical and per-user fallback paths exceed platform limit.",
             socket_path=fallback,
             remediation=("Set AGENT_BRAIN_UDS_PATH to a path shorter than 104 bytes."),
         )
@@ -191,7 +229,7 @@ def _read_pointer_file(pointer: Path) -> Path | None:
 def write_pointer_file(state_dir: Path, real_socket_path: Path) -> Path:
     """Write the pointer file used by long-path fallback.
 
-    Called by the server when binding to a ``/tmp`` fallback socket so
+    Called by the server when binding to a short fallback socket so
     later clients can discover the real socket without recomputing.
     """
     state_dir.mkdir(parents=True, exist_ok=True)

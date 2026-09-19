@@ -1,5 +1,6 @@
 """Unit tests for graph extractors (Feature 113)."""
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -492,6 +493,68 @@ import (
         defined_in = [t for t in triplets if t.predicate == "defined_in"]
         assert len(defined_in) >= 1
         assert defined_in[0].subject_type == "Class"  # Not "class"
+
+    @patch("agent_brain_server.indexing.graph_extractors.settings")
+    def test_extract_uses_symbol_kind_not_symbol(self, mock_settings: MagicMock):
+        """Issue #253: chunker writes symbol_kind; never emit untyped Symbol."""
+        mock_settings.ENABLE_GRAPH_INDEX = True
+        mock_settings.GRAPH_USE_CODE_METADATA = True
+
+        extractor = CodeMetadataExtractor()
+        metadata = {
+            "symbol_name": "InventoryService",
+            "symbol_kind": "class_definition",
+            "file_path": "src/inventory/service.py",
+        }
+
+        triplets = extractor.extract_from_metadata(metadata)
+        types = {
+            t.subject_type for t in triplets if t.subject == "InventoryService"
+        } | {t.object_type for t in triplets if t.object == "InventoryService"}
+        assert "Class" in types
+        assert "Symbol" not in types
+
+    @patch("agent_brain_server.indexing.graph_extractors.settings")
+    def test_sample_inventory_emits_typed_class_and_methods(
+        self, mock_settings: MagicMock
+    ):
+        """Issue #253: index e2e/sample-project inventory via AST walk."""
+        mock_settings.ENABLE_GRAPH_INDEX = True
+        mock_settings.GRAPH_USE_CODE_METADATA = True
+
+        repo_root = Path(__file__).resolve().parents[3]
+        service_py = (
+            repo_root / "e2e" / "sample-project" / "src" / "inventory" / "service.py"
+        )
+        assert service_py.is_file(), f"missing fixture {service_py}"
+        extractor = CodeMetadataExtractor()
+        triplets = extractor.extract_from_text(
+            service_py.read_text(encoding="utf-8"), language="python"
+        )
+        names = {t.subject for t in triplets} | {t.object for t in triplets}
+        assert "InventoryService" in names
+        assert "reserve_stock" in names
+        assert "restock" in names
+        assert "OutOfStock" in names
+
+        class_types = {
+            t.subject_type for t in triplets if t.subject == "InventoryService"
+        } | {t.object_type for t in triplets if t.object == "InventoryService"}
+        assert "Class" in class_types
+        assert "Symbol" not in class_types
+
+        method_contains = [
+            t
+            for t in triplets
+            if t.predicate == "contains"
+            and t.subject == "InventoryService"
+            and t.object == "reserve_stock"
+        ]
+        assert method_contains
+        assert method_contains[0].object_type == "Method"
+
+        calls = [t for t in triplets if t.predicate == "calls"]
+        assert calls, "expected call edges from reserve_stock/restock to repo methods"
 
 
 class TestLangExtractExtractor:

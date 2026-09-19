@@ -289,8 +289,11 @@ class GraphRAGConfig(BaseModel):
         default=None,
         description=(
             "Override for graph persistence dir. If unset, resolves to "
-            "{state_dir}/data/graph_index. Relative paths are resolved against "
-            "the project state directory, not CWD."
+            "{state_dir}/data/graph_index. The values `graph_index` and "
+            "`./graph_index` also map there. Any other relative path is "
+            "resolved against the project root (not cwd, not the state "
+            "dir) so `index_path: .agent-brain/graph_index` does not nest "
+            "a second state directory (issue #255)."
         ),
     )
     extraction_model: str | None = Field(

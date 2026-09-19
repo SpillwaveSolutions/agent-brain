@@ -872,12 +872,25 @@ class IndexingService:
         else:
             indexed_folders = sorted(self._indexed_folders)
 
+        # Prefer the persisted manifest file count so `agent-brain status`
+        # reports documents after the in-memory IndexingState resets
+        # (issue #254). Fall back to the in-memory counter during an
+        # in-progress job, before the manifest is written.
+        total_documents = self._state.total_documents
+        if self.manifest_tracker is not None:
+            try:
+                manifest_count = await self.manifest_tracker.count_indexed_files()
+            except OSError:
+                manifest_count = 0
+            if manifest_count:
+                total_documents = manifest_count
+
         return {
             "status": self._state.status.value,
             "is_indexing": self._state.is_indexing,
             "current_job_id": self._state.current_job_id,
             "folder_path": self._state.folder_path,
-            "total_documents": self._state.total_documents,
+            "total_documents": total_documents,
             "processed_documents": self._state.processed_documents,
             "total_chunks": total_chunks,
             "total_doc_chunks": total_doc_chunks,

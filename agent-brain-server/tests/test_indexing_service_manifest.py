@@ -379,3 +379,31 @@ async def test_zero_change_run_succeeds(tmp_path: Path) -> None:
     saved_manifest = await tracker.load(abs_folder)
     assert saved_manifest is not None
     assert abs_file1 in saved_manifest.files
+
+
+@pytest.mark.asyncio
+async def test_get_status_total_documents_from_manifest(tmp_path: Path) -> None:
+    """Issue #254: idle status reports manifest file count, not in-memory 0."""
+    manifests_dir = tmp_path / "manifests"
+    tracker = ManifestTracker(manifests_dir=manifests_dir)
+    await tracker.save(
+        FolderManifest(
+            folder_path=str(tmp_path / "docs"),
+            files={
+                str(tmp_path / "docs" / "a.md"): FileRecord(
+                    checksum="aaa", mtime=1.0, chunk_ids=["c1"]
+                ),
+                str(tmp_path / "docs" / "b.md"): FileRecord(
+                    checksum="bbb", mtime=1.0, chunk_ids=["c2"]
+                ),
+            },
+        )
+    )
+    storage = _make_storage_backend(chunk_count=13)
+    service = _make_indexing_service(storage, tracker, [], [])
+    # In-memory counter stays at the IndexingState default of 0.
+    assert service._state.total_documents == 0
+
+    status = await service.get_status()
+    assert status["total_documents"] == 2
+    assert status["total_chunks"] == 13

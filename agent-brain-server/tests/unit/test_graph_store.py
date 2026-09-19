@@ -745,3 +745,46 @@ class TestStoreTypeDetection:
         # Invalid type should result in simple store initialization
         assert manager.is_initialized
         assert manager.graph_store is not None
+
+
+class TestResolveGraphIndexPath:
+    """Issue #255: relative graphrag.index_path is project-root relative."""
+
+    def test_relative_agent_brain_path_does_not_nest(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from agent_brain_server.storage.graph_store import _resolve_graph_index_path
+
+        project = tmp_path / "project"
+        state = project / ".agent-brain"
+        state.mkdir(parents=True)
+        monkeypatch.setenv("AGENT_BRAIN_PROJECT_ROOT", str(project))
+        monkeypatch.setenv("AGENT_BRAIN_STATE_DIR", str(state))
+
+        resolved = _resolve_graph_index_path(".agent-brain/graph_index")
+        assert resolved == (project / ".agent-brain" / "graph_index").resolve()
+        assert ".agent-brain/.agent-brain" not in str(resolved)
+
+    def test_default_graph_index_lands_under_state_data(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from agent_brain_server.storage.graph_store import _resolve_graph_index_path
+
+        project = tmp_path / "project"
+        state = project / ".agent-brain"
+        state.mkdir(parents=True)
+        monkeypatch.setenv("AGENT_BRAIN_PROJECT_ROOT", str(project))
+        monkeypatch.setenv("AGENT_BRAIN_STATE_DIR", str(state))
+
+        resolved = _resolve_graph_index_path("./graph_index")
+        assert resolved == state / "data" / "graph_index"
+
+    def test_absolute_path_unchanged(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from agent_brain_server.storage.graph_store import _resolve_graph_index_path
+
+        absolute = tmp_path / "custom" / "graph"
+        monkeypatch.setenv("AGENT_BRAIN_STATE_DIR", str(tmp_path / ".agent-brain"))
+        resolved = _resolve_graph_index_path(str(absolute))
+        assert resolved == absolute

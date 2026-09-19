@@ -123,12 +123,15 @@ def _resolve_graph_index_path(configured_path: str) -> Path:
     """Resolve the graph-index directory.
 
     - Absolute paths are used verbatim.
-    - The legacy default (``./graph_index``) is mapped under the project
-      state directory so it lands in ``<state_dir>/data/graph_index``
-      rather than CWD, matching how every other persistent store resolves
-      its location (issue #126).
-    - Any other relative path is resolved against ``state_dir`` if one is
-      configured, else against CWD.
+    - The legacy default (``./graph_index`` / ``graph_index``) is mapped
+      under the project state directory so it lands in
+      ``<state_dir>/data/graph_index`` rather than CWD, matching how
+      every other persistent store resolves its location (issue #126).
+    - Any other relative path is resolved against the project root
+      (``AGENT_BRAIN_PROJECT_ROOT``, else the parent of the state dir,
+      else CWD). Resolving against the state dir nested a second
+      ``.agent-brain`` when the config used
+      ``index_path: .agent-brain/graph_index`` (issue #255).
     """
     p = Path(configured_path).expanduser()
     if p.is_absolute():
@@ -137,15 +140,22 @@ def _resolve_graph_index_path(configured_path: str) -> Path:
     state_dir_env = os.getenv("AGENT_BRAIN_STATE_DIR") or os.getenv(
         "DOC_SERVE_STATE_DIR"
     )
-    if state_dir_env:
-        state_dir = Path(state_dir_env).expanduser().resolve()
-        # Treat the historical default specially so it lands in the standard
-        # storage location used by resolve_storage_paths().
-        if configured_path in {"./graph_index", "graph_index"}:
-            return state_dir / "data" / "graph_index"
-        return (state_dir / p).resolve()
+    project_root_env = os.getenv("AGENT_BRAIN_PROJECT_ROOT")
+    state_dir = Path(state_dir_env).expanduser().resolve() if state_dir_env else None
+    project_root = (
+        Path(project_root_env).expanduser().resolve()
+        if project_root_env
+        else (state_dir.parent if state_dir is not None else Path.cwd())
+    )
 
-    return p.resolve()
+    # Historical default lands in the standard storage location used by
+    # resolve_storage_paths().
+    if configured_path in {"./graph_index", "graph_index"}:
+        if state_dir is not None:
+            return state_dir / "data" / "graph_index"
+        return (project_root / ".agent-brain" / "data" / "graph_index").resolve()
+
+    return (project_root / p).resolve()
 
 
 class GraphStoreManager:

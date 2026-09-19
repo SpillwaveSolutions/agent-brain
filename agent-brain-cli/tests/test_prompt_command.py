@@ -407,3 +407,41 @@ def test_prompt_command_arg_forwarding_matrix(
 
     assert result.exit_code == 0
     backend.get_prompt.assert_called_once_with("find-callers", expected_arguments)
+
+
+class _FakeTaskGroupError(Exception):
+    def __init__(self, message: str, exceptions: list[BaseException]) -> None:
+        super().__init__(message)
+        self.exceptions = exceptions
+
+
+def test_prompt_command_unwraps_exception_group_missing_arg() -> None:
+    """Issue #254: TaskGroup wrapper must not hide the server message."""
+    inner = McpError(
+        ErrorData(code=-32602, message="Missing required argument: folder")
+    )
+    group = _FakeTaskGroupError(
+        "unhandled errors in a TaskGroup (1 sub-exception)", [inner]
+    )
+    backend = _make_fake_backend(get_prompt_side_effect=group)
+    with patch(
+        "agent_brain_cli.commands.prompt.open_mcp_backend",
+        return_value=backend,
+    ):
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "--transport",
+                "mcp",
+                "--mcp-transport",
+                "stdio",
+                "prompt",
+                "explain-architecture",
+            ],
+        )
+
+    assert result.exit_code == 2
+    assert "Missing required argument: folder" in result.output
+    assert "TaskGroup" not in result.output
+    assert "available prompts" in result.output.lower() or "available:" in result.output
